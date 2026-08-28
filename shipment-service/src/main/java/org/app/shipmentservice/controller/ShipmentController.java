@@ -2,7 +2,10 @@ package org.app.shipmentservice.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.app.shipmentservice.client.CustomerClient;
 import org.app.shipmentservice.dto.request.CreateShipmentRequest;
+import org.app.shipmentservice.dto.response.CustomerValidationResponse;
 import org.app.shipmentservice.entity.Shipment;
 import org.app.shipmentservice.service.ShipmentService;
 import org.springframework.http.HttpStatus;
@@ -20,7 +23,9 @@ public class ShipmentController {
 
     @PostMapping
     public ResponseEntity<Shipment> createShipment(@Valid @RequestBody CreateShipmentRequest request) {
+
         Shipment shipment = shipmentService.createShipment(request);
+
         return ResponseEntity.status(HttpStatus.CREATED).body(shipment);
     }
 

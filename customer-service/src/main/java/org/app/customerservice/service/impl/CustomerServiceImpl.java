@@ -35,13 +35,11 @@ public class CustomerServiceImpl implements CustomerService {
             return CustomerValidation.builder()
                     .isValid(false)
                     .reason("CUSTOMER_INACTIVE")
-                    .customer(customer)
                     .build();
         }
 
         return CustomerValidation.builder()
                 .isValid(true)
-                .customer(customer)
                 .build();
     }
 

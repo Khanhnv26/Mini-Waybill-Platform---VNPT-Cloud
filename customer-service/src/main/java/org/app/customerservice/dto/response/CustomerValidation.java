@@ -1,5 +1,6 @@
 package org.app.customerservice.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,8 +12,9 @@ import org.app.customerservice.entity.Customer;
 @AllArgsConstructor
 @NoArgsConstructor
 public class CustomerValidation {
+
+    @JsonProperty("isValid")
     private boolean isValid;
     private String reason;
-    private Customer customer;
 }
 
