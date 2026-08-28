@@ -27,10 +27,10 @@ public class TrackingHistory {
     @Column(name = "status", nullable = false)
     private String status;
 
-    @Column(name = "location_code", nullable = false)
+    @Column(name = "location_code", nullable = false, columnDefinition = "NVARCHAR(100)")
     private String locationCode;
 
-    @Column(name = "node", nullable = false)
+    @Column(name = "node", nullable = false, columnDefinition = "NVARCHAR(500)")
     private String node;
 
     @Column(name = "occurred_at", nullable = false)

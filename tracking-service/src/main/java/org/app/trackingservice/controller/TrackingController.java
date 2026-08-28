@@ -6,6 +6,8 @@ import org.app.trackingservice.service.TrackingService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -28,6 +30,13 @@ public class TrackingController {
     @GetMapping("/{trackingCode}/history")
     public ResponseEntity<List<TrackingHistory>> getTrackingHistory(@PathVariable String trackingCode) {
         List<TrackingHistory> history = trackingService.getTrackingHistory(trackingCode);
+        return ResponseEntity.ok(history);
+    }
+
+    @PostMapping("/{trackingCode}/status")
+    public ResponseEntity<TrackingHistory> updateStatus(@PathVariable String trackingCode,
+                                                        @RequestBody org.app.trackingservice.dto.request.UpdateStatusRequest request) {
+        TrackingHistory history = trackingService.updateStatus(trackingCode, request);
         return ResponseEntity.ok(history);
     }
 }

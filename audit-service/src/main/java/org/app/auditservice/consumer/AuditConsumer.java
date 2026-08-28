@@ -48,4 +48,19 @@ public class AuditConsumer {
 
         auditRepository.save(auditEvent);
     }
+
+    @KafkaListener(topics = "tracking-status-events", groupId = "audit-group")
+    public void auditStatusUpdated(ConsumerRecord<String, String> record) {
+        log.info("[AUDIT] Ghi log sự kiện STATUS_UPDATED cho đơn: {}", record.key());
+
+        AuditEvent auditEvent = AuditEvent.builder()
+                .eventId(UUID.randomUUID().toString())
+                .eventType("STATUS_UPDATED")
+                .aggregateId(record.key())
+                .payload(record.value())
+                .occurredAt(LocalDateTime.now())
+                .build();
+
+        auditRepository.save(auditEvent);
+    }
 }

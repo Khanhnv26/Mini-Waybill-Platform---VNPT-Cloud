@@ -21,7 +21,7 @@
             theme: {
                 extend: {
                     fontFamily: {
-                        sans: ['"Inter"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                        sans: ['"Inter"', '"Segoe UI"', 'Roboto', 'Arial', 'sans-serif'],
                         mono: ['"JetBrains Mono"', 'monospace'],
                     },
                     colors: {
@@ -41,7 +41,7 @@
         }
     </script>
     <style>
-        body { font-family: 'Inter', sans-serif; }
+        body { font-family: 'Inter', 'Segoe UI', Roboto, Arial, sans-serif; }
         #tracking-map { height: 100%; min-height: 520px; width: 100%; z-index: 10; border-radius: 0.75rem; }
         .hub-pin-source {
             width: 16px;
@@ -96,7 +96,7 @@
                             <span class="font-bold text-sm tracking-tight text-slate-900">Waybill Platform</span>
                             <span class="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-vnpt-50 text-vnpt-700 border border-vnpt-200">VNPT Cloud</span>
                         </div>
-                        <p class="text-[11px] text-slate-400">Microservices Architecture & Event Sourcing</p>
+                        <p class="text-[11px] text-slate-400">Hệ Thống Quản Trị & Phân Tuyến Vận Đơn Viễn Thông</p>
                     </div>
                 </div>
 
@@ -176,7 +176,7 @@
 
                     <!-- Recent Codes -->
                     <div v-if="recentTrackingCodes.length > 0" class="pt-2 border-t border-slate-100">
-                        <span class="text-[10px] font-medium text-slate-400 block mb-1">Vận đơn vừa tạo:</span>
+                        <span class="text-[10px] font-medium text-slate-400 block mb-1">Vận đơn vừa thao tác gần đây:</span>
                         <div class="flex flex-wrap gap-1.5">
                             <button 
                                 v-for="code in recentTrackingCodes" 
@@ -212,17 +212,63 @@
 
                     <div class="p-3 bg-slate-50 rounded-lg border border-slate-200/80 flex items-center justify-between">
                         <div>
-                            <span class="text-[10px] text-slate-400 font-medium block uppercase">Trạng thái hiện tại</span>
-                            <span class="text-xs font-mono font-bold text-slate-900">{{ currentShipmentStatus.currentStatus }}</span>
+                            <span class="text-[10px] text-slate-400 font-medium block uppercase">Trạng thái vận chuyển</span>
+                            <span class="text-xs font-mono font-bold text-slate-900">{{ formatStatus(currentShipmentStatus.currentStatus) }}</span>
                         </div>
                         <span class="px-2.5 py-0.5 rounded text-[10px] font-semibold bg-vnpt-50 text-vnpt-700 border border-vnpt-200">Đang lưu thông</span>
+                    </div>
+
+                    <!-- 🚀 SMART 1-CLICK STATUS UPDATE ACTIONS -->
+                    <div class="pt-3 border-t border-slate-100 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">Cập nhật tiến độ vận đơn</span>
+                            <span class="text-[10px] font-mono text-vnpt-600">Event-Driven Kafka</span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <button 
+                                @click="quickUpdateStatus('IN_TRANSIT', 'HUB-HN-01', 'Hàng đã rời kho xuất phát và đang trên đường vận chuyển')"
+                                :disabled="isUpdatingStatus"
+                                class="px-2.5 py-1.5 bg-slate-50 hover:bg-vnpt-50 hover:text-vnpt-700 hover:border-vnpt-300 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 transition flex items-center justify-center space-x-1.5 disabled:opacity-50"
+                            >
+                                <span>🚚</span>
+                                <span>Đang vận chuyển</span>
+                            </button>
+
+                            <button 
+                                @click="quickUpdateStatus('ARRIVED_DEST_HUB', 'HUB-DN-01', 'Hàng đã cập bến và nhập kho trung chuyển đích')"
+                                :disabled="isUpdatingStatus"
+                                class="px-2.5 py-1.5 bg-slate-50 hover:bg-vnpt-50 hover:text-vnpt-700 hover:border-vnpt-300 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 transition flex items-center justify-center space-x-1.5 disabled:opacity-50"
+                            >
+                                <span>🏢</span>
+                                <span>Đã đến kho đích</span>
+                            </button>
+
+                            <button 
+                                @click="quickUpdateStatus('OUT_FOR_DELIVERY', 'WAREHOUSE_DEST', 'Bưu tá/Shipper đang đi giao hàng đến địa chỉ người nhận')"
+                                :disabled="isUpdatingStatus"
+                                class="px-2.5 py-1.5 bg-slate-50 hover:bg-vnpt-50 hover:text-vnpt-700 hover:border-vnpt-300 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 transition flex items-center justify-center space-x-1.5 disabled:opacity-50"
+                            >
+                                <span>🛵</span>
+                                <span>Đang đi giao</span>
+                            </button>
+
+                            <button 
+                                @click="quickUpdateStatus('DELIVERED', 'CUSTOMER_ADDRESS', 'Người nhận đã nhận hàng thành công và ký nhận')"
+                                :disabled="isUpdatingStatus"
+                                class="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 disabled:opacity-50"
+                            >
+                                <span>✅</span>
+                                <span>Giao thành công</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Timeline Card -->
                 <div v-if="trackingHistory.length > 0" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
                     <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Lịch sử sự kiện ({{ trackingHistory.length }})</span>
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Lịch sử hành trình ({{ trackingHistory.length }} mốc)</span>
                         <span class="text-[10px] font-mono text-slate-400">tracking_db</span>
                     </div>
 
@@ -239,12 +285,12 @@
 
                             <div class="space-y-0.5">
                                 <div class="flex items-center justify-between">
-                                    <span class="text-xs font-mono font-bold text-slate-900">{{ step.status }}</span>
+                                    <span class="text-xs font-mono font-bold text-slate-900">{{ formatStatus(step.status) }}</span>
                                     <span class="text-[10px] font-mono text-slate-400">{{ formatTime(step.occurredAt) }}</span>
                                 </div>
-                                <p class="text-xs text-slate-600">{{ step.node || step.note || 'Cập nhật trạng thái' }}</p>
+                                <p class="text-xs text-slate-700 font-medium leading-relaxed">{{ formatNodeText(step.node, step.status) }}</p>
                                 <div class="text-[10px] font-mono text-slate-400">
-                                    Vị trí: <span class="text-slate-700 font-semibold">{{ step.locationCode || 'N/A' }}</span>
+                                    Vị trí: <span class="text-slate-700 font-semibold">{{ formatHubName(step.locationCode) }}</span>
                                 </div>
                             </div>
                         </div>
@@ -293,17 +339,10 @@
                 <div class="flex items-center justify-between border-b border-slate-100 pb-4">
                     <div>
                         <h2 class="text-sm font-bold uppercase tracking-wider text-slate-900">Tạo vận đơn mới</h2>
-                        <p class="text-xs text-slate-400 mt-0.5">Xác thực khách hàng qua Feign Client & Chống trùng qua Redis Idempotency</p>
+                        <p class="text-xs text-slate-400 mt-0.5">Xác thực khách hàng !</p>
                     </div>
 
-                    <div class="flex space-x-2">
-                        <button @click="fillSample('HN-DN')" type="button" class="px-2.5 py-1 bg-vnpt-50 hover:bg-vnpt-100 text-vnpt-700 border border-vnpt-200 rounded text-xs font-semibold transition">
-                            Mẫu Hà Nội ➔ Đà Nẵng
-                        </button>
-                        <button @click="fillSample('HN-HCM')" type="button" class="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded text-xs text-slate-700 font-semibold transition">
-                            Mẫu Hà Nội ➔ TP.HCM
-                        </button>
-                    </div>
+
                 </div>
 
                 <form @submit.prevent="submitShipment" class="space-y-4">
@@ -317,35 +356,35 @@
                             </div>
                         </div>
                         <div>
-                            <label class="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">Customer ID</label>
+                            <label class="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">Mã Khách Hàng (Customer ID)</label>
                             <input v-model.number="formShipment.customerId" type="number" required class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-vnpt-500 focus:bg-white transition" />
                         </div>
                     </div>
 
                     <!-- Sender Info -->
                     <div class="p-3.5 bg-slate-50 rounded-lg border border-slate-200/80 space-y-2.5">
-                        <span class="text-[11px] font-semibold text-slate-700 uppercase tracking-wider block">Người gửi (Source)</span>
+                        <span class="text-[11px] font-semibold text-slate-700 uppercase tracking-wider block">Người gửi (Kho xuất phát)</span>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                             <input v-model="formShipment.senderName" type="text" placeholder="Họ và tên người gửi" required class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-vnpt-500 transition" />
-                            <input v-model="formShipment.senderPhone" type="text" placeholder="Số điện thoại" required class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-vnpt-500 transition" />
+                            <input v-model="formShipment.senderPhone" type="text" placeholder="Số điện thoại người gửi" required class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-vnpt-500 transition" />
                         </div>
-                        <input v-model="formShipment.senderAddress" type="text" placeholder="Địa chỉ chi tiết (VD: 123 Cau Giay, Ha Noi)" required class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-vnpt-500 transition" />
+                        <input v-model="formShipment.senderAddress" type="text" placeholder="Địa chỉ chi tiết (VD: 123 Cầu Giấy, Hà Nội)" required class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-vnpt-500 transition" />
                     </div>
 
                     <!-- Receiver Info -->
                     <div class="p-3.5 bg-slate-50 rounded-lg border border-slate-200/80 space-y-2.5">
-                        <span class="text-[11px] font-semibold text-slate-700 uppercase tracking-wider block">Người nhận (Destination)</span>
+                        <span class="text-[11px] font-semibold text-slate-700 uppercase tracking-wider block">Người nhận (Kho đích đến)</span>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                             <input v-model="formShipment.receiverName" type="text" placeholder="Họ và tên người nhận" required class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-vnpt-500 transition" />
-                            <input v-model="formShipment.receiverPhone" type="text" placeholder="Số điện thoại" required class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-vnpt-500 transition" />
+                            <input v-model="formShipment.receiverPhone" type="text" placeholder="Số điện thoại người nhận" required class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-vnpt-500 transition" />
                         </div>
-                        <input v-model="formShipment.receiverAddress" type="text" placeholder="Địa chỉ chi tiết (VD: 456 Nguyen Hue, Da Nang)" required class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-vnpt-500 transition" />
+                        <input v-model="formShipment.receiverAddress" type="text" placeholder="Địa chỉ chi tiết (VD: 456 Nguyễn Huệ, Đà Nẵng)" required class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-vnpt-500 transition" />
                     </div>
 
                     <!-- Details -->
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
-                            <label class="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">Dịch vụ</label>
+                            <label class="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">Loại dịch vụ</label>
                             <select v-model="formShipment.serviceType" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:border-vnpt-500 transition">
                                 <option value="STANDARD">STANDARD (Tiêu chuẩn)</option>
                                 <option value="EXPRESS">EXPRESS (Hỏa tốc)</option>
@@ -356,7 +395,7 @@
                             <input v-model.number="formShipment.weight" type="number" step="0.1" required class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-vnpt-500 transition" />
                         </div>
                         <div>
-                            <label class="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">Thu hộ COD (VNĐ)</label>
+                            <label class="block text-[11px] font-medium uppercase tracking-wider text-slate-500 mb-1">Tiền thu hộ COD (VNĐ)</label>
                             <input v-model.number="formShipment.codAmount" type="number" step="1000" required class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-vnpt-500 transition" />
                         </div>
                     </div>
@@ -395,7 +434,7 @@
                         <thead class="bg-slate-50 border-y border-slate-200 text-slate-500 font-medium uppercase tracking-wider text-[10px]">
                             <tr>
                                 <th class="py-2.5 px-3">ID</th>
-                                <th class="py-2.5 px-3">Khách hàng</th>
+                                <th class="py-2.5 px-3">Họ và tên</th>
                                 <th class="py-2.5 px-3">Số điện thoại</th>
                                 <th class="py-2.5 px-3">Email</th>
                                 <th class="py-2.5 px-3">Trạng thái</th>
@@ -405,8 +444,8 @@
                         <tbody class="divide-y divide-slate-100">
                             <tr v-for="c in customersList" :key="c.id" class="hover:bg-slate-50/60 transition">
                                 <td class="py-2.5 px-3 font-mono font-bold">{{ c.id }}</td>
-                                <td class="py-2.5 px-3 font-medium text-slate-900">{{ c.name }}</td>
-                                <td class="py-2.5 px-3 font-mono text-slate-600">{{ c.phone }}</td>
+                                <td class="py-2.5 px-3 font-medium text-slate-900">{{ c.fullName || c.name }}</td>
+                                <td class="py-2.5 px-3 font-mono text-slate-600">{{ c.phoneNumber || c.phone }}</td>
                                 <td class="py-2.5 px-3 text-slate-600">{{ c.email }}</td>
                                 <td class="py-2.5 px-3">
                                     <span :class="['px-2 py-0.5 rounded text-[10px] font-mono font-medium', c.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200']">
@@ -438,17 +477,17 @@
                 </div>
 
                 <div class="flex space-x-2">
-                    <input v-model="notiTrackingInput" type="text" placeholder="Nhập mã vận đơn..." class="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-vnpt-500" />
+                    <input v-model="notiTrackingInput" @keyup.enter="loadNotifications" type="text" placeholder="Nhập mã vận đơn..." class="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-vnpt-500" />
                     <button @click="loadNotifications" class="px-3.5 py-1.5 bg-vnpt-500 hover:bg-vnpt-600 text-white rounded-lg text-xs font-semibold">Tra cứu</button>
                 </div>
 
                 <div v-if="notificationsList.length > 0" class="space-y-2.5 pt-2">
                     <div v-for="n in notificationsList" :key="n.id" class="p-3.5 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
                         <div class="flex items-center justify-between">
-                            <span class="text-xs font-semibold text-slate-900">{{ n.title }}</span>
+                            <span class="text-xs font-semibold text-slate-900">{{ formatNotificationTitle(n.title) }}</span>
                             <span class="text-[10px] font-mono text-slate-400">{{ formatTime(n.sentAt) }}</span>
                         </div>
-                        <p class="text-xs text-slate-600">{{ n.message }}</p>
+                        <p class="text-xs text-slate-700 font-medium leading-relaxed">{{ formatNotificationMessage(n.message) }}</p>
                         <div class="text-[10px] font-mono text-slate-400 pt-1">
                             Người nhận: <span class="text-slate-700">{{ n.recipientPhone }}</span> | Kênh: <span class="text-vnpt-600 font-bold">{{ n.type }}</span>
                         </div>
@@ -473,7 +512,7 @@
                 </div>
 
                 <div class="flex space-x-2">
-                    <input v-model="auditTrackingInput" type="text" placeholder="Nhập mã vận đơn..." class="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-vnpt-500" />
+                    <input v-model="auditTrackingInput" @keyup.enter="loadAudits" type="text" placeholder="Nhập mã vận đơn..." class="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-vnpt-500" />
                     <button @click="loadAudits" class="px-3.5 py-1.5 bg-vnpt-500 hover:bg-vnpt-600 text-white rounded-lg text-xs font-semibold">Đối soát</button>
                 </div>
 
@@ -503,7 +542,8 @@ const { createApp, ref, reactive, onMounted, nextTick } = Vue;
 
 createApp({
     setup() {
-        const GATEWAY_URL = 'http://localhost:8080';
+        const GATEWAY_URL = window.location.port === '3000' ? '' : 'http://localhost:8080';
+
         const currentTab = ref('tracking');
         const tabs = [
             { id: 'tracking', name: 'Tra Cứu & Bản Đồ' },
@@ -527,9 +567,11 @@ createApp({
         const HUB_COORDINATES = {
             'HUB-HN-01': { name: 'Kho Tổng Hà Nội (HUB-HN-01)', lat: 21.028511, lng: 105.782000 },
             'HUB-DN-01': { name: 'Kho Tổng Đà Nẵng (HUB-DN-01)', lat: 16.054407, lng: 108.202167 },
-            'HUB-HCM-01': { name: 'Kho Tổng TP.HCM (HUB-HCM-01)', lat: 10.823099, lng: 106.629664 },
+            'HUB-HCM-01': { name: 'Kho Tổng TP. Hồ Chí Minh (HUB-HCM-01)', lat: 10.823099, lng: 106.629664 },
             'WAREHOUSE': { name: 'Bưu Cục Tiếp Nhận', lat: 21.028511, lng: 105.782000 },
-            'DEFAULT': { name: 'Hub Trung Chuyển', lat: 16.054407, lng: 108.202167 }
+            'WAREHOUSE_DEST': { name: 'Bưu Cục Giao Hàng', lat: 16.054407, lng: 108.202167 },
+            'CUSTOMER_ADDRESS': { name: 'Địa Chỉ Người Nhận', lat: 16.054407, lng: 108.202167 },
+            'DEFAULT': { name: 'Trung Tâm Khai Thác', lat: 16.054407, lng: 108.202167 }
         };
 
         let map = null;
@@ -539,6 +581,7 @@ createApp({
         // Tracking Tab State
         const trackingInput = ref('');
         const isLoadingTracking = ref(false);
+        const isUpdatingStatus = ref(false);
         const currentShipmentStatus = ref(null);
         const trackingHistory = ref([]);
         const mapRouteInfo = ref(null);
@@ -549,12 +592,12 @@ createApp({
         const formShipment = reactive({
             requestId: 'REQ-' + Date.now(),
             customerId: 1,
-            senderName: 'Nguyen Van An',
-            senderPhone: '0987654321',
-            senderAddress: '123 Cau Giay, Ha Noi',
-            receiverName: 'Tran Thi Binh',
-            receiverPhone: '0912345678',
-            receiverAddress: '456 Nguyen Hue, Da Nang',
+            senderName: 'Nguyễn Văn An',
+            senderPhone: '0988123456',
+            senderAddress: '123 Cầu Giấy, Hà Nội',
+            receiverName: 'Lê Thị Bình',
+            receiverPhone: '0912789456',
+            receiverAddress: '456 Nguyễn Huệ, Đà Nẵng',
             serviceType: 'EXPRESS',
             weight: 2.5,
             codAmount: 350000
@@ -567,7 +610,7 @@ createApp({
         const auditTrackingInput = ref('');
         const auditList = ref([]);
 
-        // Initialize Map (Standard OpenStreetMap - 100% Free, NO API Key needed)
+        // Initialize Map
         const initMap = () => {
             if (map) {
                 map.invalidateSize();
@@ -578,10 +621,9 @@ createApp({
 
             map = L.map('tracking-map', { zoomControl: true }).setView([16.054407, 108.202167], 6);
 
-            // 100% Free OpenStreetMap layer
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                attribution: '&copy; OpenStreetMap contributors'
             }).addTo(map);
 
             markersGroup = L.layerGroup().addTo(map);
@@ -615,7 +657,7 @@ createApp({
 
             mapRouteInfo.value = { sourceHub, destinationHub: destHub, routeCode };
 
-            // 1. Source Marker (Dark Pin)
+            // 1. Source Marker
             const sourceIcon = L.divIcon({
                 className: 'hub-pin-source',
                 iconSize: [16, 16]
@@ -624,7 +666,7 @@ createApp({
                 .bindPopup('<b>Kho Xuất Phát:</b> ' + sourceCoord.name)
                 .addTo(markersGroup);
 
-            // 2. Destination Marker (VNPT Blue Pin)
+            // 2. Destination Marker
             const destIcon = L.divIcon({
                 className: 'hub-pin-dest',
                 iconSize: [16, 16]
@@ -633,7 +675,7 @@ createApp({
                 .bindPopup('<b>Kho Đích Đến:</b> ' + destCoord.name)
                 .addTo(markersGroup);
 
-            // 3. Draw Route Line (VNPT Blue Stroke)
+            // 3. Route Line
             const latlngs = [
                 [sourceCoord.lat, sourceCoord.lng],
                 [destCoord.lat, destCoord.lng]
@@ -667,6 +709,106 @@ createApp({
             }
         };
 
+        // Text formatters with advanced Vietnamese recovery
+        const formatStatus = (status) => {
+            if (!status) return 'Đang xử lý';
+            switch (status) {
+                case 'PENDING_ROUTING': return 'Tiếp nhận & Chờ phân tuyến';
+                case 'ROUTE_ASSIGNED': return 'Đã phân tuyến điều phối';
+                case 'IN_TRANSIT': return 'Đang vận chuyển liên tỉnh';
+                case 'ARRIVED_DEST_HUB': return 'Đã đến kho trung chuyển đích';
+                case 'OUT_FOR_DELIVERY': return 'Đang giao hàng đến người nhận';
+                case 'DELIVERED': return 'Giao hàng thành công';
+                case 'FAILED': return 'Giao hàng thất bại';
+                default: return status;
+            }
+        };
+
+        const formatNodeText = (node, status) => {
+            if (!node || node.includes('?') || node.includes('')) {
+                if (status === 'PENDING_ROUTING') return 'Đơn hàng đã được khởi tạo và đang chờ phân tuyến điều phối';
+                if (status === 'ROUTE_ASSIGNED') return 'Đã phân tuyến vận chuyển điều phối qua các Hub trung chuyển';
+                if (status === 'IN_TRANSIT') return 'Hàng đã rời kho xuất phát và đang trên đường vận chuyển';
+                if (status === 'ARRIVED_DEST_HUB') return 'Hàng đã cập bến và nhập kho trung chuyển đích';
+                if (status === 'OUT_FOR_DELIVERY') return 'Bưu tá/Shipper đang đi giao hàng đến địa chỉ người nhận';
+                if (status === 'DELIVERED') return 'Người nhận đã nhận hàng thành công và ký nhận';
+            }
+            if (node.includes('ROUTE-')) {
+                const match = node.match(/ROUTE-([A-Z0-9-]+)-TO-([A-Z0-9-]+)/);
+                if (match) return 'Đã phân tuyến vận chuyển: ' + match[0];
+            }
+            return node;
+        };
+
+        const formatHubName = (code) => {
+            if (!code) return 'N/A';
+            if (HUB_COORDINATES[code]) return HUB_COORDINATES[code].name;
+            if (code === 'WAREHOUSE') return 'Bưu cục tiếp nhận';
+            if (code === 'WAREHOUSE_DEST') return 'Bưu cục phát hàng';
+            if (code === 'CUSTOMER_ADDRESS') return 'Địa chỉ người nhận';
+            return code;
+        };
+
+        const formatNotificationTitle = (title) => {
+            if (!title) return 'Thông báo hệ thống';
+            if (title.includes('C') && title.includes('nh') && title.includes('tr')) return 'Cập nhật trạng thái vận đơn';
+            if (title.includes('Tao') || title.includes('T') && title.includes('don')) return 'Tạo đơn hàng thành công';
+            if (title.includes('Thong') || title.includes('phan tuyen') || title.includes('phn tuy')) return 'Thông báo phân tuyến vận đơn';
+            return title.replace(/\?/g, '');
+        };
+
+        const formatNotificationMessage = (msg) => {
+            if (!msg) return '';
+            let text = msg;
+            text = text.replace(/Ðon hàng|Don hang|Don hng/g, 'Đơn hàng');
+            text = text.replace(/dã du\?c|da duoc|da du\?c/g, 'đã được');
+            text = text.replace(/c\?p nh\?t|cap nhat/g, 'cập nhật');
+            text = text.replace(/tr\?ng thái|trang thai/g, 'trạng thái');
+            text = text.replace(/t\?i /g, 'tại ');
+            text = text.replace(/Hàng dã r\?i kho xu\?t phát/g, 'Hàng đã rời kho xuất phát');
+            text = text.replace(/dang trên du\?ng v\?n chuy\?n/g, 'đang trên đường vận chuyển');
+            text = text.replace(/Hàng dã c\?p b\?n và nh\?p kho trung chuy\?n dích/g, 'Hàng đã cập bến và nhập kho trung chuyển đích');
+            text = text.replace(/dang di giao hàng d\?n d\?a ch\? ngu\?i nh\?n/g, 'đang đi giao hàng đến địa chỉ người nhận');
+            text = text.replace(/ngu\?i nh\?n dã nh\?n hàng thành cng và k nh\?n/g, 'người nhận đã nhận hàng thành công và ký nhận');
+            text = text.replace(/Chao |Cho /g, 'Chào ');
+            text = text.replace(/cua ban da duoc tao thanh cong!|cua ban da du\?c tao thanh cng!/g, 'của bạn đã được tạo thành công!');
+            text = text.replace(/phan tuyen tu /g, 'phân tuyến từ ').replace(/den /g, 'đến ').replace(/Lo trinh:/g, 'Lộ trình:');
+            return text;
+        };
+
+        // Quick 1-Click Status Update API Call
+        const quickUpdateStatus = async (newStatus, locationCode, note) => {
+            const code = trackingInput.value.trim();
+            if (!code) {
+                showToast('Lỗi', 'Chưa có mã vận đơn được chọn!', 'error');
+                return;
+            }
+
+            isUpdatingStatus.value = true;
+            try {
+                const res = await fetch(GATEWAY_URL + '/api/tracking/' + code + '/status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        status: newStatus,
+                        locationCode: locationCode,
+                        note: note
+                    })
+                });
+
+                if (!res.ok) throw new Error('Cập nhật trạng thái thất bại!');
+
+                showToast('Cập nhật thành công!', 'Đơn ' + code + ' ➔ ' + formatStatus(newStatus));
+
+                // Re-fetch tracking history immediately
+                await trackShipment();
+            } catch (err) {
+                showToast('Lỗi Cập Nhật', err.message, 'error');
+            } finally {
+                isUpdatingStatus.value = false;
+            }
+        };
+
         // API Calls
         const trackShipment = async () => {
             const code = trackingInput.value.trim();
@@ -678,7 +820,7 @@ createApp({
             isLoadingTracking.value = true;
             try {
                 const statusRes = await fetch(GATEWAY_URL + '/api/tracking/' + code);
-                if (!statusRes.ok) throw new Error('Không tìm thấy vận đơn!');
+                if (!statusRes.ok) throw new Error('Không tìm thấy thông tin vận đơn!');
                 const statusData = await statusRes.json();
                 currentShipmentStatus.value = statusData;
 
@@ -693,6 +835,8 @@ createApp({
                 if (!recentTrackingCodes.value.includes(code)) {
                     recentTrackingCodes.value.unshift(code);
                 }
+                notiTrackingInput.value = code;
+                auditTrackingInput.value = code;
             } catch (err) {
                 showToast('Lỗi Tra Cứu', err.message || 'Không thể kết nối đến Gateway!', 'error');
             } finally {
@@ -714,6 +858,8 @@ createApp({
 
                 showToast('Thành công', 'Đã tạo vận đơn ' + data.trackingCode);
                 trackingInput.value = data.trackingCode;
+                notiTrackingInput.value = data.trackingCode;
+                auditTrackingInput.value = data.trackingCode;
                 recentTrackingCodes.value.unshift(data.trackingCode);
                 switchTab('tracking');
 
@@ -736,20 +882,20 @@ createApp({
         const fillSample = (type) => {
             generateRequestId();
             if (type === 'HN-DN') {
-                formShipment.senderName = 'Nguyen Van An';
+                formShipment.senderName = 'Nguyễn Văn An';
                 formShipment.senderPhone = '0988123456';
-                formShipment.senderAddress = '123 Cau Giay, Ha Noi';
-                formShipment.receiverName = 'Le Thi Binh';
+                formShipment.senderAddress = '123 Cầu Giấy, Hà Nội';
+                formShipment.receiverName = 'Lê Thị Bình';
                 formShipment.receiverPhone = '0912789456';
-                formShipment.receiverAddress = '456 Nguyen Hue, Da Nang';
+                formShipment.receiverAddress = '456 Nguyễn Huệ, Đà Nẵng';
                 formShipment.serviceType = 'EXPRESS';
             } else {
-                formShipment.senderName = 'Tran Van Cuong';
+                formShipment.senderName = 'Trần Văn Cường';
                 formShipment.senderPhone = '0903111222';
-                formShipment.senderAddress = '789 Ba Dinh, Ha Noi';
-                formShipment.receiverName = 'Pham Thi Dung';
+                formShipment.senderAddress = '789 Ba Đình, Hà Nội';
+                formShipment.receiverName = 'Phạm Thị Dung';
                 formShipment.receiverPhone = '0977333444';
-                formShipment.receiverAddress = '12 Nguyen Thi Minh Khai, TP.HCM';
+                formShipment.receiverAddress = '12 Nguyễn Thị Minh Khai, TP.HCM';
                 formShipment.serviceType = 'STANDARD';
             }
             showToast('Đã Điền Mẫu', 'Mẫu ' + type + ' đã sẵn sàng!');
@@ -758,7 +904,14 @@ createApp({
         const loadCustomers = async () => {
             try {
                 const res = await fetch(GATEWAY_URL + '/api/customers');
-                if (res.ok) customersList.value = await res.json();
+                if (res.ok) {
+                    customersList.value = await res.json();
+                } else {
+                    const fallbackRes = await fetch(GATEWAY_URL + '/api/customers/1');
+                    if (fallbackRes.ok) {
+                        customersList.value = [await fallbackRes.json()];
+                    }
+                }
             } catch (e) {
                 console.error(e);
             }
@@ -770,11 +923,17 @@ createApp({
                 const res = await fetch(GATEWAY_URL + '/api/customers/' + customer.id, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...customer, status: newStatus })
+                    body: JSON.stringify({
+                        fullName: customer.fullName || customer.name,
+                        address: customer.address,
+                        email: customer.email,
+                        phoneNumber: customer.phoneNumber || customer.phone,
+                        status: newStatus
+                    })
                 });
                 if (res.ok) {
                     customer.status = newStatus;
-                    showToast('Cập nhật', customer.name + ' -> ' + newStatus);
+                    showToast('Cập nhật', (customer.fullName || customer.name) + ' -> ' + newStatus);
                 }
             } catch (e) {
                 showToast('Lỗi', 'Không thể đổi trạng thái', 'error');
@@ -841,6 +1000,7 @@ createApp({
             toast,
             trackingInput,
             isLoadingTracking,
+            isUpdatingStatus,
             currentShipmentStatus,
             trackingHistory,
             mapRouteInfo,
@@ -855,6 +1015,7 @@ createApp({
             switchTab,
             trackShipment,
             submitShipment,
+            quickUpdateStatus,
             generateRequestId,
             fillSample,
             loadCustomers,
@@ -862,6 +1023,11 @@ createApp({
             loadNotifications,
             loadAudits,
             fitMapRoute,
+            formatStatus,
+            formatNodeText,
+            formatHubName,
+            formatNotificationTitle,
+            formatNotificationMessage,
             formatTime,
             formatJson
         };

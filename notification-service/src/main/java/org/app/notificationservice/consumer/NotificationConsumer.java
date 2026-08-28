@@ -22,35 +22,35 @@ public class NotificationConsumer {
     public void handleShipmentCreated(CreateShipmentEvent event) {
 
         log.info("[NOTIFICATION] Đang gửi SMS tạo đơn thành công tới khách: {}", event.getSenderPhone());
-        String message = String.format("Chao %s, don hang %s cua ban da duoc tao thanh cong!",
+        String message = String.format("Chào %s, đơn hàng %s của bạn đã được tạo thành công!",
                 event.getSenderName(), event.getTrackingCode());
 
         NotificationLog noti = NotificationLog.builder()
                 .trackingCode(event.getTrackingCode())
                 .recipientPhone(event.getSenderPhone())
                 .type("SMS")
-                .title("Tao don hang thanh cong")
+                .title("Tạo đơn hàng thành công")
                 .message(message)
                 .status("SENT")
                 .sentAt(LocalDateTime.now())
                 .build();
 
         notificationRepository.save(noti);
-        log.info("[NOTIFICATION] Da gui va luu log SMS cho don {}", event.getTrackingCode());
+        log.info("[NOTIFICATION] Đã gửi và lưu log SMS cho đơn {}", event.getTrackingCode());
     }
 
     @KafkaListener(topics = "route-assigned", groupId = "notification-group")
     public void handleRouteAssignedEvent(RouteAssignedEvent event) {
-        log.info("[NOTIFICATION] Đang gửi thong bao phan tuyen cho don: {}", event.getTrackingCode());
+        log.info("[NOTIFICATION] Đang gửi thông báo phân tuyến cho đơn: {}", event.getTrackingCode());
 
-        String message = String.format("Don hang %s da duoc phan tuyen tu %s den %s (Lo trinh: %s)",
+        String message = String.format("Đơn hàng %s đã được phân tuyến từ %s đến %s (Lộ trình: %s)",
                 event.getTrackingCode(), event.getSourceHub(), event.getDestinationHub(), event.getRouteCode());
 
         NotificationLog noti = NotificationLog.builder()
                 .trackingCode(event.getTrackingCode())
                 .recipientPhone("SYSTEM_ALERT")
                 .type("EMAIL")
-                .title("Thong bao phan tuyen van don")
+                .title("Thông báo phân tuyến vận đơn")
                 .message(message)
                 .status("SENT")
                 .sentAt(LocalDateTime.now())
@@ -58,6 +58,27 @@ public class NotificationConsumer {
 
         notificationRepository.save(noti);
         log.info("[NOTIFICATION] Da gui va luu log phan tuyen cho don {}", event.getTrackingCode());
+    }
 
+    @KafkaListener(topics = "tracking-status-events", groupId = "notification-group")
+    public void handleStatusUpdatedEvent(org.app.notificationservice.dto.event.ShipmentStatusUpdatedEvent event) {
+        log.info("[NOTIFICATION] Đang gửi thông báo cập nhật trạng thái cho đơn: {} -> {}", event.getTrackingCode(), event.getStatus());
+
+        String title = "Cập nhật trạng thái vận đơn";
+        String message = String.format("Đơn hàng %s đã được cập nhật trạng thái: %s tại %s (%s)",
+                event.getTrackingCode(), event.getStatus(), event.getLocationCode(), event.getNote());
+
+        NotificationLog noti = NotificationLog.builder()
+                .trackingCode(event.getTrackingCode())
+                .recipientPhone("SYSTEM_SMS")
+                .type("SMS")
+                .title(title)
+                .message(message)
+                .status("SENT")
+                .sentAt(LocalDateTime.now())
+                .build();
+
+        notificationRepository.save(noti);
+        log.info("[NOTIFICATION] Đã lưu thông báo trạng thái mới cho đơn {}", event.getTrackingCode());
     }
 }
