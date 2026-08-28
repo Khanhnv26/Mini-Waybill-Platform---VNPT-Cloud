@@ -1,21 +1,20 @@
-package org.app.shipmentservice.dto.request;
+package org.app.routingservice.dto.event;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.app.shipmentservice.entity.ServiceType;
 
 import java.math.BigDecimal;
+
 
 @AllArgsConstructor
 @NoArgsConstructor
 @Data
 @Builder
-public class CreateShipmentRequest {
+public class CreateShipmentEvent {
 
-    private String requestId;
-
+    private Long id;
     private String trackingCode;
     private Long customerId;
     private String senderName;
@@ -24,7 +23,8 @@ public class CreateShipmentRequest {
     private String receiverName;
     private String receiverPhone;
     private String receiverAddress;
-    private ServiceType serviceType;
+    private String serviceType;
     private Double weight;
     private BigDecimal codAmount;
+    private String currentStatus;
 }
