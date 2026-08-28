@@ -9,5 +9,5 @@ import org.springframework.web.bind.annotation.PathVariable;
 public interface CustomerClient {
 
     @GetMapping("/api/customers/{id}/validation")
-    public CustomerValidationResponse validateCustomer(@PathVariable("id") Long id);
+    CustomerValidationResponse validateCustomer(@PathVariable("id") Long id);
 }

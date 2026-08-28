@@ -1,21 +1,20 @@
-package org.app.trackingservice.dto.event;
+package org.app.notificationservice.dto.event;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
-@Data
 @JsonIgnoreProperties(ignoreUnknown = true)
-@NoArgsConstructor
 @AllArgsConstructor
+@NoArgsConstructor
+@Data
+@Builder
 public class RouteAssignedEvent {
     private String trackingCode;
     private String sourceHub;
     private String destinationHub;
     private String routeCode;
-    private String status;
-    private LocalDateTime assignedAt;
 }

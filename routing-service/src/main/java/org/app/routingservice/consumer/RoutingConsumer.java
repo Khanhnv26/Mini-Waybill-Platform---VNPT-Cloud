@@ -9,7 +9,6 @@ import org.app.routingservice.repository.RoutingAssignmentRepository;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.retry.annotation.Backoff;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -23,7 +22,7 @@ public class RoutingConsumer {
     private final RoutingAssignmentRepository routingAssignmentRepository;
 
     @KafkaListener(topics = "shipment-events", groupId = "routing-group")
-    @RetryableTopic(attempts = "3")
+    @RetryableTopic
     public void handleShipmentCreatedEvent(CreateShipmentEvent event) {
         log.info("[ROUTING-SERVICE] Nhận được event tạo đơn mới: trackingCode = {}", event.getTrackingCode());
 
