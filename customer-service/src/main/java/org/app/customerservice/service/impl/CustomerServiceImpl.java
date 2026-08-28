@@ -2,11 +2,14 @@ package org.app.customerservice.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.app.customerservice.dto.request.CreateCustomerRequest;
+import org.app.customerservice.dto.request.UpdateCustomerRequest;
 import org.app.customerservice.dto.response.CustomerValidation;
 import org.app.customerservice.entity.Customer;
 import org.app.customerservice.repository.CustomerRepository;
 import org.app.customerservice.service.CustomerService;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -52,6 +55,35 @@ public class CustomerServiceImpl implements CustomerService {
                 .email(request.getEmail())
                 .phoneNumber(request.getPhoneNumber())
                 .build());
+    }
+
+    @Override
+    public List<Customer> getAllCustomers() {
+        return customerRepository.findAll();
+    }
+
+    @Override
+    public Customer updateCustomer(Long id, UpdateCustomerRequest request) {
+        Customer customer = customerRepository.findById(id).orElseThrow(
+                () -> new RuntimeException("Customer not found"));
+
+        if (request.getFullName() != null) {
+            customer.setFullName(request.getFullName());
+        }
+        if (request.getAddress() != null) {
+            customer.setAddress(request.getAddress());
+        }
+        if (request.getEmail() != null) {
+            customer.setEmail(request.getEmail());
+        }
+        if (request.getPhoneNumber() != null) {
+            customer.setPhoneNumber(request.getPhoneNumber());
+        }
+        if (request.getStatus() != null) {
+            customer.setStatus(request.getStatus());
+        }
+
+        return customerRepository.save(customer);
     }
 }
 

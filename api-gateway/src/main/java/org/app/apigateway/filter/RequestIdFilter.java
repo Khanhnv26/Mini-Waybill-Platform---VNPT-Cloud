@@ -21,13 +21,27 @@ public class RequestIdFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        String requestId = request.getHeader(REQUEST_ID_HEADER);
+        String origin = request.getHeader("Origin");
+        if (origin != null && !origin.isEmpty()) {
+            response.setHeader("Access-Control-Allow-Origin", origin);
+        } else {
+            response.setHeader("Access-Control-Allow-Origin", "*");
+        }
+        response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+        response.setHeader("Access-Control-Allow-Headers", "*");
+        response.setHeader("Access-Control-Expose-Headers", "X-Request-ID");
+        response.setHeader("Access-Control-Allow-Credentials", "true");
+        response.setHeader("Access-Control-Max-Age", "3600");
 
-        if (requestId == null || requestId.isEmpty()) {
-            requestId = java.util.UUID.randomUUID().toString();
-            log.info("Generated new Request ID: {}", requestId);
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            response.setStatus(HttpServletResponse.SC_OK);
+            return;
         }
 
+        String requestId = request.getHeader(REQUEST_ID_HEADER);
+        if (requestId == null || requestId.isEmpty()) {
+            requestId = java.util.UUID.randomUUID().toString();
+        }
         response.setHeader(REQUEST_ID_HEADER, requestId);
 
         log.info("Request ID: {} - Method: {} - URI: {}", requestId, request.getMethod(), request.getRequestURI());

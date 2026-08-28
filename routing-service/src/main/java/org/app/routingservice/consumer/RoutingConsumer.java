@@ -22,7 +22,7 @@ public class RoutingConsumer {
     private final RoutingAssignmentRepository routingAssignmentRepository;
 
     @KafkaListener(topics = "shipment-events", groupId = "routing-group")
-    @RetryableTopic
+    @RetryableTopic(attempts = "3")
     public void handleShipmentCreatedEvent(CreateShipmentEvent event) {
         log.info("[ROUTING-SERVICE] Nhận được event tạo đơn mới: trackingCode = {}", event.getTrackingCode());
 

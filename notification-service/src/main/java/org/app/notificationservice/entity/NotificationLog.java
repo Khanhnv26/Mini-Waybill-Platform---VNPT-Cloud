@@ -29,10 +29,10 @@ public class NotificationLog {
     @Column(name = "type", nullable = false)
     private String type;
 
-    @Column(name = "title", nullable = false)
+    @Column(name = "title", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String title;
 
-    @Column(name = "message", nullable = false)
+    @Column(name = "message", nullable = false, columnDefinition = "NVARCHAR(1000)")
     private String message;
 
     @Column(name = "status", nullable = false)
