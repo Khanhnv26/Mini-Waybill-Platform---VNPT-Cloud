@@ -31,20 +31,36 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         String clientIP = getClientIP(request);
 
-        Bucket bucket = rateLimitService.resolveBucket(clientIP);
+        Bucket userBucket = rateLimitService.resolveBucket(clientIP);
+        ConsumptionProbe userProbe = userBucket.tryConsumeAndReturnRemaining(1);
 
-        ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
-        if(probe.isConsumed()) {
-            response.setHeader("X-Rate-Limit-Remaining", String.valueOf(probe.getRemainingTokens()));
-            filterChain.doFilter(request, response);
-        } else {
-            long waitForRefill = Math.max(1, probe.getNanosToWaitForRefill() / 1_000_000_000);
-            response.setHeader("X-Rate-Limit-Retry-After-Seconds", String.valueOf(waitForRefill));
+        if (!userProbe.isConsumed()) {
+
+            long waitForRefill = Math.max(1, userProbe.getNanosToWaitForRefill() / 1_000_000_000);
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-            response.setContentType("application/json");
-            log.warn("Rate limit exceeded for IP: {} - Wait: {}s", clientIP, waitForRefill);
-            response.getWriter().write("{\"error\": \"Too many requests. Please try again later.\"}");
+            response.setHeader("Retry-After", String.valueOf(waitForRefill));
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"status\": 429, \"error\": \"User Limit Exceeded\", \"message\": \"Bạn đã gửi quá nhiều yêu cầu cá nhân. Vui lòng thử lại sau!\"}");
+            return; // DỪNG LẠI
         }
+
+        Bucket globalBucket = rateLimitService.resolveGlobalBucket();
+        ConsumptionProbe globalProbe = globalBucket.tryConsumeAndReturnRemaining(1);
+
+        if (!globalProbe.isConsumed()) {
+
+            long waitForRefill = Math.max(1, globalProbe.getNanosToWaitForRefill() / 1_000_000_000);
+            response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+            response.setHeader("Retry-After", String.valueOf(waitForRefill));
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"status\": 429, \"error\": \"System Overload\", \"message\": \"Hệ thống đang quá tải! Vui lòng chờ vài giây để phục vụ tiếp!\"}");
+            return; // DỪNG LẠI
+        }
+
+
+        response.setHeader("X-Rate-Limit-Remaining", String.valueOf(userProbe.getRemainingTokens()));
+        response.setHeader("X-Global-Rate-Limit-Remaining", String.valueOf(globalProbe.getRemainingTokens()));
+        filterChain.doFilter(request, response);
     }
 
     private String getClientIP(HttpServletRequest request) {

@@ -28,4 +28,13 @@ public class RateLimitService {
         Bandwidth limit = Bandwidth.classic(5, Refill.greedy(5, Duration.ofSeconds(30)));
         return BucketConfiguration.builder().addLimit(limit).build();
     }
+
+    public Bucket resolveGlobalBucket() {
+        return proxyManager.builder().build("rate_limit:global", this::getGlobalConfiguration);
+    }
+
+    public BucketConfiguration getGlobalConfiguration() {
+        Bandwidth limit = Bandwidth.classic(100, Refill.greedy(100, Duration.ofSeconds(60)));
+        return BucketConfiguration.builder().addLimit(limit).build();
+    }
 }
