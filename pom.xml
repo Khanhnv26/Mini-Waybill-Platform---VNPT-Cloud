@@ -24,6 +24,7 @@
 
     <modules>
         <module>service-registry</module>
+        <module>auth-service</module>
         <module>api-gateway</module>
         <module>customer-service</module>
         <module>shipment-service</module>

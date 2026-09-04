@@ -1,5 +1,6 @@
 services:
 
+
   kafka:
     image: apache/kafka:latest
     container_name: waybill-kafka
@@ -29,3 +30,5 @@ services:
     depends_on:
       - kafka
     restart: always
+
+
