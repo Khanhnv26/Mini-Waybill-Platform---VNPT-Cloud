@@ -31,3 +31,4 @@ services:
       - kafka
     restart: always
 
+
