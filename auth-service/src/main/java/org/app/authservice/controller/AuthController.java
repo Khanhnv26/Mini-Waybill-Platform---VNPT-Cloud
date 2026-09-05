@@ -1,10 +1,9 @@
 package org.app.authservice.controller;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.app.authservice.dto.request.GoogleLoginRequest;
-import org.app.authservice.dto.request.LoginRequest;
-import org.app.authservice.dto.request.RegisterRequest;
+import org.app.authservice.dto.request.*;
 import org.app.authservice.dto.response.AuthResponse;
 import org.app.authservice.entity.Role;
 import org.app.authservice.entity.User;
@@ -16,6 +15,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -48,6 +49,22 @@ public class AuthController {
         return ResponseEntity.ok(buildResponse(user, jwt));
     }
 
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String,String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest forgotPasswordRequest) {
+        authService.forgotPassword(forgotPasswordRequest);
+        return ResponseEntity.ok(Map.of(
+                "message", "Mã xác thực OTP đã được gửi đến email. Vui lòng kiểm tra hộp thư!"
+        ));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String,String>> resetPassword(@Valid @RequestBody ResetPasswordRequest resetPasswordRequest) {
+        authService.resetPassword(resetPasswordRequest);
+        return ResponseEntity.ok(Map.of(
+                "message", "Đặt lại mật khẩu thành công! Bạn có thể đăng nhập ngay bây giờ."
+        ));
+    }
+
     private AuthResponse buildResponse(User user, String jwt) {
         return AuthResponse.builder()
                 .accessToken(jwt)
@@ -59,4 +76,7 @@ public class AuthController {
                 .roles(user.getRoles().stream().map(Role::getName).toList())
                 .build();
     }
+
+
+
 }

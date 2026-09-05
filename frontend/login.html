@@ -1,14 +1,17 @@
 <!DOCTYPE html>
-<html lang="vi" class="h-full bg-slate-50">
+<html lang="vi" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đăng Nhập & Đăng Ký - VNPT Waybill Platform</title>
+    <title>Cổng Xác Thực Vận Hành - VNPT Waybill Platform</title>
+    
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
         tailwind.config = {
             theme: {
@@ -23,278 +26,686 @@
                             100: '#d9ecff',
                             200: '#bcdfff',
                             500: '#0066cc',
-                            600: '#0055aa',
+                            600: '#0055bb',
                             700: '#004488',
-                            800: '#00376d',
+                            800: '#003366',
                         }
                     }
                 }
             }
         }
     </script>
+
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <!-- Google Identity Services SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <style>
+        [v-cloak] { display: none !important; }
+        .vnpt-gradient {
+            background: linear-gradient(145deg, #00376d 0%, #0055bb 55%, #0077dd 100%);
+        }
+
+        /* HÌNH NỀN (WALLPAPER) CỦA BẠN */
+        .auth-custom-bg {
+            background-color: #0f172a;
+            background-image: url('images/my-bg.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }
+    </style>
 </head>
-<body class="h-full flex items-center justify-center p-4 bg-gradient-to-br from-slate-100 via-blue-50/40 to-slate-200">
+<body class="min-h-screen flex items-center justify-center p-3 sm:p-6 auth-custom-bg text-slate-800 selection:bg-vnpt-500 selection:text-white font-sans relative">
 
-    <div class="max-w-md w-full bg-white rounded-2xl shadow-xl shadow-slate-300/40 border border-slate-200/80 p-8 space-y-6">
-        <div class="text-center space-y-2">
-            <div class="w-14 h-14 bg-vnpt-500 rounded-2xl text-white font-extrabold flex items-center justify-center mx-auto text-xl shadow-lg shadow-vnpt-500/30">
-                VNPT
+    <!-- Khối thẻ Split-Screen chính giữa -->
+    <div id="app" v-cloak class="relative z-10 max-w-5xl w-full bg-white rounded-3xl shadow-2xl shadow-black/40 border border-slate-700/20 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[640px]">
+        
+        <!-- CỘT TRÁI (5/12): HERO BANNER VNPT B2B LOGISTICS -->
+        <div class="lg:col-span-5 vnpt-gradient text-white p-8 sm:p-10 flex flex-col justify-between relative overflow-hidden border-r border-blue-900/30">
+            <!-- Lưới tọa độ điều phối chìm -->
+            <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 20px 20px;"></div>
+            <div class="absolute -right-20 -top-20 w-64 h-64 bg-blue-400/20 rounded-full blur-3xl pointer-events-none"></div>
+
+            <!-- Top Header Định danh -->
+            <div class="relative z-10 space-y-3">
+                <div class="flex items-center space-x-3">
+                    <div class="h-10 px-3.5 rounded-xl bg-white text-vnpt-500 font-black flex items-center justify-center text-xs tracking-wider shadow-md">
+                        VNPT
+                    </div>
+                    <div>
+                        <div class="flex items-center space-x-1.5">
+                            <span class="font-extrabold text-base tracking-tight text-white">Waybill Platform</span>
+                            <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-white/20 text-white border border-white/30 uppercase">B2B Cloud</span>
+                        </div>
+                        <p class="text-[11px] text-blue-100/80 font-medium">Hệ Thống Quản Trị & Điều Phối Vận Đơn</p>
+                    </div>
+                </div>
             </div>
-            <div class="flex items-center justify-center space-x-2">
-                <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight">Waybill Platform</h1>
-                <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-vnpt-50 text-vnpt-700 border border-vnpt-200">Cloud</span>
-            </div>
-            <p class="text-xs text-slate-500 font-medium">Nền tảng quản trị và điều phối vận đơn</p>
-        </div>
 
-        <div id="errorAlert" class="hidden p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium flex items-center space-x-2">
-            <svg class="w-4 h-4 text-rose-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-            </svg>
-            <span id="errorMessage"></span>
-        </div>
-
-        <div id="successAlert" class="hidden p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 font-medium flex items-center space-x-2">
-            <svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-            </svg>
-            <span id="successMessage"></span>
-        </div>
-
-        <div class="flex border-b border-slate-200 text-sm font-semibold">
-            <button id="tabLoginBtn" onclick="switchAuthTab('login')" class="flex-1 pb-2.5 text-center text-vnpt-600 border-b-2 border-vnpt-600 transition-colors">
-                Đăng Nhập
-            </button>
-            <button id="tabRegisterBtn" onclick="switchAuthTab('register')" class="flex-1 pb-2.5 text-center text-slate-400 hover:text-slate-600 transition-colors">
-                Đăng Ký
-            </button>
-        </div>
-
-        <div id="loginFormContainer" class="space-y-4">
-            <form id="loginForm" onsubmit="handleEmailLogin(event)" class="space-y-3.5">
+            <!-- Middle Content: Năng lực điều phối & SLA -->
+            <div class="relative z-10 my-8 space-y-4">
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Địa chỉ Email</label>
-                    <input type="email" id="loginEmail" required placeholder="name@company.com" class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-vnpt-500/20 focus:border-vnpt-500 transition-all"/>
+                    <span class="text-[10px] uppercase tracking-widest font-mono font-semibold text-blue-200">Giám sát hành trình</span>
+                    <h2 class="text-xl sm:text-2xl font-bold text-white mt-1 leading-snug">
+                        Quản lý và giám sát hành trình vận đơn thời gian thực
+                    </h2>
+                    <p class="text-xs text-blue-100/80 mt-2 leading-relaxed">
+                        Theo dõi vị trí bưu gửi xuyên suốt từ nơi gửi đến nơi nhận, tự động phân tuyến và cập nhật trạng thái liên tục.
+                    </p>
                 </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Mật khẩu</label>
-                    <input type="password" id="loginPassword" required placeholder="••••••••" class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-vnpt-500/20 focus:border-vnpt-500 transition-all"/>
-                </div>
-                <button type="submit" id="loginSubmitBtn" class="w-full py-2.5 px-4 bg-vnpt-600 hover:bg-vnpt-700 text-white text-xs font-bold rounded-xl shadow-md shadow-vnpt-600/20 transition-all flex items-center justify-center">
-                    <span>Đăng Nhập</span>
-                </button>
-            </form>
 
-            <div class="relative flex items-center justify-center py-2">
-                <div class="border-t border-slate-200 w-full"></div>
-                <span class="bg-white px-3 text-[10px] uppercase tracking-wider text-slate-400 font-mono font-semibold">Hoặc tiếp tục với</span>
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <div class="p-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15">
+                        <div class="text-lg font-bold font-mono text-white">99.98%</div>
+                        <div class="text-[10px] text-blue-100/80 mt-0.5 font-medium">Chỉ tiêu đúng hạn (SLA)</div>
+                    </div>
+                    <div class="p-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15">
+                        <div class="text-lg font-bold font-mono text-white">&lt; 50ms</div>
+                        <div class="text-[10px] text-blue-100/80 mt-0.5 font-medium">Xử lý định tuyến bưu gửi</div>
+                    </div>
+                </div>
             </div>
 
-            <div class="flex flex-col items-center justify-center space-y-2">
-                <div id="googleBtn" class="flex justify-center min-h-[44px]"></div>
-                <div id="googleLoading" class="hidden flex items-center space-x-2 text-xs font-semibold text-vnpt-600 animate-pulse">
-                    <svg class="animate-spin h-4 w-4 text-vnpt-600" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                    </svg>
-                    <span>Đang xác thực với Google...</span>
-                </div>
+            <!-- Bottom: Chân trang Bưu chính -->
+            <div class="relative z-10 pt-4 border-t border-white/15 flex items-center justify-between text-[11px] text-blue-100/70">
+                <span>TẬP ĐOÀN BƯU CHÍNH VIỄN THÔNG VIỆT NAM</span>
+                <span class="font-mono text-[10px]">VNPT 2026</span>
             </div>
         </div>
 
-        <div id="registerFormContainer" class="hidden space-y-4">
-            <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-3.5">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Họ và tên</label>
-                    <input type="text" id="regFullName" required placeholder="Nguyễn Văn A" class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-vnpt-500/20 focus:border-vnpt-500 transition-all"/>
+        <!-- CỘT PHẢI (7/12): FORM TƯƠNG TÁC NGHIỆP VỤ -->
+        <div class="lg:col-span-7 p-8 sm:p-12 flex flex-col justify-between bg-white">
+            <div>
+                <!-- Top Tabs Switcher & Badge Trạng thái hệ thống -->
+                <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-6">
+                    <div class="flex space-x-6 text-xs font-semibold">
+                        <button 
+                            type="button"
+                            @click="switchMode('login')"
+                            :class="authMode === 'login' ? 'pb-3 -mb-3.5 border-b-2 border-vnpt-500 text-vnpt-500 font-bold' : 'pb-3 -mb-3.5 border-b-2 border-transparent text-slate-400 hover:text-slate-700'"
+                            class="transition-all">
+                            ĐĂNG NHẬP
+                        </button>
+                        <button 
+                            type="button"
+                            @click="switchMode('register')"
+                            :class="authMode === 'register' ? 'pb-3 -mb-3.5 border-b-2 border-emerald-600 text-emerald-600 font-bold' : 'pb-3 -mb-3.5 border-b-2 border-transparent text-slate-400 hover:text-slate-700'"
+                            class="transition-all">
+                            ĐĂNG KÝ TÀI KHOẢN
+                        </button>
+                    </div>
+                    
+
                 </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Địa chỉ Email</label>
-                    <input type="email" id="regEmail" required placeholder="name@company.com" class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-vnpt-500/20 focus:border-vnpt-500 transition-all"/>
+
+                <!-- Alert Message Box -->
+                <div v-if="alert.show" 
+                    :class="alert.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-rose-50 text-rose-800 border-rose-300'"
+                    class="p-3 rounded-xl text-xs font-medium mb-4 flex items-center justify-between border transition-all">
+                    <span>{{ alert.message }}</span>
+                    <button type="button" @click="alert.show = false" class="text-slate-400 hover:text-slate-600 text-xs font-bold ml-2">ĐÓNG</button>
                 </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Mật khẩu</label>
-                    <input type="password" id="regPassword" required placeholder="Tối thiểu 6 ký tự" minlength="6" class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-vnpt-500/20 focus:border-vnpt-500 transition-all"/>
+
+                <!-- 1. FORM ĐĂNG NHẬP -->
+                <div v-if="authMode === 'login'" class="space-y-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900 tracking-tight">Đăng nhập tài khoản điều phối</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Vui lòng nhập thông tin để truy cập hệ thống quản trị vận đơn</p>
+                    </div>
+
+                    <form @submit.prevent="handleEmailLogin" class="space-y-3.5 pt-1">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Email tài khoản</label>
+                            <input 
+                                type="email" 
+                                v-model="loginForm.email" 
+                                required 
+                                placeholder="name@company.com" 
+                                class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-vnpt-500 transition-all" />
+                        </div>
+
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="text-xs font-semibold text-slate-700">Mật khẩu</label>
+                                <button type="button" @click="switchMode('forgot_step1')" class="text-xs text-vnpt-500 hover:underline font-semibold transition-colors">
+                                    Quên mật khẩu?
+                                </button>
+                            </div>
+                            <input 
+                                type="password" 
+                                v-model="loginForm.password" 
+                                required 
+                                placeholder="••••••••" 
+                                class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-vnpt-500 transition-all" />
+                        </div>
+
+                        <button 
+                            type="submit" 
+                            :disabled="loading" 
+                            class="w-full py-2.5 px-4 bg-vnpt-500 hover:bg-vnpt-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-vnpt-500/20 transition-all flex items-center justify-center">
+                            <span v-if="!loading">Đăng Nhập Hệ Thống</span>
+                            <span v-else>Đang xác thực...</span>
+                        </button>
+                    </form>
+
+                    <!-- Divider "Hoặc tiếp tục với" Căn chính giữa 100% -->
+                    <div class="relative flex items-center justify-center my-4">
+                        <div class="absolute inset-0 flex items-center">
+                            <div class="w-full border-t border-slate-200"></div>
+                        </div>
+                        <div class="relative flex justify-center">
+                            <span class="bg-white px-3 text-[10px] uppercase tracking-wider text-slate-400 font-mono font-semibold">Hoặc tiếp tục với</span>
+                        </div>
+                    </div>
+
+                    <!-- Google Workspace Sign-In Container (Căn chính giữa và luôn hiển thị) -->
+                    <div class="flex flex-col items-center justify-center w-full space-y-2">
+                        <div id="googleBtn" class="flex justify-center w-full min-h-[44px]"></div>
+                        <div v-if="googleLoading" class="text-xs font-semibold text-vnpt-500 animate-pulse">
+                            Đang xác thực tài khoản Google...
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Xác nhận mật khẩu</label>
-                    <input type="password" id="regConfirmPassword" required placeholder="Nhập lại mật khẩu" minlength="6" class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-vnpt-500/20 focus:border-vnpt-500 transition-all"/>
+
+                <!-- 2. FORM ĐĂNG KÝ -->
+                <div v-if="authMode === 'register'" class="space-y-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900 tracking-tight">Đăng ký tài khoản điều phối mới</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Tạo tài khoản để tham gia quản trị và điều phối luồng vận đơn</p>
+                    </div>
+
+                    <form @submit.prevent="handleRegister" class="space-y-3 pt-1">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Họ và tên điều phối viên</label>
+                            <input 
+                                type="text" 
+                                v-model="registerForm.fullName" 
+                                required 
+                                placeholder="Nguyễn Văn A" 
+                                class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 focus:outline-none" />
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Email công vụ</label>
+                            <input 
+                                type="email" 
+                                v-model="registerForm.email" 
+                                required 
+                                placeholder="name@company.com" 
+                                class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 focus:outline-none" />
+                        </div>
+                        <div class="grid grid-cols-2 gap-2.5">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Mật khẩu (≥ 6 ký tự)</label>
+                                <input 
+                                    type="password" 
+                                    v-model="registerForm.password" 
+                                    required 
+                                    minlength="6" 
+                                    placeholder="••••••••" 
+                                    class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 focus:outline-none" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Xác nhận mật khẩu</label>
+                                <input 
+                                    type="password" 
+                                    v-model="registerForm.confirmPassword" 
+                                    required 
+                                    minlength="6" 
+                                    placeholder="••••••••" 
+                                    class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 focus:outline-none" />
+                            </div>
+                        </div>
+
+                        <button 
+                            type="submit" 
+                            :disabled="loading" 
+                            class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-600/20 transition-all">
+                            <span v-if="!loading">Đăng Ký Tài Khoản</span>
+                            <span v-else>Đang xử lý đăng ký...</span>
+                        </button>
+                    </form>
                 </div>
-                <button type="submit" id="regSubmitBtn" class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center">
-                    <span>Đăng Ký Tài Khoản</span>
-                </button>
-            </form>
+
+                <!-- 3. QUÊN MẬT KHẨU - BƯỚC 1: NHẬP EMAIL GỬI OTP -->
+                <div v-if="authMode === 'forgot_step1'" class="space-y-4">
+                    <div class="flex items-center justify-between text-xs text-slate-500 pb-1">
+                        <button type="button" @click="switchMode('login')" class="text-vnpt-500 hover:underline font-semibold">
+                            Quay lại đăng nhập
+                        </button>
+                        <span class="font-mono text-slate-500 font-bold">BƯỚC 1 / 2</span>
+                    </div>
+
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900 tracking-tight">Yêu cầu cấp lại mật khẩu</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Nhập email tài khoản của bạn để nhận mã OTP xác thực đổi mật khẩu</p>
+                    </div>
+
+                    <form @submit.prevent="handleSendOtp" class="space-y-4 pt-2">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Email đăng ký tài khoản</label>
+                            <input 
+                                type="email" 
+                                v-model="forgotForm.email" 
+                                required 
+                                placeholder="name@company.com" 
+                                class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300 focus:border-vnpt-500 focus:ring-2 focus:ring-blue-600/20 focus:outline-none font-medium" />
+                        </div>
+
+                        <button 
+                            type="submit" 
+                            :disabled="loading" 
+                            class="w-full py-2.5 px-4 bg-vnpt-500 hover:bg-vnpt-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-vnpt-500/20 transition-all flex items-center justify-center">
+                            <span v-if="!loading">Gửi Mã Xác Thực OTP</span>
+                            <span v-else>Đang gửi mã qua Kafka...</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- 4. QUÊN MẬT KHẨU - BƯỚC 2: NHẬP 6 Ô OTP & MẬT KHẨU MỚI -->
+                <div v-if="authMode === 'forgot_step2'" class="space-y-4">
+                    <div class="flex items-center justify-between text-xs text-slate-500 pb-1">
+                        <button type="button" @click="switchMode('forgot_step1')" class="text-vnpt-500 hover:underline font-semibold">
+                            Đổi email khác
+                        </button>
+                        <span class="font-mono text-emerald-600 font-bold">BƯỚC 2 / 2</span>
+                    </div>
+
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900 tracking-tight">Nhập mã OTP và Mật khẩu mới</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">
+                            Mã OTP gồm 6 chữ số đã được gửi tới: <span class="font-mono font-semibold text-slate-800">{{ forgotForm.email }}</span>
+                        </p>
+                    </div>
+
+                    <form @submit.prevent="handleResetPassword" class="space-y-4 pt-1">
+                        <!-- 6 Ô NHẬP OTP RỜI TỰ ĐỘNG CHUYỂN FOCUS -->
+                        <div>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label class="text-xs font-semibold text-slate-700">Mã OTP (6 chữ số)</label>
+                                <span class="text-[11px] font-mono text-slate-400">Hiệu lực trong 15 phút</span>
+                            </div>
+                            
+                            <div class="flex items-center justify-between gap-2">
+                                <input 
+                                    v-for="(digit, idx) in otpDigits" 
+                                    :key="idx" 
+                                    :id="'otp-box-' + idx"
+                                    type="text" 
+                                    maxlength="1" 
+                                    v-model="otpDigits[idx]"
+                                    @keyup="handleOtpKeyUp(idx, $event)"
+                                    @paste="handleOtpPaste($event)"
+                                    class="w-11 h-12 text-center text-base font-mono font-bold rounded-xl border border-slate-300 focus:border-vnpt-500 focus:ring-2 focus:ring-blue-600/20 focus:outline-none" />
+                            </div>
+
+                            <div class="flex items-center justify-end mt-2 text-xs">
+                                <button 
+                                    type="button" 
+                                    @click="handleResendOtp" 
+                                    :disabled="cooldownSeconds > 0 || loading"
+                                    class="text-slate-400 hover:text-vnpt-500 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                                    <span v-if="cooldownSeconds > 0">Gửi lại mã ({{ cooldownSeconds }}s)</span>
+                                    <span v-else>Gửi lại mã OTP ngay</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2.5">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Mật khẩu mới (≥ 6 ký tự)</label>
+                                <input 
+                                    type="password" 
+                                    v-model="resetForm.newPassword" 
+                                    required 
+                                    minlength="6" 
+                                    placeholder="••••••••" 
+                                    class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:border-vnpt-500 focus:ring-2 focus:ring-blue-600/20 focus:outline-none" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Xác nhận mật khẩu</label>
+                                <input 
+                                    type="password" 
+                                    v-model="resetForm.confirmPassword" 
+                                    required 
+                                    minlength="6" 
+                                    placeholder="••••••••" 
+                                    class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:border-vnpt-500 focus:ring-2 focus:ring-blue-600/20 focus:outline-none" />
+                            </div>
+                        </div>
+
+                        <button 
+                            type="submit" 
+                            :disabled="loading" 
+                            class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-600/20 transition-all">
+                            <span v-if="!loading">Cập Nhật Mật Khẩu</span>
+                            <span v-else>Đang lưu mật khẩu mới...</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Chân trang liên kết -->
+            <div class="pt-6 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+                <a href="/index.html" class="text-vnpt-500 hover:underline font-medium">
+                    Quay lại trang tra cứu vận đơn
+                </a>
+                <span class="font-mono">VNPT Cloud Platform</span>
+            </div>
         </div>
 
-        <div class="text-center pt-2">
-            <a href="/index.html" class="text-xs font-semibold text-vnpt-600 hover:text-vnpt-800 hover:underline inline-flex items-center space-x-1 transition-colors">
-                <span>← Quay lại trang tra cứu vận đơn</span>
-            </a>
-        </div>
     </div>
 
+    <!-- Scripts -->
     <script src="js/auth.js"></script>
     <script src="js/api.js"></script>
 
     <script>
-        if (Auth.isAuthenticated()) {
-            window.location.href = '/index.html';
-        }
+        const { createApp, ref, reactive, onMounted, nextTick } = Vue;
 
-        const GOOGLE_CLIENT_ID = "530674460360-7q1qf5lchbkj7sp7kslvttf7mqt92klg.apps.googleusercontent.com";
-
-        window.onload = function () {
-            if (typeof google === 'undefined') {
-                showError("Không thể tải Google Identity Services SDK.");
-                return;
-            }
-
-            google.accounts.id.initialize({
-                client_id: GOOGLE_CLIENT_ID,
-                callback: handleGoogleLoginResponse,
-                auto_select: false
-            });
-
-            google.accounts.id.renderButton(
-                document.getElementById("googleBtn"),
-                {
-                    theme: "filled_blue",
-                    size: "large",
-                    text: "signin_with",
-                    shape: "pill",
-                    width: 280,
-                    logo_alignment: "left"
-                }
-            );
-        };
-
-        function switchAuthTab(tab) {
-            clearAlerts();
-            const tabLoginBtn = document.getElementById('tabLoginBtn');
-            const tabRegisterBtn = document.getElementById('tabRegisterBtn');
-            const loginFormContainer = document.getElementById('loginFormContainer');
-            const registerFormContainer = document.getElementById('registerFormContainer');
-
-            if (tab === 'login') {
-                tabLoginBtn.className = "flex-1 pb-2.5 text-center text-vnpt-600 border-b-2 border-vnpt-600 transition-colors";
-                tabRegisterBtn.className = "flex-1 pb-2.5 text-center text-slate-400 hover:text-slate-600 transition-colors";
-                loginFormContainer.classList.remove('hidden');
-                registerFormContainer.classList.add('hidden');
-            } else {
-                tabRegisterBtn.className = "flex-1 pb-2.5 text-center text-vnpt-600 border-b-2 border-vnpt-600 transition-colors";
-                tabLoginBtn.className = "flex-1 pb-2.5 text-center text-slate-400 hover:text-slate-600 transition-colors";
-                registerFormContainer.classList.remove('hidden');
-                loginFormContainer.classList.add('hidden');
-            }
-        }
-
-        async function handleEmailLogin(e) {
-            e.preventDefault();
-            clearAlerts();
-
-            const email = document.getElementById('loginEmail').value.trim();
-            const password = document.getElementById('loginPassword').value;
-            const submitBtn = document.getElementById('loginSubmitBtn');
-
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span>Đang đăng nhập...</span>';
-
-            try {
-                const response = await Api.post('/api/auth/login', { email, password });
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error || 'Đăng nhập không thành công!');
+        createApp({
+            setup() {
+                // Kiểm tra nếu đã đăng nhập thì về trang chủ
+                if (typeof Auth !== 'undefined' && Auth.isAuthenticated()) {
+                    window.location.href = '/index.html';
                 }
 
-                Auth.setSession(data.accessToken, data.user);
-                redirectToTarget();
-            } catch (err) {
-                showError(err.message || 'Đăng nhập thất bại!');
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<span>Đăng Nhập</span>';
-            }
-        }
+                const GOOGLE_CLIENT_ID = "530674460360-7q1qf5lchbkj7sp7kslvttf7mqt92klg.apps.googleusercontent.com";
 
-        async function handleRegister(e) {
-            e.preventDefault();
-            clearAlerts();
+                const authMode = ref('login'); // 'login' | 'register' | 'forgot_step1' | 'forgot_step2'
+                const loading = ref(false);
+                const googleLoading = ref(false);
+                const cooldownSeconds = ref(60);
+                let timerInterval = null;
 
-            const fullName = document.getElementById('regFullName').value.trim();
-            const email = document.getElementById('regEmail').value.trim();
-            const password = document.getElementById('regPassword').value;
-            const confirmPassword = document.getElementById('regConfirmPassword').value;
-            const submitBtn = document.getElementById('regSubmitBtn');
-
-            if (password !== confirmPassword) {
-                showError("Mật khẩu xác nhận không khớp!");
-                return;
-            }
-
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span>Đang xử lý...</span>';
-
-            try {
-                const response = await Api.post('/api/auth/register', { fullName, email, password });
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error || 'Đăng ký tài khoản thất bại!');
-                }
-
-                Auth.setSession(data.accessToken, data.user);
-                redirectToTarget();
-            } catch (err) {
-                showError(err.message || 'Đăng ký thất bại!');
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<span>Đăng Ký Tài Khoản</span>';
-            }
-        }
-
-        async function handleGoogleLoginResponse(googleResponse) {
-            clearAlerts();
-            const googleLoading = document.getElementById('googleLoading');
-            googleLoading.classList.remove('hidden');
-
-            try {
-                const response = await Api.post('/api/auth/google', {
-                    idToken: googleResponse.credential
+                const alert = reactive({
+                    show: false,
+                    type: 'error',
+                    message: ''
                 });
 
-                const data = await response.json();
+                const loginForm = reactive({ email: '', password: '' });
+                const registerForm = reactive({ fullName: '', email: '', password: '', confirmPassword: '' });
+                const forgotForm = reactive({ email: '' });
+                const resetForm = reactive({ newPassword: '', confirmPassword: '' });
+                const otpDigits = ref(['', '', '', '', '', '']);
 
-                if (!response.ok) {
-                    throw new Error(data.error || 'Xác thực tài khoản Google thất bại!');
+                function showAlert(msg, isSuccess = false) {
+                    alert.show = true;
+                    alert.type = isSuccess ? 'success' : 'error';
+                    alert.message = msg;
                 }
 
-                Auth.setSession(data.accessToken, data.user);
-                redirectToTarget();
-            } catch (err) {
-                showError(err.message || 'Lỗi đăng nhập Google!');
-            } finally {
-                googleLoading.classList.add('hidden');
+                function clearAlert() {
+                    alert.show = false;
+                    alert.message = '';
+                }
+
+                function switchMode(mode) {
+                    clearAlert();
+                    authMode.value = mode;
+                    if (mode === 'login') {
+                        nextTick(() => {
+                            renderGoogleButton();
+                        });
+                    } else if (mode === 'forgot_step2') {
+                        nextTick(() => {
+                            const firstBox = document.getElementById('otp-box-0');
+                            if (firstBox) firstBox.focus();
+                        });
+                    }
+                }
+
+                function startCooldown() {
+                    clearInterval(timerInterval);
+                    cooldownSeconds.value = 60;
+                    timerInterval = setInterval(() => {
+                        cooldownSeconds.value--;
+                        if (cooldownSeconds.value <= 0) {
+                            clearInterval(timerInterval);
+                        }
+                    }, 1000);
+                }
+
+                // Tự động chuyển con trỏ giữa 6 ô OTP
+                function handleOtpKeyUp(idx, event) {
+                    const key = event.key;
+                    if (key >= '0' && key <= '9') {
+                        if (idx < 5) {
+                            const nextBox = document.getElementById('otp-box-' + (idx + 1));
+                            if (nextBox) nextBox.focus();
+                        }
+                    } else if (key === 'Backspace') {
+                        if (idx > 0 && !otpDigits.value[idx]) {
+                            const prevBox = document.getElementById('otp-box-' + (idx - 1));
+                            if (prevBox) prevBox.focus();
+                        }
+                    }
+                }
+
+                // Hỗ trợ dán thẳng chuỗi OTP 6 số (Paste event)
+                function handleOtpPaste(event) {
+                    event.preventDefault();
+                    const pasteData = (event.clipboardData || window.clipboardData).getData('text').trim();
+                    if (/^\d{6}$/.test(pasteData)) {
+                        for (let i = 0; i < 6; i++) {
+                            otpDigits.value[i] = pasteData[i];
+                        }
+                        const lastBox = document.getElementById('otp-box-5');
+                        if (lastBox) lastBox.focus();
+                    }
+                }
+
+                // 1. Xử lý Đăng nhập Email/Password
+                async function handleEmailLogin() {
+                    clearAlert();
+                    loading.value = true;
+                    try {
+                        const res = await Api.post('/api/auth/login', {
+                            email: loginForm.email.trim(),
+                            password: loginForm.password
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                            throw new Error(data.message || data.error || 'Đăng nhập không thành công!');
+                        }
+                        Auth.setSession(data.accessToken, data);
+                        showAlert('Đăng nhập thành công! Đang chuyển hướng...', true);
+                        setTimeout(redirectToTarget, 1000);
+                    } catch (err) {
+                        showAlert(err.message || 'Lỗi kết nối máy chủ xác thực.');
+                    } finally {
+                        loading.value = false;
+                    }
+                }
+
+                // 2. Xử lý Đăng ký tài khoản
+                async function handleRegister() {
+                    clearAlert();
+                    if (registerForm.password !== registerForm.confirmPassword) {
+                        showAlert('Mật khẩu xác nhận không trùng khớp!');
+                        return;
+                    }
+                    loading.value = true;
+                    try {
+                        const res = await Api.post('/api/auth/register', {
+                            fullName: registerForm.fullName.trim(),
+                            email: registerForm.email.trim(),
+                            password: registerForm.password
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                            throw new Error(data.message || data.error || 'Đăng ký không thành công!');
+                        }
+                        Auth.setSession(data.accessToken, data);
+                        showAlert('Đăng ký tài khoản thành công! Đang chuyển hướng...', true);
+                        setTimeout(redirectToTarget, 1000);
+                    } catch (err) {
+                        showAlert(err.message || 'Lỗi kết nối máy chủ xác thực.');
+                    } finally {
+                        loading.value = false;
+                    }
+                }
+
+                // 3. Quên mật khẩu - Bước 1: Yêu cầu gửi OTP
+                async function handleSendOtp() {
+                    clearAlert();
+                    loading.value = true;
+                    try {
+                        const res = await Api.post('/api/auth/forgot-password', {
+                            email: forgotForm.email.trim()
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                            throw new Error(data.message || data.error || 'Yêu cầu gửi OTP thất bại!');
+                        }
+                        startCooldown();
+                        showAlert(data.message || 'Mã OTP đã được gửi đến email. Vui lòng kiểm tra hộp thư!', true);
+                        switchMode('forgot_step2');
+                    } catch (err) {
+                        showAlert(err.message || 'Không thể gửi mã OTP.');
+                    } finally {
+                        loading.value = false;
+                    }
+                }
+
+                // Gửi lại mã OTP
+                async function handleResendOtp() {
+                    if (cooldownSeconds.value > 0) return;
+                    await handleSendOtp();
+                }
+
+                // 4. Quên mật khẩu - Bước 2: Xác nhận OTP & Đổi mật khẩu
+                async function handleResetPassword() {
+                    clearAlert();
+                    const otp = otpDigits.value.join('').trim();
+                    if (otp.length < 6) {
+                        showAlert('Vui lòng nhập đủ 6 chữ số của mã OTP!');
+                        return;
+                    }
+                    if (resetForm.newPassword !== resetForm.confirmPassword) {
+                        showAlert('Mật khẩu mới xác nhận không khớp!');
+                        return;
+                    }
+
+                    loading.value = true;
+                    try {
+                        const res = await Api.post('/api/auth/reset-password', {
+                            email: forgotForm.email.trim(),
+                            otp: otp,
+                            newPassword: resetForm.newPassword
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                            throw new Error(data.message || data.error || 'Đổi mật khẩu thất bại!');
+                        }
+                        showAlert(data.message || 'Đổi mật khẩu thành công! Bạn có thể đăng nhập ngay.', true);
+                        setTimeout(() => {
+                            loginForm.email = forgotForm.email;
+                            loginForm.password = '';
+                            switchMode('login');
+                        }, 1500);
+                    } catch (err) {
+                        showAlert(err.message || 'Xác thực OTP thất bại.');
+                    } finally {
+                        loading.value = false;
+                    }
+                }
+
+                // 5. Xử lý Google OAuth2 Sign-In
+                async function handleGoogleLoginResponse(googleResponse) {
+                    clearAlert();
+                    googleLoading.value = true;
+                    try {
+                        const res = await Api.post('/api/auth/google', {
+                            idToken: googleResponse.credential
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                            throw new Error(data.message || data.error || 'Xác thực Google thất bại!');
+                        }
+                        Auth.setSession(data.accessToken, data);
+                        showAlert('Đăng nhập Google thành công! Đang chuyển hướng...', true);
+                        setTimeout(redirectToTarget, 1000);
+                    } catch (err) {
+                        showAlert(err.message || 'Lỗi xác thực Google.');
+                    } finally {
+                        googleLoading.value = false;
+                    }
+                }
+
+                function redirectToTarget() {
+                    const redirectUrl = sessionStorage.getItem('redirectAfterLogin') || '/index.html';
+                    sessionStorage.removeItem('redirectAfterLogin');
+                    window.location.href = redirectUrl;
+                }
+
+                // Hàm khởi tạo và render nút Google với cơ chế thử lại (Retry Polling)
+                function renderGoogleButton() {
+                    if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+                        google.accounts.id.initialize({
+                            client_id: GOOGLE_CLIENT_ID,
+                            callback: handleGoogleLoginResponse,
+                            auto_select: false
+                        });
+
+                        const container = document.getElementById('googleBtn');
+                        if (container) {
+                            container.innerHTML = '';
+                            google.accounts.id.renderButton(
+                                container,
+                                {
+                                    theme: 'outline',
+                                    size: 'large',
+                                    text: 'signin_with',
+                                    shape: 'pill',
+                                    width: 320,
+                                    logo_alignment: 'left'
+                                }
+                            );
+                        }
+                        return true;
+                    }
+                    return false;
+                }
+
+                onMounted(() => {
+                    if (!renderGoogleButton()) {
+                        let attempts = 0;
+                        const pollGoogle = setInterval(() => {
+                            attempts++;
+                            if (renderGoogleButton() || attempts >= 40) {
+                                clearInterval(pollGoogle);
+                            }
+                        }, 150);
+                    }
+                });
+
+                return {
+                    authMode,
+                    loading,
+                    googleLoading,
+                    cooldownSeconds,
+                    alert,
+                    loginForm,
+                    registerForm,
+                    forgotForm,
+                    resetForm,
+                    otpDigits,
+                    switchMode,
+                    handleOtpKeyUp,
+                    handleOtpPaste,
+                    handleEmailLogin,
+                    handleRegister,
+                    handleSendOtp,
+                    handleResendOtp,
+                    handleResetPassword
+                };
             }
-        }
-
-        function redirectToTarget() {
-            const redirectUrl = sessionStorage.getItem('redirectAfterLogin') || '/index.html';
-            sessionStorage.removeItem('redirectAfterLogin');
-            window.location.href = redirectUrl;
-        }
-
-        function showError(msg) {
-            const errorAlert = document.getElementById('errorAlert');
-            const errorMessage = document.getElementById('errorMessage');
-            errorMessage.textContent = msg;
-            errorAlert.classList.remove('hidden');
-        }
-
-        function clearAlerts() {
-            document.getElementById('errorAlert').classList.add('hidden');
-            document.getElementById('successAlert').classList.add('hidden');
-        }
+        }).mount('#app');
     </script>
 </body>
 </html>
