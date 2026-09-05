@@ -1,13 +1,16 @@
 /**
- * VNPT Waybill Platform - API Client Module
- * Tự động gắn Token xác thực, xử lý lỗi toàn cục (401, 403)
+ * ==============================================================================
+ * VNPT WAYBILL PLATFORM - UNIFIED API CLIENT
+ * Tự Động Đính Kèm JWT Bearer Token, Xử Lý Lỗi Toàn Cục & 403 Interceptor
+ * ==============================================================================
  */
+
 const API_BASE_URL = window.location.port === '3000' ? '' : 'http://localhost:8080';
 
 const Api = {
     /**
      * Hàm gọi API chung
-     * @param {string} endpoint - Ví dụ: '/api/shipments', '/api/auth/google'
+     * @param {string} endpoint - Ví dụ: '/api/shipments', '/api/admin/roles'
      * @param {object} options - Cấu hình fetch (method, headers, body...)
      */
     async request(endpoint, options = {}) {
@@ -18,7 +21,7 @@ const Api = {
             ...(options.headers || {})
         };
 
-        // Tự động đính kèm Token JWT nếu đã đăng nhập
+        // 1. Tự động đính kèm Token JWT nếu người dùng đã đăng nhập
         if (typeof Auth !== 'undefined') {
             const token = Auth.getToken();
             if (token) {
@@ -32,30 +35,46 @@ const Api = {
                 headers
             });
 
-            // 401 Unauthorized: Token hết hạn hoặc không hợp lệ
+            // 2. HTTP 401 Unauthorized: Phiên làm việc hết hạn hoặc Token không hợp lệ
             if (response.status === 401) {
                 console.warn('[API 401] Token không hợp lệ hoặc đã hết hạn.');
                 if (typeof Auth !== 'undefined') {
                     Auth.clearSession();
                 }
-                // Chỉ đá về login nếu không phải đang ở trang login
+                
+                // Tránh loop nếu đang ở trang login
                 if (!window.location.pathname.includes('login.html')) {
-                    alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!');
-                    window.location.href = '/login.html';
+                    if (window.Utils && window.Utils.showToast) {
+                        window.Utils.showToast('Hết Hạn Phiên (401)', 'Phiên làm việc đã hết hạn. Đang chuyển về trang đăng nhập...', 'warning');
+                    }
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 1500);
                 }
                 return response;
             }
 
-            // 403 Forbidden: Người dùng không có quyền (RBAC từ chối)
+            // 3. HTTP 403 Forbidden: Bị từ chối bởi cơ chế phân quyền RBAC
             if (response.status === 403) {
                 console.warn('[API 403] Truy cập bị từ chối do không đủ quyền hạn RBAC.');
-                alert('Quyền truy cập bị từ chối: Tài khoản của bạn không có quyền thực hiện chức năng này!');
+                if (window.Utils && window.Utils.showToast) {
+                    window.Utils.showToast(
+                        'Truy Cập Bị Từ Chối (403)', 
+                        'Tài khoản của bạn không có quyền thực hiện chức năng này!', 
+                        'error'
+                    );
+                } else {
+                    alert('Quyền truy cập bị từ chối: Bạn không có quyền thực hiện thao tác này!');
+                }
                 return response;
             }
 
             return response;
         } catch (error) {
             console.error('[API Network Error]:', error);
+            if (window.Utils && window.Utils.showToast) {
+                window.Utils.showToast('Lỗi Kết Nối', 'Không thể kết nối đến máy chủ Gateway (8080)', 'error');
+            }
             throw error;
         }
     },
