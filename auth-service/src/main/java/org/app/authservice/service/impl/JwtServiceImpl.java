@@ -28,6 +28,15 @@ public class JwtServiceImpl implements JwtService {
     @Override
     public String generateToken(User user) {
         List<String> rolesName = user.getRoles().stream().map(role -> role.getName()).toList();
+
+        //Trích xuất toàn bộ Permissions từ các Roles (loại bỏ trùng lặp)
+        List<String> permissions = user.getRoles().stream()
+                .filter(role -> role.getPermissions() != null)
+                .flatMap(role -> role.getPermissions().stream())
+                .map(permission -> permission.getCode())
+                .distinct()
+                .toList();
+
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expirationTime);
 
@@ -36,6 +45,7 @@ public class JwtServiceImpl implements JwtService {
                 .claim("userId", user.getId())
                 .claim("roles", rolesName)
                 .claim("fullname", user.getFullName())
+                .claim("permissions", permissions)
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(getSigningKey())
