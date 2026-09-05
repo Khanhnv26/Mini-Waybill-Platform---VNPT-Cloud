@@ -3,19 +3,20 @@ package org.app.authservice.controller;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.app.authservice.dto.admin.*;
 import org.app.authservice.dto.request.*;
 import org.app.authservice.dto.response.AuthResponse;
+import org.app.authservice.entity.Permission;
 import org.app.authservice.entity.Role;
 import org.app.authservice.entity.User;
+import org.app.authservice.service.AdminService;
 import org.app.authservice.service.AuthService;
 import org.app.authservice.service.GoogleVerifyService;
 import org.app.authservice.service.JwtService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -26,6 +27,7 @@ public class AuthController {
     private final GoogleVerifyService googleVerifyService;
     private final AuthService authService;
     private final JwtService jwtService;
+    private final AdminService adminService;
 
     @PostMapping("/google")
     public ResponseEntity<AuthResponse> loginWithGoogle(@RequestBody GoogleLoginRequest loginRequest) throws Exception {
@@ -66,6 +68,15 @@ public class AuthController {
     }
 
     private AuthResponse buildResponse(User user, String jwt) {
+
+        List<String> permissions = user.getRoles() != null ?
+                user.getRoles().stream()
+                        .filter(role -> role.getPermissions() != null)
+                        .flatMap(role -> role.getPermissions().stream())
+                        .map(Permission::getCode)
+                        .distinct()
+                        .toList() : List.of();
+
         return AuthResponse.builder()
                 .accessToken(jwt)
                 .tokenType("Bearer")
@@ -74,9 +85,8 @@ public class AuthController {
                 .fullName(user.getFullName())
                 .avatarUrl(user.getAvatarUrl())
                 .roles(user.getRoles().stream().map(Role::getName).toList())
+                .permissions(permissions)
                 .build();
     }
-
-
 
 }
