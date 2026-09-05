@@ -796,6 +796,7 @@
                             v-for="role in rolesList" 
                             :key="role.id"
                             @click="toggleUserRole(role.name)"
+                            :title="editingUser?.roles?.includes('ROLE_ADMIN') && role.name === 'ROLE_ADMIN' ? 'Vai trò Quản trị hệ thống không thể gỡ bỏ khỏi tài khoản này' : ''"
                             :class="[
                                 'p-2.5 rounded-lg border transition flex items-center justify-between',
                                 editingUser?.roles?.includes('ROLE_ADMIN') && role.name === 'ROLE_ADMIN'
@@ -810,12 +811,6 @@
                                 <div class="flex items-center space-x-2">
                                     <span :class="['px-2 py-0.5 rounded-md text-xs font-bold border tracking-tight', Utils.getRoleBadgeInfo(role.name).class]">
                                         {{ Utils.getRoleBadgeInfo(role.name).label }}
-                                    </span>
-                                    <span 
-                                        v-if="editingUser?.roles?.includes('ROLE_ADMIN') && role.name === 'ROLE_ADMIN'"
-                                        class="text-[11px] font-semibold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200 flex items-center space-x-1"
-                                    >
-                                        <span>🔒 Cố định</span>
                                     </span>
                                 </div>
                                 <div class="text-[11px] text-slate-500 mt-1 leading-normal">{{ role.description }}</div>
