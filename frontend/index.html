@@ -15,6 +15,9 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Auth & Api Modules -->
+    <script src="js/auth.js"></script>
+    <script src="js/api.js"></script>
     
     <script>
         tailwind.config = {
@@ -117,10 +120,58 @@
                     </button>
                 </nav>
 
-                <!-- Gateway Status Badge -->
-                <div class="hidden sm:flex items-center space-x-2 px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-xs font-mono">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    <span class="text-slate-600 text-[11px]">Gateway :8080</span>
+                <!-- Gateway Status Badge & User Auth Profile -->
+                <div class="flex items-center space-x-3">
+                    <div class="hidden sm:flex items-center space-x-2 px-2.5 py-1 rounded-md bg-slate-50 border border-slate-200 text-xs font-mono">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        <span class="text-slate-600 text-[11px]">Gateway :8080</span>
+                    </div>
+
+                    <!-- Trường hợp CHƯA đăng nhập -->
+                    <div v-if="!currentUser">
+                        <a 
+                            href="/login.html"
+                            class="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg bg-vnpt-600 hover:bg-vnpt-700 text-white text-xs font-semibold shadow-sm shadow-vnpt-600/20 transition-all"
+                        >
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+                            </svg>
+                            <span>Đăng Nhập</span>
+                        </a>
+                    </div>
+
+                    <!-- Trường hợp ĐÃ đăng nhập -->
+                    <div v-else class="flex items-center space-x-2.5 bg-slate-50 border border-slate-200/90 py-1 px-2.5 rounded-full shadow-sm">
+                        <img 
+                            :src="currentUser.avatarUrl || 'https://www.gravatar.com/avatar/?d=mp'" 
+                            class="w-6 h-6 rounded-full border border-vnpt-500 object-cover shadow-sm"
+                            alt="Avatar"
+                        />
+                        <div class="flex flex-col text-left">
+                            <span class="text-[11px] font-bold text-slate-800 leading-tight max-w-[120px] truncate">{{ currentUser.fullName }}</span>
+                            <div class="flex items-center space-x-1">
+                                <span 
+                                    v-for="role in currentUser.roles" 
+                                    :key="role" 
+                                    :class="[
+                                        'text-[8px] font-mono font-bold px-1 rounded',
+                                        role === 'ROLE_ADMIN' ? 'bg-rose-100 text-rose-700 border border-rose-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                    ]"
+                                >
+                                    {{ role.replace('ROLE_', '') }}
+                                </span>
+                            </div>
+                        </div>
+                        <button 
+                            @click="handleLogout" 
+                            title="Đăng xuất"
+                            class="p-1 text-slate-400 hover:text-rose-600 transition-colors rounded-full hover:bg-slate-200/60"
+                        >
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -538,20 +589,50 @@
 </div>
 
 <script>
-const { createApp, ref, reactive, onMounted, nextTick } = Vue;
+const { createApp, ref, reactive, computed, onMounted, nextTick } = Vue;
 
 createApp({
     setup() {
         const GATEWAY_URL = window.location.port === '3000' ? '' : 'http://localhost:8080';
 
+        // Lấy thông tin user hiện tại từ Auth module (LocalStorage)
+        const currentUser = ref(typeof Auth !== 'undefined' ? Auth.getUser() : null);
+
+        const handleLogout = () => {
+            if (typeof Auth !== 'undefined') {
+                Auth.logout();
+            }
+        };
+
+        // Hàm gọi API tự động đính kèm Token xác thực JWT
+        const authFetch = (url, options = {}) => {
+            const token = typeof Auth !== 'undefined' ? Auth.getToken() : null;
+            const headers = {
+                'Content-Type': 'application/json',
+                ...(options.headers || {})
+            };
+            if (token) {
+                headers['Authorization'] = 'Bearer ' + token;
+            }
+            return fetch(url, { ...options, headers });
+        };
+
         const currentTab = ref('tracking');
-        const tabs = [
-            { id: 'tracking', name: 'Tra Cứu & Bản Đồ' },
-            { id: 'create', name: 'Tạo Vận Đơn' },
-            { id: 'customers', name: 'Khách Hàng' },
-            { id: 'notifications', name: 'Thông Báo' },
-            { id: 'audits', name: 'Kiểm Toán' }
-        ];
+        
+        // Phân quyền RBAC trên thanh Navigation: Chỉ Admin mới thấy Tab Kiểm Toán
+        const tabs = computed(() => {
+            const list = [
+                { id: 'tracking', name: 'Tra Cứu & Bản Đồ' },
+                { id: 'create', name: 'Tạo Vận Đơn' },
+                { id: 'customers', name: 'Khách Hàng' },
+                { id: 'notifications', name: 'Thông Báo' }
+            ];
+            // Nếu có quyền ROLE_ADMIN -> Thêm tab Kiểm Toán
+            if (currentUser.value && typeof Auth !== 'undefined' && Auth.hasRole('ROLE_ADMIN')) {
+                list.push({ id: 'audits', name: 'Kiểm Toán (Admin)' });
+            }
+            return list;
+        });
 
         // Toast State
         const toast = reactive({ show: false, title: '', message: '', type: 'success' });
@@ -786,7 +867,7 @@ createApp({
 
             isUpdatingStatus.value = true;
             try {
-                const res = await fetch(GATEWAY_URL + '/api/tracking/' + code + '/status', {
+                const res = await authFetch(GATEWAY_URL + '/api/tracking/' + code + '/status', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -819,12 +900,12 @@ createApp({
 
             isLoadingTracking.value = true;
             try {
-                const statusRes = await fetch(GATEWAY_URL + '/api/tracking/' + code);
+                const statusRes = await authFetch(GATEWAY_URL + '/api/tracking/' + code);
                 if (!statusRes.ok) throw new Error('Không tìm thấy thông tin vận đơn!');
                 const statusData = await statusRes.json();
                 currentShipmentStatus.value = statusData;
 
-                const historyRes = await fetch(GATEWAY_URL + '/api/tracking/' + code + '/history');
+                const historyRes = await authFetch(GATEWAY_URL + '/api/tracking/' + code + '/history');
                 if (historyRes.ok) {
                     const historyData = await historyRes.json();
                     trackingHistory.value = historyData;
@@ -847,7 +928,7 @@ createApp({
         const submitShipment = async () => {
             isSubmittingShipment.value = true;
             try {
-                const res = await fetch(GATEWAY_URL + '/api/shipments', {
+                const res = await authFetch(GATEWAY_URL + '/api/shipments', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formShipment)
@@ -903,11 +984,11 @@ createApp({
 
         const loadCustomers = async () => {
             try {
-                const res = await fetch(GATEWAY_URL + '/api/customers');
+                const res = await authFetch(GATEWAY_URL + '/api/customers');
                 if (res.ok) {
                     customersList.value = await res.json();
                 } else {
-                    const fallbackRes = await fetch(GATEWAY_URL + '/api/customers/1');
+                    const fallbackRes = await authFetch(GATEWAY_URL + '/api/customers/1');
                     if (fallbackRes.ok) {
                         customersList.value = [await fallbackRes.json()];
                     }
@@ -920,7 +1001,7 @@ createApp({
         const toggleCustomerStatus = async (customer) => {
             const newStatus = customer.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
             try {
-                const res = await fetch(GATEWAY_URL + '/api/customers/' + customer.id, {
+                const res = await authFetch(GATEWAY_URL + '/api/customers/' + customer.id, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -943,7 +1024,7 @@ createApp({
         const loadNotifications = async () => {
             if (!notiTrackingInput.value) return;
             try {
-                const res = await fetch(GATEWAY_URL + '/api/notifications/' + notiTrackingInput.value.trim());
+                const res = await authFetch(GATEWAY_URL + '/api/notifications/' + notiTrackingInput.value.trim());
                 if (res.ok) notificationsList.value = await res.json();
             } catch (e) {
                 showToast('Lỗi', 'Không tải được thông báo', 'error');
@@ -953,7 +1034,7 @@ createApp({
         const loadAudits = async () => {
             if (!auditTrackingInput.value) return;
             try {
-                const res = await fetch(GATEWAY_URL + '/api/audits/' + auditTrackingInput.value.trim());
+                const res = await authFetch(GATEWAY_URL + '/api/audits/' + auditTrackingInput.value.trim());
                 if (res.ok) auditList.value = await res.json();
             } catch (e) {
                 showToast('Lỗi', 'Không tải được kiểm toán', 'error');
@@ -1029,7 +1110,9 @@ createApp({
             formatNotificationTitle,
             formatNotificationMessage,
             formatTime,
-            formatJson
+            formatJson,
+            currentUser,
+            handleLogout
         };
     }
 }).mount('#app');

@@ -6,6 +6,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -14,15 +16,30 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String,String>> handleRuntimeException (RuntimeException ex) {
-        Map<String,String> error = new HashMap<>();
-        error.put("error",ex.getMessage());
+        Map<String, String> error = new HashMap<>();
+        error.put("errorCode", "BAD_REQUEST");
+        error.put("error", ex.getMessage());
+        error.put("timestamp", LocalDateTime.now().toString());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String,String>> handleValidateException(MethodArgumentNotValidException ex) {
         Map<String,String> errors = new HashMap<>();
-        ex.getBindingResult().getFieldErrors().forEach(error -> errors.put(error.getField(),error.getDefaultMessage()));
+        errors.put("errorCode", "VALIDATION_ERROR");
+        ex.getBindingResult().getFieldErrors().forEach(error ->
+                errors.put(error.getField(), error.getDefaultMessage()));
+        errors.put("timestamp", LocalDateTime.now().toString());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
+    }
+
+    @ExceptionHandler(DuplicateRequestException.class)
+    public ResponseEntity<Map<String,String>> handleDuplicateRequestException(DuplicateRequestException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("errorCode", "DUPLICATE_REQUEST");
+        error.put("requestId", ex.getId());
+        error.put("error", ex.getMessage());
+        error.put("timestamp", LocalDateTime.now().toString());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
 }

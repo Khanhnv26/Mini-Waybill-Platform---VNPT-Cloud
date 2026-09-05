@@ -18,7 +18,7 @@ public class JwtServiceImpl implements JwtService {
     @Value("${app.jwt.secret}")
     private String secretKey;
 
-    @Value("${app.jwt.expiration}")
+    @Value("${app.jwt.expiration-ms}")
     private Long expirationTime;
 
     private SecretKey getSigningKey() {

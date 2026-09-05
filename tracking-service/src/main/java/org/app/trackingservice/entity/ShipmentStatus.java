@@ -1,4 +1,4 @@
-package org.app.shipmentservice.entity;
+package org.app.trackingservice.entity;
 
 import java.util.Set;
 
@@ -13,7 +13,7 @@ public enum ShipmentStatus {
     DELIVERY_FAILED;
 
     public boolean canTransitionTo(ShipmentStatus nextStatus) {
-
+        
         if(nextStatus == null) {
             return false;
         }

@@ -4,7 +4,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.app.trackingservice.dto.event.ShipmentStatusUpdatedEvent;
 import org.app.trackingservice.dto.request.UpdateStatusRequest;
+import org.app.trackingservice.entity.ShipmentStatus;
 import org.app.trackingservice.entity.TrackingHistory;
+import org.app.trackingservice.exception.InvalidStateTransitionException;
 import org.app.trackingservice.repository.TrackingHistoryRepository;
 import org.app.trackingservice.service.TrackingService;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -75,7 +77,23 @@ public class TrackingServiceImpl implements TrackingService {
     public TrackingHistory updateStatus(String trackingCode, UpdateStatusRequest request) {
         log.info("[TRACKING] Cập nhật trạng thái thủ công cho đơn: {} -> {}", trackingCode, request.getStatus());
 
-        // 1. Lưu timeline vào SQL Server
+        Map<String,String> currentStatusMap = getCurrentStatus(trackingCode);
+        String currentStatusStr = currentStatusMap.get("currentStatus");
+        ShipmentStatus currentStatus = ShipmentStatus.valueOf(currentStatusStr);
+
+        ShipmentStatus newStatus;
+        try {
+            newStatus = ShipmentStatus.valueOf(request.getStatus().trim().toUpperCase());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new RuntimeException("Trạng thái mới không hợp lệ: " + request.getStatus());
+        }
+
+        if (!currentStatus.canTransitionTo(newStatus)) {
+            log.warn("[TRACKING] VI PHẠM LUỒNG TRẠNG THÁI: Đơn {} đang ở [{}] không thể chuyển sang [{}]",
+                    trackingCode, currentStatus, newStatus);
+            throw new InvalidStateTransitionException(currentStatus, newStatus);
+        }
+
         TrackingHistory history = TrackingHistory.builder()
                 .trackingCode(trackingCode)
                 .status(request.getStatus())
@@ -85,12 +103,12 @@ public class TrackingServiceImpl implements TrackingService {
                 .build();
         TrackingHistory saved = trackingHistoryRepository.save(history);
 
-        // 2. Cập nhật Redis Cache
+
         String redisKey = "shipment-status:" + trackingCode;
         redisTemplate.opsForValue().set(redisKey, request.getStatus());
         log.info("[TRACKING] Đã cập nhật Redis Cache cho đơn {} -> {}", trackingCode, request.getStatus());
 
-        // 3. Bắn Event lên Kafka topic 'tracking-status-events'
+
         ShipmentStatusUpdatedEvent event = ShipmentStatusUpdatedEvent.builder()
                 .trackingCode(trackingCode)
                 .status(request.getStatus())
