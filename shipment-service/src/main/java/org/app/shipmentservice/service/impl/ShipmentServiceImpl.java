@@ -7,6 +7,7 @@ import org.app.shipmentservice.dto.event.CreateShipmentEvent;
 import org.app.shipmentservice.dto.request.CreateShipmentRequest;
 import org.app.shipmentservice.dto.response.CustomerValidationResponse;
 import org.app.shipmentservice.entity.Shipment;
+import org.app.shipmentservice.exception.DuplicateRequestException;
 import org.app.shipmentservice.repository.ShipmentRepository;
 import org.app.shipmentservice.service.ShipmentService;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -39,10 +40,23 @@ public class ShipmentServiceImpl implements ShipmentService {
         Boolean isFirstRequest = redisTemplate.opsForValue().setIfAbsent(redisKey,"PROCESSING", Duration.ofMinutes(5));
 
         if (Boolean.FALSE.equals(isFirstRequest)) {
-            throw new RuntimeException("Yêu cầu đã được xử lý trước đó. Vui lòng không gửi lại yêu cầu.");
+
+            String existing = redisTemplate.opsForValue().get(redisKey);
+
+            if ("PROCESSING".equals(existing)) {
+                log.warn("[SHIPMENT] Request ID {} đang được xử lý dở dang, từ chối request trùng lặp!", request.getRequestId());
+                throw new DuplicateRequestException(request.getRequestId(),
+                        "Yêu cầu tạo đơn đang được xử lý. Vui lòng không bấm gửi lại liên tục!");
+            } else {
+                log.warn("[SHIPMENT] Request ID {} đã tạo đơn thành công trước đó với mã: {}", request.getRequestId(), existing);
+                throw new DuplicateRequestException(request.getRequestId(),
+                        "Đơn hàng của yêu cầu này đã được tạo thành công trước đó (Mã: " + existing + ")!");
+            }
+
         }
 
         log.info("Đang gọi service customer để xác thực thông tin khách hàng {}",request.getCustomerId());
+
         CustomerValidationResponse validationResponse = customerClient.validateCustomer(request.getCustomerId());
         if (validationResponse == null || !validationResponse.isValid()) {
             redisTemplate.delete(redisKey);

@@ -29,11 +29,11 @@ public class GoogleVerifyServiceImpl implements GoogleVerifyService {
         try {
             GoogleIdToken idToken = verifier.verify(idTokenString);
             if(idToken == null) {
-                throw new Exception("Invalid ID token");
+                throw new Exception("Mã xác thực Google ID Token không hợp lệ!");
             }
             return idToken.getPayload();
         } catch (Exception e) {
-            throw new Exception("Failed to verify ID token: " + e.getMessage());
+            throw new Exception("Lỗi xác thực Google ID Token: " + e.getMessage());
         }
     }
 }

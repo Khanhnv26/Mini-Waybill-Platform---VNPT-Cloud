@@ -41,7 +41,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             response.setHeader("Retry-After", String.valueOf(waitForRefill));
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"status\": 429, \"error\": \"User Limit Exceeded\", \"message\": \"Bạn đã gửi quá nhiều yêu cầu cá nhân. Vui lòng thử lại sau!\"}");
-            return; // DỪNG LẠI
+            return;
         }
 
         Bucket globalBucket = rateLimitService.resolveGlobalBucket();
@@ -54,7 +54,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             response.setHeader("Retry-After", String.valueOf(waitForRefill));
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"status\": 429, \"error\": \"System Overload\", \"message\": \"Hệ thống đang quá tải! Vui lòng chờ vài giây để phục vụ tiếp!\"}");
-            return; // DỪNG LẠI
+            return;
         }
 
 
