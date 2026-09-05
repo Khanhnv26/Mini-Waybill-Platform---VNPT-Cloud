@@ -97,7 +97,14 @@ public class AdminServiceImpl implements AdminService {
     public UserAdminResponse updateUserRoles(Long userId, UpdateUserRolesRequest request) {
         User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản với ID: " + userId));
 
-        Set<String> roleNames = request.getRoleNames() != null ? request.getRoleNames() : Set.of();
+        boolean wasAdmin = user.getRoles() != null && user.getRoles().stream().anyMatch(r -> "ROLE_ADMIN".equalsIgnoreCase(r.getName()));
+        Set<String> roleNames = request.getRoleNames() != null ? new HashSet<>(request.getRoleNames()) : new HashSet<>();
+
+
+        if (wasAdmin && !roleNames.contains("ROLE_ADMIN")) {
+            throw new RuntimeException("Không thể gỡ bỏ vai trò Quản trị hệ thống khỏi tài khoản này !");
+        }
+
         List<Role> matchedRoles = roleRepository.findByNameIn(roleNames);
         user.setRoles(new HashSet<>(matchedRoles));
         User savedUser = userRepository.save(user);
@@ -119,6 +126,13 @@ public class AdminServiceImpl implements AdminService {
     public UserAdminResponse updateUserStatus(Long userId, UpdateUserStatusRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản với ID: " + userId));
+
+
+        boolean isAdmin = user.getRoles() != null && user.getRoles().stream().anyMatch(r -> "ROLE_ADMIN".equalsIgnoreCase(r.getName()));
+        if (isAdmin && "BLOCKED".equalsIgnoreCase(request.getStatus())) {
+            throw new RuntimeException("Không được phép đình chỉ tài khoản Quản trị hệ thống !");
+        }
+
         user.setStatus(request.getStatus());
         User savedUser = userRepository.save(user);
         log.info("Admin đã đổi trạng thái tài khoản {} thành {}", user.getEmail(), request.getStatus());
