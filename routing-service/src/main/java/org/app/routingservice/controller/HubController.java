@@ -18,8 +18,9 @@ public class HubController {
     private final HubService hubService;
 
     @RequestMapping
-    ResponseEntity<List<Hub>> getAllHubs() {
+    public ResponseEntity<List<Hub>> getAllHubs() {
         return ResponseEntity.ok(hubService.getAllHubs());
     }
 
 }
+

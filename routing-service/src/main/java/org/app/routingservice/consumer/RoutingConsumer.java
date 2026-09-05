@@ -76,7 +76,7 @@ public class RoutingConsumer {
         List<Hub> hubs = hubRepository.findAll();
         String addressLower = address.toLowerCase();
         for (Hub hub : hubs) {
-            if(hub.getProvince() != null && hub.getProvince().toLowerCase().contains(addressLower)) {
+            if(hub.getProvince() != null && addressLower.contains(hub.getProvince().toLowerCase())) {
                 log.info("[ROUTING] Tìm thấy Hub phù hợp từ DB: {} ({}) cho địa chỉ '{}'", hub.getHubCode(), hub.getProvince(), address);
                 return hub.getHubCode();
             }

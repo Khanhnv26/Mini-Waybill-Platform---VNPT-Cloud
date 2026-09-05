@@ -4,8 +4,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.app.notificationservice.dto.event.CreateShipmentEvent;
 import org.app.notificationservice.dto.event.RouteAssignedEvent;
+import org.app.notificationservice.dto.event.SendEmailEvent;
 import org.app.notificationservice.entity.NotificationLog;
 import org.app.notificationservice.repository.NotificationRepository;
+import org.app.notificationservice.service.EmailService;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +19,7 @@ import java.time.LocalDateTime;
 public class NotificationConsumer {
 
     private final NotificationRepository notificationRepository;
+    private final EmailService emailService;
 
     @KafkaListener(topics = "shipment-events", groupId = "notification-group")
     public void handleShipmentCreated(CreateShipmentEvent event) {
@@ -80,5 +83,25 @@ public class NotificationConsumer {
 
         notificationRepository.save(noti);
         log.info("[NOTIFICATION] Đã lưu thông báo trạng thái mới cho đơn {}", event.getTrackingCode());
+    }
+
+    @KafkaListener(topics = "email-events", groupId = "notification-group")
+    public void handleSendEmailEvent(SendEmailEvent event) {
+        log.info("[NOTIFICATION] Nhận yêu cầu gửi email tới: {} | Loại: {}", event.getToEmail(), event.getType());
+
+        emailService.sendSimpleEmail(event.getToEmail(), event.getSubject(), event.getBody());
+
+        NotificationLog noti = NotificationLog.builder()
+                .trackingCode(event.getTrackingCode() != null ? event.getTrackingCode() : "AUTH_OTP")
+                .recipientPhone(event.getToEmail())
+                .type("EMAIL")
+                .title(event.getSubject())
+                .message(event.getBody())
+                .status("SENT")
+                .sentAt(LocalDateTime.now())
+                .build();
+
+        notificationRepository.save(noti);
+        log.info("[NOTIFICATION] Đã gửi và lưu log email cho đơn {}", event.getToEmail());
     }
 }
