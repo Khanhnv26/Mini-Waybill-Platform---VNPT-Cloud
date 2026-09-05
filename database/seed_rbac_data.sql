@@ -1,67 +1,63 @@
--- =========================================================================
+﻿-- =========================================================================
 -- HỆ THỐNG MINI WAYBILL PLATFORM
 -- SCRIPT KHỞI TẠO DỮ LIỆU PHÂN QUYỀN (RBAC SEED DATA)
 -- CƠ SỞ DỮ LIỆU: SQL Server (auth_db)
+--
+-- LƯU Ý QUAN TRỌNG VỀ ENCODING TIẾNG VIỆT TRÊN WINDOWS:
+-- sqlcmd mặc định dùng mã trang ANSI (CP1252/CP437). Khi chạy script bằng terminal,
+-- BẮT BUỘC thêm tham số -f 65001 để nạp chuẩn UTF-8 Unicode tiếng Việt:
+--   sqlcmd -S localhost -U sa -P sa -d auth_db -C -f 65001 -i database/seed_rbac_data.sql
 -- =========================================================================
 
 USE auth_db;
 GO
 
 -- -------------------------------------------------------------------------
--- 1. BỔ SUNG 15 QUYỀN HẠN CHI TIẾT (PERMISSIONS)
+-- 1. BỔ SUNG 15 QUYỀN HẠN CHI TIẾT (PERMISSIONS) VỚI CƠ CHẾ UPSERT
 -- -------------------------------------------------------------------------
 PRINT N'Đang khởi tạo danh mục Permissions...';
+GO
+
+CREATE OR ALTER PROCEDURE #UpsertPermission
+    @code VARCHAR(50),
+    @name NVARCHAR(100),
+    @module VARCHAR(100),
+    @description NVARCHAR(MAX)
+AS
+BEGIN
+    IF EXISTS (SELECT 1 FROM permissions WHERE code = @code)
+        UPDATE permissions SET name = @name, module = @module, description = @description WHERE code = @code;
+    ELSE
+        INSERT INTO permissions (code, name, module, description) VALUES (@code, @name, @module, @description);
+END;
+GO
 
 -- Phân hệ PROFILE
-IF NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'profile:read')
-    INSERT INTO permissions (code, name, module, description) VALUES ('profile:read', N'Xem thông tin cá nhân', 'PROFILE', N'Đọc profile, thông tin tài khoản đang đăng nhập');
-
-IF NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'profile:update')
-    INSERT INTO permissions (code, name, module, description) VALUES ('profile:update', N'Cập nhật thông tin', 'PROFILE', N'Đổi họ tên, số điện thoại, avatar');
-
-IF NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'password:change')
-    INSERT INTO permissions (code, name, module, description) VALUES ('password:change', N'Tự đổi mật khẩu', 'PROFILE', N'Đổi mật khẩu tài khoản chủ động');
+EXEC #UpsertPermission 'profile:read', N'Xem thông tin cá nhân', 'PROFILE', N'Đọc profile, thông tin tài khoản đang đăng nhập';
+EXEC #UpsertPermission 'profile:update', N'Cập nhật thông tin', 'PROFILE', N'Đổi họ tên, số điện thoại, avatar';
+EXEC #UpsertPermission 'password:change', N'Tự đổi mật khẩu', 'PROFILE', N'Đổi mật khẩu tài khoản chủ động';
 
 -- Phân hệ SHIPMENT
-IF NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'shipment:create')
-    INSERT INTO permissions (code, name, module, description) VALUES ('shipment:create', N'Tạo vận đơn mới', 'SHIPMENT', N'Gọi API tạo đơn kèm Idempotency-Key');
-
-IF NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'shipment:read_own')
-    INSERT INTO permissions (code, name, module, description) VALUES ('shipment:read_own', N'Xem đơn của chính mình', 'SHIPMENT', N'Chỉ xem danh sách và chi tiết các đơn do mình tạo');
-
-IF NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'shipment:read_all')
-    INSERT INTO permissions (code, name, module, description) VALUES ('shipment:read_all', N'Xem toàn bộ đơn hàng', 'SHIPMENT', N'Xem đơn của tất cả khách hàng trên hệ thống');
+EXEC #UpsertPermission 'shipment:create', N'Tạo vận đơn mới', 'SHIPMENT', N'Gọi API tạo đơn kèm Idempotency-Key';
+EXEC #UpsertPermission 'shipment:read_own', N'Xem đơn của chính mình', 'SHIPMENT', N'Chỉ xem danh sách và chi tiết các đơn do mình tạo';
+EXEC #UpsertPermission 'shipment:read_all', N'Xem toàn bộ đơn hàng', 'SHIPMENT', N'Xem đơn của tất cả khách hàng trên hệ thống';
 
 -- Phân hệ TRACKING
-IF NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'tracking:read_public')
-    INSERT INTO permissions (code, name, module, description) VALUES ('tracking:read_public', N'Tra cứu nhanh công khai', 'TRACKING', N'Tra cứu lộ trình đã che mờ thông tin cá nhân');
-
-IF NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'tracking:read_full')
-    INSERT INTO permissions (code, name, module, description) VALUES ('tracking:read_full', N'Tra cứu chi tiết đầy đủ', 'TRACKING', N'Xem đầy đủ số điện thoại và địa chỉ giao nhận');
-
-IF NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'tracking:update_hub')
-    INSERT INTO permissions (code, name, module, description) VALUES ('tracking:update_hub', N'Quét mã trạm kho', 'TRACKING', N'Cập nhật trạng thái PICKED_UP và IN_TRANSIT');
-
-IF NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'tracking:update_delivery')
-    INSERT INTO permissions (code, name, module, description) VALUES ('tracking:update_delivery', N'Báo phát giao hàng', 'TRACKING', N'Cập nhật trạng thái DELIVERED và DELIVERY_FAILED');
+EXEC #UpsertPermission 'tracking:read_public', N'Tra cứu nhanh công khai', 'TRACKING', N'Tra cứu lộ trình đã che mờ thông tin cá nhân';
+EXEC #UpsertPermission 'tracking:read_full', N'Tra cứu chi tiết đầy đủ', 'TRACKING', N'Xem đầy đủ số điện thoại và địa chỉ giao nhận';
+EXEC #UpsertPermission 'tracking:update_hub', N'Quét mã trạm kho', 'TRACKING', N'Cập nhật trạng thái PICKED_UP và IN_TRANSIT';
+EXEC #UpsertPermission 'tracking:update_delivery', N'Báo phát giao hàng', 'TRACKING', N'Cập nhật trạng thái DELIVERED và DELIVERY_FAILED';
 
 -- Phân hệ AUDIT
-IF NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'audit:read')
-    INSERT INTO permissions (code, name, module, description) VALUES ('audit:read', N'Tra cứu nhật ký Audit', 'AUDIT', N'Xem chuỗi event Kafka theo mã vận đơn');
+EXEC #UpsertPermission 'audit:read', N'Tra cứu nhật ký Audit', 'AUDIT', N'Xem chuỗi event Kafka theo mã vận đơn';
 
 -- Phân hệ USER
-IF NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'user:read')
-    INSERT INTO permissions (code, name, module, description) VALUES ('user:read', N'Xem danh sách user', 'USER', N'Xem danh sách người dùng, phân trang và tìm kiếm');
-
-IF NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'user:update_status')
-    INSERT INTO permissions (code, name, module, description) VALUES ('user:update_status', N'Khóa/Mở tài khoản', 'USER', N'Chuyển trạng thái ACTIVE / LOCKED');
-
-IF NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'user:assign_role')
-    INSERT INTO permissions (code, name, module, description) VALUES ('user:assign_role', N'Gán vai trò tài khoản', 'USER', N'Cập nhật danh sách Role cho người dùng');
+EXEC #UpsertPermission 'user:read', N'Xem danh sách user', 'USER', N'Xem danh sách người dùng, phân trang và tìm kiếm';
+EXEC #UpsertPermission 'user:update_status', N'Khóa/Mở tài khoản', 'USER', N'Chuyển trạng thái ACTIVE / BLOCKED';
+EXEC #UpsertPermission 'user:assign_role', N'Gán vai trò tài khoản', 'USER', N'Cập nhật danh sách Role cho người dùng';
 
 -- Phân hệ ROUTING
-IF NOT EXISTS (SELECT 1 FROM permissions WHERE code = 'routing:manage')
-    INSERT INTO permissions (code, name, module, description) VALUES ('routing:manage', N'Quản lý tuyến & Hub', 'ROUTING', N'Cấu hình danh mục bưu cục, tọa độ và tuyến giao');
+EXEC #UpsertPermission 'routing:manage', N'Quản lý tuyến & Hub', 'ROUTING', N'Cấu hình danh mục bưu cục, tọa độ và tuyến giao';
 
 PRINT N'Khởi tạo Permissions hoàn tất!';
 GO
@@ -93,6 +89,7 @@ GO
 -- 3. GÁN PERMISSIONS CHO TỪNG ROLE (BẢNG role_permissions)
 -- -------------------------------------------------------------------------
 PRINT N'Đang gán quyền cho các Roles...';
+GO
 
 -- Thủ tục gán quyền an toàn (tránh trùng lặp)
 CREATE OR ALTER PROCEDURE #AddPermissionToRole 
@@ -175,6 +172,11 @@ BEGIN
         GETDATE()
     );
     PRINT N'Đã tạo tài khoản admin@waybill.vn';
+END
+ELSE
+BEGIN
+    UPDATE users SET full_name = N'Quản Trị Viên Hệ Thống' WHERE email = 'admin@waybill.vn';
+    PRINT N'Đã cập nhật họ tên chuẩn cho admin@waybill.vn';
 END
 
 -- Gán ROLE_ADMIN cho tài khoản admin@waybill.vn

@@ -41,9 +41,12 @@ const Auth = {
             const parts = token.split('.');
             if (parts.length !== 3) return null;
             
-            // Xử lý Base64Url sang Base64 chuẩn
+            // Xử lý Base64Url sang Base64 chuẩn kèm padding an toàn
             const base64Url = parts[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            while (base64.length % 4) {
+                base64 += '=';
+            }
             
             // Hỗ trợ tiếng Việt UTF-8 chuẩn xác
             const jsonPayload = decodeURIComponent(
