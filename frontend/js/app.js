@@ -24,19 +24,19 @@
                 },
                 { 
                     id: 'shipment', 
-                    name: 'Tạo Vận Đơn', 
+                    name: 'Khởi Tạo Vận Đơn', 
                     component: 'ShipmentView', 
                     permission: 'shipment:create' // Khách hàng & Admin
                 },
                 { 
                     id: 'customers', 
-                    name: 'Quản Lý Khách Hàng', 
+                    name: 'Danh Bạ Khách Hàng', 
                     component: 'CustomerView', 
                     permission: 'user:read' // CS & Admin
                 },
                 { 
                     id: 'rbac', 
-                    name: 'Quản Trị Phân Quyền', 
+                    name: 'Quản Trị Hệ Thống & RBAC', 
                     component: 'AdminRbacView', 
                     permission: 'user:assign_role' // Chỉ Admin (hoặc có quyền assign_role)
                 }

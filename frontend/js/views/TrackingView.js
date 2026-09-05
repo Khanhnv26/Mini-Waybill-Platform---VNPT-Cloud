@@ -178,10 +178,10 @@
                         </button>
                     </div>
 
-                    <div v-if="currentShipment" class="flex items-center space-x-2 text-xs">
+                    <div v-if="currentShipment" class="flex items-center space-x-2 text-sm">
                         <span class="text-slate-500 font-medium">Trạng thái:</span>
-                        <span :class="['px-2.5 py-1 rounded-full font-bold border text-[10px] font-mono inline-flex items-center space-x-1', Utils.getStatusBadgeClass(currentShipment.status)]">
-                            <span class="w-1.5 h-1.5 rounded-full bg-current"></span>
+                        <span :class="['px-3 py-1 rounded-full font-semibold border text-xs inline-flex items-center space-x-1.5', Utils.getStatusBadgeClass(currentShipment.status)]">
+                            <span class="w-2 h-2 rounded-full bg-current"></span>
                             <span>{{ Utils.formatStatusText(currentShipment.status) }}</span>
                         </span>
                     </div>
@@ -254,12 +254,12 @@
                         </div>
 
                         <!-- Khu vực thao tác nghiệp vụ bưu cục (Được bảo vệ nghiêm ngặt bằng RBAC) -->
-                        <div v-if="currentShipment && canOperate" class="b2b-card bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2.5 text-xs">
-                            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-                                <span class="text-[11px] font-extrabold text-slate-800 uppercase tracking-wider">
+                        <div v-if="currentShipment && canOperate" class="b2b-card bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3 text-xs sm:text-sm">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                                <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">
                                     Tác Nghiệp Bưu Cục
                                 </span>
-                                <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                <span class="px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                                     Nghiệp Vụ Nội Bộ
                                 </span>
                             </div>
@@ -269,7 +269,7 @@
                                 <button 
                                     @click="updateOperationalStatus('PICKED_UP', 'WAREHOUSE', 'Đã lấy hàng tại địa chỉ gửi')" 
                                     :disabled="isUpdating || !canUpdateHub" 
-                                    class="px-2.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-[11px] font-semibold transition disabled:opacity-40"
+                                    class="px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-semibold transition disabled:opacity-40"
                                     title="Dành cho Thủ kho Hub"
                                 >
                                     Đã Lấy Hàng
@@ -320,35 +320,35 @@
                         <button 
                             @click="activeSubtab = 'history'" 
                             :class="[
-                                'py-3 px-4 text-xs font-bold border-b-2 transition flex items-center space-x-1.5', 
+                                'py-3 px-4 text-sm font-bold border-b-2 transition flex items-center space-x-2', 
                                 activeSubtab === 'history' ? 'border-blue-600 text-blue-600 bg-white rounded-t-lg' : 'border-transparent text-slate-500 hover:text-slate-800'
                             ]"
                         >
                             <span>Lịch Sử Luân Chuyển</span>
-                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-blue-100 text-blue-700 font-mono">{{ trackingHistory.length }}</span>
+                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">{{ trackingHistory.length }}</span>
                         </button>
 
                         <button 
                             v-if="canReadAudit"
                             @click="activeSubtab = 'audit'" 
                             :class="[
-                                'py-3 px-4 text-xs font-bold border-b-2 transition flex items-center space-x-1.5', 
+                                'py-3 px-4 text-sm font-bold border-b-2 transition flex items-center space-x-2', 
                                 activeSubtab === 'audit' ? 'border-blue-600 text-blue-600 bg-white rounded-t-lg' : 'border-transparent text-slate-500 hover:text-slate-800'
                             ]"
                         >
                             <span>Nhật Ký Tác Nghiệp (Audit)</span>
-                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-100 text-rose-700 font-mono">{{ auditList.length }}</span>
+                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-700">{{ auditList.length }}</span>
                         </button>
 
                         <button 
                             @click="activeSubtab = 'notification'" 
                             :class="[
-                                'py-3 px-4 text-xs font-bold border-b-2 transition flex items-center space-x-1.5', 
+                                'py-3 px-4 text-sm font-bold border-b-2 transition flex items-center space-x-2', 
                                 activeSubtab === 'notification' ? 'border-blue-600 text-blue-600 bg-white rounded-t-lg' : 'border-transparent text-slate-500 hover:text-slate-800'
                             ]"
                         >
                             <span>Thông Báo Gửi Khách</span>
-                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-700 font-mono">{{ notificationList.length }}</span>
+                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-200 text-slate-700">{{ notificationList.length }}</span>
                         </button>
                     </div>
 
@@ -368,7 +368,7 @@
                                     <tr v-for="(h, idx) in trackingHistory" :key="idx">
                                         <td class="font-mono text-slate-500 whitespace-nowrap text-xs">{{ Utils.formatTime(h.timestamp) }}</td>
                                         <td>
-                                            <span :class="['px-2 py-0.5 rounded-full text-[10px] font-bold border font-mono', Utils.getStatusBadgeClass(h.status)]">
+                                            <span :class="['px-2.5 py-1 rounded-full text-xs font-semibold border', Utils.getStatusBadgeClass(h.status)]">
                                                 {{ Utils.formatStatusText(h.status) }}
                                             </span>
                                         </td>

@@ -191,6 +191,9 @@
             } catch (e) {
                 const targetUser = FALLBACK_USERS.find(u => u.id === Number(userId));
                 if (targetUser) {
+                    if (targetUser.roles && targetUser.roles.includes('ROLE_ADMIN') && !roleNames.includes('ROLE_ADMIN')) {
+                        throw new Error('Không được phép tước quyền Quản trị hệ thống của tài khoản này!');
+                    }
                     targetUser.roles = [...roleNames];
                     return targetUser;
                 }
@@ -216,6 +219,9 @@
             } catch (e) {
                 const targetUser = FALLBACK_USERS.find(u => u.id === Number(userId));
                 if (targetUser) {
+                    if (targetUser.roles && targetUser.roles.includes('ROLE_ADMIN') && status === 'BLOCKED') {
+                        throw new Error('Không thể đình chỉ tài khoản Quản trị hệ thống!');
+                    }
                     targetUser.status = status;
                     return targetUser;
                 }

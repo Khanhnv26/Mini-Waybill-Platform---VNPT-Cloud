@@ -31,51 +31,63 @@
         }, 4000);
     };
 
-    // Chuẩn hóa thông tin hiển thị của từng Vai Trò (Role)
+    // Chuẩn hóa danh xưng vai trò (Roles) theo chuẩn danh mục Bưu chính VNPT
     const getRoleBadgeInfo = (roleName) => {
         switch (roleName) {
             case 'ROLE_ADMIN':
                 return {
-                    label: 'Quản Trị Viên',
+                    label: 'Quản Trị Hệ Thống',
                     code: 'ADMIN',
                     class: 'bg-rose-50 text-rose-700 border-rose-200',
                     dotClass: 'bg-rose-500'
                 };
             case 'ROLE_CS':
                 return {
-                    label: 'Chăm Sóc KH',
-                    code: 'CS',
+                    label: 'Điều Hành & CSKH',
+                    code: 'CSKH',
                     class: 'bg-purple-50 text-purple-700 border-purple-200',
                     dotClass: 'bg-purple-500'
                 };
             case 'ROLE_HUB_OPERATOR':
                 return {
-                    label: 'Thủ Kho Hub',
-                    code: 'HUB',
+                    label: 'Kiểm Soát Hub Bưu Cục',
+                    code: 'THỦ KHO',
                     class: 'bg-indigo-50 text-indigo-700 border-indigo-200',
                     dotClass: 'bg-indigo-500'
                 };
             case 'ROLE_SHIPPER':
                 return {
-                    label: 'Bưu Tá Phát',
-                    code: 'SHIPPER',
+                    label: 'Bưu Tá Phát Hàng',
+                    code: 'BƯU TÁ',
                     class: 'bg-amber-50 text-amber-700 border-amber-200',
                     dotClass: 'bg-amber-500'
                 };
             case 'ROLE_CUSTOMER':
                 return {
-                    label: 'Khách Hàng',
-                    code: 'CUSTOMER',
+                    label: 'Chủ Hàng / Ký Gửi',
+                    code: 'CHỦ HÀNG',
                     class: 'bg-blue-50 text-blue-700 border-blue-200',
                     dotClass: 'bg-blue-500'
                 };
             default:
                 return {
-                    label: roleName ? roleName.replace('ROLE_', '') : 'KHÁCH',
+                    label: roleName ? roleName.replace('ROLE_', '') : 'KHÁCH VÃNG LAI',
                     code: roleName || 'GUEST',
                     class: 'bg-slate-50 text-slate-600 border-slate-200',
                     dotClass: 'bg-slate-400'
                 };
+        }
+    };
+
+    // Chuẩn hóa tên Module phân quyền nghiệp vụ
+    const formatModuleName = (moduleCode) => {
+        switch (moduleCode) {
+            case 'SHIPMENT': return 'Quản Trị Bưu Gửi & Vận Đơn';
+            case 'TRACKING': return 'Giám Sát Lộ Trình & Tác Nghiệp Trạm';
+            case 'USER': return 'Định Danh & Phân Quyền Truy Cập';
+            case 'ROUTING': return 'Mạng Lưới Bưu Cục & Tuyến Luân Chuyển';
+            case 'AUDIT': return 'Nhật Ký Kiểm Toán Tác Nghiệp';
+            default: return moduleCode || 'Chung';
         }
     };
 
@@ -157,6 +169,7 @@
         toastState,
         showToast,
         getRoleBadgeInfo,
+        formatModuleName,
         formatStatusText,
         getStatusBadgeClass,
         formatTime,
