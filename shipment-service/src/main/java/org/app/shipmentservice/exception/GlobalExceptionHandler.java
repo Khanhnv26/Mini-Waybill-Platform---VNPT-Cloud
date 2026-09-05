@@ -42,4 +42,13 @@ public class GlobalExceptionHandler {
         error.put("timestamp", LocalDateTime.now().toString());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<Map<String,String>> handleForbiddenException(ForbiddenException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("errorCode", "FORBIDDEN");
+        error.put("error", ex.getMessage());
+        error.put("timestamp", LocalDateTime.now().toString());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+    }
 }

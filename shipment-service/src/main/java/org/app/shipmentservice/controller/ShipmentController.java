@@ -19,22 +19,30 @@ public class ShipmentController {
     private final ShipmentService shipmentService;
 
     @PostMapping
-    public ResponseEntity<Shipment> createShipment(@Valid @RequestBody CreateShipmentRequest request) {
+    public ResponseEntity<Shipment> createShipment(
+            @Valid @RequestBody CreateShipmentRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) String currentUserId,
+            @RequestHeader(value = "X-User-Permissions",required = false) String permissions
+    ){
 
-        Shipment shipment = shipmentService.createShipment(request);
-
+        Shipment shipment = shipmentService.createShipment(request, currentUserId, permissions);
         return ResponseEntity.status(HttpStatus.CREATED).body(shipment);
     }
 
     @GetMapping("/{code}")
-    public ResponseEntity<Shipment> getShipmentByCode(@PathVariable("code") String code) {
-        Shipment shipment = shipmentService.getShipmentByTrackCode(code);
+    public ResponseEntity<Shipment> getShipmentByCode(
+            @PathVariable("code") String code,
+            @RequestHeader(value = "X-User-Id", required = false) String currentUserId,
+            @RequestHeader(value = "X-User-Permissions",required = false) String permissions) {
+        Shipment shipment = shipmentService.getShipmentByTrackCode(code, currentUserId, permissions);
         return ResponseEntity.ok(shipment);
     }
 
     @GetMapping
-    public ResponseEntity<List<Shipment>> getAllShipments(@RequestParam(name = "customerId") Long customerId) {
-        List<Shipment> shipments = shipmentService.getShipmentByCustomerId(customerId);
+    public ResponseEntity<List<Shipment>> getAllShipments(@RequestParam(name = "customerId") Long customerId,
+                                                          @RequestHeader(value = "X-User-Id", required = false) String currentUserId,
+                                                          @RequestHeader(value = "X-User-Permissions",required = false) String permissions) {
+        List<Shipment> shipments = shipmentService.getShipmentByCustomerId(customerId, currentUserId, permissions);
         return ResponseEntity.ok(shipments);
     }
 }
