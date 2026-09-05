@@ -1,6 +1,6 @@
 package org.app.authservice.repository;
 
-import org.app.authservice.entity.Role;
+import org.app.authservice.entity.Permission;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -9,8 +9,8 @@ import java.util.Optional;
 import java.util.Set;
 
 @Repository
-public interface RoleRepository extends JpaRepository<Role, Long> {
+public interface PermissionRepository extends JpaRepository<Permission, Long> {
+    Optional<Permission> findByCode(String code);
+    List<Permission> findByCodeIn(Set<String> codes);
 
-    Optional<Role> findByName(String name);
-    List<Role> findByNameIn(Set<String> names);
 }

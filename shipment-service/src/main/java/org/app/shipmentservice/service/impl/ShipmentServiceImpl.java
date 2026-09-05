@@ -8,6 +8,7 @@ import org.app.shipmentservice.dto.request.CreateShipmentRequest;
 import org.app.shipmentservice.dto.response.CustomerValidationResponse;
 import org.app.shipmentservice.entity.Shipment;
 import org.app.shipmentservice.exception.DuplicateRequestException;
+import org.app.shipmentservice.exception.ForbiddenException;
 import org.app.shipmentservice.repository.ShipmentRepository;
 import org.app.shipmentservice.service.ShipmentService;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -28,8 +29,15 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final KafkaTemplate<String,Object> kafkaTemplate;
 
     @Override
-    public Shipment createShipment(CreateShipmentRequest request) {
+    public Shipment createShipment(CreateShipmentRequest request, String currentUserId, String permissions) {
 
+        if (permissions != null && !permissions.contains("shipment:create")) {
+            throw new ForbiddenException("Người dùng không có quyền tạo đơn hàng!");
+        }
+
+        if (currentUserId != null && !currentUserId.isBlank())  {
+            request.setCustomerId(Long.parseLong(currentUserId));
+        }
 
         if (request.getRequestId() == null || request.getRequestId().isBlank()) {
             String requestId = UUID.randomUUID().toString();
@@ -101,14 +109,26 @@ public class ShipmentServiceImpl implements ShipmentService {
     }
 
     @Override
-    public Shipment getShipmentByTrackCode(String trackCode) {
-        return shipmentRepository.findShipmentByTrackingCode(trackCode).orElseThrow(
-                () -> new RuntimeException("Shipment not found with tracking code: " + trackCode));
+    public Shipment getShipmentByTrackCode(String trackCode, String currentUserId, String permissions) {
+        Shipment shipment =  shipmentRepository.findShipmentByTrackingCode(trackCode).orElseThrow(() ->
+                new RuntimeException("Không tìm thấy đơn hàng: " + trackCode));
 
+        if (permissions != null && !permissions.contains("shipment:read_all")) {
+            if (currentUserId != null && !shipment.getCustomerId().toString().equals(currentUserId)) {
+                throw new ForbiddenException("Người dùng không có quyền xem thông tin đơn hàng!");
+            }
+        }
+        return shipment;
     }
 
     @Override
-    public List<Shipment> getShipmentByCustomerId(Long customerId) {
+    public List<Shipment> getShipmentByCustomerId(Long customerId, String currentUserId, String permissions) {
+
+        if (permissions != null && !permissions.contains("shipment:read_all")) {
+            if (currentUserId != null && !customerId.toString().equals(currentUserId)) {
+                throw new ForbiddenException("Bạn không được phép xem trộm danh sách đơn hàng của khách khác!");
+            }
+        }
 
         CustomerValidationResponse validationResponse = customerClient.validateCustomer(customerId);
         if (validationResponse == null || !validationResponse.isValid()) {
@@ -117,6 +137,6 @@ public class ShipmentServiceImpl implements ShipmentService {
         }
 
         return shipmentRepository.findAllByCustomerId(customerId).orElseThrow(
-                () -> new RuntimeException("Shipment not found with customer ID: " + customerId));
+                () -> new RuntimeException("Không tìm thấy đơn hàng của khách hàng: " + customerId));
     }
 }

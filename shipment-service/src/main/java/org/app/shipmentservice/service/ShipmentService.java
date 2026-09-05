@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface ShipmentService {
 
-    Shipment createShipment(CreateShipmentRequest request);
-    Shipment getShipmentByTrackCode(String trackCode);
-    List<Shipment> getShipmentByCustomerId(Long customerId);
+    Shipment createShipment(CreateShipmentRequest request, String currentUserId, String permissions);
+    Shipment getShipmentByTrackCode(String trackCode, String currentUserId, String permissions);
+    List<Shipment> getShipmentByCustomerId(Long customerId, String currentUserId, String permissions);
 }

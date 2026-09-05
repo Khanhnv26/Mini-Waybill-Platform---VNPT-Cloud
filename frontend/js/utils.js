@@ -1,6 +1,8 @@
 /**
- * VNPT CLOUD - HỆ THỐNG QUẢN TRỊ BƯU CHÍNH & VẬN ĐƠN
- * Bộ tiện ích chuẩn hóa hiển thị và format nghiệp vụ bưu chính
+ * ==============================================================================
+ * VNPT CLOUD - UTILITIES & FORMATTERS
+ * Bộ Tiện Ích Chuẩn Hóa Giao Diện Doanh Nghiệp, Toast Hệ Thống & Format Nghiệp Vụ
+ * ==============================================================================
  */
 
 (function () {
@@ -11,15 +13,82 @@
         show: false,
         title: '',
         message: '',
-        type: 'success'
+        type: 'success', // 'success' | 'error' | 'warning' | 'info'
+        timer: null
     });
 
     const showToast = (title, message, type = 'success') => {
+        if (toastState.timer) {
+            clearTimeout(toastState.timer);
+        }
         toastState.title = title;
         toastState.message = message;
         toastState.type = type;
         toastState.show = true;
-        setTimeout(() => { toastState.show = false; }, 4000);
+
+        toastState.timer = setTimeout(() => {
+            toastState.show = false;
+        }, 4000);
+    };
+
+    // Chuẩn hóa danh xưng vai trò (Roles) theo chuẩn danh mục Bưu chính VNPT
+    const getRoleBadgeInfo = (roleName) => {
+        switch (roleName) {
+            case 'ROLE_ADMIN':
+                return {
+                    label: 'Quản Trị Hệ Thống',
+                    code: 'ADMIN',
+                    class: 'bg-rose-50 text-rose-700 border-rose-200',
+                    dotClass: 'bg-rose-500'
+                };
+            case 'ROLE_CS':
+                return {
+                    label: 'Điều Hành & CSKH',
+                    code: 'CSKH',
+                    class: 'bg-purple-50 text-purple-700 border-purple-200',
+                    dotClass: 'bg-purple-500'
+                };
+            case 'ROLE_HUB_OPERATOR':
+                return {
+                    label: 'Kiểm Soát Hub Bưu Cục',
+                    code: 'THỦ KHO',
+                    class: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                    dotClass: 'bg-indigo-500'
+                };
+            case 'ROLE_SHIPPER':
+                return {
+                    label: 'Bưu Tá Phát Hàng',
+                    code: 'BƯU TÁ',
+                    class: 'bg-amber-50 text-amber-700 border-amber-200',
+                    dotClass: 'bg-amber-500'
+                };
+            case 'ROLE_CUSTOMER':
+                return {
+                    label: 'Chủ Hàng / Ký Gửi',
+                    code: 'CHỦ HÀNG',
+                    class: 'bg-blue-50 text-blue-700 border-blue-200',
+                    dotClass: 'bg-blue-500'
+                };
+            default:
+                return {
+                    label: roleName ? roleName.replace('ROLE_', '') : 'KHÁCH VÃNG LAI',
+                    code: roleName || 'GUEST',
+                    class: 'bg-slate-50 text-slate-600 border-slate-200',
+                    dotClass: 'bg-slate-400'
+                };
+        }
+    };
+
+    // Chuẩn hóa tên Module phân quyền nghiệp vụ
+    const formatModuleName = (moduleCode) => {
+        switch (moduleCode) {
+            case 'SHIPMENT': return 'Quản Trị Bưu Gửi & Vận Đơn';
+            case 'TRACKING': return 'Giám Sát Lộ Trình & Tác Nghiệp Trạm';
+            case 'USER': return 'Định Danh & Phân Quyền Truy Cập';
+            case 'ROUTING': return 'Mạng Lưới Bưu Cục & Tuyến Luân Chuyển';
+            case 'AUDIT': return 'Nhật Ký Kiểm Toán Tác Nghiệp';
+            default: return moduleCode || 'Chung';
+        }
     };
 
     // Chuẩn hóa trạng thái bưu gửi theo quy chuẩn Bưu chính Quốc gia
@@ -39,7 +108,7 @@
         }
     };
 
-    // Chuẩn hóa màu sắc trạng thái
+    // Chuẩn hóa màu sắc trạng thái bưu gửi
     const getStatusBadgeClass = (status) => {
         switch (status) {
             case 'CREATED':
@@ -66,7 +135,7 @@
     const formatTime = (ts) => {
         if (!ts) return '';
         const d = new Date(ts);
-        return d.toLocaleTimeString('vi-VN') + ' ' + d.toLocaleDateString('vi-VN');
+        return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + d.toLocaleDateString('vi-VN');
     };
 
     // Format tiền tệ Việt Nam
@@ -99,6 +168,8 @@
     window.Utils = {
         toastState,
         showToast,
+        getRoleBadgeInfo,
+        formatModuleName,
         formatStatusText,
         getStatusBadgeClass,
         formatTime,

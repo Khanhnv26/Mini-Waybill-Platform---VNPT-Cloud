@@ -3,96 +3,164 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VNPT Cloud - Hệ Thống Tiếp Nhận & Điều Phối Bưu Gửi</title>
+    <title>VNPT Waybill Platform - Hệ Thống Điều Phối & Quản Trị Vận Đơn Bưu Chính</title>
     
-    <!-- Fonts -->
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Inter"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+                    },
+                    colors: {
+                        vnpt: {
+                            50: '#eef6ff',
+                            100: '#d9ecff',
+                            200: '#bcdfff',
+                            500: '#0066cc',
+                            600: '#0055bb',
+                            700: '#004488',
+                            800: '#003366',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     
     <!-- Leaflet CSS & JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-    <!-- Custom B2B Styles -->
+    <!-- Custom Enterprise B2B Styles -->
     <link rel="stylesheet" href="css/style.css" />
 
     <!-- Vue 3 CDN -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 </head>
-<body class="bg-[#f8fafc] text-slate-900 antialiased min-h-full flex flex-col selection:bg-blue-600 selection:text-white">
+<body class="bg-[#f8fafc] text-slate-900 antialiased min-h-full flex flex-col selection:bg-blue-600 selection:text-white font-sans">
 
-<div id="app" v-cloak class="flex flex-col flex-1">
-    <!-- MASTER HEADER SHELL -->
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+<div id="app" v-cloak class="flex flex-col min-h-screen">
+    <!-- MASTER HEADER SHELL (Phong Cách Lấy Cảm Hứng Từ Login Portal) -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm backdrop-blur-md bg-white/95">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
+            <div class="flex items-center justify-between h-16 gap-4">
                 <!-- Thương hiệu VNPT Bưu Chính -->
-                <div class="flex items-center space-x-3">
-                    <div class="h-9 px-2.5 rounded bg-blue-600 flex items-center justify-center text-white font-extrabold text-xs tracking-wider shadow-sm">
+                <div class="flex items-center space-x-3 flex-shrink-0">
+                    <div class="h-9 px-3 rounded-xl vnpt-gradient text-white font-black flex items-center justify-center text-xs tracking-wider shadow-md shadow-blue-600/20">
                         VNPT
                     </div>
                     <div>
-                        <div class="flex items-center space-x-2">
-                            <span class="font-bold text-sm text-slate-900 tracking-tight">CỔNG TIẾP NHẬN & ĐIỀU PHỐI BƯU GỬI</span>
-                            <span class="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">VNPT Cloud</span>
+                        <div class="flex items-center space-x-1.5">
+                            <span class="font-extrabold text-sm text-slate-900 tracking-tight">Waybill Platform</span>
+                            <span class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200 uppercase">
+                                B2B Cloud
+                            </span>
                         </div>
-                        <p class="text-[11px] text-slate-500">Hệ thống quản lý hành trình và điều phối bưu gửi tập trung</p>
+                        <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Hệ thống điều phối bưu gửi toàn trình</p>
                     </div>
                 </div>
 
-                <!-- 3 Tabs Điều Hướng Nghiệp Vụ -->
-                <nav class="flex items-center space-x-1 bg-slate-100 p-1 rounded">
+                <!-- Dynamic Navigation Tabs (Được Lọc Tự Động Theo Quyền RBAC) -->
+                <nav class="hidden md:flex items-center space-x-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200 flex-shrink">
                     <button 
                         v-for="tab in navigationTabs" 
                         :key="tab.id"
                         @click="switchTab(tab.id)"
                         :class="[
-                            'px-4 py-1.5 rounded text-xs font-semibold transition-all',
+                            'px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1 whitespace-nowrap',
                             currentTab === tab.id 
-                                ? 'bg-white text-blue-700 shadow-sm border border-slate-200/80' 
-                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                                ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30' 
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
                         ]"
                     >
-                        {{ tab.name }}
+                        <span>{{ tab.name }}</span>
                     </button>
                 </nav>
 
-                <!-- Hồ Sơ Người Dùng & Đăng Xuất -->
-                <div class="flex items-center space-x-3">
+                <!-- Hồ Sơ Người Dùng & Phiên Đăng Nhập -->
+                <div class="flex items-center space-x-2 flex-shrink-0">
+                    <!-- Chưa đăng nhập: Nút Login -->
                     <div v-if="!currentUser">
                         <a 
                             href="login.html"
-                            class="px-3.5 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition"
+                            class="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition flex items-center space-x-1.5"
                         >
-                            Đăng Nhập
+                            <span>Đăng Nhập</span>
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                            </svg>
                         </a>
                     </div>
-                    <div v-else class="flex items-center space-x-2.5 bg-slate-50 border border-slate-200 py-1 px-3 rounded">
-                        <div class="flex flex-col text-left">
-                            <span class="text-xs font-bold text-slate-800 leading-tight">{{ currentUser.fullName }}</span>
-                            <span class="text-[9px] font-mono font-semibold text-blue-600">
-                                {{ (currentUser.roles && currentUser.roles[0]) ? currentUser.roles[0].replace('ROLE_', '') : 'NHÂN VIÊN' }}
-                            </span>
+
+                    <!-- Đã đăng nhập: Thẻ User Info chuẩn B2B -->
+                    <div v-else class="flex items-center space-x-2.5 bg-slate-50 border border-slate-200 py-1 px-3 rounded-xl">
+                        <!-- Avatar Initials -->
+                        <div class="w-7 h-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-sm">
+                            {{ (currentUser.fullName || currentUser.email || 'U').charAt(0).toUpperCase() }}
                         </div>
+
+                        <div class="flex flex-col text-left">
+                            <span class="text-xs font-bold text-slate-800 leading-tight max-w-[130px] truncate" :title="currentUser.fullName || currentUser.email">
+                                {{ currentUser.fullName || currentUser.email }}
+                            </span>
+                            <div class="flex items-center space-x-1 mt-0.5">
+                                <span 
+                                    v-for="role in (currentUser.roles || ['ROLE_CUSTOMER'])" 
+                                    :key="role"
+                                    :class="[
+                                        'text-[10px] font-semibold px-1.5 py-0.2 rounded border',
+                                        getRoleBadgeInfo(role).class
+                                    ]"
+                                >
+                                    {{ getRoleBadgeInfo(role).code }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="h-6 w-px bg-slate-200"></div>
+
+                        <!-- Nút Thoát -->
                         <button 
                             @click="handleLogout"
-                            class="ml-2 text-slate-400 hover:text-rose-600 text-xs font-semibold transition"
-                            title="Đăng xuất khỏi hệ thống"
+                            class="text-slate-400 hover:text-rose-600 transition p-1"
+                            title="Đăng xuất khỏi phiên làm việc"
                         >
-                            Thoát
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
                         </button>
                     </div>
                 </div>
+            </div>
+
+            <!-- Mobile Navigation Tabs Switcher -->
+            <div class="md:hidden flex items-center space-x-1 overflow-x-auto py-2 border-t border-slate-100 text-xs">
+                <button 
+                    v-for="tab in navigationTabs" 
+                    :key="tab.id"
+                    @click="switchTab(tab.id)"
+                    :class="[
+                        'px-3 py-1.5 rounded-lg font-bold whitespace-nowrap transition-all',
+                        currentTab === tab.id ? 'bg-blue-600 text-white' : 'text-slate-600 bg-slate-100'
+                    ]"
+                >
+                    {{ tab.name }}
+                </button>
             </div>
         </div>
     </header>
 
     <!-- CONTENT SLOT: NẠP ĐỘNG CÁC MÀN HÌNH VIEW -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5">
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <component 
             :is="activeComponent" 
             :tracking-code="currentTrackingCode"
@@ -101,44 +169,68 @@
     </main>
 
     <!-- MASTER FOOTER -->
-    <footer class="bg-white border-t border-slate-200 py-3 text-center text-[11px] text-slate-400">
-        © 2026 Tổng công ty Dịch vụ Viễn thông VNPT - Nền tảng Điều phối & Vận chuyển Đa kênh
+    <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <span>© 2026 TỔNG CÔNG TY DỊCH VỤ VIỄN THÔNG VNPT - NỀN TẢNG ĐIỀU PHỐI VẬN ĐƠN BƯU CHÍNH</span>
+            <span class="font-mono text-[10px] text-slate-400">VERSION 2.4.0-ENTERPRISE-RBAC</span>
+        </div>
     </footer>
 
-    <!-- GLOBAL TOAST NOTIFICATION -->
+    <!-- GLOBAL TOAST NOTIFICATION (Tự động hiển thị khi thành công, lỗi 403, lỗi mạng) -->
     <div 
         v-if="toast.show" 
         :class="[
-            'fixed bottom-5 right-5 z-50 p-4 rounded-lg shadow-lg border text-xs max-w-sm transition-all duration-300',
-            toast.type === 'error' ? 'bg-rose-50 border-rose-200 text-rose-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            'fixed bottom-6 right-6 z-50 p-4 rounded-2xl shadow-xl border text-xs max-w-sm transition-all duration-300 flex items-start space-x-3 backdrop-blur-md',
+            toast.type === 'error' ? 'bg-rose-50/95 border-rose-200 text-rose-900 shadow-rose-500/10' : 
+            toast.type === 'warning' ? 'bg-amber-50/95 border-amber-200 text-amber-900 shadow-amber-500/10' : 
+            'bg-emerald-50/95 border-emerald-200 text-emerald-900 shadow-emerald-500/10'
         ]"
     >
-        <div class="font-bold mb-0.5">{{ toast.title }}</div>
-        <div>{{ toast.message }}</div>
+        <div class="mt-0.5">
+            <!-- Icon Error -->
+            <svg v-if="toast.type === 'error'" class="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <!-- Icon Warning -->
+            <svg v-else-if="toast.type === 'warning'" class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <!-- Icon Success -->
+            <svg v-else class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+
+        <div class="flex-1">
+            <div class="font-bold text-xs mb-0.5">{{ toast.title }}</div>
+            <div class="text-[11px] leading-relaxed opacity-90">{{ toast.message }}</div>
+        </div>
     </div>
 </div>
 
-<!-- CÁC MODULE JAVASCRIPT THEO THỨ TỰ PHỤ THUỘC -->
+<!-- CÁC MODULE JAVASCRIPT THEO THỨ TỰ PHỤ THUỘC CHUẨN XÁC -->
+<!-- 1. Tầng Cốt Lõi: Auth & Tiện Ích Toàn Cục -->
 <script src="js/auth.js"></script>
-<script src="js/api.js"></script>
 <script src="js/utils.js"></script>
+<script src="js/api.js"></script>
 <script src="js/map.js"></script>
 
-<!-- Tầng Dịch Vụ Microservices -->
+<!-- 2. Tầng Dịch Vụ Microservices (Services Layer) -->
 <script src="js/services/routingService.js"></script>
 <script src="js/services/shipmentService.js"></script>
 <script src="js/services/trackingService.js"></script>
 <script src="js/services/customerService.js"></script>
 <script src="js/services/notificationService.js"></script>
 <script src="js/services/auditService.js"></script>
+<script src="js/services/adminService.js"></script>
 
-<!-- Tầng Màn Hình Nghiệp Vụ (Views) -->
+<!-- 3. Tầng Giao Diện Màn Hình (Views Layer) -->
 <script src="js/views/TrackingView.js"></script>
 <script src="js/views/ShipmentView.js"></script>
 <script src="js/views/CustomerView.js"></script>
+<script src="js/views/AdminRbacView.js"></script>
 
-<!-- Khởi Chạy Ứng Dụng Master Layout -->
+<!-- 4. Điểm Khởi Chạy Ứng Dụng (Master Layout Entry Point) -->
 <script src="js/app.js"></script>
-
 </body>
 </html>
