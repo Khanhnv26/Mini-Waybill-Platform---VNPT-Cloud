@@ -19,9 +19,7 @@
         setup(props) {
             const searchCode = ref(props.trackingCode || '');
             const isLoading = ref(false);
-            const isUpdating = ref(false);
             const isLiveTracking = ref(true);
-            const isSimulating = ref(false);
 
             const currentShipment = ref(null);
             const trackingHistory = ref([]);
@@ -31,42 +29,17 @@
             const lastRenderedCode = ref(null);
 
             let livePollTimer = null;
-            let simTimer = null;
 
             // Subtab chi tiết phía dưới: 'history' | 'audit' | 'notification'
             const activeSubtab = ref('history');
 
-            // 1. Phân quyền cấp độ Giao diện (Component-Level RBAC)
-            const canOperate = computed(() => {
-                if (typeof Auth === 'undefined') return false;
-                return Auth.hasAnyPermission(['tracking:update_hub', 'tracking:update_delivery']) || Auth.hasRole('ROLE_ADMIN');
-            });
-
-            const canUpdateHub = computed(() => {
-                if (typeof Auth === 'undefined') return false;
-                return Auth.hasPermission('tracking:update_hub') || Auth.hasRole('ROLE_ADMIN');
-            });
-
-            const canUpdateDelivery = computed(() => {
-                if (typeof Auth === 'undefined') return false;
-                return Auth.hasPermission('tracking:update_delivery') || Auth.hasRole('ROLE_ADMIN');
-            });
-
+            // Quyền xem nhật ký kiểm toán (Audit Log)
             const canReadAudit = computed(() => {
                 if (typeof Auth === 'undefined') return false;
                 return Auth.hasPermission('audit:read') || Auth.hasRole('ROLE_ADMIN');
             });
 
-            // 2. Hub động theo tuyến thực tế của đơn hàng
-            const currentSourceHub = computed(() => {
-                return routeInfo.value?.sourceHub || 'HUB-HN-01';
-            });
-
-            const currentDestHub = computed(() => {
-                return routeInfo.value?.destHub || 'HUB-HP-01';
-            });
-
-            // 3. Tính toán chặng hiện tại cho Stepper (1 đến 4) - bám đúng enum backend
+            // Tính toán chặng hiện tại cho Stepper (1 đến 4) - bám đúng enum backend
             const currentStageIndex = computed(() => {
                 const s = currentShipment.value?.status;
                 if (!s || s === 'CREATED' || s === 'PENDING_ROUTING' || s === 'ROUTE_ASSIGNED') return 1;
@@ -78,27 +51,6 @@
 
             // Đơn đã kết thúc hành trình thì không cần đồng bộ nữa
             const isFinalState = computed(() => currentShipment.value?.status === 'DELIVERED');
-
-            /**
-             * Bản sao state machine của backend (ShipmentStatus.canTransitionTo).
-             * Dùng để khoá sẵn nút không hợp lệ, tránh người dùng bấm rồi nhận lỗi 400.
-             */
-            const ALLOWED_TRANSITIONS = {
-                'CREATED': ['PENDING_ROUTING'],
-                'PENDING_ROUTING': ['ROUTE_ASSIGNED'],
-                'ROUTE_ASSIGNED': ['PICKED_UP'],
-                'PICKED_UP': ['IN_TRANSIT'],
-                'IN_TRANSIT': ['OUT_FOR_DELIVERY'],
-                'OUT_FOR_DELIVERY': ['DELIVERED', 'DELIVERY_FAILED'],
-                'DELIVERED': [],
-                'DELIVERY_FAILED': ['OUT_FOR_DELIVERY']
-            };
-
-            const canMoveTo = (nextStatus) => {
-                const current = currentShipment.value?.status;
-                if (!current) return false;
-                return (ALLOWED_TRANSITIONS[current] || []).includes(nextStatus);
-            };
 
             // 4. Tải các dữ liệu phụ trợ (hành trình, thông báo, kiểm toán)
             const loadSecondaryData = async (code) => {
@@ -235,7 +187,6 @@
                     if (!isLiveTracking.value) return;
                     if (document.hidden) return;                 // tab đang ẩn: bỏ qua để đỡ tốn tài nguyên
                     if (isFinalState.value) return;              // đơn đã giao xong: không cần hỏi nữa
-                    if (isUpdating.value || isSimulating.value) return;
                     if (!currentShipment.value?.trackingCode) return;
                     syncStatusInBackground();
                 }, POLL_INTERVAL_MS);
@@ -246,99 +197,6 @@
                     clearInterval(livePollTimer);
                     livePollTimer = null;
                 }
-            };
-
-            // 8. Cập nhật nghiệp vụ nhanh
-            const updateOperationalStatus = async (newStatus, locationCode, note) => {
-                if (!currentShipment.value || !currentShipment.value.trackingCode) return;
-                const code = currentShipment.value.trackingCode;
-
-                isUpdating.value = true;
-                try {
-                    await TrackingService.updateStatus(code, newStatus, locationCode, note);
-                    Utils.showToast('Thành Công', `Đã cập nhật trạng thái: ${Utils.formatStatusText(newStatus)}`);
-
-                    // Cập nhật ngay lập tức UI bưu gửi và vị trí beacon trên bản đồ mà không chờ server
-                    currentShipment.value = { ...currentShipment.value, status: newStatus };
-                    if (window.MapManager) {
-                        window.MapManager.updateProgress(newStatus, note);
-                    }
-
-                    // Tải lại hành trình / thông báo (không đụng tới bản đồ)
-                    await loadSecondaryData(code);
-                } catch (err) {
-                    Utils.showToast('Lỗi Cập Nhật', err.message, 'error');
-                    throw err;
-                } finally {
-                    isUpdating.value = false;
-                }
-            };
-
-            // 9. Chế độ Mô Phỏng Tự Động (Auto-Play Demo Simulation)
-            const toggleAutoPlaySimulation = async () => {
-                if (isSimulating.value) {
-                    if (simTimer) clearTimeout(simTimer);
-                    isSimulating.value = false;
-                    Utils.showToast('Dừng Mô Phỏng', 'Đã tạm dừng mô phỏng lộ trình bưu gửi');
-                    return;
-                }
-
-                if (!currentShipment.value) {
-                    Utils.showToast('Chưa Có Đơn Hàng', 'Vui lòng chọn hoặc tra cứu mã vận đơn trước khi chạy thử', 'warning');
-                    return;
-                }
-
-                /**
-                 * Chuỗi bước phải bám đúng state machine của backend
-                 * (ShipmentStatus.canTransitionTo): PENDING_ROUTING -> ROUTE_ASSIGNED ->
-                 * PICKED_UP -> IN_TRANSIT -> OUT_FOR_DELIVERY -> DELIVERED.
-                 * Bất kỳ mã nào ngoài enum sẽ bị backend từ chối và làm đứt mô phỏng.
-                 */
-                const fullFlow = [
-                    { status: 'PENDING_ROUTING', loc: currentSourceHub.value, note: 'Đơn hàng đã được khởi tạo và đang chờ phân tuyến' },
-                    { status: 'ROUTE_ASSIGNED', loc: currentSourceHub.value, note: 'Đã thiết lập tuyến luân chuyển' },
-                    { status: 'PICKED_UP', loc: currentSourceHub.value, note: 'Bưu tá tiếp nhận tại kho nguồn' },
-                    { status: 'IN_TRANSIT', loc: currentSourceHub.value, note: 'Rời kho xuất phát, đang lưu thông trên cao tốc' },
-                    { status: 'OUT_FOR_DELIVERY', loc: currentDestHub.value, note: 'Bưu tá mang hàng đi phát cho người nhận' },
-                    { status: 'DELIVERED', loc: 'CUSTOMER_ADDRESS', note: 'Giao hàng thành công tận tay người nhận' }
-                ];
-
-                // Chỉ chạy các bước còn lại tính từ trạng thái hiện tại của đơn
-                const currentIdx = fullFlow.findIndex(s => s.status === currentShipment.value.status);
-                const simulationSteps = fullFlow.slice(currentIdx + 1);
-
-                if (simulationSteps.length === 0) {
-                    Utils.showToast('Không Thể Mô Phỏng', 'Bưu gửi đã hoàn tất hành trình hoặc đang ở trạng thái không mô phỏng được', 'warning');
-                    return;
-                }
-
-                isSimulating.value = true;
-                Utils.showToast('Bắt Đầu Mô Phỏng', `Đang tự động di chuyển bưu gửi qua ${simulationSteps.length} chặng còn lại (3.5s/chặng)...`);
-
-                let stepIdx = 0;
-                const runStep = async () => {
-                    if (!isSimulating.value) return;
-                    if (stepIdx >= simulationSteps.length) {
-                        isSimulating.value = false;
-                        Utils.showToast('Hoàn Tất Mô Phỏng', 'Bưu kiện đã hoàn thành toàn bộ hành trình!');
-                        return;
-                    }
-
-                    const st = simulationSteps[stepIdx++];
-                    try {
-                        await updateOperationalStatus(st.status, st.loc, st.note);
-                        if (isSimulating.value && stepIdx < simulationSteps.length) {
-                            simTimer = setTimeout(runStep, 3500);
-                        } else {
-                            isSimulating.value = false;
-                            Utils.showToast('Hoàn Tất Mô Phỏng', 'Bưu kiện đã hoàn thành toàn bộ hành trình!');
-                        }
-                    } catch (e) {
-                        isSimulating.value = false;
-                    }
-                };
-
-                runStep();
             };
 
             // Quan sát prop nếu có mã truyền từ màn hình Tạo Đơn sang
@@ -378,7 +236,6 @@
 
             onUnmounted(() => {
                 stopLivePolling();
-                if (simTimer) clearTimeout(simTimer);
                 document.removeEventListener('visibilitychange', handleVisibilityChange);
                 if (window.MapManager) window.MapManager.cancelPendingRenders();
             });
@@ -398,27 +255,17 @@
             return {
                 searchCode,
                 isLoading,
-                isUpdating,
                 isLiveTracking,
-                isSimulating,
                 currentShipment,
                 trackingHistory,
                 notificationList,
                 auditList,
                 routeInfo,
                 activeSubtab,
-                canOperate,
-                canUpdateHub,
-                canUpdateDelivery,
                 canReadAudit,
                 isFinalState,
-                canMoveTo,
-                currentSourceHub,
-                currentDestHub,
                 currentStageIndex,
                 fetchTrackingData,
-                updateOperationalStatus,
-                toggleAutoPlaySimulation,
                 fitVietnamView,
                 fitRouteView,
                 Utils
@@ -683,82 +530,6 @@
                             </div>
                         </div>
 
-                        <!-- Khu vực thao tác nghiệp vụ bưu cục (Bảo vệ theo RBAC) -->
-                        <div v-if="currentShipment && canOperate" class="b2b-card bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-3 text-xs">
-                            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                                <span class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
-                                    Tác Nghiệp Bưu Cục
-                                </span>
-                                <span class="px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                    Phân Quyền Nội Bộ
-                                </span>
-                            </div>
-
-                            <!-- Nút Mô phỏng tự động lộ trình Demo -->
-                            <button 
-                                @click="toggleAutoPlaySimulation()"
-                                :class="['w-full py-2 px-3 rounded-lg font-bold text-xs border transition flex items-center justify-center space-x-2 shadow-sm',
-                                         isSimulating ? 'bg-amber-600 hover:bg-amber-700 text-white border-amber-600 animate-pulse' : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200']"
-                                title="Tự động mô phỏng luân chuyển qua từng chặng (3.5s/chặng) trên bản đồ"
-                            >
-                                <span v-if="isSimulating" class="w-2 h-2 rounded-full bg-white animate-ping"></span>
-                                <span>{{ isSimulating ? 'Đang Mô Phỏng Tuyến... (Nhấn để dừng)' : 'Mô Phỏng Tuyến Real-Time' }}</span>
-                            </button>
-
-                            <div class="grid grid-cols-2 gap-2 pt-1">
-                                <!-- Nút thuộc quyền Thủ Kho Hub (tracking:update_hub) -->
-                                <button 
-                                    @click="updateOperationalStatus('ROUTE_ASSIGNED', currentSourceHub, 'Đã thiết lập tuyến luân chuyển')" 
-                                    :disabled="isUpdating || isSimulating || !canUpdateHub || !canMoveTo('ROUTE_ASSIGNED')" 
-                                    class="px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold transition disabled:opacity-40"
-                                    title="Dành cho Thủ kho Hub"
-                                >
-                                    Đã Định Tuyến
-                                </button>
-                                <button 
-                                    @click="updateOperationalStatus('PICKED_UP', currentSourceHub, 'Bưu tá tiếp nhận tại kho gửi')" 
-                                    :disabled="isUpdating || isSimulating || !canUpdateHub || !canMoveTo('PICKED_UP')" 
-                                    class="px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold transition disabled:opacity-40"
-                                    title="Dành cho Thủ kho Hub"
-                                >
-                                    Đã Lấy Hàng
-                                </button>
-                                <button 
-                                    @click="updateOperationalStatus('IN_TRANSIT', currentSourceHub, 'Rời kho xuất phát, đang vận chuyển')" 
-                                    :disabled="isUpdating || isSimulating || !canUpdateHub || !canMoveTo('IN_TRANSIT')" 
-                                    class="px-2.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold transition disabled:opacity-40"
-                                    title="Dành cho Thủ kho Hub"
-                                >
-                                    Đang Vận Chuyển
-                                </button>
-
-                                <!-- Nút thuộc quyền Bưu Tá Giao Hàng (tracking:update_delivery) -->
-                                <button 
-                                    @click="updateOperationalStatus('OUT_FOR_DELIVERY', currentDestHub, 'Bưu tá đang đi phát hàng')" 
-                                    :disabled="isUpdating || isSimulating || !canUpdateDelivery || !canMoveTo('OUT_FOR_DELIVERY')" 
-                                    class="px-2.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold transition disabled:opacity-40"
-                                    title="Dành cho Bưu tá Shipper"
-                                >
-                                    Đang Chuyển Phát
-                                </button>
-                                <button 
-                                    @click="updateOperationalStatus('DELIVERY_FAILED', currentDestHub, 'Không liên lạc được người nhận')" 
-                                    :disabled="isUpdating || isSimulating || !canUpdateDelivery || !canMoveTo('DELIVERY_FAILED')" 
-                                    class="col-span-2 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition disabled:opacity-40"
-                                    title="Dành cho Bưu tá Shipper"
-                                >
-                                    Phát Không Thành Công
-                                </button>
-                                <button 
-                                    @click="updateOperationalStatus('DELIVERED', 'CUSTOMER_ADDRESS', 'Người nhận đã nhận hàng và ký nhận')" 
-                                    :disabled="isUpdating || isSimulating || !canUpdateDelivery || !canMoveTo('DELIVERED')" 
-                                    class="col-span-2 px-3 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition shadow-sm shadow-emerald-500/20 disabled:opacity-40"
-                                    title="Dành cho Bưu tá Shipper"
-                                >
-                                    Phát Thành Công (Ký Nhận)
-                                </button>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
