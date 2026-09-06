@@ -2,6 +2,7 @@
  * ==============================================================================
  * VNPT CLOUD - VIEW: QUẢN LÝ & KHỞI TẠO BƯU GỬI (SHIPMENT MANAGEMENT & DISPATCH)
  * Tích Hợp 2 Subtabs: [Khởi Tạo Bưu Gửi] & [Danh Sách Vận Đơn] Chuẩn RBAC B2B
+ * Thiết Kế Tối Giản (Minimal Icon), Tập Trung Dữ Liệu & Trải Nghiệm Doanh Nghiệp
  * ==============================================================================
  */
 
@@ -35,18 +36,24 @@
                 return Auth.hasRole('ROLE_ADMIN') || Auth.hasRole('ROLE_CS') || Auth.hasPermission('shipment:read_all');
             });
 
+            // Kiểm tra quyền tạo đơn hộ cho khách hàng khác (RBAC module SHIPMENT)
+            const canCreateForOthers = computed(() => {
+                if (typeof Auth === 'undefined') return false;
+                return Auth.hasRole('ROLE_ADMIN') || Auth.hasRole('ROLE_CS') || Auth.hasPermission('shipment:create_for_others');
+            });
+
             // Form khởi tạo vận đơn
             const form = reactive({
-                customerId: currentUser?.userId || 1,
+                customerId: null,
                 serviceType: 'EXPRESS',
                 weight: 1.0,
                 codAmount: 0,
                 
                 // Người gửi (Điểm tiếp nhận)
                 senderName: currentUser?.fullName || 'Bưu chính Viễn thông VNPT',
-                senderPhone: '02438888999',
+                senderPhone: '',
                 senderProvince: 'Hà Nội',
-                senderDetail: 'Số 57 Huỳnh Thúc Kháng, Đống Đa',
+                senderDetail: '',
 
                 // Người nhận (Điểm phát trả)
                 receiverName: '',
@@ -55,11 +62,101 @@
                 receiverDetail: ''
             });
 
+            // Hồ sơ khách hàng của tài khoản đang đăng nhập
+            const myProfile = ref(null);
+            const isLoadingProfile = ref(false);
+            const showProfileModal = ref(false);
+            const isSavingProfile = ref(false);
+            const profileForm = reactive({
+                fullName: '',
+                phoneNumber: '',
+                address: ''
+            });
+
+            // Danh sách khách hàng (cho Admin/CSKH tạo hộ hoặc lọc danh sách)
+            const customersList = ref([]);
+            const selectedCustomerFilter = ref('');
+
+            const loadCustomersList = async () => {
+                if (canCreateForOthers.value || hasReadAllPermission.value) {
+                    try {
+                        const data = await CustomerService.getAllCustomers();
+                        customersList.value = Array.isArray(data) ? data : [];
+                    } catch (e) {
+                        console.error('[ShipmentView] Không thể tải danh bạ khách hàng:', e);
+                    }
+                }
+            };
+
+            const loadMyProfile = async () => {
+                if (typeof Auth === 'undefined' || !Auth.isAuthenticated()) return;
+                isLoadingProfile.value = true;
+                try {
+                    const prof = await CustomerService.getMyProfile();
+                    if (prof) {
+                        myProfile.value = prof;
+                        profileForm.fullName = prof.fullName || '';
+                        profileForm.phoneNumber = prof.phoneNumber || '';
+                        profileForm.address = prof.address || '';
+
+                        // Tự động điền thông tin người gửi nếu là khách gửi thông thường
+                        if (!canCreateForOthers.value) {
+                            if (prof.fullName) form.senderName = prof.fullName;
+                            if (prof.phoneNumber) form.senderPhone = prof.phoneNumber;
+                            if (prof.address) form.senderDetail = prof.address;
+                        }
+                    }
+                } catch (err) {
+                    console.warn('[ShipmentView] Chưa thể lấy hồ sơ khách hàng:', err.message);
+                } finally {
+                    isLoadingProfile.value = false;
+                }
+            };
+
+            const handleUpdateProfile = async () => {
+                if (!profileForm.fullName || !profileForm.phoneNumber || !profileForm.address) {
+                    Utils.showToast('Thiếu Thông Tin', 'Vui lòng điền đủ họ tên, SĐT và địa chỉ', 'warning');
+                    return;
+                }
+                isSavingProfile.value = true;
+                try {
+                    const updated = await CustomerService.updateMyProfile({
+                        fullName: profileForm.fullName,
+                        phoneNumber: profileForm.phoneNumber,
+                        address: profileForm.address
+                    });
+                    myProfile.value = updated;
+                    form.senderName = updated.fullName;
+                    form.senderPhone = updated.phoneNumber;
+                    form.senderDetail = updated.address;
+                    showProfileModal.value = false;
+                    Utils.showToast('Thành Công', 'Đã cập nhật hồ sơ khách hàng');
+                } catch (err) {
+                    Utils.showToast('Lỗi', err.message || 'Không thể cập nhật hồ sơ', 'error');
+                } finally {
+                    isSavingProfile.value = false;
+                }
+            };
+
+            const onCustomerSelectChange = (event) => {
+                const custVal = event?.target?.value;
+                if (!custVal) return;
+                const cust = customersList.value.find(c => c.id === Number(custVal));
+                if (cust) {
+                    form.customerId = cust.id;
+                    if (cust.fullName) form.senderName = cust.fullName;
+                    if (cust.phoneNumber) form.senderPhone = cust.phoneNumber;
+                    if (cust.address) form.senderDetail = cust.address;
+                }
+            };
+
             // Tự động điền dữ liệu nếu nhận từ Danh Bạ Khách Hàng (Tác nghiệp Tạo Đơn Nhanh)
             watch(() => props.customerPrefill, (cust) => {
                 if (cust) {
                     currentSubtab.value = 'create';
-                    form.customerId = cust.id;
+                    if (canCreateForOthers.value) {
+                        form.customerId = cust.id;
+                    }
                     form.senderName = cust.fullName || form.senderName;
                     form.senderPhone = cust.phoneNumber || form.senderPhone;
                     form.senderDetail = cust.address || form.senderDetail;
@@ -122,10 +219,12 @@
                 isLoadingShipments.value = true;
                 try {
                     let customerIdParam = null;
-                    // Nếu là ROLE_CUSTOMER hoặc không có quyền read_all, chỉ lấy đơn của chính mình
-                    if (!hasReadAllPermission.value) {
-                        customerIdParam = currentUser?.userId || form.customerId;
+                    if (hasReadAllPermission.value) {
+                        if (selectedCustomerFilter.value) {
+                            customerIdParam = Number(selectedCustomerFilter.value);
+                        }
                     }
+                    // Nếu là khách thông thường, customerIdParam = null. Backend sẽ dùng JWT để lấy đơn của khách
                     const data = await ShipmentService.getShipments(customerIdParam);
                     shipmentsList.value = Array.isArray(data) ? data : [];
                 } catch (err) {
@@ -243,8 +342,8 @@
 
             // Khởi tạo đơn và tự động điều hướng sang Danh Sách Vận Đơn
             const handleSubmit = async () => {
-                if (!form.customerId) {
-                    Utils.showToast('Chưa Nhập Khách Hàng', 'Vui lòng nhập mã khách hàng gửi (Customer ID)', 'warning');
+                if (canCreateForOthers.value && !form.customerId) {
+                    Utils.showToast('Chưa Chọn Khách Hàng', 'Vui lòng chọn hoặc nhập mã khách hàng gửi', 'warning');
                     return;
                 }
                 if (!form.senderName || !form.senderPhone || !form.senderProvince || !form.senderDetail) {
@@ -260,7 +359,6 @@
                 try {
                     const payload = {
                         requestId: 'REQ-' + Date.now(),
-                        customerId: Number(form.customerId),
                         senderName: form.senderName,
                         senderPhone: form.senderPhone,
                         senderAddress: `${form.senderDetail}, ${form.senderProvince}`,
@@ -271,6 +369,10 @@
                         weight: Number(form.weight),
                         codAmount: Number(form.codAmount)
                     };
+
+                    if (canCreateForOthers.value && form.customerId) {
+                        payload.customerId = Number(form.customerId);
+                    }
 
                     const res = await ShipmentService.createShipment(payload);
                     Utils.showToast('Thành Công', `Đã khởi tạo vận đơn: ${res.trackingCode}`);
@@ -298,6 +400,8 @@
             onMounted(() => {
                 loadHubs();
                 loadShipments();
+                loadMyProfile();
+                loadCustomersList();
             });
 
             return {
@@ -316,6 +420,16 @@
                 receiverHubName,
                 currentUser,
                 hasReadAllPermission,
+                canCreateForOthers,
+                myProfile,
+                isLoadingProfile,
+                showProfileModal,
+                isSavingProfile,
+                profileForm,
+                handleUpdateProfile,
+                customersList,
+                selectedCustomerFilter,
+                onCustomerSelectChange,
                 shipmentsList,
                 isLoadingShipments,
                 shipmentSearchQuery,
@@ -371,38 +485,32 @@
                     </div>
                 </div>
 
-                <!-- 2. THANH ĐIỀU HƯỚNG SUBTABS: KHỞI TẠO BƯU GỬI / DANH SÁCH VẬN ĐƠN -->
+                <!-- 2. THANH ĐIỀU HƯỚNG SUBTABS (TỐI GIẢN ICON) -->
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
                     <div class="flex items-center space-x-2">
                         <button 
                             type="button" 
                             @click="switchSubtab('create')"
                             :class="[
-                                'px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2',
+                                'px-4 py-2 rounded-xl text-xs font-bold transition-all',
                                 currentSubtab === 'create'
                                     ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                                     : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
                             ]"
                         >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                            </svg>
-                            <span>Khởi Tạo Bưu Gửi Mới</span>
+                            Khởi Tạo Bưu Gửi Mới
                         </button>
 
                         <button 
                             type="button" 
                             @click="switchSubtab('list')"
                             :class="[
-                                'px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2',
+                                'px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5',
                                 currentSubtab === 'list'
                                     ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                                     : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
                             ]"
                         >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
-                            </svg>
                             <span>Quản Lý Danh Sách Vận Đơn</span>
                             <span :class="currentSubtab === 'list' ? 'bg-white/25 text-white' : 'bg-blue-100 text-blue-700'" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold">
                                 {{ shipmentsList.length }}
@@ -416,12 +524,9 @@
                             type="button"
                             @click="loadShipments"
                             :disabled="isLoadingShipments"
-                            class="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition disabled:opacity-50 shadow-sm"
+                            class="px-3.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold transition disabled:opacity-50 shadow-sm"
                         >
-                            <svg class="w-3.5 h-3.5 text-blue-600" :class="{ 'animate-spin': isLoadingShipments }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                            <span>Làm Mới</span>
+                            {{ isLoadingShipments ? 'Đang Tải...' : 'Làm Mới' }}
                         </button>
                     </div>
                 </div>
@@ -429,7 +534,18 @@
                 <!-- ============================================================ -->
                 <!-- SUBTAB 1: KHỞI TẠO BƯU GỬI (DISPATCH FORM)                   -->
                 <!-- ============================================================ -->
-                <div v-show="currentSubtab === 'create'">
+                <div v-show="currentSubtab === 'create'" class="space-y-3">
+                    <!-- Cảnh Báo Hồ Sơ Người Gửi Thiếu Thông Tin (Dành cho tài khoản khách hàng thông thường) -->
+                    <div v-if="!canCreateForOthers && myProfile && (!myProfile.phoneNumber || !myProfile.address)" class="p-3 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-900 shadow-sm">
+                        <div class="flex items-center space-x-2">
+                            <span class="font-bold">Lưu ý:</span>
+                            <span>Hồ sơ người gửi của bạn chưa đầy đủ Số điện thoại hoặc Địa chỉ tiếp nhận. Vui lòng cập nhật để tạo đơn thuận tiện hơn.</span>
+                        </div>
+                        <button type="button" @click="showProfileModal = true" class="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold transition shadow-sm whitespace-nowrap self-start sm:self-auto">
+                            Cập Nhật Hồ Sơ
+                        </button>
+                    </div>
+
                     <form @submit.prevent="handleSubmit" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                         <!-- CỘT TRÁI (2/3): FORM TIẾP NHẬN 2 KHỐI -->
                         <div class="lg:col-span-2 space-y-4">
@@ -448,18 +564,47 @@
                                 </div>
 
                                 <div class="grid grid-cols-1 sm:grid-cols-4 gap-3.5 pt-1">
-                                    <!-- Mã Khách Hàng -->
+                                    <!-- Mã Khách Hàng / Hồ Sơ Gửi Hàng -->
                                     <div>
                                         <label class="block text-[11px] font-bold text-slate-700 mb-1">
-                                            Mã Khách Hàng Gửi <span class="text-rose-500">*</span>
+                                            <span v-if="canCreateForOthers">Khách Hàng Ký Gửi (Tạo Hộ) <span class="text-rose-500">*</span></span>
+                                            <span v-else>Tài Khoản Ký Gửi</span>
                                         </label>
-                                        <input 
-                                            v-model.number="form.customerId" 
-                                            type="number" 
-                                            required 
-                                            placeholder="VD: 1"
-                                            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-blue-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
-                                        />
+                                        <div v-if="canCreateForOthers">
+                                            <select 
+                                                v-if="customersList.length > 0"
+                                                v-model.number="form.customerId" 
+                                                @change="onCustomerSelectChange($event)"
+                                                required 
+                                                class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-blue-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
+                                            >
+                                                <option :value="null" disabled>-- Chọn khách hàng --</option>
+                                                <option v-for="c in customersList" :key="c.id" :value="c.id">
+                                                    #{{ c.id }} - {{ c.fullName }} ({{ c.phoneNumber || c.customerCode || 'Chưa có SĐT' }})
+                                                </option>
+                                            </select>
+                                            <input 
+                                                v-else
+                                                v-model.number="form.customerId" 
+                                                type="number" 
+                                                required 
+                                                placeholder="Mã KH: 1, 2..."
+                                                class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-blue-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
+                                            />
+                                        </div>
+                                        <div v-else class="flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs">
+                                            <div class="truncate">
+                                                <span class="font-bold text-blue-700">{{ myProfile?.fullName || currentUser?.fullName || 'Khách Hàng' }}</span>
+                                                <span v-if="myProfile?.customerCode" class="ml-1 text-[10px] font-mono text-slate-500">({{ myProfile.customerCode }})</span>
+                                            </div>
+                                            <button 
+                                                type="button" 
+                                                @click="showProfileModal = true" 
+                                                class="text-[11px] font-bold text-blue-600 hover:text-blue-800 underline ml-2 whitespace-nowrap"
+                                            >
+                                                Sửa hồ sơ
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <!-- Loại Dịch Vụ -->
@@ -739,82 +884,72 @@
                 <!-- SUBTAB 2: QUẢN LÝ DANH SÁCH VẬN ĐƠN (WAYBILL MANAGEMENT)     -->
                 <!-- ============================================================ -->
                 <div v-show="currentSubtab === 'list'" class="space-y-4">
-                    <!-- 1. CÁC THẺ KPI METRICS TỔNG QUAN -->
+                    <!-- 1. CÁC THẺ KPI METRICS TỔNG QUAN (TỐI GIẢN ICON) -->
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <!-- Thẻ 1: Tổng đơn -->
                         <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
-                            <div class="flex items-center justify-between">
-                                <span class="text-[11px] font-bold text-slate-500 uppercase">Tổng Bưu Gửi</span>
-                                <div class="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                </div>
-                            </div>
-                            <div class="mt-2 text-xl font-black font-mono text-slate-800">{{ stats.total }}</div>
-                            <div class="text-[10px] text-slate-400 mt-0.5">Tổng số đơn hàng ký gửi</div>
+                            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Tổng Bưu Gửi</div>
+                            <div class="mt-1.5 text-2xl font-black font-mono text-slate-800">{{ stats.total }}</div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">Tổng số đơn ký gửi</div>
                         </div>
 
                         <!-- Thẻ 2: Chờ lấy / Tiếp nhận -->
                         <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
-                            <div class="flex items-center justify-between">
-                                <span class="text-[11px] font-bold text-slate-500 uppercase">Chờ Xử Lý</span>
-                                <div class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                </div>
-                            </div>
-                            <div class="mt-2 text-xl font-black font-mono text-amber-600">{{ stats.pending }}</div>
-                            <div class="text-[10px] text-slate-400 mt-0.5">Chờ tiếp nhận / định tuyến</div>
+                            <div class="text-[11px] font-bold text-amber-600 uppercase tracking-wide">Chờ Xử Lý</div>
+                            <div class="mt-1.5 text-2xl font-black font-mono text-amber-600">{{ stats.pending }}</div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">Chờ tiếp nhận &amp; định tuyến</div>
                         </div>
 
                         <!-- Thẻ 3: Đang luân chuyển -->
                         <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
-                            <div class="flex items-center justify-between">
-                                <span class="text-[11px] font-bold text-slate-500 uppercase">Đang Luân Chuyển</span>
-                                <div class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                                </div>
-                            </div>
-                            <div class="mt-2 text-xl font-black font-mono text-indigo-600">{{ stats.inTransit }}</div>
-                            <div class="text-[10px] text-slate-400 mt-0.5">Đang trung chuyển qua Hubs</div>
+                            <div class="text-[11px] font-bold text-indigo-600 uppercase tracking-wide">Đang Luân Chuyển</div>
+                            <div class="mt-1.5 text-2xl font-black font-mono text-indigo-600">{{ stats.inTransit }}</div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">Trung chuyển qua các Hub</div>
                         </div>
 
                         <!-- Thẻ 4: Phát thành công -->
                         <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
-                            <div class="flex items-center justify-between">
-                                <span class="text-[11px] font-bold text-slate-500 uppercase">Phát Thành Công</span>
-                                <div class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                </div>
-                            </div>
-                            <div class="mt-2 text-xl font-black font-mono text-emerald-600">{{ stats.delivered }}</div>
-                            <div class="text-[10px] text-slate-400 mt-0.5">Đã giao tận tay người nhận</div>
+                            <div class="text-[11px] font-bold text-emerald-600 uppercase tracking-wide">Phát Thành Công</div>
+                            <div class="mt-1.5 text-2xl font-black font-mono text-emerald-600">{{ stats.delivered }}</div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">Giao thành công người nhận</div>
                         </div>
                     </div>
 
-                    <!-- 2. TOOLBAR: TÌM KIẾM & BỘ LỌC TRẠNG THÁI -->
-                    <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm">
+                    <!-- 2. TOOLBAR: TÌM KIẾM & BỘ LỌC TRẠNG THÁI (TỐI GIẢN ICON) -->
+                    <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3 sm:p-3.5 shadow-sm">
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                            <!-- Ô tìm kiếm đa năng -->
+                            <!-- Ô tìm kiếm đơn giản -->
                             <div class="relative flex-1">
-                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                                </span>
                                 <input 
                                     v-model="shipmentSearchQuery"
                                     type="text"
-                                    placeholder="Tìm theo Mã vận đơn, Tên/SĐT người gửi hoặc người nhận..."
-                                    class="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
+                                    placeholder="Tìm kiếm theo mã vận đơn, người gửi, người nhận, SĐT..."
+                                    class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                                 />
                                 <button 
                                     v-if="shipmentSearchQuery" 
                                     @click="shipmentSearchQuery = ''"
-                                    class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600"
+                                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-xs text-slate-400 hover:text-slate-600 font-medium"
                                 >
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                    Xóa
                                 </button>
                             </div>
 
-                            <!-- Dropdown Lọc Trạng Thái & Nút Thao Tác -->
-                            <div class="flex items-center space-x-2">
+                            <!-- Dropdown Lọc Trạng Thái, Khách Hàng & Nút Thao Tác -->
+                            <div class="flex flex-wrap items-center gap-2">
+                                <!-- Lọc theo Khách hàng (Dành cho Admin/CSKH có quyền xem tất cả) -->
+                                <select 
+                                    v-if="hasReadAllPermission && customersList.length > 0"
+                                    v-model="selectedCustomerFilter"
+                                    @change="loadShipments"
+                                    class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
+                                >
+                                    <option value="">Tất cả khách hàng</option>
+                                    <option v-for="c in customersList" :key="c.id" :value="c.id">
+                                        #{{ c.id }} - {{ c.fullName }}
+                                    </option>
+                                </select>
+
                                 <select 
                                     v-model="selectedStatusFilter"
                                     class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
@@ -832,10 +967,9 @@
                                 <button 
                                     type="button"
                                     @click="switchSubtab('create')"
-                                    class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-sm shadow-blue-500/20 whitespace-nowrap"
+                                    class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-sm shadow-blue-500/20 whitespace-nowrap"
                                 >
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                                    <span>Tạo Đơn Mới</span>
+                                    + Tạo Đơn Mới
                                 </button>
                             </div>
                         </div>
@@ -845,24 +979,21 @@
                     <div class="b2b-card bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
                         <!-- Loading Bar -->
                         <div v-if="isLoadingShipments" class="p-8 text-center space-y-2">
-                            <div class="inline-block animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                            <div class="inline-block animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
                             <div class="text-xs font-medium text-slate-500">Đang đồng bộ danh sách vận đơn từ máy chủ...</div>
                         </div>
 
-                        <!-- Empty State -->
-                        <div v-else-if="filteredShipments.length === 0" class="p-12 text-center space-y-3">
-                            <div class="w-12 h-12 mx-auto rounded-full bg-slate-100 text-slate-400 flex items-center justify-center">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
-                            </div>
+                        <!-- Empty State (Không dùng icon cồng kềnh) -->
+                        <div v-else-if="filteredShipments.length === 0" class="p-10 text-center space-y-2">
                             <div class="text-xs font-bold text-slate-700">Không tìm thấy vận đơn nào phù hợp</div>
                             <p class="text-[11px] text-slate-400 max-w-sm mx-auto">
-                                Thử thay đổi từ khóa tìm kiếm, đặt lại bộ lọc trạng thái hoặc khởi tạo đơn hàng ký gửi mới.
+                                Vui lòng kiểm tra lại từ khóa tìm kiếm hoặc bộ lọc trạng thái đơn hàng.
                             </p>
-                            <div class="pt-1">
+                            <div class="pt-2">
                                 <button 
                                     type="button" 
                                     @click="switchSubtab('create')" 
-                                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-sm"
+                                    class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-sm"
                                 >
                                     Khởi Tạo Bưu Gửi Ngay
                                 </button>
@@ -954,16 +1085,15 @@
                                             {{ Utils.formatTime(s.createdAt) }}
                                         </td>
 
-                                        <!-- Thao Tác -->
+                                        <!-- Thao Tác (Nút text tối giản, không icon) -->
                                         <td class="py-3 px-3.5 text-right whitespace-nowrap">
                                             <button 
                                                 type="button"
                                                 @click="viewTracking(s.trackingCode)"
-                                                class="inline-flex items-center px-2.5 py-1.5 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white rounded-lg text-xs font-bold transition-all border border-blue-200 hover:border-blue-600 space-x-1 shadow-sm"
-                                                title="Mở bản đồ định tuyến và giám sát vận trình Leaflet"
+                                                class="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white rounded-lg text-xs font-bold transition-all border border-blue-200 hover:border-blue-600 shadow-sm"
+                                                title="Mở bản đồ định tuyến và giám sát vận trình"
                                             >
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
-                                                <span>Xem Lộ Trình</span>
+                                                Xem Lộ Trình
                                             </button>
                                         </td>
                                     </tr>
@@ -998,6 +1128,71 @@
                                 </button>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- MODAL CẬP NHẬT HỒ SƠ KHÁCH HÀNG (GET/PUT /api/customers/me) -->
+                <div v-if="showProfileModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+                    <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-800">Cập Nhật Hồ Sơ Gửi Hàng</h3>
+                                <p class="text-[11px] text-slate-500 mt-0.5">Thông tin này được dùng làm địa chỉ người gửi mặc định</p>
+                            </div>
+                            <button type="button" @click="showProfileModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1">&times;</button>
+                        </div>
+
+                        <form @submit.prevent="handleUpdateProfile" class="space-y-3">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Họ Và Tên / Tên Doanh Nghiệp <span class="text-rose-500">*</span></label>
+                                <input 
+                                    v-model="profileForm.fullName" 
+                                    type="text" 
+                                    required 
+                                    placeholder="VD: Nguyễn Văn A"
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none" 
+                                />
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Số Điện Thoại Liên Hệ <span class="text-rose-500">*</span></label>
+                                <input 
+                                    v-model="profileForm.phoneNumber" 
+                                    type="text" 
+                                    required 
+                                    placeholder="VD: 0912345678"
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none" 
+                                />
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Địa Chỉ Chi Tiết (Số nhà, đường, phường/xã) <span class="text-rose-500">*</span></label>
+                                <textarea 
+                                    v-model="profileForm.address" 
+                                    rows="2" 
+                                    required 
+                                    placeholder="VD: 57 Huỳnh Thúc Kháng, Láng Hạ, Đống Đa, Hà Nội"
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none" 
+                                ></textarea>
+                            </div>
+
+                            <div class="pt-2 flex items-center justify-end space-x-2">
+                                <button 
+                                    type="button" 
+                                    @click="showProfileModal = false" 
+                                    class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition"
+                                >
+                                    Hủy Bỏ
+                                </button>
+                                <button 
+                                    type="submit" 
+                                    :disabled="isSavingProfile" 
+                                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition disabled:opacity-50"
+                                >
+                                    {{ isSavingProfile ? 'Đang Lưu...' : 'Lưu Hồ Sơ' }}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>

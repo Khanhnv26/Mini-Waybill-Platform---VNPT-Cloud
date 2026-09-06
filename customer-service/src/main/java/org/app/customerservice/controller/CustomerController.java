@@ -46,4 +46,31 @@ public class CustomerController {
         return ResponseEntity.ok(customerService.validateCustomer(id));
     }
 
+    @GetMapping("/by-user/{userId}/validation")
+    public ResponseEntity<CustomerValidation> validateCustomerByUserId(@PathVariable Long userId) {
+        return ResponseEntity.ok(customerService.validateByUserId(userId));
+    }
+
+    @PostMapping("/internal/init-profile")
+    public ResponseEntity<Customer> initProfile(@Valid @RequestBody org.app.customerservice.dto.request.InitCustomerProfileRequest request) {
+        return ResponseEntity.ok(customerService.initProfile(request));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<Customer> getMyProfile(@RequestHeader(value = "X-User-Id", required = false) String currentUserId) {
+        if (currentUserId == null || currentUserId.isBlank() || "null".equalsIgnoreCase(currentUserId)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(customerService.getProfileByUserId(Long.parseLong(currentUserId)));
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<Customer> updateMyProfile(
+            @RequestHeader(value = "X-User-Id", required = false) String currentUserId,
+            @RequestBody UpdateCustomerRequest request) {
+        if (currentUserId == null || currentUserId.isBlank() || "null".equalsIgnoreCase(currentUserId)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(customerService.updateProfileByUserId(Long.parseLong(currentUserId), request));
+    }
 }

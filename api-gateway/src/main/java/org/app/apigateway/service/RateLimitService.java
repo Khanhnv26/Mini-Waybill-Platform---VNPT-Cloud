@@ -24,7 +24,6 @@ public class RateLimitService {
     }
 
     private BucketConfiguration getConfiguration() {
-        //60 request in 30 seconds
         Bandwidth limit = Bandwidth.classic(60, Refill.greedy(60, Duration.ofSeconds(30)));
         return BucketConfiguration.builder().addLimit(limit).build();
     }

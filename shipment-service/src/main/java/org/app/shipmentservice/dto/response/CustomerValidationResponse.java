@@ -15,5 +15,5 @@ public class CustomerValidationResponse {
     @JsonProperty("isValid")
     private boolean isValid;
     private String reason;
-
+    private Long customerId;
 }

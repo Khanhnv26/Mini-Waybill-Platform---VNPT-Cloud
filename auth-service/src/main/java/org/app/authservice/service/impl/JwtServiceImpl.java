@@ -29,7 +29,6 @@ public class JwtServiceImpl implements JwtService {
     public String generateToken(User user) {
         List<String> rolesName = user.getRoles().stream().map(role -> role.getName()).toList();
 
-        //Trích xuất toàn bộ Permissions từ các Roles (loại bỏ trùng lặp)
         List<String> permissions = user.getRoles().stream()
                 .filter(role -> role.getPermissions() != null)
                 .flatMap(role -> role.getPermissions().stream())

@@ -30,6 +30,24 @@
                 throw new Error(errData.error || errData.message || 'Cập nhật trạng thái khách hàng thất bại');
             }
             return response.json();
+        },
+
+        async getMyProfile() {
+            const response = await Api.get('/api/customers/me');
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || errData.message || 'Không thể tải thông tin hồ sơ');
+            }
+            return response.json();
+        },
+
+        async updateMyProfile(payload) {
+            const response = await Api.put('/api/customers/me', payload);
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || errData.message || 'Cập nhật hồ sơ thất bại');
+            }
+            return response.json();
         }
     };
 

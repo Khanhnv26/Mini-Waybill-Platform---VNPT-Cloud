@@ -133,6 +133,30 @@ body {
     line-height: 1.3 !important;
 }
 
+/* Lớp phủ trạng thái trên khung bản đồ (đang tính tuyến OSRM...) */
+.map-loading-overlay {
+    position: absolute;
+    left: 50%;
+    bottom: 14px;
+    transform: translateX(-50%);
+    z-index: 1000;
+    pointer-events: none;
+    background: rgba(15, 23, 42, 0.86);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    padding: 5px 12px;
+    border-radius: 999px;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25);
+}
+
+/* Chuyển động của pin radar do JS điều khiển: tắt transition mặc định của Leaflet
+   để requestAnimationFrame không bị giật do 2 lớp animation chồng nhau */
+.leaflet-marker-icon.hub-pin-current {
+    transition: none !important;
+}
+
 /* Bảng dữ liệu chuẩn Enterprise */
 .table-b2b th {
     font-size: 11.5px;

@@ -9,6 +9,7 @@ import org.app.shipmentservice.dto.response.CustomerValidationResponse;
 import org.app.shipmentservice.entity.Shipment;
 import org.app.shipmentservice.exception.DuplicateRequestException;
 import org.app.shipmentservice.exception.ForbiddenException;
+import org.app.shipmentservice.exception.UnauthorizedException;
 import org.app.shipmentservice.repository.ShipmentRepository;
 import org.app.shipmentservice.service.ShipmentService;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -28,6 +29,38 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final StringRedisTemplate redisTemplate;
     private final KafkaTemplate<String,Object> kafkaTemplate;
 
+    private Long resolveCustomerId(String currentUserId) {
+        if (currentUserId == null || currentUserId.isBlank() || "null".equalsIgnoreCase(currentUserId)) {
+            throw new UnauthorizedException("Yêu cầu thông tin đăng nhập hợp lệ!");
+        }
+
+        Long userId;
+        try {
+            userId = Long.parseLong(currentUserId.trim());
+        } catch (NumberFormatException e) {
+            throw new UnauthorizedException("User ID không hợp lệ: " + currentUserId);
+        }
+
+        String cacheKey = "customer:user_id_map:" + userId;
+        String cachedCustomerId = redisTemplate.opsForValue().get(cacheKey);
+        if (cachedCustomerId != null && !cachedCustomerId.isBlank()) {
+            try {
+                return Long.parseLong(cachedCustomerId);
+            } catch (NumberFormatException ignored) {}
+        }
+
+        log.info("Đang gọi customer-service để phân giải userId {} sang customerId", userId);
+        CustomerValidationResponse validationResponse = customerClient.validateCustomerByUserId(userId);
+        if (validationResponse == null || !validationResponse.isValid() || validationResponse.getCustomerId() == null) {
+            String reason = validationResponse != null ? validationResponse.getReason() : "CUSTOMER_PROFILE_NOT_FOUND";
+            throw new RuntimeException("Không tìm thấy hồ sơ khách hàng hợp lệ gắn với tài khoản! Lý do: " + reason);
+        }
+
+        Long customerId = validationResponse.getCustomerId();
+        redisTemplate.opsForValue().set(cacheKey, customerId.toString(), Duration.ofMinutes(30));
+        return customerId;
+    }
+
     @Override
     public Shipment createShipment(CreateShipmentRequest request, String currentUserId, String permissions) {
 
@@ -35,9 +68,26 @@ public class ShipmentServiceImpl implements ShipmentService {
             throw new ForbiddenException("Người dùng không có quyền tạo đơn hàng!");
         }
 
-        if (currentUserId != null && !currentUserId.isBlank())  {
-            request.setCustomerId(Long.parseLong(currentUserId));
+        if (currentUserId == null || currentUserId.isBlank() || "null".equalsIgnoreCase(currentUserId)) {
+            throw new UnauthorizedException("Yêu cầu thông tin đăng nhập hợp lệ để tạo đơn hàng!");
         }
+
+        boolean canCreateForOthers = permissions != null && permissions.contains("shipment:create_for_others");
+        Long targetCustomerId;
+
+        if (canCreateForOthers && request.getCustomerId() != null) {
+            targetCustomerId = request.getCustomerId();
+            log.info("[SHIPMENT] Admin/CSKH {} đang tạo đơn hộ cho customerId {}", currentUserId, targetCustomerId);
+            CustomerValidationResponse validationResponse = customerClient.validateCustomer(targetCustomerId);
+            if (validationResponse == null || !validationResponse.isValid()) {
+                throw new RuntimeException("Không xác thực được khách hàng (ID: " + targetCustomerId + ")!" +
+                        " Lí do: " + (validationResponse != null ? validationResponse.getReason() : "Unknown"));
+            }
+        } else {
+            targetCustomerId = resolveCustomerId(currentUserId);
+        }
+
+        request.setCustomerId(targetCustomerId);
 
         if (request.getRequestId() == null || request.getRequestId().isBlank()) {
             String requestId = UUID.randomUUID().toString();
@@ -104,7 +154,6 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .build();
         kafkaTemplate.send("shipment-events",String.valueOf(saved.getTrackingCode()),event);
 
-
         return saved;
     }
 
@@ -114,7 +163,8 @@ public class ShipmentServiceImpl implements ShipmentService {
                 new RuntimeException("Không tìm thấy đơn hàng: " + trackCode));
 
         if (permissions != null && !permissions.contains("shipment:read_all")) {
-            if (currentUserId != null && !shipment.getCustomerId().toString().equals(currentUserId)) {
+            Long myCustomerId = resolveCustomerId(currentUserId);
+            if (!shipment.getCustomerId().equals(myCustomerId)) {
                 throw new ForbiddenException("Người dùng không có quyền xem thông tin đơn hàng!");
             }
         }
@@ -125,7 +175,8 @@ public class ShipmentServiceImpl implements ShipmentService {
     public List<Shipment> getShipmentByCustomerId(Long customerId, String currentUserId, String permissions) {
 
         if (permissions != null && !permissions.contains("shipment:read_all")) {
-            if (currentUserId != null && !customerId.toString().equals(currentUserId)) {
+            Long myCustomerId = resolveCustomerId(currentUserId);
+            if (!customerId.equals(myCustomerId)) {
                 throw new ForbiddenException("Bạn không được phép xem trộm danh sách đơn hàng của khách khác!");
             }
         }
@@ -153,16 +204,12 @@ public class ShipmentServiceImpl implements ShipmentService {
             return shipmentRepository.findAllByCustomerIdOrderByCreatedAtDesc(customerId);
         }
 
-        if(currentUserId == null || currentUserId.isBlank()){
-            throw new ForbiddenException("Người dùng không có quyền xem danh sách đơn hàng!");
-        }
-
-        Long myCustomerId = Long.parseLong(currentUserId);
+        Long myCustomerId = resolveCustomerId(currentUserId);
         if (customerId != null && !customerId.equals(myCustomerId)) {
             throw new ForbiddenException("Người dùng không có quyền xem danh sách đơn hàng của khách khác!");
         }
 
-        log.info("[SHIPMENT] Khách hàng {} đang xem danh sách đơn của chính mình", myCustomerId);
+        log.info("[SHIPMENT] Khách hàng {} (userId: {}) đang xem danh sách đơn của chính mình", myCustomerId, currentUserId);
         return shipmentRepository.findAllByCustomerIdOrderByCreatedAtDesc(myCustomerId);
 
     }

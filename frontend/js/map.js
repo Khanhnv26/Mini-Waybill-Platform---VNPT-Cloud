@@ -5,12 +5,43 @@
  */
 
 (function () {
+    /**
+     * Bảng trạng thái ĐỒNG BỘ TUYỆT ĐỐI với enum backend
+     * org.app.trackingservice.entity.ShipmentStatus.
+     * Không được thêm mã ngoài danh sách này, vì backend sẽ ném lỗi ở valueOf().
+     */
+    const STATUS_RATIOS = {
+        'CREATED': 0.02,
+        'PENDING_ROUTING': 0.05,
+        'ROUTE_ASSIGNED': 0.10,
+        'PICKED_UP': 0.22,
+        'IN_TRANSIT': 0.60,
+        'OUT_FOR_DELIVERY': 0.90,
+        'DELIVERED': 1.0,
+        'DELIVERY_FAILED': 0.90
+    };
+
+    const STATUS_NAMES = {
+        'CREATED': 'Đã Tiếp Nhận Bưu Gửi',
+        'PENDING_ROUTING': 'Đang Chờ Phân Tuyến',
+        'ROUTE_ASSIGNED': 'Đã Thiết Lập Tuyến',
+        'PICKED_UP': 'Đã Rời Bưu Cục Xuất Phát',
+        'IN_TRANSIT': 'Đang Vận Chuyển Trên Tuyến',
+        'OUT_FOR_DELIVERY': 'Bưu Tá Đang Giao Tận Nơi',
+        'DELIVERED': 'Giao Hàng Thành Công',
+        'DELIVERY_FAILED': 'Phát Không Thành Công'
+    };
+
+    const ROUTE_CACHE_PREFIX = 'vnpt.route.v1.';
+
     const MapManager = {
         map: null,
         polylineLayer: null,
         markersGroup: null,
         baseLayers: {},
         layerControl: null,
+        STATUS_RATIOS,
+        STATUS_NAMES,
         hubCoordinates: {
             'HUB-HN-01': { name: 'Kho Tổng Hà Nội', lat: 21.028511, lng: 105.782000 },
             'HUB-HP-01': { name: 'Kho Tổng Hải Phòng', lat: 20.844912, lng: 106.688084 },
@@ -21,6 +52,13 @@
 
         currentContainerId: null,
         routeCache: {},
+        routePoints: [],
+        currentRouteKey: null,
+        renderToken: 0,
+        lastRatio: 0,
+        markerAnimFrame: null,
+        tileErrorCount: 0,
+        usingFallbackTiles: false,
         vietnamCorridorWaypoints: [
             { name: 'Vinh (Nghệ An)', lat: 18.6796, lng: 105.6813 },
             { name: 'Đồng Hới (Quảng Bình)', lat: 17.4740, lng: 106.6225 },
@@ -72,6 +110,16 @@
                 this.map = null;
             }
 
+            // Map bị huỷ thì mọi layer tham chiếu tới nó đều không còn hợp lệ.
+            // Phải xoá tham chiếu, nếu không lần vẽ sau sẽ thao tác trên layer mồ côi.
+            this.completedPolyline = null;
+            this.remainingPolyline = null;
+            this.radarMarker = null;
+            this.markersGroup = null;
+            this.currentRouteKey = null;
+            this.lastRatio = 0;
+            this.cancelPendingRenders();
+
             this.currentContainerId = containerId;
 
             // 1. Khởi tạo đối tượng Map Leaflet
@@ -81,26 +129,63 @@
                 maxZoom: 20
             });
 
-            // 2. Cấu hình Tile Layers tiếng Việt (Google Maps hl=vi không cần API key, tên đường và tỉnh thành 100% chuẩn Việt Nam)
+            // 2. Cấu hình Tile Layers.
+            // Nguồn Google (mt{s}.google.com) không phải endpoint chính thức nên hay bị 403/429
+            // gây vỡ ô bản đồ. Dùng OpenStreetMap làm nền mặc định (ổn định, tên địa danh tiếng Việt
+            // đầy đủ ở VN) và tự động chuyển hẳn sang OSM nếu lớp Google lỗi liên tiếp.
+            const BLANK_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+            const osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap | Bưu chính VNPT',
+                maxZoom: 19,
+                keepBuffer: 4,
+                updateWhenIdle: false,
+                errorTileUrl: BLANK_TILE
+            });
+
             const roadLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {
                 attribution: '&copy; Google Bản đồ Việt Nam | Bưu chính VNPT',
                 subdomains: ['0', '1', '2', '3'],
-                maxZoom: 20
+                maxZoom: 20,
+                keepBuffer: 4,
+                updateWhenIdle: false,
+                errorTileUrl: BLANK_TILE
             });
 
             const hybridLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&hl=vi', {
                 attribution: '&copy; Google Vệ tinh | Bưu chính VNPT',
                 subdomains: ['0', '1', '2', '3'],
-                maxZoom: 20
+                maxZoom: 20,
+                keepBuffer: 4,
+                updateWhenIdle: false,
+                errorTileUrl: BLANK_TILE
             });
 
-            // Mặc định nạp bản đồ đường bộ tiếng Việt
-            roadLayer.addTo(this.map);
+            // Mặc định nạp nền OpenStreetMap để bản đồ luôn hiển thị đầy đủ
+            osmLayer.addTo(this.map);
 
             this.baseLayers = {
-                'Bản đồ đường bộ': roadLayer,
+                'Bản đồ đường bộ (OSM)': osmLayer,
+                'Bản đồ Google (Tiếng Việt)': roadLayer,
                 'Ảnh vệ tinh': hybridLayer
             };
+
+            // Tự động hạ cấp về OSM khi lớp Google bị chặn/giới hạn tần suất
+            this.tileErrorCount = 0;
+            this.usingFallbackTiles = false;
+            const self = this;
+            [roadLayer, hybridLayer].forEach(layer => {
+                layer.on('tileerror', () => {
+                    if (self.usingFallbackTiles || !self.map || !self.map.hasLayer(layer)) return;
+                    self.tileErrorCount++;
+                    if (self.tileErrorCount >= 6) {
+                        self.usingFallbackTiles = true;
+                        console.warn('[MapManager] Nguồn tile Google bị chặn, tự động chuyển sang OpenStreetMap.');
+                        self.map.removeLayer(layer);
+                        osmLayer.addTo(self.map);
+                    }
+                });
+            });
 
             // 3. Nhóm marker dành cho các Bưu cục và tuyến đường vận chuyển (được xóa/vẽ lại theo đơn hàng)
             this.markersGroup = L.layerGroup().addTo(this.map);
@@ -123,6 +208,68 @@
                     this.map.invalidateSize();
                 }
             }, 250);
+        },
+
+        // Yêu cầu Leaflet tính lại kích thước khung (sau khi tab hiện lại hoặc layout đổi)
+        invalidateSize() {
+            if (this.map) {
+                try {
+                    this.map.invalidateSize();
+                } catch (e) {}
+            }
+        },
+
+        /**
+         * Vô hiệu hoá mọi lượt renderRoute đang chạy dở.
+         * Bắt buộc gọi trước khi bắt đầu lượt vẽ mới, vì renderRoute có await (OSRM ~4.5s)
+         * trong khi polling có thể kích hoạt lượt vẽ khác chỉ sau 3s -> ghi đè layer lẫn nhau.
+         */
+        cancelPendingRenders() {
+            this.renderToken++;
+            if (this.markerAnimFrame) {
+                cancelAnimationFrame(this.markerAnimFrame);
+                this.markerAnimFrame = null;
+            }
+            return this.renderToken;
+        },
+
+        // Lớp phủ trạng thái trên khung bản đồ
+        setLoading(message) {
+            const el = this.currentContainerId ? document.getElementById(this.currentContainerId) : null;
+            if (!el || !el.parentElement) return;
+
+            let overlay = el.parentElement.querySelector('.map-loading-overlay');
+            if (!message) {
+                if (overlay) overlay.remove();
+                return;
+            }
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.className = 'map-loading-overlay';
+                el.parentElement.appendChild(overlay);
+            }
+            overlay.textContent = message;
+        },
+
+        // Đọc tuyến đã tính từ localStorage (tuyến giữa các Hub gần như bất biến)
+        readPersistedRoute(cacheKey) {
+            try {
+                const raw = localStorage.getItem(ROUTE_CACHE_PREFIX + cacheKey);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                if (!parsed || !Array.isArray(parsed.routePoints) || parsed.routePoints.length === 0) return null;
+                return parsed;
+            } catch (e) {
+                return null;
+            }
+        },
+
+        persistRoute(cacheKey, payload) {
+            try {
+                localStorage.setItem(ROUTE_CACHE_PREFIX + cacheKey, JSON.stringify(payload));
+            } catch (e) {
+                // localStorage đầy hoặc bị chặn: bỏ qua, cache trong RAM vẫn hoạt động
+            }
         },
 
         // Nút điều khiển nhanh 1-Click trên bản đồ
@@ -199,8 +346,14 @@
         // Cập nhật tọa độ động từ bảng Hubs trong Database
         updateHubs(hubs) {
             if (!Array.isArray(hubs)) return;
+
+            const movedHubs = [];
             hubs.forEach(h => {
                 if (h.hubCode && h.latitude && h.longitude) {
+                    const old = this.hubCoordinates[h.hubCode];
+                    if (!old || old.lat !== h.latitude || old.lng !== h.longitude) {
+                        movedHubs.push(h.hubCode);
+                    }
                     this.hubCoordinates[h.hubCode] = {
                         name: h.hubName + ' (' + h.hubCode + ')',
                         lat: h.latitude,
@@ -208,6 +361,18 @@
                         province: h.province
                     };
                 }
+            });
+
+            // Toạ độ Hub đổi thì tuyến đã cache không còn đúng nữa, phải xoá để tính lại
+            movedHubs.forEach(code => {
+                Object.keys(this.routeCache).forEach(key => {
+                    if (key.includes(code)) {
+                        delete this.routeCache[key];
+                        try {
+                            localStorage.removeItem(ROUTE_CACHE_PREFIX + key);
+                        } catch (e) {}
+                    }
+                });
             });
         },
 
@@ -220,20 +385,10 @@
         updateProgress(status, note = '') {
             if (!this.map || !this.routePoints || this.routePoints.length === 0) return null;
 
-            const statusRatios = {
-                'CREATED': 0.02,
-                'PENDING_ROUTING': 0.04,
-                'ROUTE_ASSIGNED': 0.08,
-                'PICKED_UP': 0.20,
-                'IN_TRANSIT': 0.55,
-                'ARRIVED_DEST_HUB': 0.88,
-                'DELIVERING': 0.95,
-                'DELIVERED': 1.0,
-                'CANCELLED': 0.0
-            };
-
-            const ratio = statusRatios[status] !== undefined ? statusRatios[status] : 0.5;
-            const targetIdx = Math.min(this.routePoints.length - 1, Math.max(0, Math.floor(ratio * (this.routePoints.length - 1))));
+            // Trạng thái không nằm trong enum backend: giữ nguyên vị trí hiện tại,
+            // tuyệt đối không rơi về một giá trị mặc định làm pin nhảy giật lùi.
+            const ratio = STATUS_RATIOS[status] !== undefined ? STATUS_RATIOS[status] : this.lastRatio;
+            const targetIdx = Math.min(this.routePoints.length - 1, Math.max(0, Math.round(ratio * (this.routePoints.length - 1))));
             const currentPoint = this.routePoints[targetIdx];
 
             // 1. Cập nhật phân đoạn đã hoàn thành (Xanh dương đậm)
@@ -266,17 +421,7 @@
             }
 
             // 3. Cập nhật Pin Radar phát sóng di động
-            const statusNames = {
-                'CREATED': 'Đã Tiếp Nhận Bưu Gửi',
-                'PENDING_ROUTING': 'Đang Phân Tuyến OSRM',
-                'ROUTE_ASSIGNED': 'Đã Thiết Lập Tuyến',
-                'PICKED_UP': 'Đã Rời Bưu Cục Xuất Phát',
-                'IN_TRANSIT': 'Đang Vận Chuyển Trên Tuyến',
-                'ARRIVED_DEST_HUB': 'Đã Nhập Bưu Cục Đích',
-                'DELIVERING': 'Bưu Tá Đang Giao Tận Nơi',
-                'DELIVERED': 'Giao Hàng Thành Công',
-                'CANCELLED': 'Hành Trình Bị Hủy'
-            };
+            const statusNames = STATUS_NAMES;
 
             const percent = Math.round(ratio * 100);
             const labelText = statusNames[status] || status;
@@ -295,9 +440,11 @@
                     .bindTooltip(tooltipHtml, { permanent: true, direction: 'top', offset: [0, -10], className: 'radar-tooltip' })
                     .addTo(this.map);
             } else {
-                this.radarMarker.setLatLng(currentPoint);
                 this.radarMarker.setTooltipContent(tooltipHtml);
+                this.animateMarkerTo(currentPoint);
             }
+
+            this.lastRatio = ratio;
 
             return {
                 ratio,
@@ -307,34 +454,85 @@
             };
         },
 
+        /**
+         * Trượt pin radar tới toạ độ mới bằng requestAnimationFrame thay vì nhảy cóc.
+         * Chỉ animate khi quãng nhảy đủ lớn để tránh giật vặt khi polling.
+         */
+        animateMarkerTo(targetPoint, duration = 700) {
+            if (!this.radarMarker || !targetPoint) return;
+
+            if (this.markerAnimFrame) {
+                cancelAnimationFrame(this.markerAnimFrame);
+                this.markerAnimFrame = null;
+            }
+
+            const from = this.radarMarker.getLatLng();
+            const toLat = targetPoint[0];
+            const toLng = targetPoint[1];
+
+            const delta = Math.abs(from.lat - toLat) + Math.abs(from.lng - toLng);
+            if (delta < 0.0005) {
+                this.radarMarker.setLatLng(targetPoint);
+                return;
+            }
+
+            const startTime = performance.now();
+            const step = (now) => {
+                const t = Math.min(1, (now - startTime) / duration);
+                // Hàm easing ease-in-out để chuyển động tự nhiên
+                const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+                if (!this.radarMarker) return;
+                this.radarMarker.setLatLng([
+                    from.lat + (toLat - from.lat) * eased,
+                    from.lng + (toLng - from.lng) * eased
+                ]);
+                if (t < 1) {
+                    this.markerAnimFrame = requestAnimationFrame(step);
+                } else {
+                    this.markerAnimFrame = null;
+                }
+            };
+            this.markerAnimFrame = requestAnimationFrame(step);
+        },
+
         // Vẽ tuyến luân chuyển hàng giữa các Hub (Hỗ trợ OSRM vẽ đường bộ thực tế & nhiều chặng)
         async renderRoute(history = [], currentStatus = 'ROUTE_ASSIGNED', shouldFitBounds = true) {
             if (!this.map) this.init();
             if (!this.map) return null;
 
+            // Huỷ mọi lượt vẽ đang chạy dở và lấy token cho lượt hiện tại.
+            // Sau mỗi await phải kiểm tra token, nếu đã cũ thì bỏ qua toàn bộ thao tác ghi layer.
+            const token = this.cancelPendingRenders();
+            const isStale = () => token !== this.renderToken || !this.map;
+
             // Xóa các mốc và tuyến cũ của đơn trước
             if (this.markersGroup) this.markersGroup.clearLayers();
-            if (this.completedPolyline && this.map) {
+            if (this.completedPolyline) {
                 this.map.removeLayer(this.completedPolyline);
                 this.completedPolyline = null;
             }
-            if (this.remainingPolyline && this.map) {
+            if (this.remainingPolyline) {
                 this.map.removeLayer(this.remainingPolyline);
                 this.remainingPolyline = null;
             }
-            if (this.radarMarker && this.map) {
+            if (this.radarMarker) {
                 this.map.removeLayer(this.radarMarker);
                 this.radarMarker = null;
             }
+
+            // Reset tuyến: nếu không xoá, khi OSRM lỗi thì đơn mới sẽ dùng lại tuyến của đơn cũ
+            this.routePoints = [];
+            this.lastRatio = 0;
 
             let sourceHub = 'HUB-HN-01';
             let destHub = 'HUB-HCM-01';
             let routeCode = 'ROUTE-HUB-HN-01-TO-HUB-HCM-01';
 
             // Phân tích từ lịch sử tracking
-            history.forEach(item => {
-                if (item.node && item.node.includes('ROUTE-')) {
-                    const match = item.node.match(/ROUTE-([A-Z0-9-]+)-TO-([A-Z0-9-]+)/);
+            (Array.isArray(history) ? history : []).forEach(item => {
+                const text = item && (item.node || item.note);
+                if (text && text.includes('ROUTE-')) {
+                    const match = text.match(/ROUTE-([A-Z0-9-]+)-TO-([A-Z0-9-]+)/);
                     if (match) {
                         sourceHub = match[1];
                         destHub = match[2];
@@ -372,23 +570,28 @@
             let durationHours = null;
             let isRealRoad = false;
 
-            // 4. Kiểm tra bộ nhớ đệm (Cache) để nạp tức thì
+            // 4. Kiểm tra bộ nhớ đệm: RAM trước, sau đó tới localStorage (tuyến giữa Hub gần như bất biến)
             const cacheKey = `${sourceHub}_${destHub}`;
-            if (this.routeCache[cacheKey]) {
-                const cached = this.routeCache[cacheKey];
+            const cached = this.routeCache[cacheKey] || this.readPersistedRoute(cacheKey);
+
+            if (cached) {
+                this.routeCache[cacheKey] = cached;
                 this.routePoints = cached.routePoints;
                 distanceKm = cached.distanceKm;
                 durationHours = cached.durationHours;
                 isRealRoad = cached.isRealRoad;
             } else {
+                this.setLoading('Đang tính tuyến đường bộ…');
+
                 // Gọi API OSRM kèm theo các điểm chốt hành lang nội địa Việt Nam (QL1A & CT01)
+                let osrmPoints = null;
                 try {
                     const waypoints = this.buildVietnamWaypoints(sourceCoord, destCoord);
                     const waypointsQuery = waypoints.map(pt => `${pt.lng},${pt.lat}`).join(';');
                     const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${waypointsQuery}?overview=full&geometries=geojson`;
 
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 4500);
+                    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
                     const res = await fetch(osrmUrl, { signal: controller.signal });
                     clearTimeout(timeoutId);
@@ -402,38 +605,47 @@
                             isRealRoad = true;
 
                             // Chuyển đổi GeoJSON [lng, lat] thành danh sách Leaflet [lat, lng]
-                            this.routePoints = route.geometry.coordinates.map(pt => [pt[1], pt[0]]);
-
-                            // Lưu vào bộ nhớ đệm (Cache)
-                            this.routeCache[cacheKey] = {
-                                routePoints: this.routePoints,
-                                distanceKm,
-                                durationHours,
-                                isRealRoad: true
-                            };
+                            osrmPoints = route.geometry.coordinates.map(pt => [pt[1], pt[0]]);
                         }
                     }
                 } catch (e) {
                     console.warn('[MapManager] OSRM không phản hồi hoặc bị gián đoạn, chuyển sang fallback hành lang:', e);
                 }
 
-                // Fallback nếu OSRM lỗi mạng: Nối theo chuỗi waypoints nội địa Việt Nam
-                if (!this.routePoints || this.routePoints.length === 0) {
+                this.setLoading(null);
+
+                // Lượt vẽ này đã bị lượt mới thay thế trong lúc chờ OSRM: dừng, không ghi đè layer
+                if (isStale()) return null;
+
+                if (osrmPoints && osrmPoints.length > 0) {
+                    this.routePoints = osrmPoints;
+                    const payload = { routePoints: osrmPoints, distanceKm, durationHours, isRealRoad: true };
+                    this.routeCache[cacheKey] = payload;
+                    this.persistRoute(cacheKey, payload);
+                } else {
+                    // Fallback nếu OSRM lỗi mạng: Nối theo chuỗi waypoints nội địa Việt Nam
                     const fallbackWps = this.buildVietnamWaypoints(sourceCoord, destCoord);
-                    this.routePoints = [];
+                    const points = [];
                     for (let w = 0; w < fallbackWps.length - 1; w++) {
                         const p1 = fallbackWps[w];
                         const p2 = fallbackWps[w + 1];
                         for (let i = 0; i <= 10; i++) {
                             const t = i / 10;
-                            this.routePoints.push([
+                            points.push([
                                 p1.lat + (p2.lat - p1.lat) * t,
                                 p1.lng + (p2.lng - p1.lng) * t
                             ]);
                         }
                     }
+                    this.routePoints = points;
+                    isRealRoad = false;
+                    // Không cache tuyến ước lượng, để lần sau còn thử lại OSRM
                 }
             }
+
+            if (isStale()) return null;
+
+            this.currentRouteKey = cacheKey;
 
             // 5. Cập nhật phân đoạn và vị trí Pin Radar theo trạng thái hiện tại
             this.updateProgress(currentStatus);

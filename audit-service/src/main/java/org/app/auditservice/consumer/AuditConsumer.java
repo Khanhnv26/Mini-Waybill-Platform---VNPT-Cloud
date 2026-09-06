@@ -25,8 +25,8 @@ public class AuditConsumer {
         AuditEvent auditEvent = AuditEvent.builder()
                 .eventId(UUID.randomUUID().toString())
                 .eventType("SHIPMENT_CREATED")
-                .aggregateId(record.key()) // record.key() chính là trackingCode!
-                .payload(record.value())  // record.value() chính là toàn bộ chuỗi JSON!
+                .aggregateId(record.key())
+                .payload(record.value())
                 .occurredAt(LocalDateTime.now())
                 .build();
 
