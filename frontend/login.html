@@ -208,6 +208,7 @@
                             Đang xác thực tài khoản Google...
                         </div>
                     </div>
+
                 </div>
 
                 <!-- 2. FORM ĐĂNG KÝ -->
@@ -542,6 +543,13 @@
                     }
                 }
 
+                // Đăng nhập nhanh tài khoản mẫu thử nghiệm
+                function quickLogin(email) {
+                    loginForm.email = email;
+                    loginForm.password = 'Admin@123456';
+                    handleEmailLogin();
+                }
+
                 // 2. Xử lý Đăng ký tài khoản
                 async function handleRegister() {
                     clearAlert();
@@ -735,6 +743,7 @@
                     handleOtpKeyUp,
                     handleOtpPaste,
                     handleEmailLogin,
+                    quickLogin,
                     handleRegister,
                     handleSendOtp,
                     handleResendOtp,

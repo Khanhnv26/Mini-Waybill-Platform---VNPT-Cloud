@@ -27,6 +27,10 @@
             return response.json();
         },
 
+        async getAll() {
+            return this.getShipments();
+        },
+
         /**
          * Chi tiết bưu gửi theo mã vận đơn.
          * Endpoint yêu cầu đăng nhập; trả về null (không ném lỗi) khi 401/403

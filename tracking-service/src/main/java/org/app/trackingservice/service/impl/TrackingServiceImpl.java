@@ -7,6 +7,7 @@ import org.app.trackingservice.dto.request.UpdateStatusRequest;
 import org.app.trackingservice.entity.ShipmentStatus;
 import org.app.trackingservice.entity.TrackingHistory;
 import org.app.trackingservice.exception.InvalidStateTransitionException;
+import org.app.trackingservice.exception.ShipmentNotFoundException;
 import org.app.trackingservice.repository.TrackingHistoryRepository;
 import org.app.trackingservice.service.TrackingService;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -43,31 +44,14 @@ public class TrackingServiceImpl implements TrackingService {
             return Map.of("trackingCode", trackingCode, "currentStatus", latestHistory.getStatus(), "source", "SQL_SERVER");
         }
 
-        TrackingHistory initial = TrackingHistory.builder()
-                .trackingCode(trackingCode)
-                .status("PENDING_ROUTING")
-                .locationCode("WAREHOUSE")
-                .node("Đơn hàng đã được khởi tạo và đang chờ phân tuyến")
-                .occurredAt(LocalDateTime.now())
-                .build();
-        trackingHistoryRepository.save(initial);
-        redisTemplate.opsForValue().set(redisKey, "PENDING_ROUTING");
-
-        return Map.of("trackingCode", trackingCode, "currentStatus", "PENDING_ROUTING", "source", "AUTO_INITIALIZED");
+        throw new ShipmentNotFoundException(trackingCode);
     }
 
     @Override
     public List<TrackingHistory> getTrackingHistory(String trackingCode) {
         List<TrackingHistory> list = trackingHistoryRepository.findByTrackingCodeOrderByOccurredAtAsc(trackingCode);
         if (list.isEmpty()) {
-            TrackingHistory initial = TrackingHistory.builder()
-                    .trackingCode(trackingCode)
-                    .status("PENDING_ROUTING")
-                    .locationCode("WAREHOUSE")
-                    .node("Đơn hàng đã được khởi tạo và đang chờ phân tuyến")
-                    .occurredAt(LocalDateTime.now())
-                    .build();
-            return List.of(trackingHistoryRepository.save(initial));
+            throw new ShipmentNotFoundException(trackingCode);
         }
         return list;
     }

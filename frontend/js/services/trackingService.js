@@ -9,7 +9,11 @@
         async getTracking(trackingCode) {
             const response = await Api.get(`/api/tracking/${encodeURIComponent(trackingCode)}`);
             if (!response.ok) {
-                throw new Error(`Không tìm thấy dữ liệu cho mã bưu gửi: ${trackingCode}`);
+                const errData = await response.json().catch(() => ({}));
+                const err = new Error(errData.message || `Không tìm thấy dữ liệu cho mã bưu gửi: ${trackingCode}`);
+                err.status = response.status;
+                err.isNotFound = response.status === 404;
+                throw err;
             }
             return response.json();
         },
@@ -18,7 +22,7 @@
         async getHistory(trackingCode) {
             const response = await Api.get(`/api/tracking/${encodeURIComponent(trackingCode)}/history`);
             if (!response.ok) {
-                throw new Error(`Không tải được hành trình cho mã bưu gửi: ${trackingCode}`);
+                return [];
             }
             return response.json();
         },

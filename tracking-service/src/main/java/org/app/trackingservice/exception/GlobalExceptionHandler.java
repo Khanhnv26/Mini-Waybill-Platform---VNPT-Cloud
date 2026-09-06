@@ -21,6 +21,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
+    @ExceptionHandler(ShipmentNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleShipmentNotFoundException(ShipmentNotFoundException ex) {
+        Map<String, Object> error = new LinkedHashMap<>();
+        error.put("errorCode", "SHIPMENT_NOT_FOUND");
+        error.put("message", ex.getMessage());
+        error.put("trackingCode", ex.getTrackingCode());
+        error.put("timestamp", LocalDateTime.now().toString());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
     @ExceptionHandler(InvalidStateTransitionException.class)
     public ResponseEntity<Map<String, Object>> handleInvalidStateTransitionException(InvalidStateTransitionException ex) {
         Map<String, Object> error = new LinkedHashMap<>();

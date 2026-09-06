@@ -30,6 +30,24 @@
                     permission: 'shipment:create' // Khách hàng & Admin
                 },
                 { 
+                    id: 'hub-ops', 
+                    name: 'Tác Nghiệp Kho Bãi', 
+                    component: 'HubOpsView', 
+                    permission: 'tracking:update_hub' // Thủ kho Hub & Admin
+                },
+                { 
+                    id: 'shipper', 
+                    name: 'Bưu Tá Giao Vận', 
+                    component: 'ShipperView', 
+                    permission: 'tracking:update_delivery' // Bưu tá & Admin
+                },
+                { 
+                    id: 'dispatch-sim', 
+                    name: 'Điều Phối & Mô Phỏng', 
+                    component: 'DispatchSimulationView', 
+                    role: 'ROLE_ADMIN' // Chỉ Quản trị viên
+                },
+                { 
                     id: 'customers', 
                     name: 'Danh Bạ Khách Hàng', 
                     component: 'CustomerView', 
@@ -46,6 +64,10 @@
             // 2. Dynamic Navigation: Chỉ hiển thị các Tab mà tài khoản có quyền truy cập
             const navigationTabs = computed(() => {
                 return allNavigationTabs.filter(tab => {
+                    if (tab.role) {
+                        if (typeof Auth === 'undefined') return false;
+                        return Auth.hasRole(tab.role);
+                    }
                     if (!tab.permission) return true; // Tab công khai
                     if (typeof Auth === 'undefined') return false;
                     return Auth.hasPermission(tab.permission);
@@ -62,6 +84,21 @@
             const switchTab = (tabId) => {
                 const targetTab = allNavigationTabs.find(t => t.id === tabId);
                 if (!targetTab) return;
+
+                if (targetTab.role) {
+                    if (typeof Auth === 'undefined' || !Auth.hasRole(targetTab.role)) {
+                        if (window.Utils && window.Utils.showToast) {
+                            window.Utils.showToast(
+                                'Truy Cập Bị Chặn (403)', 
+                                'Chức năng điều phối mô phỏng chỉ dành riêng cho Quản trị viên hệ thống!', 
+                                'error'
+                            );
+                        } else {
+                            alert('Quyền truy cập bị từ chối: Dành riêng cho Quản trị viên!');
+                        }
+                        return;
+                    }
+                }
 
                 // Nếu tab yêu cầu quyền mà tài khoản không có -> Chặn ngay lập tức
                 if (targetTab.permission) {
@@ -136,6 +173,9 @@
     // Đăng ký các View Components
     if (window.TrackingView) app.component('TrackingView', window.TrackingView);
     if (window.ShipmentView) app.component('ShipmentView', window.ShipmentView);
+    if (window.HubOpsView) app.component('HubOpsView', window.HubOpsView);
+    if (window.ShipperView) app.component('ShipperView', window.ShipperView);
+    if (window.DispatchSimulationView) app.component('DispatchSimulationView', window.DispatchSimulationView);
     if (window.CustomerView) app.component('CustomerView', window.CustomerView);
     if (window.AdminRbacView) app.component('AdminRbacView', window.AdminRbacView);
 

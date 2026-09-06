@@ -19,9 +19,11 @@
         setup(props) {
             const searchCode = ref(props.trackingCode || '');
             const isLoading = ref(false);
-            const isUpdating = ref(false);
             const isLiveTracking = ref(true);
-            const isSimulating = ref(false);
+
+            const validationError = ref('');
+            const isNotFound = ref(false);
+            const notFoundCode = ref('');
 
             const currentShipment = ref(null);
             const trackingHistory = ref([]);
@@ -31,42 +33,17 @@
             const lastRenderedCode = ref(null);
 
             let livePollTimer = null;
-            let simTimer = null;
 
             // Subtab chi tiết phía dưới: 'history' | 'audit' | 'notification'
             const activeSubtab = ref('history');
 
-            // 1. Phân quyền cấp độ Giao diện (Component-Level RBAC)
-            const canOperate = computed(() => {
-                if (typeof Auth === 'undefined') return false;
-                return Auth.hasAnyPermission(['tracking:update_hub', 'tracking:update_delivery']) || Auth.hasRole('ROLE_ADMIN');
-            });
-
-            const canUpdateHub = computed(() => {
-                if (typeof Auth === 'undefined') return false;
-                return Auth.hasPermission('tracking:update_hub') || Auth.hasRole('ROLE_ADMIN');
-            });
-
-            const canUpdateDelivery = computed(() => {
-                if (typeof Auth === 'undefined') return false;
-                return Auth.hasPermission('tracking:update_delivery') || Auth.hasRole('ROLE_ADMIN');
-            });
-
+            // Quyền xem nhật ký kiểm toán (Audit Log)
             const canReadAudit = computed(() => {
                 if (typeof Auth === 'undefined') return false;
                 return Auth.hasPermission('audit:read') || Auth.hasRole('ROLE_ADMIN');
             });
 
-            // 2. Hub động theo tuyến thực tế của đơn hàng
-            const currentSourceHub = computed(() => {
-                return routeInfo.value?.sourceHub || 'HUB-HN-01';
-            });
-
-            const currentDestHub = computed(() => {
-                return routeInfo.value?.destHub || 'HUB-HP-01';
-            });
-
-            // 3. Tính toán chặng hiện tại cho Stepper (1 đến 4) - bám đúng enum backend
+            // Tính toán chặng hiện tại cho Stepper (1 đến 4) - bám đúng enum backend
             const currentStageIndex = computed(() => {
                 const s = currentShipment.value?.status;
                 if (!s || s === 'CREATED' || s === 'PENDING_ROUTING' || s === 'ROUTE_ASSIGNED') return 1;
@@ -78,27 +55,6 @@
 
             // Đơn đã kết thúc hành trình thì không cần đồng bộ nữa
             const isFinalState = computed(() => currentShipment.value?.status === 'DELIVERED');
-
-            /**
-             * Bản sao state machine của backend (ShipmentStatus.canTransitionTo).
-             * Dùng để khoá sẵn nút không hợp lệ, tránh người dùng bấm rồi nhận lỗi 400.
-             */
-            const ALLOWED_TRANSITIONS = {
-                'CREATED': ['PENDING_ROUTING'],
-                'PENDING_ROUTING': ['ROUTE_ASSIGNED'],
-                'ROUTE_ASSIGNED': ['PICKED_UP'],
-                'PICKED_UP': ['IN_TRANSIT'],
-                'IN_TRANSIT': ['OUT_FOR_DELIVERY'],
-                'OUT_FOR_DELIVERY': ['DELIVERED', 'DELIVERY_FAILED'],
-                'DELIVERED': [],
-                'DELIVERY_FAILED': ['OUT_FOR_DELIVERY']
-            };
-
-            const canMoveTo = (nextStatus) => {
-                const current = currentShipment.value?.status;
-                if (!current) return false;
-                return (ALLOWED_TRANSITIONS[current] || []).includes(nextStatus);
-            };
 
             // 4. Tải các dữ liệu phụ trợ (hành trình, thông báo, kiểm toán)
             const loadSecondaryData = async (code) => {
@@ -134,19 +90,57 @@
                     return shipmentDetailCache[code];
                 }
                 const detail = await ShipmentService.getByCode(code);
-                shipmentDetailCache[code] = detail;
+                if (detail) {
+                    shipmentDetailCache[code] = detail;
+                }
                 return detail;
+            };
+
+            // Che số điện thoại cho khách vãng lai (0912***678)
+            const maskPhone = (phone) => {
+                if (!phone) return 'N/A';
+                if (typeof Auth !== 'undefined' && Auth.isAuthenticated()) {
+                    return phone;
+                }
+                const str = String(phone).trim();
+                if (str.length <= 6) return str;
+                return `${str.slice(0, 4)}***${str.slice(-3)}`;
+            };
+
+            const focusSearchInput = () => {
+                const el = document.getElementById('tracking-search-input');
+                if (el) {
+                    el.focus();
+                    el.select();
+                }
             };
 
             // 5. Tra cứu đầy đủ (người dùng bấm Tra Cứu hoặc lần nạp đầu)
             const fetchTrackingData = async (codeToSearch) => {
-                const code = (codeToSearch || searchCode.value || '').trim();
-                if (!code) {
-                    Utils.showToast('Thông Báo', 'Vui lòng nhập mã số bưu gửi để tra cứu hành trình', 'warning');
+                validationError.value = '';
+                const raw = (codeToSearch || searchCode.value || '').trim();
+                if (!raw) {
+                    validationError.value = 'Vui lòng nhập mã số bưu gửi cần tra cứu.';
+                    return;
+                }
+
+                const code = raw.toUpperCase();
+                searchCode.value = code;
+
+                if (!code.startsWith('WB')) {
+                    validationError.value = 'Mã bưu gửi không đúng định dạng. Mã chuẩn bắt đầu bằng "WB" (Ví dụ: WB1788...).';
+                    return;
+                }
+
+                if (code.length < 6) {
+                    validationError.value = 'Mã bưu gửi quá ngắn. Vui lòng nhập tối thiểu 6 ký tự.';
                     return;
                 }
 
                 isLoading.value = true;
+                isNotFound.value = false;
+                notFoundCode.value = '';
+
                 try {
                     const data = await TrackingService.getFullTracking(code);
                     const detail = await loadShipmentDetail(code);
@@ -189,11 +183,17 @@
 
                     Utils.showToast('Thành Công', `Đã nạp dữ liệu hành trình bưu gửi ${code}`);
                 } catch (err) {
-                    Utils.showToast('Không Tìm Thấy', err.message || 'Mã vận đơn không tồn tại', 'error');
                     currentShipment.value = null;
                     trackingHistory.value = [];
                     routeInfo.value = null;
                     lastRenderedCode.value = null;
+
+                    if (err.isNotFound || err.status === 404 || (err.message && err.message.toLowerCase().includes('không tìm thấy'))) {
+                        isNotFound.value = true;
+                        notFoundCode.value = code;
+                    } else {
+                        Utils.showToast('Lỗi Tra Cứu', err.message || 'Không thể tải dữ liệu bưu gửi', 'error');
+                    }
                 } finally {
                     isLoading.value = false;
                 }
@@ -235,7 +235,6 @@
                     if (!isLiveTracking.value) return;
                     if (document.hidden) return;                 // tab đang ẩn: bỏ qua để đỡ tốn tài nguyên
                     if (isFinalState.value) return;              // đơn đã giao xong: không cần hỏi nữa
-                    if (isUpdating.value || isSimulating.value) return;
                     if (!currentShipment.value?.trackingCode) return;
                     syncStatusInBackground();
                 }, POLL_INTERVAL_MS);
@@ -246,99 +245,6 @@
                     clearInterval(livePollTimer);
                     livePollTimer = null;
                 }
-            };
-
-            // 8. Cập nhật nghiệp vụ nhanh
-            const updateOperationalStatus = async (newStatus, locationCode, note) => {
-                if (!currentShipment.value || !currentShipment.value.trackingCode) return;
-                const code = currentShipment.value.trackingCode;
-
-                isUpdating.value = true;
-                try {
-                    await TrackingService.updateStatus(code, newStatus, locationCode, note);
-                    Utils.showToast('Thành Công', `Đã cập nhật trạng thái: ${Utils.formatStatusText(newStatus)}`);
-
-                    // Cập nhật ngay lập tức UI bưu gửi và vị trí beacon trên bản đồ mà không chờ server
-                    currentShipment.value = { ...currentShipment.value, status: newStatus };
-                    if (window.MapManager) {
-                        window.MapManager.updateProgress(newStatus, note);
-                    }
-
-                    // Tải lại hành trình / thông báo (không đụng tới bản đồ)
-                    await loadSecondaryData(code);
-                } catch (err) {
-                    Utils.showToast('Lỗi Cập Nhật', err.message, 'error');
-                    throw err;
-                } finally {
-                    isUpdating.value = false;
-                }
-            };
-
-            // 9. Chế độ Mô Phỏng Tự Động (Auto-Play Demo Simulation)
-            const toggleAutoPlaySimulation = async () => {
-                if (isSimulating.value) {
-                    if (simTimer) clearTimeout(simTimer);
-                    isSimulating.value = false;
-                    Utils.showToast('Dừng Mô Phỏng', 'Đã tạm dừng mô phỏng lộ trình bưu gửi');
-                    return;
-                }
-
-                if (!currentShipment.value) {
-                    Utils.showToast('Chưa Có Đơn Hàng', 'Vui lòng chọn hoặc tra cứu mã vận đơn trước khi chạy thử', 'warning');
-                    return;
-                }
-
-                /**
-                 * Chuỗi bước phải bám đúng state machine của backend
-                 * (ShipmentStatus.canTransitionTo): PENDING_ROUTING -> ROUTE_ASSIGNED ->
-                 * PICKED_UP -> IN_TRANSIT -> OUT_FOR_DELIVERY -> DELIVERED.
-                 * Bất kỳ mã nào ngoài enum sẽ bị backend từ chối và làm đứt mô phỏng.
-                 */
-                const fullFlow = [
-                    { status: 'PENDING_ROUTING', loc: currentSourceHub.value, note: 'Đơn hàng đã được khởi tạo và đang chờ phân tuyến' },
-                    { status: 'ROUTE_ASSIGNED', loc: currentSourceHub.value, note: 'Đã thiết lập tuyến luân chuyển' },
-                    { status: 'PICKED_UP', loc: currentSourceHub.value, note: 'Bưu tá tiếp nhận tại kho nguồn' },
-                    { status: 'IN_TRANSIT', loc: currentSourceHub.value, note: 'Rời kho xuất phát, đang lưu thông trên cao tốc' },
-                    { status: 'OUT_FOR_DELIVERY', loc: currentDestHub.value, note: 'Bưu tá mang hàng đi phát cho người nhận' },
-                    { status: 'DELIVERED', loc: 'CUSTOMER_ADDRESS', note: 'Giao hàng thành công tận tay người nhận' }
-                ];
-
-                // Chỉ chạy các bước còn lại tính từ trạng thái hiện tại của đơn
-                const currentIdx = fullFlow.findIndex(s => s.status === currentShipment.value.status);
-                const simulationSteps = fullFlow.slice(currentIdx + 1);
-
-                if (simulationSteps.length === 0) {
-                    Utils.showToast('Không Thể Mô Phỏng', 'Bưu gửi đã hoàn tất hành trình hoặc đang ở trạng thái không mô phỏng được', 'warning');
-                    return;
-                }
-
-                isSimulating.value = true;
-                Utils.showToast('Bắt Đầu Mô Phỏng', `Đang tự động di chuyển bưu gửi qua ${simulationSteps.length} chặng còn lại (3.5s/chặng)...`);
-
-                let stepIdx = 0;
-                const runStep = async () => {
-                    if (!isSimulating.value) return;
-                    if (stepIdx >= simulationSteps.length) {
-                        isSimulating.value = false;
-                        Utils.showToast('Hoàn Tất Mô Phỏng', 'Bưu kiện đã hoàn thành toàn bộ hành trình!');
-                        return;
-                    }
-
-                    const st = simulationSteps[stepIdx++];
-                    try {
-                        await updateOperationalStatus(st.status, st.loc, st.note);
-                        if (isSimulating.value && stepIdx < simulationSteps.length) {
-                            simTimer = setTimeout(runStep, 3500);
-                        } else {
-                            isSimulating.value = false;
-                            Utils.showToast('Hoàn Tất Mô Phỏng', 'Bưu kiện đã hoàn thành toàn bộ hành trình!');
-                        }
-                    } catch (e) {
-                        isSimulating.value = false;
-                    }
-                };
-
-                runStep();
             };
 
             // Quan sát prop nếu có mã truyền từ màn hình Tạo Đơn sang
@@ -378,7 +284,6 @@
 
             onUnmounted(() => {
                 stopLivePolling();
-                if (simTimer) clearTimeout(simTimer);
                 document.removeEventListener('visibilitychange', handleVisibilityChange);
                 if (window.MapManager) window.MapManager.cancelPendingRenders();
             });
@@ -398,27 +303,22 @@
             return {
                 searchCode,
                 isLoading,
-                isUpdating,
                 isLiveTracking,
-                isSimulating,
+                validationError,
+                isNotFound,
+                notFoundCode,
+                maskPhone,
+                focusSearchInput,
                 currentShipment,
                 trackingHistory,
                 notificationList,
                 auditList,
                 routeInfo,
                 activeSubtab,
-                canOperate,
-                canUpdateHub,
-                canUpdateDelivery,
                 canReadAudit,
                 isFinalState,
-                canMoveTo,
-                currentSourceHub,
-                currentDestHub,
                 currentStageIndex,
                 fetchTrackingData,
-                updateOperationalStatus,
-                toggleAutoPlaySimulation,
                 fitVietnamView,
                 fitRouteView,
                 Utils
@@ -471,50 +371,126 @@
                 </div>
 
                 <!-- 2. TOOLBAR TRA CỨU BƯU GỬI B2B -->
-                <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div class="flex items-center space-x-2 w-full sm:w-auto flex-1 max-w-lg">
-                        <div class="relative w-full">
-                            <input 
-                                v-model="searchCode" 
-                                @keyup.enter="fetchTrackingData()"
-                                type="text" 
-                                placeholder="Nhập mã số bưu gửi / vận đơn (VD: WB-...)" 
-                                class="w-full pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
-                            />
-                            <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
+                <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-2">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex items-center space-x-2 w-full sm:w-auto flex-1 max-w-lg">
+                            <div class="relative w-full">
+                                <input 
+                                    id="tracking-search-input"
+                                    v-model="searchCode" 
+                                    @keyup.enter="fetchTrackingData()"
+                                    @input="validationError = ''"
+                                    type="text" 
+                                    placeholder="Nhập mã số bưu gửi (VD: WB...)" 
+                                    class="w-full pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+                                />
+                                <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                <button 
+                                    v-if="searchCode" 
+                                    @click="searchCode = ''; validationError = ''" 
+                                    class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
                             <button 
-                                v-if="searchCode" 
-                                @click="searchCode = ''" 
-                                class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                                @click="fetchTrackingData()"
+                                :disabled="isLoading"
+                                class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold whitespace-nowrap shadow-sm shadow-blue-500/20 transition disabled:opacity-50 flex items-center space-x-1.5"
                             >
-                                ✕
+                                <span v-if="isLoading" class="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></span>
+                                <span>{{ isLoading ? 'Đang Tra Cứu...' : 'Tra Cứu' }}</span>
                             </button>
                         </div>
 
-                        <button 
-                            @click="fetchTrackingData()"
-                            :disabled="isLoading"
-                            class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold whitespace-nowrap shadow-sm shadow-blue-500/20 transition disabled:opacity-50 flex items-center space-x-1.5"
-                        >
-                            <span v-if="isLoading" class="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></span>
-                            <span>{{ isLoading ? 'Đang Tra Cứu...' : 'Tra Cứu' }}</span>
-                        </button>
+                        <!-- Badge Trạng thái hiện tại -->
+                        <div v-if="currentShipment" class="flex items-center space-x-2 text-xs">
+                            <span class="text-slate-500 font-medium">Trạng thái bưu gửi:</span>
+                            <span :class="['px-3 py-1 rounded-full font-bold border text-xs inline-flex items-center space-x-1.5', Utils.getStatusBadgeClass(currentShipment.status)]">
+                                <span class="w-2 h-2 rounded-full bg-current"></span>
+                                <span>{{ Utils.formatStatusText(currentShipment.status) }}</span>
+                            </span>
+                        </div>
                     </div>
 
-                    <!-- Badge Trạng thái hiện tại -->
-                    <div v-if="currentShipment" class="flex items-center space-x-2 text-xs">
-                        <span class="text-slate-500 font-medium">Trạng thái bưu gửi:</span>
-                        <span :class="['px-3 py-1 rounded-full font-bold border text-xs inline-flex items-center space-x-1.5', Utils.getStatusBadgeClass(currentShipment.status)]">
-                            <span class="w-2 h-2 rounded-full bg-current"></span>
-                            <span>{{ Utils.formatStatusText(currentShipment.status) }}</span>
-                        </span>
+                    <!-- Lỗi Validation Inline -->
+                    <div v-if="validationError" class="text-rose-600 text-[11.5px] font-semibold flex items-center space-x-1.5 pt-1 animate-pulse">
+                        <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                        <span>{{ validationError }}</span>
+                    </div>
+
+                    <!-- Quy chuẩn định dạng mã hợp lệ (Theo chỉ đạo: KHÔNG hiển thị nút mã mẫu) -->
+                    <div class="flex items-center space-x-1.5 text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+                        <svg class="w-3.5 h-3.5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Quy chuẩn mã bưu gửi VNPT: Bắt đầu bằng <strong>WB</strong>, theo sau là chuỗi số và chữ hoa không dấu (Ví dụ: <strong>WB1788...</strong>).</span>
+                    </div>
+                </div>
+
+                <!-- 2.1 KHỐI GIAO DIỆN BÁO LỖI: KHÔNG TÌM THẤY BƯU GỬI (B2B NOT FOUND STATE) -->
+                <div v-if="isNotFound" class="b2b-card bg-white border border-slate-200 rounded-xl p-6 sm:p-10 shadow-sm text-center max-w-3xl mx-auto my-2">
+                    <div class="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center mx-auto mb-4 text-rose-600 shadow-sm">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+
+                    <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-lg bg-slate-100 border border-slate-200 font-mono text-xs font-bold text-slate-700 mb-2">
+                        <span>Mã đã tra cứu:</span>
+                        <span class="text-rose-600 font-extrabold">{{ notFoundCode }}</span>
+                    </div>
+                    <h2 class="text-lg sm:text-xl font-bold text-slate-800 tracking-tight mt-1">
+                        Không Tìm Thấy Thông Tin Bưu Gửi
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
+                        Hệ thống quản trị bưu chính VNPT Cloud chưa ghi nhận dữ liệu luân chuyển cho mã vận đơn này trên toàn quốc.
+                    </p>
+
+                    <div class="mt-6 text-left bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5 max-w-xl mx-auto text-xs space-y-2.5">
+                        <div class="font-bold text-slate-700 uppercase tracking-wider text-[11px] flex items-center space-x-1.5">
+                            <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span>Các nguyên nhân thường gặp:</span>
+                        </div>
+                        <ul class="space-y-1.5 text-slate-600 list-disc list-inside leading-normal text-[11.5px]">
+                            <li><strong>Mã bưu gửi chưa chính xác:</strong> Vui lòng kiểm tra lại từng ký tự trên phiếu gửi hoặc tin nhắn SMS, tránh thừa khoảng trắng.</li>
+                            <li><strong>Bưu kiện mới tiếp nhận tại bưu cục:</strong> Bưu phẩm vừa gửi tại quầy giao dịch có thể mất từ 15 - 30 phút để thiết bị quét barcode đẩy dữ liệu lên máy chủ đám mây.</li>
+                            <li><strong>Quá hạn tra cứu trực tuyến:</strong> Theo quy định bưu chính, các bưu gửi đã phát thành công quá 90 ngày sẽ được lưu kho lưu trữ (Archive) và không hiển thị tra cứu nhanh.</li>
+                        </ul>
+                    </div>
+
+                    <div class="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                        <button 
+                            @click="focusSearchInput()" 
+                            class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center space-x-2 shadow-sm shadow-blue-500/20"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            <span>Nhập Mã Khác</span>
+                        </button>
+
+                        <a 
+                            href="tel:1900545481" 
+                            class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center space-x-2 border border-slate-200"
+                        >
+                            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                            <span>Hotline Hỗ Trợ: 1900 54 54 81 (24/7)</span>
+                        </a>
                     </div>
                 </div>
 
                 <!-- 3. KHU VỰC CHÍNH: BẢN ĐỒ LỘ TRÌNH (TRÁI) & CHI TIẾT BƯU GỬI (PHẢI) -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div v-show="!isNotFound" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <!-- Cột Trái (2/3): Bản đồ định vị lộ trình Leaflet -->
                     <div class="lg:col-span-2 b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col">
                         <div class="flex flex-wrap items-center justify-between border-b border-slate-100 pb-3 mb-3 gap-2">
@@ -530,7 +506,7 @@
                                     title="Tự động đồng bộ trạng thái bưu gửi sau mỗi 5 giây (tự dừng khi đơn đã phát thành công)"
                                 >
                                     <span :class="['w-2 h-2 rounded-full', isLiveTracking && !isFinalState ? 'bg-emerald-500 live-pulse-dot' : 'bg-slate-400']"></span>
-                                    <span>{{ isFinalState ? 'ĐÃ HOÀN TẤT' : 'LIVE SYNC (5s)' }}</span>
+                                    <span>{{ isFinalState ? 'ĐÃ HOÀN TẤT' : 'LIVE SYNC' }}</span>
                                 </button>
                             </div>
                             <div class="flex items-center space-x-2">
@@ -666,12 +642,20 @@
                                     <span class="font-mono font-bold text-emerald-700">{{ Utils.formatCurrency(currentShipment.codAmount) }}</span>
                                 </div>
                                 <div class="py-1 border-b border-slate-50">
-                                    <span class="text-slate-500 block mb-0.5 font-medium">Địa chỉ người gửi:</span>
-                                    <span class="text-slate-800 font-semibold">{{ currentShipment.senderAddress || 'N/A' }}</span>
+                                    <span class="text-slate-500 block mb-0.5 font-medium">Người gửi:</span>
+                                    <div class="text-slate-800 font-semibold flex items-center justify-between">
+                                        <span>{{ currentShipment.senderName || 'N/A' }}</span>
+                                        <span class="font-mono text-slate-500 font-medium text-[11px]" :title="currentShipment.senderPhone">{{ maskPhone(currentShipment.senderPhone) }}</span>
+                                    </div>
+                                    <span class="text-slate-600 text-[11px] block mt-0.5 leading-relaxed">{{ currentShipment.senderAddress || 'N/A' }}</span>
                                 </div>
                                 <div class="py-1">
-                                    <span class="text-slate-500 block mb-0.5 font-medium">Địa chỉ người nhận:</span>
-                                    <span class="text-slate-800 font-semibold">{{ currentShipment.receiverAddress || 'N/A' }}</span>
+                                    <span class="text-slate-500 block mb-0.5 font-medium">Người nhận:</span>
+                                    <div class="text-slate-800 font-semibold flex items-center justify-between">
+                                        <span>{{ currentShipment.receiverName || 'N/A' }}</span>
+                                        <span class="font-mono text-slate-500 font-medium text-[11px]" :title="currentShipment.receiverPhone">{{ maskPhone(currentShipment.receiverPhone) }}</span>
+                                    </div>
+                                    <span class="text-slate-600 text-[11px] block mt-0.5 leading-relaxed">{{ currentShipment.receiverAddress || 'N/A' }}</span>
                                 </div>
                             </div>
 
@@ -683,87 +667,11 @@
                             </div>
                         </div>
 
-                        <!-- Khu vực thao tác nghiệp vụ bưu cục (Bảo vệ theo RBAC) -->
-                        <div v-if="currentShipment && canOperate" class="b2b-card bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-3 text-xs">
-                            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                                <span class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
-                                    Tác Nghiệp Bưu Cục
-                                </span>
-                                <span class="px-2 py-0.5 rounded-md text-[10.5px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                    Phân Quyền Nội Bộ
-                                </span>
-                            </div>
-
-                            <!-- Nút Mô phỏng tự động lộ trình Demo -->
-                            <button 
-                                @click="toggleAutoPlaySimulation()"
-                                :class="['w-full py-2 px-3 rounded-lg font-bold text-xs border transition flex items-center justify-center space-x-2 shadow-sm',
-                                         isSimulating ? 'bg-amber-600 hover:bg-amber-700 text-white border-amber-600 animate-pulse' : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200']"
-                                title="Tự động mô phỏng luân chuyển qua từng chặng (3.5s/chặng) trên bản đồ"
-                            >
-                                <span v-if="isSimulating" class="w-2 h-2 rounded-full bg-white animate-ping"></span>
-                                <span>{{ isSimulating ? 'Đang Mô Phỏng Tuyến... (Nhấn để dừng)' : 'Mô Phỏng Tuyến Real-Time' }}</span>
-                            </button>
-
-                            <div class="grid grid-cols-2 gap-2 pt-1">
-                                <!-- Nút thuộc quyền Thủ Kho Hub (tracking:update_hub) -->
-                                <button 
-                                    @click="updateOperationalStatus('ROUTE_ASSIGNED', currentSourceHub, 'Đã thiết lập tuyến luân chuyển')" 
-                                    :disabled="isUpdating || isSimulating || !canUpdateHub || !canMoveTo('ROUTE_ASSIGNED')" 
-                                    class="px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold transition disabled:opacity-40"
-                                    title="Dành cho Thủ kho Hub"
-                                >
-                                    Đã Định Tuyến
-                                </button>
-                                <button 
-                                    @click="updateOperationalStatus('PICKED_UP', currentSourceHub, 'Bưu tá tiếp nhận tại kho gửi')" 
-                                    :disabled="isUpdating || isSimulating || !canUpdateHub || !canMoveTo('PICKED_UP')" 
-                                    class="px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold transition disabled:opacity-40"
-                                    title="Dành cho Thủ kho Hub"
-                                >
-                                    Đã Lấy Hàng
-                                </button>
-                                <button 
-                                    @click="updateOperationalStatus('IN_TRANSIT', currentSourceHub, 'Rời kho xuất phát, đang vận chuyển')" 
-                                    :disabled="isUpdating || isSimulating || !canUpdateHub || !canMoveTo('IN_TRANSIT')" 
-                                    class="px-2.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold transition disabled:opacity-40"
-                                    title="Dành cho Thủ kho Hub"
-                                >
-                                    Đang Vận Chuyển
-                                </button>
-
-                                <!-- Nút thuộc quyền Bưu Tá Giao Hàng (tracking:update_delivery) -->
-                                <button 
-                                    @click="updateOperationalStatus('OUT_FOR_DELIVERY', currentDestHub, 'Bưu tá đang đi phát hàng')" 
-                                    :disabled="isUpdating || isSimulating || !canUpdateDelivery || !canMoveTo('OUT_FOR_DELIVERY')" 
-                                    class="px-2.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold transition disabled:opacity-40"
-                                    title="Dành cho Bưu tá Shipper"
-                                >
-                                    Đang Chuyển Phát
-                                </button>
-                                <button 
-                                    @click="updateOperationalStatus('DELIVERY_FAILED', currentDestHub, 'Không liên lạc được người nhận')" 
-                                    :disabled="isUpdating || isSimulating || !canUpdateDelivery || !canMoveTo('DELIVERY_FAILED')" 
-                                    class="col-span-2 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition disabled:opacity-40"
-                                    title="Dành cho Bưu tá Shipper"
-                                >
-                                    Phát Không Thành Công
-                                </button>
-                                <button 
-                                    @click="updateOperationalStatus('DELIVERED', 'CUSTOMER_ADDRESS', 'Người nhận đã nhận hàng và ký nhận')" 
-                                    :disabled="isUpdating || isSimulating || !canUpdateDelivery || !canMoveTo('DELIVERED')" 
-                                    class="col-span-2 px-3 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition shadow-sm shadow-emerald-500/20 disabled:opacity-40"
-                                    title="Dành cho Bưu tá Shipper"
-                                >
-                                    Phát Thành Công (Ký Nhận)
-                                </button>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
                 <!-- 4. KHU VỰC SUBTABS ĐỒNG BỘ: LỘ TRÌNH | THÔNG BÁO | NHẬT KÝ KIỂM TOÁN (AUDIT) -->
-                <div class="b2b-card bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                <div v-show="!isNotFound && currentShipment" class="b2b-card bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
                     <!-- Subtab Navigation Bar -->
                     <div class="flex border-b border-slate-200 bg-slate-50/70 px-4 pt-1.5 space-x-3">
                         <button 

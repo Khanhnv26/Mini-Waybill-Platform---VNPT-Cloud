@@ -11,6 +11,9 @@
 
 USE auth_db;
 GO
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
 
 -- -------------------------------------------------------------------------
 -- 1. BỔ SUNG 15 QUYỀN HẠN CHI TIẾT (PERMISSIONS) VỚI CƠ CHẾ UPSERT
@@ -122,6 +125,7 @@ EXEC #AddPermissionToRole 'ROLE_CUSTOMER', 'tracking:read_public';
 -- 3.2. Gán cho ROLE_SHIPPER
 EXEC #AddPermissionToRole 'ROLE_SHIPPER', 'profile:read';
 EXEC #AddPermissionToRole 'ROLE_SHIPPER', 'password:change';
+EXEC #AddPermissionToRole 'ROLE_SHIPPER', 'shipment:read_all';
 EXEC #AddPermissionToRole 'ROLE_SHIPPER', 'tracking:read_public';
 EXEC #AddPermissionToRole 'ROLE_SHIPPER', 'tracking:read_full';
 EXEC #AddPermissionToRole 'ROLE_SHIPPER', 'tracking:update_delivery';
@@ -129,6 +133,7 @@ EXEC #AddPermissionToRole 'ROLE_SHIPPER', 'tracking:update_delivery';
 -- 3.3. Gán cho ROLE_HUB_OPERATOR
 EXEC #AddPermissionToRole 'ROLE_HUB_OPERATOR', 'profile:read';
 EXEC #AddPermissionToRole 'ROLE_HUB_OPERATOR', 'password:change';
+EXEC #AddPermissionToRole 'ROLE_HUB_OPERATOR', 'shipment:read_all';
 EXEC #AddPermissionToRole 'ROLE_HUB_OPERATOR', 'tracking:read_public';
 EXEC #AddPermissionToRole 'ROLE_HUB_OPERATOR', 'tracking:read_full';
 EXEC #AddPermissionToRole 'ROLE_HUB_OPERATOR', 'tracking:update_hub';
@@ -196,4 +201,82 @@ BEGIN
 END
 GO
 
+-- -------------------------------------------------------------------------
+-- 5. TẠO CÁC TÀI KHOẢN NGHIỆP VỤ MẪU (MẬT KHẨU: Admin@123456)
+-- -------------------------------------------------------------------------
+PRINT N'Đang khởi tạo các tài khoản nghiệp vụ mẫu...';
+
+-- 5.1. Tài khoản Thủ Kho (hub.operator@waybill.vn)
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'hub.operator@waybill.vn')
+BEGIN
+    INSERT INTO users (email, password, full_name, status, created_at)
+    VALUES (
+        'hub.operator@waybill.vn',
+        '$2a$10$KqcMs2kyTysvFRxWltdp4OAKvki.ghZEEXC.yymChFIkHs.jJqLY2',
+        N'Nguyễn Văn Kho (Thủ Kho)',
+        'ACTIVE',
+        GETDATE()
+    );
+END
+
+DECLARE @HubUserId BIGINT = (SELECT id FROM users WHERE email = 'hub.operator@waybill.vn');
+DECLARE @HubRoleId BIGINT = (SELECT id FROM roles WHERE name = 'ROLE_HUB_OPERATOR');
+IF @HubUserId IS NOT NULL AND @HubRoleId IS NOT NULL
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = @HubUserId AND role_id = @HubRoleId)
+        INSERT INTO user_roles (user_id, role_id) VALUES (@HubUserId, @HubRoleId);
+END
+GO
+
+-- 5.2. Tài khoản Bưu Tá (shipper@waybill.vn)
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'shipper@waybill.vn')
+BEGIN
+    INSERT INTO users (email, password, full_name, status, created_at)
+    VALUES (
+        'shipper@waybill.vn',
+        '$2a$10$KqcMs2kyTysvFRxWltdp4OAKvki.ghZEEXC.yymChFIkHs.jJqLY2',
+        N'Trần Văn Phát (Bưu Tá)',
+        'ACTIVE',
+        GETDATE()
+    );
+END
+
+DECLARE @ShipperUserId BIGINT = (SELECT id FROM users WHERE email = 'shipper@waybill.vn');
+DECLARE @ShipperRoleId BIGINT = (SELECT id FROM roles WHERE name = 'ROLE_SHIPPER');
+IF @ShipperUserId IS NOT NULL AND @ShipperRoleId IS NOT NULL
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = @ShipperUserId AND role_id = @ShipperRoleId)
+        INSERT INTO user_roles (user_id, role_id) VALUES (@ShipperUserId, @ShipperRoleId);
+END
+GO
+
+-- 5.3. Tài khoản Khách Hàng (customer@waybill.vn)
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'customer@waybill.vn')
+BEGIN
+    INSERT INTO users (email, password, full_name, status, created_at)
+    VALUES (
+        'customer@waybill.vn',
+        '$2a$10$KqcMs2kyTysvFRxWltdp4OAKvki.ghZEEXC.yymChFIkHs.jJqLY2',
+        N'Lê Thị Khách (Khách Hàng)',
+        'ACTIVE',
+        GETDATE()
+    );
+END
+
+DECLARE @CustUserId BIGINT = (SELECT id FROM users WHERE email = 'customer@waybill.vn');
+DECLARE @CustRoleId BIGINT = (SELECT id FROM roles WHERE name = 'ROLE_CUSTOMER');
+IF @CustUserId IS NOT NULL AND @CustRoleId IS NOT NULL
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = @CustUserId AND role_id = @CustRoleId)
+        INSERT INTO user_roles (user_id, role_id) VALUES (@CustUserId, @CustRoleId);
+END
+GO
+
 PRINT N'=== TOÀN BỘ QUÁ TRÌNH SEED DỮ LIỆU ĐÃ HOÀN TẤT THÀNH CÔNG! ===';
+
