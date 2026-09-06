@@ -69,6 +69,20 @@ const Api = {
                 return response;
             }
 
+            // 4. HTTP 429 Too Many Requests: Bị giới hạn tần suất yêu cầu (Rate Limiting)
+            if (response.status === 429) {
+                console.warn('[API 429] Vượt quá giới hạn tần suất yêu cầu (Rate Limiting).');
+                const retryAfter = response.headers.get('Retry-After') || 'vài';
+                if (window.Utils && window.Utils.showToast) {
+                    window.Utils.showToast(
+                        'Thao Tác Quá Nhanh (429)', 
+                        `Bạn đã gửi quá nhiều yêu cầu liên tiếp. Vui lòng chờ ${retryAfter} giây rồi thử lại!`, 
+                        'warning'
+                    );
+                }
+                return response;
+            }
+
             return response;
         } catch (error) {
             console.error('[API Network Error]:', error);

@@ -21,10 +21,10 @@ public class Hub {
     @Column(name = "hub_code", nullable = false, unique = true, length = 50)
     private String hubCode;
 
-    @Column(name = "hub_name", nullable = false, length = 150)
+    @Column(name = "hub_name", nullable = false, length = 150, columnDefinition = "NVARCHAR(150)")
     private String hubName;
 
-    @Column(name = "province", nullable = false, length = 100)
+    @Column(name = "province", nullable = false, length = 100, columnDefinition = "NVARCHAR(100)")
     private String province;
 
     @Column(name = "latitude", nullable = false)

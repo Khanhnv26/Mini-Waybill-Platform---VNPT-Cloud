@@ -139,4 +139,31 @@ public class ShipmentServiceImpl implements ShipmentService {
         return shipmentRepository.findAllByCustomerId(customerId).orElseThrow(
                 () -> new RuntimeException("Không tìm thấy đơn hàng của khách hàng: " + customerId));
     }
+
+    @Override
+    public List<Shipment> getShipments(Long customerId, String currentUserId, String permissions) {
+        boolean hasReadAllPermission = permissions != null && permissions.contains("shipment:read_all");
+
+        if (hasReadAllPermission) {
+            if (customerId == null) {
+                log.info("[SHIPMENT] Admin/CSKH {} đang truy xuất toàn bộ danh sách vận đơn hệ thống", currentUserId);
+                return shipmentRepository.findAllByOrderByCreatedAtDesc();
+            }
+            log.info("[SHIPMENT] Admin/CSKH {} đang lọc danh sách đơn của khách hàng {}", currentUserId, customerId);
+            return shipmentRepository.findAllByCustomerIdOrderByCreatedAtDesc(customerId);
+        }
+
+        if(currentUserId == null || currentUserId.isBlank()){
+            throw new ForbiddenException("Người dùng không có quyền xem danh sách đơn hàng!");
+        }
+
+        Long myCustomerId = Long.parseLong(currentUserId);
+        if (customerId != null && !customerId.equals(myCustomerId)) {
+            throw new ForbiddenException("Người dùng không có quyền xem danh sách đơn hàng của khách khác!");
+        }
+
+        log.info("[SHIPMENT] Khách hàng {} đang xem danh sách đơn của chính mình", myCustomerId);
+        return shipmentRepository.findAllByCustomerIdOrderByCreatedAtDesc(myCustomerId);
+
+    }
 }

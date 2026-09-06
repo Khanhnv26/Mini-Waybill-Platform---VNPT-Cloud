@@ -164,7 +164,9 @@
         <component 
             :is="activeComponent" 
             :tracking-code="currentTrackingCode"
+            :customer-prefill="selectedCustomerForShipment"
             @created-shipment="handleShipmentCreated"
+            @create-shipment-for="handleCreateShipmentFor"
         ></component>
     </main>
 

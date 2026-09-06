@@ -13,6 +13,7 @@
             const currentUser = ref(null);
             const currentTab = ref('tracking');
             const currentTrackingCode = ref('');
+            const selectedCustomerForShipment = ref(null);
 
             // 1. Danh bạ toàn bộ Tabs nghiệp vụ trong hệ thống kèm mã Permission tương ứng
             const allNavigationTabs = [
@@ -83,7 +84,14 @@
             // Khi tạo vận đơn thành công ở ShipmentView, nhận sự kiện và chuyển sang Tra Cứu
             const handleShipmentCreated = (trackingCode) => {
                 currentTrackingCode.value = trackingCode;
+                selectedCustomerForShipment.value = null;
                 currentTab.value = 'tracking';
+            };
+
+            // Khi chọn tạo vận đơn nhanh cho đối tác từ CustomerView
+            const handleCreateShipmentFor = (customer) => {
+                selectedCustomerForShipment.value = customer;
+                switchTab('shipment');
             };
 
             const handleLogout = () => {
@@ -114,8 +122,10 @@
                 navigationTabs,
                 activeComponent,
                 currentTrackingCode,
+                selectedCustomerForShipment,
                 switchTab,
                 handleShipmentCreated,
+                handleCreateShipmentFor,
                 handleLogout,
                 toast: window.Utils ? window.Utils.toastState : { show: false },
                 getRoleBadgeInfo: window.Utils ? window.Utils.getRoleBadgeInfo : () => ({ label: 'NHÂN VIÊN', class: 'bg-slate-50' })
