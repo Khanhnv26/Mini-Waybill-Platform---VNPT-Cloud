@@ -10,4 +10,5 @@ public interface ShipmentService {
     Shipment createShipment(CreateShipmentRequest request, String currentUserId, String permissions);
     Shipment getShipmentByTrackCode(String trackCode, String currentUserId, String permissions);
     List<Shipment> getShipmentByCustomerId(Long customerId, String currentUserId, String permissions);
+    List<Shipment> getShipments(Long customerId, String currentUserId, String permissions);
 }

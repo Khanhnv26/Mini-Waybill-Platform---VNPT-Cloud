@@ -27,7 +27,7 @@ public class AuditEvent {
     private String eventType;
 
     @Column(name = "aggregate_id", nullable = false)
-    private String aggregateId; // trackingCode
+    private String aggregateId;
 
     @Column(name = "payload", nullable = false, columnDefinition = "NVARCHAR(MAX)")
     private String payload;

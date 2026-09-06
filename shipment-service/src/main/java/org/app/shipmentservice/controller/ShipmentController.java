@@ -39,10 +39,10 @@ public class ShipmentController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Shipment>> getAllShipments(@RequestParam(name = "customerId") Long customerId,
+    public ResponseEntity<List<Shipment>> getAllShipments(@RequestParam(name = "customerId", required = false) Long customerId,
                                                           @RequestHeader(value = "X-User-Id", required = false) String currentUserId,
                                                           @RequestHeader(value = "X-User-Permissions",required = false) String permissions) {
-        List<Shipment> shipments = shipmentService.getShipmentByCustomerId(customerId, currentUserId, permissions);
+        List<Shipment> shipments = shipmentService.getShipments(customerId, currentUserId, permissions);
         return ResponseEntity.ok(shipments);
     }
 }

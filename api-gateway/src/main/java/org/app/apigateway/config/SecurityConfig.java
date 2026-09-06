@@ -23,19 +23,16 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain (HttpSecurity http) throws Exception {
 
-        // tắt csrf vì không cookie mà jwt
         return http.csrf(AbstractHttpConfigurer::disable)
-                   .cors(Customizer.withDefaults()) // nhập cấu hình cors.config
+                   .cors(Customizer.withDefaults())
                    .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        //cho di qua tinh nang danh nhap lay lai mat khau
                         .requestMatchers(
                         "/api/auth/login",
                         "/api/auth/register",
                         "/api/auth/google",
                         "/api/auth/forgot-password",
                         "/api/auth/reset-password").permitAll()
-                        //khach hang vang lai xem thong tin don hang tra cuu
                         .requestMatchers(HttpMethod.GET,"/api/tracking/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/audits/**").hasAnyRole("CS", "ADMIN")

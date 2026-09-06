@@ -42,15 +42,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         String authHeader = request.getHeader("Authorization");
 
-        //Nếu không có Token Bearer, cứ cho đi tiếp (Spring Security sẽ tự chặn nếu route đó là private)
         if(authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-
         String token = authHeader.substring(7);
-        // giai ma token, lay thong tin user va role
         try {
             Claims claims = Jwts.parser()
                     .verifyWith(getSigningKey())
@@ -59,7 +56,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     .getPayload();
 
             String email = claims.getSubject();
-            String userId = String.valueOf(claims.get("userId"));
+            Object userIdClaim = claims.get("userId");
+            String userId = (userIdClaim != null && !"null".equalsIgnoreCase(String.valueOf(userIdClaim))) ? String.valueOf(userIdClaim) : "";
 
             @SuppressWarnings("unchecked")
             List<String> roles = claims.get("roles",List.class);
@@ -82,7 +80,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(email, null, authorities);
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
 
-            //Đồng thời nhồi Header chuyển tiếp xuống các microservice nội bộ
             HeaderMapRequestWrapper wrapperRequest  = new HeaderMapRequestWrapper(request);
             wrapperRequest.addHeader("X-User-Id", userId != null ? userId : "");
             wrapperRequest.addHeader("X-User-Email", email != null ? email : "");
@@ -92,7 +89,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             filterChain.doFilter(wrapperRequest, response);
 
         } catch (Exception e) {
-            // Nếu token bị giả mạo hoặc hết hạn, xóa sạch context
             log.error("Lỗi xác thực JWT tại Gateway: {}", e.getMessage());
 
             SecurityContextHolder.clearContext();

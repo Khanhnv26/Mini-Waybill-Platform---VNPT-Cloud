@@ -43,7 +43,6 @@ public class TrackingServiceImpl implements TrackingService {
             return Map.of("trackingCode", trackingCode, "currentStatus", latestHistory.getStatus(), "source", "SQL_SERVER");
         }
 
-        // Tự động khởi tạo mốc ban đầu nếu là đơn hợp lệ nhưng chưa có log
         TrackingHistory initial = TrackingHistory.builder()
                 .trackingCode(trackingCode)
                 .status("PENDING_ROUTING")

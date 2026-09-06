@@ -23,6 +23,11 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import lombok.extern.slf4j.Slf4j;
+import org.app.authservice.client.CustomerClient;
+import org.app.authservice.dto.request.InitCustomerProfileRequest;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -32,6 +37,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final StringRedisTemplate redisTemplate;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final CustomerClient customerClient;
 
     @Override
     @Transactional
@@ -55,7 +61,17 @@ public class AuthServiceImpl implements AuthService {
                     .status("ACTIVE")
                     .roles(Collections.singleton(role))
                     .build();
-            return userRepository.save(newUser);
+            User saved = userRepository.save(newUser);
+            try {
+                customerClient.initProfile(InitCustomerProfileRequest.builder()
+                        .userId(saved.getId())
+                        .email(saved.getEmail())
+                        .fullName(saved.getFullName())
+                        .build());
+            } catch (Exception e) {
+                log.error("[AUTH] Không thể tạo hồ sơ Customer cho Google user {}: {}", saved.getId(), e.getMessage());
+            }
+            return saved;
         });
         return user;
     }
@@ -84,7 +100,17 @@ public class AuthServiceImpl implements AuthService {
                 .status("ACTIVE")
                 .roles(Collections.singleton(role))
                 .build();
-        return userRepository.save(newUser);
+        User saved = userRepository.save(newUser);
+        try {
+            customerClient.initProfile(InitCustomerProfileRequest.builder()
+                    .userId(saved.getId())
+                    .email(saved.getEmail())
+                    .fullName(saved.getFullName())
+                    .build());
+        } catch (Exception e) {
+            log.error("[AUTH] Không thể tạo hồ sơ Customer cho user {}: {}", saved.getId(), e.getMessage());
+        }
+        return saved;
     }
 
     @Override
@@ -136,7 +162,6 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản với email này: " + email));
 
-        //avoid spamm
         String coolDownKey = "otp_cooldown:" + email;
         if (Boolean.TRUE.equals(redisTemplate.hasKey(coolDownKey))) {
             Long expire = redisTemplate.getExpire(coolDownKey, TimeUnit.SECONDS);

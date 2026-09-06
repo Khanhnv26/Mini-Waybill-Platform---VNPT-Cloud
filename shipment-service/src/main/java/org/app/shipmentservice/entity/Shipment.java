@@ -28,22 +28,22 @@ public class Shipment {
     @Column(name = "customer_id", nullable = false)
     private Long customerId;
 
-    @Column(name = "sender_name", nullable = false)
+    @Column(name = "sender_name", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String senderName;
 
     @Column(name = "sender_phone", nullable = false)
     private String senderPhone;
 
-    @Column(name = "sender_address", nullable = false)
+    @Column(name = "sender_address", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String senderAddress;
 
-    @Column(name = "receiver_name", nullable = false)
+    @Column(name = "receiver_name", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String receiverName;
 
     @Column(name = "receiver_phone", nullable = false)
     private String receiverPhone;
 
-    @Column(name = "receiver_address", nullable = false)
+    @Column(name = "receiver_address", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String receiverAddress;
 
     @Column(name = "service_type", nullable = false)
