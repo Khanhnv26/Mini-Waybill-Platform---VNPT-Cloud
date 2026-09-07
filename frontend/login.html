@@ -57,6 +57,95 @@
             background-repeat: no-repeat;
             background-attachment: fixed;
         }
+
+        /* ===================================================================== */
+        /* HIỆU ỨNG ANIMATION TOÀN DIỆN CHO TRANG ĐĂNG NHẬP                       */
+        /* ===================================================================== */
+
+        /* 1. Hào quang trôi chậm (Ambient Floating Glow Orbs) */
+        @keyframes floatSlow1 {
+            0%, 100% {
+                transform: translate(0px, 0px) scale(1);
+            }
+            33% {
+                transform: translate(35px, -40px) scale(1.08);
+            }
+            66% {
+                transform: translate(-25px, 25px) scale(0.95);
+            }
+        }
+
+        @keyframes floatSlow2 {
+            0%, 100% {
+                transform: translate(0px, 0px) scale(1);
+            }
+            33% {
+                transform: translate(-35px, 30px) scale(1.1);
+            }
+            66% {
+                transform: translate(30px, -35px) scale(0.92);
+            }
+        }
+
+        .animate-float-1 {
+            animation: floatSlow1 14s ease-in-out infinite;
+        }
+
+        .animate-float-2 {
+            animation: floatSlow2 18s ease-in-out infinite;
+        }
+
+        /* 2. Hiệu ứng xuất hiện thẻ chính (Card Entrance Animation) */
+        @keyframes cardPopIn {
+            0% {
+                opacity: 0;
+                transform: translateY(22px) scale(0.985);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .card-entrance {
+            animation: cardPopIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        /* 3. Chuyển đổi biểu mẫu mượt mà (Form Slide-Fade Transition) */
+        .form-slide-enter-active,
+        .form-slide-leave-active {
+            transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .form-slide-enter-from {
+            opacity: 0;
+            transform: translateX(16px);
+        }
+
+        .form-slide-leave-to {
+            opacity: 0;
+            transform: translateX(-16px);
+        }
+
+        /* 4. Tương tác vi mô (Micro-interactions) */
+        .btn-hover-lift {
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .btn-hover-lift:hover {
+            transform: translateY(-1.5px);
+            box-shadow: 0 8px 20px -4px rgba(0, 102, 204, 0.35);
+        }
+        .btn-hover-lift:active {
+            transform: translateY(0.5px) scale(0.985);
+        }
+
+        .input-glow-focus {
+            transition: all 0.2s ease;
+        }
+        .input-glow-focus:focus {
+            border-color: #0066cc !important;
+            box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.15) !important;
+        }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-3 sm:p-6 auth-custom-bg text-slate-800 selection:bg-vnpt-500 selection:text-white font-sans relative">
@@ -120,8 +209,20 @@
         })();
     </script>
 
+    <!-- ========================================================================= -->
+    <!-- HÀO QUANG CÔNG NGHỆ CHUYỂN ĐỘNG NỀN (BACKGROUND AMBIENT GLOW)             -->
+    <!-- ========================================================================= -->
+    <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <!-- Đốm sáng xanh VNPT trên góc trái -->
+        <div class="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-blue-600/25 blur-[120px] animate-float-1"></div>
+        <!-- Đốm sáng Cyan dưới góc phải -->
+        <div class="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-cyan-500/20 blur-[120px] animate-float-2"></div>
+        <!-- Vùng sáng trung tâm nhẹ -->
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] rounded-full bg-indigo-600/10 blur-[140px]"></div>
+    </div>
+
     <!-- Khối thẻ Split-Screen chính giữa -->
-    <div id="app" v-cloak class="relative z-10 max-w-5xl w-full bg-white rounded-3xl shadow-2xl shadow-black/40 border border-slate-700/20 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[640px]">
+    <div id="app" v-cloak class="relative z-10 max-w-5xl w-full bg-white rounded-3xl shadow-2xl shadow-black/40 border border-slate-700/20 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[640px] card-entrance">
         
         <!-- CỘT TRÁI (5/12): HERO BANNER VNPT B2B LOGISTICS -->
         <div class="lg:col-span-5 vnpt-gradient text-white p-8 sm:p-10 flex flex-col justify-between relative overflow-hidden border-r border-blue-900/30">
@@ -208,8 +309,12 @@
                     <button type="button" @click="alert.show = false" class="text-slate-400 hover:text-slate-600 text-xs font-bold ml-2">ĐÓNG</button>
                 </div>
 
-                <!-- 1. FORM ĐĂNG NHẬP -->
-                <div v-if="authMode === 'login'" class="space-y-4">
+                <!-- ============================================================ -->
+                <!-- TRANSITION CHUYỂN BIỂU MẪU MƯỢT MÀ (FORM SLIDE-FADE)         -->
+                <!-- ============================================================ -->
+                <transition name="form-slide" mode="out-in">
+                    <!-- 1. FORM ĐĂNG NHẬP -->
+                    <div v-if="authMode === 'login'" key="login" class="space-y-4">
                     <div>
                         <h2 class="text-lg font-bold text-slate-900 tracking-tight">Đăng nhập Cổng Dịch Vụ Vận Đơn</h2>
                         <p class="text-xs text-slate-500 mt-0.5">Cổng truy cập dành cho Khách hàng gửi hàng, Bưu tá, Kho Hub &amp; Quản trị viên</p>
@@ -223,7 +328,7 @@
                                 v-model="loginForm.email" 
                                 required 
                                 placeholder="name@company.com" 
-                                class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-vnpt-500 transition-all" />
+                                class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-vnpt-500 input-glow-focus transition-all" />
                         </div>
 
                         <div>
@@ -238,13 +343,13 @@
                                 v-model="loginForm.password" 
                                 required 
                                 placeholder="••••••••" 
-                                class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-vnpt-500 transition-all" />
+                                class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-vnpt-500 input-glow-focus transition-all" />
                         </div>
 
                         <button 
                             type="submit" 
                             :disabled="loading" 
-                            class="w-full py-2.5 px-4 bg-vnpt-500 hover:bg-vnpt-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-vnpt-500/20 transition-all flex items-center justify-center">
+                            class="w-full py-2.5 px-4 bg-vnpt-500 hover:bg-vnpt-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-vnpt-500/20 btn-hover-lift transition-all flex items-center justify-center cursor-pointer">
                             <span v-if="!loading">Đăng Nhập Hệ Thống</span>
                             <span v-else>Đang xác thực...</span>
                         </button>
@@ -270,8 +375,8 @@
 
                 </div>
 
-                <!-- 2. FORM ĐĂNG KÝ -->
-                <div v-if="authMode === 'register'" class="space-y-4">
+                    <!-- 2. FORM ĐĂNG KÝ -->
+                    <div v-else-if="authMode === 'register'" key="register" class="space-y-4">
                     <div>
                         <h2 class="text-lg font-bold text-slate-900 tracking-tight">Đăng ký Tài khoản Khách hàng gửi hàng</h2>
                         <p class="text-xs text-slate-500 mt-0.5">Tạo tài khoản để tạo vận đơn hàng loạt, theo dõi lộ trình và đối soát tiền thu hộ COD</p>
@@ -285,7 +390,7 @@
                                 v-model="registerForm.fullName" 
                                 required 
                                 placeholder="Nguyễn Văn A hoặc Tên doanh nghiệp" 
-                                class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-vnpt-500 transition-all" />
+                                class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-vnpt-500 input-glow-focus transition-all" />
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-slate-700 mb-1">Email liên hệ</label>
@@ -294,7 +399,7 @@
                                 v-model="registerForm.email" 
                                 required 
                                 placeholder="khachhang@company.com" 
-                                class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-vnpt-500 transition-all" />
+                                class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-vnpt-500 input-glow-focus transition-all" />
                         </div>
                         <div class="grid grid-cols-2 gap-2.5">
                             <div>
@@ -305,7 +410,7 @@
                                     required 
                                     minlength="6" 
                                     placeholder="••••••••" 
-                                    class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-vnpt-500 transition-all" />
+                                    class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-vnpt-500 input-glow-focus transition-all" />
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Xác nhận mật khẩu</label>
@@ -315,14 +420,14 @@
                                     required 
                                     minlength="6" 
                                     placeholder="••••••••" 
-                                    class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-vnpt-500 transition-all" />
+                                    class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-vnpt-500 input-glow-focus transition-all" />
                             </div>
                         </div>
 
                         <button 
                             type="submit" 
                             :disabled="loading" 
-                            class="w-full py-2.5 px-4 bg-vnpt-500 hover:bg-vnpt-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-vnpt-500/20 transition-all">
+                            class="w-full py-2.5 px-4 bg-vnpt-500 hover:bg-vnpt-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-vnpt-500/20 btn-hover-lift transition-all cursor-pointer">
                             <span v-if="!loading">Đăng Ký Tài Khoản Khách Hàng</span>
                             <span v-else>Đang xử lý đăng ký...</span>
                         </button>
@@ -350,8 +455,8 @@
 
                 </div>
 
-                <!-- 3. QUÊN MẬT KHẨU - BƯỚC 1: NHẬP EMAIL GỬI OTP -->
-                <div v-if="authMode === 'forgot_step1'" class="space-y-4">
+                    <!-- 3. QUÊN MẬT KHẨU - BƯỚC 1: NHẬP EMAIL GỬI OTP -->
+                    <div v-else-if="authMode === 'forgot_step1'" key="forgot_step1" class="space-y-4">
                     <div class="flex items-center justify-between text-xs text-slate-500 pb-1">
                         <button type="button" @click="switchMode('login')" class="text-vnpt-500 hover:underline font-semibold">
                             Quay lại đăng nhập
@@ -372,21 +477,21 @@
                                 v-model="forgotForm.email" 
                                 required 
                                 placeholder="name@company.com" 
-                                class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300 focus:border-vnpt-500 focus:ring-2 focus:ring-blue-600/20 focus:outline-none font-medium" />
+                                class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300 focus:border-vnpt-500 focus:ring-2 focus:ring-blue-600/20 focus:outline-none input-glow-focus font-medium transition-all" />
                         </div>
 
                         <button 
                             type="submit" 
                             :disabled="loading" 
-                            class="w-full py-2.5 px-4 bg-vnpt-500 hover:bg-vnpt-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-vnpt-500/20 transition-all flex items-center justify-center">
+                            class="w-full py-2.5 px-4 bg-vnpt-500 hover:bg-vnpt-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-vnpt-500/20 btn-hover-lift transition-all flex items-center justify-center cursor-pointer">
                             <span v-if="!loading">Gửi Mã Xác Thực OTP</span>
                             <span v-else>Đang gửi mã qua máy chủ...</span>
                         </button>
                     </form>
                 </div>
 
-                <!-- 4. QUÊN MẬT KHẨU - BƯỚC 2: NHẬP 6 Ô OTP & MẬT KHẨU MỚI -->
-                <div v-if="authMode === 'forgot_step2'" class="space-y-4">
+                    <!-- 4. QUÊN MẬT KHẨU - BƯỚC 2: NHẬP 6 Ô OTP & MẬT KHẨU MỚI -->
+                    <div v-else-if="authMode === 'forgot_step2'" key="forgot_step2" class="space-y-4">
                     <div class="flex items-center justify-between text-xs text-slate-500 pb-1">
                         <button type="button" @click="switchMode('forgot_step1')" class="text-vnpt-500 hover:underline font-semibold">
                             Đổi email khác
@@ -419,7 +524,7 @@
                                     v-model="otpDigits[idx]"
                                     @keyup="handleOtpKeyUp(idx, $event)"
                                     @paste="handleOtpPaste($event)"
-                                    class="w-10 sm:w-11 h-12 text-center text-lg font-mono font-bold rounded-xl border border-slate-300 focus:border-vnpt-500 focus:ring-2 focus:ring-blue-600/20 focus:outline-none bg-slate-50/50 focus:bg-white transition-all shadow-sm" />
+                                    class="w-10 sm:w-11 h-12 text-center text-lg font-mono font-bold rounded-xl border border-slate-300 focus:border-vnpt-500 focus:ring-2 focus:ring-blue-600/20 focus:outline-none bg-slate-50/50 focus:bg-white input-glow-focus transition-all shadow-sm" />
                             </div>
 
                             <div class="flex items-center justify-center mt-2.5 text-xs">
@@ -443,7 +548,7 @@
                                     required 
                                     minlength="6" 
                                     placeholder="••••••••" 
-                                    class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:border-vnpt-500 focus:ring-2 focus:ring-blue-600/20 focus:outline-none" />
+                                    class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:border-vnpt-500 focus:ring-2 focus:ring-blue-600/20 focus:outline-none input-glow-focus transition-all" />
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Xác nhận mật khẩu</label>
@@ -453,19 +558,20 @@
                                     required 
                                     minlength="6" 
                                     placeholder="••••••••" 
-                                    class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:border-vnpt-500 focus:ring-2 focus:ring-blue-600/20 focus:outline-none" />
+                                    class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:border-vnpt-500 focus:ring-2 focus:ring-blue-600/20 focus:outline-none input-glow-focus transition-all" />
                             </div>
                         </div>
 
                         <button 
                             type="submit" 
                             :disabled="loading" 
-                            class="w-full py-2.5 px-4 bg-vnpt-500 hover:bg-vnpt-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-vnpt-500/20 transition-all">
+                            class="w-full py-2.5 px-4 bg-vnpt-500 hover:bg-vnpt-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-vnpt-500/20 btn-hover-lift transition-all cursor-pointer">
                             <span v-if="!loading">Cập Nhật Mật Khẩu</span>
                             <span v-else>Đang lưu mật khẩu mới...</span>
                         </button>
                     </form>
                 </div>
+                </transition>
             </div>
 
             <!-- Chân trang liên kết -->

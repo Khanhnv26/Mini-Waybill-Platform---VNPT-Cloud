@@ -3,6 +3,7 @@ package org.app.customerservice.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.app.customerservice.dto.request.CreateCustomerRequest;
+import org.app.customerservice.dto.request.InitCustomerProfileRequest;
 import org.app.customerservice.dto.request.UpdateCustomerRequest;
 import org.app.customerservice.dto.response.CustomerValidation;
 import org.app.customerservice.entity.Customer;
@@ -52,7 +53,7 @@ public class CustomerController {
     }
 
     @PostMapping("/internal/init-profile")
-    public ResponseEntity<Customer> initProfile(@Valid @RequestBody org.app.customerservice.dto.request.InitCustomerProfileRequest request) {
+    public ResponseEntity<Customer> initProfile(@Valid @RequestBody InitCustomerProfileRequest request) {
         return ResponseEntity.ok(customerService.initProfile(request));
     }
 

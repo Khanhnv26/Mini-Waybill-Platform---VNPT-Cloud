@@ -312,4 +312,41 @@ body {
 .delay-300 { animation-delay: 300ms; }
 .delay-400 { animation-delay: 400ms; }
 
+/* ==========================================================================
+   HIỆU ỨNG CHUYỂN TRANG MƯỢT MÀ (SMOOTH PAGE & SUBTAB TRANSITIONS)
+   Chuẩn 60fps Enterprise: Fade & Slide-up nhẹ nhàng, không gây gián đoạn mắt
+   ========================================================================== */
+
+/* 1. Chuyển đổi giữa các trang chính (Main Page Transition) */
+.page-enter-active,
+.page-leave-active {
+    transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.page-enter-from {
+    opacity: 0;
+    transform: translateY(6px);
+}
+
+.page-leave-to {
+    opacity: 0;
+    transform: translateY(-6px);
+}
+
+/* 2. Chuyển đổi giữa các Subtab con bên trong view (Subtab Transition) */
+.subtab-enter-active,
+.subtab-leave-active {
+    transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.subtab-enter-from {
+    opacity: 0;
+    transform: translateY(4px);
+}
+
+.subtab-leave-to {
+    opacity: 0;
+    transform: translateY(-4px);
+}
+
 

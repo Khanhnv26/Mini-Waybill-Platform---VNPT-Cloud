@@ -6,13 +6,14 @@
  */
 
 (function () {
-    const { createApp, ref, computed, onMounted } = Vue;
+    const { createApp, ref, reactive, computed, onMounted } = Vue;
 
     const app = createApp({
         setup() {
             const currentUser = ref(null);
             const currentTab = ref('tracking');
             const currentTrackingCode = ref('');
+            const previousTab = ref(null);
             const selectedCustomerForShipment = ref(null);
             const isSidebarCollapsed = ref(false);
             const toggleSidebarCollapse = () => {
@@ -116,39 +117,29 @@
                 return 'Hệ Thống';
             });
 
+            // Quản lý tính năng tiện ích công khai đang được chọn (UnderDevelopmentView)
+            const currentFeatureId = ref('network');
+
             // Xử lý khi khách vãng lai bấm các tiện ích ở sidebar (Hướng B)
             const handleGuestTabClick = (tab) => {
                 if (tab.id === 'tracking') {
                     currentTab.value = 'tracking';
-                } else if (tab.id === 'network') {
-                    currentTab.value = 'tracking';
-                    setTimeout(() => {
-                        const el = document.getElementById('network-corridor-section');
-                        if (el) el.scrollIntoView({ behavior: 'smooth' });
-                    }, 50);
-                } else if (tab.id === 'calculator') {
-                    if (window.Utils && window.Utils.showToast) {
-                        window.Utils.showToast('Ước Tính Cước Phí', 'Cước bưu gửi tiêu chuẩn: 15.000đ/kg đầu tiên, +5.000đ cho mỗi 500g tiếp theo. Tuyến Express: 25.000đ/kg.', 'info');
-                    } else {
-                        alert('Cước bưu gửi tiêu chuẩn: 15.000đ/kg đầu tiên. Express: 25.000đ/kg.');
-                    }
-                } else if (tab.id === 'guide') {
-                    currentTab.value = 'tracking';
-                    setTimeout(() => {
-                        const el = document.getElementById('guide-section');
-                        if (el) el.scrollIntoView({ behavior: 'smooth' });
-                    }, 50);
-                } else if (tab.id === 'support') {
-                    if (window.Utils && window.Utils.showToast) {
-                        window.Utils.showToast('Tổng Đài CSKH 24/7', 'Hotline miễn cước: 1900 54 54 81 - Tiếp nhận tra cứu bưu gửi và giải quyết khiếu nại.', 'info');
-                    } else {
-                        alert('Hotline CSKH VNPT: 1900 54 54 81 (24/7)');
-                    }
+                } else {
+                    currentTab.value = tab.id;
+                    currentFeatureId.value = tab.id;
                 }
+            };
+
+            // Quay lại trang Tra Cứu chính từ màn hình Đang Phát Triển
+            const handleBackToHome = () => {
+                currentTab.value = 'tracking';
             };
 
             // 3. View Component động tương ứng với tab được chọn
             const activeComponent = computed(() => {
+                if (['network', 'calculator', 'guide', 'support'].includes(currentTab.value)) {
+                    return 'UnderDevelopmentView';
+                }
                 const found = allNavigationTabs.find(t => t.id === currentTab.value);
                 return found ? found.component : 'TrackingView';
             });
@@ -188,14 +179,32 @@
                         return;
                     }
                 }
+                previousTab.value = null; // Người dùng chủ động chuyển tab từ sidebar -> xóa lịch sử quay lại
                 currentTab.value = tabId;
+            };
+
+            // Khi click xem chi tiết vận đơn từ bất kỳ màn hình nào (Kho, Bưu tá, Khởi tạo, Điều phối)
+            const handleViewTracking = (trackingCode, sourceTabId = null) => {
+                if (!trackingCode) return;
+                const srcId = sourceTabId || currentTab.value;
+                const srcObj = allNavigationTabs.find(t => t.id === srcId);
+                previousTab.value = srcObj ? { id: srcObj.id, name: srcObj.name } : null;
+                currentTrackingCode.value = trackingCode.trim();
+                selectedCustomerForShipment.value = null;
+                currentTab.value = 'tracking';
+            };
+
+            // Khi người dùng bấm nút "Quay lại trang trước" từ TrackingView
+            const handleBackToPreviousTab = () => {
+                if (previousTab.value && previousTab.value.id) {
+                    currentTab.value = previousTab.value.id;
+                }
+                previousTab.value = null;
             };
 
             // Khi tạo vận đơn thành công ở ShipmentView, nhận sự kiện và chuyển sang Tra Cứu
             const handleShipmentCreated = (trackingCode) => {
-                currentTrackingCode.value = trackingCode;
-                selectedCustomerForShipment.value = null;
-                currentTab.value = 'tracking';
+                handleViewTracking(trackingCode, 'shipment');
             };
 
             // Khi chọn tạo vận đơn nhanh cho đối tác từ CustomerView
@@ -221,6 +230,75 @@
                 }
             };
 
+            // 6. Quản Lý Hồ Sơ Cá Nhân & Thông Tin Shop (Global Profile Modal)
+            const showUserProfileModal = ref(false);
+            const userProfile = ref(null);
+            const isLoadingUserProfile = ref(false);
+            const isSavingUserProfile = ref(false);
+            const profileFormData = reactive({
+                fullName: '',
+                phoneNumber: '',
+                address: ''
+            });
+
+            const openUserProfileModal = async () => {
+                if (typeof Auth === 'undefined' || !Auth.isAuthenticated()) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+                showUserProfileModal.value = true;
+                isLoadingUserProfile.value = true;
+                try {
+                    const prof = await CustomerService.getMyProfile();
+                    if (prof) {
+                        userProfile.value = prof;
+                        profileFormData.fullName = prof.fullName || currentUser.value?.fullName || '';
+                        profileFormData.phoneNumber = prof.phoneNumber || '';
+                        profileFormData.address = prof.address || '';
+                    }
+                } catch (err) {
+                    console.warn('[app.js] Không thể tải hồ sơ khách hàng:', err);
+                    profileFormData.fullName = currentUser.value?.fullName || '';
+                } finally {
+                    isLoadingUserProfile.value = false;
+                }
+            };
+
+            const closeUserProfileModal = () => {
+                showUserProfileModal.value = false;
+            };
+
+            const saveUserProfile = async () => {
+                if (!profileFormData.fullName.trim()) {
+                    Utils.showToast('Thiếu Thông Tin', 'Vui lòng nhập Họ tên hoặc Tên cửa hàng', 'warning');
+                    return;
+                }
+                isSavingUserProfile.value = true;
+                try {
+                    const updated = await CustomerService.updateMyProfile({
+                        fullName: profileFormData.fullName.trim(),
+                        phoneNumber: profileFormData.phoneNumber.trim(),
+                        address: profileFormData.address.trim()
+                    });
+                    userProfile.value = updated;
+                    if (currentUser.value) {
+                        currentUser.value.fullName = updated.fullName;
+                    }
+                    try {
+                        const stored = JSON.parse(localStorage.getItem('auth_user') || '{}');
+                        stored.fullName = updated.fullName;
+                        localStorage.setItem('auth_user', JSON.stringify(stored));
+                    } catch (e) {}
+
+                    Utils.showToast('Thành Công', 'Đã cập nhật hồ sơ tài khoản!');
+                    showUserProfileModal.value = false;
+                } catch (err) {
+                    Utils.showToast('Lỗi Cập Nhật', err.message || 'Không thể lưu hồ sơ', 'error');
+                } finally {
+                    isSavingUserProfile.value = false;
+                }
+            };
+
             onMounted(() => {
                 // Kiểm tra trạng thái đăng nhập
                 if (typeof Auth !== 'undefined') {
@@ -238,6 +316,7 @@
                 currentUser,
                 currentTab,
                 currentTabTitle,
+                previousTab,
                 isSidebarCollapsed,
                 toggleSidebarCollapse,
                 navigationTabs,
@@ -247,10 +326,23 @@
                 currentTrackingCode,
                 selectedCustomerForShipment,
                 switchTab,
+                handleViewTracking,
+                handleBackToPreviousTab,
                 handleShipmentCreated,
                 handleCreateShipmentFor,
                 handleLogoClick,
                 handleLogout,
+                currentFeatureId,
+                handleBackToHome,
+                // Profile Modal Global
+                showUserProfileModal,
+                userProfile,
+                isLoadingUserProfile,
+                isSavingUserProfile,
+                profileFormData,
+                openUserProfileModal,
+                closeUserProfileModal,
+                saveUserProfile,
                 toast: window.Utils ? window.Utils.toastState : { show: false },
                 getRoleBadgeInfo: window.Utils ? window.Utils.getRoleBadgeInfo : () => ({ label: 'NHÂN VIÊN', class: 'bg-slate-50' })
             };
@@ -265,6 +357,7 @@
     if (window.DispatchSimulationView) app.component('DispatchSimulationView', window.DispatchSimulationView);
     if (window.CustomerView) app.component('CustomerView', window.CustomerView);
     if (window.AdminRbacView) app.component('AdminRbacView', window.AdminRbacView);
+    if (window.UnderDevelopmentView) app.component('UnderDevelopmentView', window.UnderDevelopmentView);
 
     // Gắn ứng dụng vào DOM
     app.mount('#app');
