@@ -11,7 +11,8 @@
 
     const HubOpsView = {
         name: 'HubOpsView',
-        setup() {
+        emits: ['view-tracking'],
+        setup(props, { emit }) {
             const currentSubtab = ref('scan'); // 'scan' | 'inventory' | 'manifest'
             const isLoading = ref(false);
             const isActionRunning = ref(false);
@@ -22,6 +23,7 @@
             const selectedHub = ref('ALL');
             const selectedStatusFilter = ref('ALL');
             const searchQuery = ref('');
+
 
             // Phân trang
             const currentPage = ref(1);
@@ -40,17 +42,35 @@
                 return shipmentsList.value.filter(s => s.currentStatus === 'IN_TRANSIT').length;
             });
 
-            // 1. Tải danh sách bưu gửi thật từ backend
-            const loadShipmentsData = async () => {
-                isLoading.value = true;
+            // 1. Tải danh sách bưu gửi thật từ backend (Hỗ trợ nạp ngầm không nháy màn hình)
+            const loadShipmentsData = async (silent = false) => {
+                if (!silent) isLoading.value = true;
                 try {
                     const data = await ShipmentService.getAll();
-                    shipmentsList.value = Array.isArray(data) ? data : [];
+                    if (Array.isArray(data)) {
+                        // Bảo vệ trạng thái vừa cập nhật lạc quan trong vòng 4s phòng trường hợp Kafka consumer chưa commit kịp
+                        shipmentsList.value = data.map(newItem => {
+                            const existing = shipmentsList.value.find(s => s.trackingCode === newItem.trackingCode);
+                            if (existing && existing._optimisticTimestamp && (Date.now() - existing._optimisticTimestamp < 4000)) {
+                                return {
+                                    ...newItem,
+                                    currentStatus: existing.currentStatus,
+                                    status: existing.status,
+                                    _optimisticTimestamp: existing._optimisticTimestamp
+                                };
+                            }
+                            return newItem;
+                        });
+                    } else {
+                        shipmentsList.value = [];
+                    }
                 } catch (err) {
                     console.error('[HubOpsView] Lỗi tải bưu gửi:', err);
-                    Utils.showToast('Lỗi Tải Dữ Liệu', err.message || 'Không thể tải danh sách bưu gửi từ máy chủ', 'error');
+                    if (!silent) {
+                        Utils.showToast('Lỗi Tải Dữ Liệu', err.message || 'Không thể tải danh sách bưu gửi từ máy chủ', 'error');
+                    }
                 } finally {
-                    isLoading.value = false;
+                    if (!silent) isLoading.value = false;
                 }
             };
 
@@ -92,7 +112,7 @@
                 currentPage.value = 1;
             });
 
-            // 4. Thao tác nghiệp vụ: Tiếp nhận vào kho (PICKED_UP) hoặc Đóng chuyến xuất bến (IN_TRANSIT)
+            // 4. Thao tác nghiệp vụ: Tiếp nhận vào kho (PICKED_UP), Đóng chuyến xuất bến (IN_TRANSIT), Giao bưu tá (OUT_FOR_DELIVERY)
             const handleUpdateStatus = async (trackingCode, targetStatus, noteMessage) => {
                 if (!trackingCode || !trackingCode.trim()) {
                     Utils.showToast('Thông Báo', 'Vui lòng nhập mã bưu gửi cần xử lý', 'warning');
@@ -111,11 +131,21 @@
                         noteMessage || `Khai thác tại trạm ${hubLocation}: Chuyển trạng thái ${targetStatus}`
                     );
 
+                    // 1. Cập nhật lạc quan (Optimistic UI Update) ngay tại bộ nhớ (0ms latency)
+                    const targetShipment = shipmentsList.value.find(s => s.trackingCode === cleanCode);
+                    if (targetShipment) {
+                        targetShipment.currentStatus = targetStatus;
+                        targetShipment.status = targetStatus;
+                        targetShipment._optimisticTimestamp = Date.now();
+                    }
+
                     Utils.showToast('Thành Công', `Bưu gửi ${cleanCode} đã chuyển sang: ${Utils.formatStatusText(targetStatus)}`);
                     scanInputCode.value = '';
 
-                    // Nạp lại danh sách dữ liệu mới nhất từ CSDL
-                    await loadShipmentsData();
+                    // 2. Đồng bộ ngầm sau 600ms để Kafka Consumer phía shipment-service kịp commit CSDL
+                    setTimeout(() => {
+                        loadShipmentsData(true);
+                    }, 600);
                 } catch (err) {
                     console.error('[HubOpsView] Lỗi tác nghiệp:', err);
                     Utils.showToast('Thất Bại', err.message || 'Không thể cập nhật trạng thái bưu gửi', 'error');
@@ -166,6 +196,13 @@
                 ];
             });
 
+            // Mở chi tiết hành trình & bản đồ tại TrackingView
+            const viewTrackingDetail = (code) => {
+                if (code && code.trim()) {
+                    emit('view-tracking', code.trim(), 'hub-ops');
+                }
+            };
+
             onMounted(() => {
                 loadShipmentsData();
             });
@@ -191,6 +228,7 @@
                 handleUpdateStatus,
                 handleQuickScan,
                 tripManifestSummary,
+                viewTrackingDetail,
                 Utils
             };
         },
@@ -285,9 +323,11 @@
             </div>
 
             <!-- =============================================================== -->
-            <!-- SUBTAB 1: QUÉT TIẾP NHẬN & XUẤT CHUYẾN -->
+            <!-- TRANSITION CHUYỂN SUBTAB MƯỢT MÀ                             -->
             <!-- =============================================================== -->
-            <div v-if="currentSubtab === 'scan'" class="space-y-3">
+            <transition name="subtab" mode="out-in">
+                <!-- SUBTAB 1: QUÉT TIẾP NHẬN & XUẤT CHUYẾN -->
+                <div v-if="currentSubtab === 'scan'" key="scan" class="space-y-3">
                 <!-- THANH TÁC NGHIỆP QUÉT MÃ BARCODE -->
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div class="flex items-center space-x-2">
@@ -311,14 +351,14 @@
                             :disabled="isActionRunning"
                             class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg text-xs transition shadow-sm disabled:opacity-50"
                         >
-                            Tiếp Nhận (PICKED_UP)
+                            Tiếp Nhận
                         </button>
                         <button 
                             @click="handleQuickScan('IN_TRANSIT')"
                             :disabled="isActionRunning"
                             class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition shadow-sm disabled:opacity-50"
                         >
-                            Đóng Chuyến (IN_TRANSIT)
+                            Đóng Chuyến
                         </button>
                     </div>
                 </div>
@@ -342,11 +382,11 @@
                             class="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:border-blue-600 outline-none transition"
                         >
                             <option value="ALL">Tất cả trạng thái</option>
-                            <option value="ROUTE_ASSIGNED">ROUTE_ASSIGNED (Chờ Tiếp Nhận)</option>
-                            <option value="PICKED_UP">PICKED_UP (Đã Nhập Kho)</option>
-                            <option value="IN_TRANSIT">IN_TRANSIT (Đang Luân Chuyển)</option>
-                            <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY (Đang Đi Phát)</option>
-                            <option value="DELIVERED">DELIVERED (Phát Thành Công)</option>
+                            <option value="ROUTE_ASSIGNED">Chờ Tiếp Nhận</option>
+                            <option value="PICKED_UP">Đã Nhập Kho</option>
+                            <option value="IN_TRANSIT">Đang Luân Chuyển</option>
+                            <option value="OUT_FOR_DELIVERY">Đang Đi Phát</option>
+                            <option value="DELIVERED">Phát Thành Công</option>
                         </select>
 
                         <!-- Lọc số bản ghi -->
@@ -392,8 +432,16 @@
                             </thead>
                             <tbody class="divide-y divide-slate-100 font-medium">
                                 <tr v-for="item in paginatedShipments" :key="item.id" class="hover:bg-blue-50/30 transition">
-                                    <td class="py-2.5 px-3 font-mono font-bold text-blue-700">
-                                        {{ item.trackingCode }}
+                                    <td class="py-2.5 px-3">
+                                        <button 
+                                            type="button"
+                                            @click="viewTrackingDetail(item.trackingCode)"
+                                            class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group text-left transition-colors"
+                                            title="Click để xem chi tiết hành trình & bản đồ"
+                                        >
+                                            <span>{{ item.trackingCode }}</span>
+                                            <span class="text-[11px] text-blue-500 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all">↗</span>
+                                        </button>
                                     </td>
                                     <td class="py-2.5 px-3 text-slate-700">
                                         {{ item.senderName || 'N/A' }}
@@ -487,7 +535,7 @@
             <!-- =============================================================== -->
             <!-- SUBTAB 2: QUẢN LÝ TỒN BÃI TẠI TRẠM (HUB INVENTORY) -->
             <!-- =============================================================== -->
-            <div v-if="currentSubtab === 'inventory'" class="space-y-3">
+            <div v-else-if="currentSubtab === 'inventory'" key="inventory" class="space-y-3">
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm text-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div>
                         <h2 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Kiểm Soát Bưu Gửi Tồn Bãi</h2>
@@ -514,7 +562,17 @@
                         </thead>
                         <tbody class="divide-y divide-slate-100 font-medium">
                             <tr v-for="item in shipmentsList.filter(s => s.currentStatus === 'PICKED_UP' || s.currentStatus === 'ROUTE_ASSIGNED')" :key="item.id" class="hover:bg-blue-50/30">
-                                <td class="py-2.5 px-3 font-mono font-bold text-blue-700">{{ item.trackingCode }}</td>
+                                <td class="py-2.5 px-3">
+                                    <button 
+                                        type="button"
+                                        @click="viewTrackingDetail(item.trackingCode)"
+                                        class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group text-left transition-colors"
+                                        title="Click để xem chi tiết hành trình & bản đồ"
+                                    >
+                                        <span>{{ item.trackingCode }}</span>
+                                        <span class="text-[11px] text-blue-500 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all">↗</span>
+                                    </button>
+                                </td>
                                 <td class="py-2.5 px-3 font-mono text-slate-500">{{ item.createdAt ? item.createdAt.substring(0, 16) : 'N/A' }}</td>
                                 <td class="py-2.5 px-3 font-bold text-slate-800">{{ item.receiverName }}</td>
                                 <td class="py-2.5 px-3 text-slate-600 max-w-xs truncate">{{ item.receiverAddress }}</td>
@@ -534,45 +592,60 @@
             </div>
 
             <!-- =============================================================== -->
-            <!-- SUBTAB 3: BẢNG KÊ CHUYẾN XE (TRIP MANIFEST) -->
+            <!-- SUBTAB 3: BẢNG KÊ CHUYẾN XE (TRIP MANIFEST) - ĐANG NÂNG CẤP -->
             <!-- =============================================================== -->
-            <div v-if="currentSubtab === 'manifest'" class="space-y-3">
-                <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm text-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
-                    <div>
-                        <h2 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Bảng Kê Chuyến Xe Luân Chuyển Liên Tỉnh</h2>
-                        <p class="text-slate-500 text-[11px] mt-0.5">Tổng hợp từ các bưu gửi thật đang lưu thông trên hệ thống trục Bắc - Nam</p>
+            <div v-else-if="currentSubtab === 'manifest'" key="manifest" class="space-y-4">
+                <div class="b2b-card bg-white border border-slate-200 rounded-2xl p-8 sm:p-12 shadow-sm text-center max-w-2xl mx-auto space-y-6">
+                    <!-- VÒNG XOAY QUỸ ĐẠO CÔNG NGHỆ (TECH ORBIT SPINNER) -->
+                    <div class="relative w-24 h-24 mx-auto flex items-center justify-center">
+                        <div class="absolute inset-0 rounded-full border-2 border-slate-100"></div>
+                        <div class="absolute inset-0 rounded-full border-2 border-transparent border-t-blue-600 border-r-blue-400 animate-spin" style="animation-duration: 1.2s;"></div>
+                        <div class="absolute inset-2.5 rounded-full border-2 border-transparent border-b-cyan-500 border-l-cyan-300 animate-spin" style="animation-duration: 2s; animation-direction: reverse;"></div>
+                        <div class="w-10 h-10 rounded-xl vnpt-gradient text-white font-black text-xs flex items-center justify-center shadow-md shadow-blue-500/25 z-10 select-none">
+                            VNPT
+                        </div>
+                    </div>
+
+                    <!-- THÔNG BÁO TIẾN ĐỘ -->
+                    <div class="space-y-2">
+                        <h2 class="text-base sm:text-lg font-extrabold text-slate-800">
+                            Bảng Kê Chuyến Xe Đang Được Nâng Cấp
+                        </h2>
+                        <p class="text-xs sm:text-sm text-slate-500 max-w-lg mx-auto leading-relaxed">
+                            Hệ thống đang tích hợp phân hệ Lập bảng kê điện tử (E-Manifest), tự động gom kiện theo tải trọng xe tải và kết nối giám sát GPS hành trình container theo thời gian thực.
+                        </p>
+                    </div>
+
+                    <!-- DANH SÁCH TÍNH NĂNG NỔI BẬT ĐANG TRIỂN KHAI -->
+                    <div class="p-4 bg-slate-50 rounded-xl border border-slate-200/80 text-left max-w-md mx-auto space-y-2 text-xs text-slate-600">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-4 h-4 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold">✓</span>
+                            <span>Tự động tối ưu tải trọng xe luân chuyển (Weight Optimizer)</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="w-4 h-4 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold">✓</span>
+                            <span>Ký số biên bản bàn giao niêm phong kẹp chì điện tử</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="w-4 h-4 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold">✓</span>
+                            <span>Đồng bộ lộ trình di chuyển của xe theo GPS trực tiếp</span>
+                        </div>
+                    </div>
+
+                    <!-- NÚT CHUYỂN NHANH VỀ BÀN QUÉT MÃ -->
+                    <div class="pt-1">
+                        <button 
+                            type="button" 
+                            @click="currentSubtab = 'scan'" 
+                            class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm shadow-blue-600/20 inline-flex items-center space-x-2"
+                        >
+                            <span>←</span>
+                            <span>Quay Lại Bàn Quét Mã Tiếp Nhận</span>
+                        </button>
                     </div>
                 </div>
-
-                <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden text-xs">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-50/70 text-slate-600 font-bold border-b border-slate-200 text-[11px] uppercase tracking-wider">
-                                <th class="py-2.5 px-3">Mã Chuyến</th>
-                                <th class="py-2.5 px-3">Phương Tiện Vận Chuyển</th>
-                                <th class="py-2.5 px-3">Tuyến Luân Chuyển</th>
-                                <th class="py-2.5 px-3">Số Lượng Bưu Gửi</th>
-                                <th class="py-2.5 px-3">Tổng Khối Lượng</th>
-                                <th class="py-2.5 px-3">Tình Trạng Chuyến</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 font-medium">
-                            <tr v-for="trip in tripManifestSummary" :key="trip.tripCode" class="hover:bg-blue-50/30">
-                                <td class="py-2.5 px-3 font-mono font-bold text-blue-700">{{ trip.tripCode }}</td>
-                                <td class="py-2.5 px-3 font-semibold text-slate-800">{{ trip.vehiclePlate }}</td>
-                                <td class="py-2.5 px-3 font-mono text-slate-600">{{ trip.route }}</td>
-                                <td class="py-2.5 px-3 font-mono font-bold text-slate-800">{{ trip.itemCount }} kiện</td>
-                                <td class="py-2.5 px-3 font-mono">{{ trip.totalWeight }} kg</td>
-                                <td class="py-2.5 px-3">
-                                    <span :class="['px-2.5 py-0.5 rounded-md text-[10.5px] font-bold border', trip.status === 'IN_TRANSIT' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200']">
-                                        {{ trip.statusText }}
-                                    </span>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
             </div>
+            </transition>
         </div>
         `
     };

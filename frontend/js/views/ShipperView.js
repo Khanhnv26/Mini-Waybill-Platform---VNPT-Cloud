@@ -11,7 +11,8 @@
 
     const ShipperView = {
         name: 'ShipperView',
-        setup() {
+        emits: ['view-tracking'],
+        setup(props, { emit }) {
             const currentSubtab = ref('active'); // 'active' | 'cod'
             const isLoading = ref(false);
             const isActionRunning = ref(false);
@@ -31,17 +32,35 @@
             const failedReason = ref('KHONG_NGHE_MAY');
             const failedNote = ref('');
 
-            // 1. Tải dữ liệu bưu gửi thật từ backend
-            const loadShipmentsData = async () => {
-                isLoading.value = true;
+            // 1. Tải dữ liệu bưu gửi thật từ backend (Hỗ trợ nạp ngầm không nháy màn hình)
+            const loadShipmentsData = async (silent = false) => {
+                if (!silent) isLoading.value = true;
                 try {
                     const data = await ShipmentService.getAll();
-                    shipmentsList.value = Array.isArray(data) ? data : [];
+                    if (Array.isArray(data)) {
+                        // Bảo vệ trạng thái vừa cập nhật lạc quan trong vòng 4s phòng trường hợp Kafka consumer chưa commit kịp
+                        shipmentsList.value = data.map(newItem => {
+                            const existing = shipmentsList.value.find(s => s.trackingCode === newItem.trackingCode);
+                            if (existing && existing._optimisticTimestamp && (Date.now() - existing._optimisticTimestamp < 4000)) {
+                                return {
+                                    ...newItem,
+                                    currentStatus: existing.currentStatus,
+                                    status: existing.status,
+                                    _optimisticTimestamp: existing._optimisticTimestamp
+                                };
+                            }
+                            return newItem;
+                        });
+                    } else {
+                        shipmentsList.value = [];
+                    }
                 } catch (err) {
                     console.error('[ShipperView] Lỗi nạp danh sách:', err);
-                    Utils.showToast('Lỗi Tải Dữ Liệu', err.message || 'Không thể nạp danh sách bưu gửi', 'error');
+                    if (!silent) {
+                        Utils.showToast('Lỗi Tải Dữ Liệu', err.message || 'Không thể nạp danh sách bưu gửi', 'error');
+                    }
                 } finally {
-                    isLoading.value = false;
+                    if (!silent) isLoading.value = false;
                 }
             };
 
@@ -125,8 +144,20 @@
                         `Bưu tá phát thành công tận nơi cho ${shipment.receiverName || 'người nhận'}`
                     );
 
+                    // 1. Cập nhật lạc quan (Optimistic UI Update) ngay lập tức (0ms)
+                    const target = shipmentsList.value.find(s => s.trackingCode === shipment.trackingCode);
+                    if (target) {
+                        target.currentStatus = 'DELIVERED';
+                        target.status = 'DELIVERED';
+                        target._optimisticTimestamp = Date.now();
+                    }
+
                     Utils.showToast('Thành Công', `Đã ghi nhận phát thành công cho bưu gửi ${shipment.trackingCode}`);
-                    await loadShipmentsData();
+                    
+                    // 2. Đồng bộ ngầm sau 600ms để Kafka Consumer phía shipment-service commit xong DB
+                    setTimeout(() => {
+                        loadShipmentsData(true);
+                    }, 600);
                 } catch (err) {
                     console.error('[ShipperView] Lỗi báo phát:', err);
                     Utils.showToast('Lỗi Tác Nghiệp', err.message || 'Không thể cập nhật trạng thái', 'error');
@@ -169,9 +200,21 @@
                         note
                     );
 
+                    // 1. Cập nhật lạc quan (Optimistic UI Update)
+                    const target = shipmentsList.value.find(s => s.trackingCode === code);
+                    if (target) {
+                        target.currentStatus = 'DELIVERY_FAILED';
+                        target.status = 'DELIVERY_FAILED';
+                        target._optimisticTimestamp = Date.now();
+                    }
+
                     Utils.showToast('Đã Ghi Nhận', `Bưu gửi ${code} đã chuyển trạng thái Phát không thành công`);
                     showFailedModal.value = false;
-                    await loadShipmentsData();
+
+                    // 2. Đồng bộ ngầm sau 600ms
+                    setTimeout(() => {
+                        loadShipmentsData(true);
+                    }, 600);
                 } catch (err) {
                     console.error('[ShipperView] Lỗi báo thất bại:', err);
                     Utils.showToast('Lỗi Tác Nghiệp', err.message || 'Không thể cập nhật trạng thái', 'error');
@@ -191,12 +234,31 @@
                         'Bưu tá tiếp nhận bưu gửi đi phát chặng cuối'
                     );
 
+                    // 1. Cập nhật lạc quan (Optimistic UI Update)
+                    const target = shipmentsList.value.find(s => s.trackingCode === shipment.trackingCode);
+                    if (target) {
+                        target.currentStatus = 'OUT_FOR_DELIVERY';
+                        target.status = 'OUT_FOR_DELIVERY';
+                        target._optimisticTimestamp = Date.now();
+                    }
+
                     Utils.showToast('Thành Công', `Đã tiếp nhận bưu gửi ${shipment.trackingCode} đi phát`);
-                    await loadShipmentsData();
+                    
+                    // 2. Đồng bộ ngầm sau 600ms
+                    setTimeout(() => {
+                        loadShipmentsData(true);
+                    }, 600);
                 } catch (err) {
                     Utils.showToast('Lỗi Tác Nghiệp', err.message, 'error');
                 } finally {
                     isActionRunning.value = false;
+                }
+            };
+
+            // Mở chi tiết hành trình & bản đồ tại TrackingView
+            const viewTrackingDetail = (code) => {
+                if (code && code.trim()) {
+                    emit('view-tracking', code.trim(), 'shipper');
                 }
             };
 
@@ -229,6 +291,7 @@
                 failedNote,
                 handleDeliverFailed,
                 handleReDispatch,
+                viewTrackingDetail,
                 Utils
             };
         },
@@ -311,9 +374,11 @@
             </div>
 
             <!-- =============================================================== -->
-            <!-- SUBTAB 1: DANH SÁCH BƯU GỬI PHÁT HÔM NAY -->
+            <!-- TRANSITION CHUYỂN SUBTAB MƯỢT MÀ                             -->
             <!-- =============================================================== -->
-            <div v-if="currentSubtab === 'active'" class="space-y-3">
+            <transition name="subtab" mode="out-in">
+                <!-- SUBTAB 1: DANH SÁCH BƯU GỬI PHÁT HÔM NAY -->
+                <div v-if="currentSubtab === 'active'" key="active" class="space-y-3">
                 <!-- THANH TOOLBAR TÌM KIẾM & LỌC -->
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2.5 shadow-sm text-xs">
                     <div class="flex flex-wrap items-center gap-2 flex-1">
@@ -377,8 +442,16 @@
                             </thead>
                             <tbody class="divide-y divide-slate-100 font-medium">
                                 <tr v-for="item in paginatedShipments" :key="item.id" class="hover:bg-blue-50/30 transition">
-                                    <td class="py-2.5 px-3 font-mono font-bold text-blue-700">
-                                        {{ item.trackingCode }}
+                                    <td class="py-2.5 px-3">
+                                        <button 
+                                            type="button"
+                                            @click="viewTrackingDetail(item.trackingCode)"
+                                            class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group text-left transition-colors"
+                                            title="Click để xem chi tiết hành trình & bản đồ"
+                                        >
+                                            <span>{{ item.trackingCode }}</span>
+                                            <span class="text-[11px] text-blue-500 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all">↗</span>
+                                        </button>
                                     </td>
                                     <td class="py-2.5 px-3">
                                         <div class="font-bold text-slate-800">{{ item.receiverName || 'N/A' }}</div>
@@ -486,7 +559,7 @@
             <!-- =============================================================== -->
             <!-- SUBTAB 2: QUYẾT TOÁN TIỀN THU HỘ COD CUỐI CA -->
             <!-- =============================================================== -->
-            <div v-if="currentSubtab === 'cod'" class="space-y-3">
+            <div v-else-if="currentSubtab === 'cod'" key="cod" class="space-y-3">
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
                     <div>
                         <h2 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Quyết Toán Tiền Mặt Thu Hộ (COD)</h2>
@@ -512,7 +585,17 @@
                         </thead>
                         <tbody class="divide-y divide-slate-100 font-medium">
                             <tr v-for="item in shipmentsList.filter(s => s.currentStatus === 'DELIVERED')" :key="item.id" class="hover:bg-blue-50/30">
-                                <td class="py-2.5 px-3 font-mono font-bold text-blue-700">{{ item.trackingCode }}</td>
+                                <td class="py-2.5 px-3">
+                                    <button 
+                                        type="button"
+                                        @click="viewTrackingDetail(item.trackingCode)"
+                                        class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group text-left transition-colors"
+                                        title="Click để xem chi tiết hành trình & bản đồ"
+                                    >
+                                        <span>{{ item.trackingCode }}</span>
+                                        <span class="text-[11px] text-blue-500 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all">↗</span>
+                                    </button>
+                                </td>
                                 <td class="py-2.5 px-3 font-bold text-slate-800">{{ item.receiverName }}</td>
                                 <td class="py-2.5 px-3 text-slate-600 max-w-xs truncate">{{ item.receiverAddress }}</td>
                                 <td class="py-2.5 px-3 font-mono font-bold text-emerald-700">{{ Utils.formatCurrency(item.codAmount) }}</td>
@@ -531,6 +614,7 @@
                     </table>
                 </div>
             </div>
+            </transition>
 
             <!-- MODAL BÁO PHÁT THẤT BẠI -->
             <div v-if="showFailedModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">

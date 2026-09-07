@@ -31,16 +31,36 @@
             const currentUser = typeof Auth !== 'undefined' ? Auth.getUser() : null;
 
             // Kiểm tra quyền xem toàn bộ đơn hàng của hệ thống
+            // Kiểm tra quyền xem toàn bộ đơn hàng của hệ thống
             const hasReadAllPermission = computed(() => {
                 if (typeof Auth === 'undefined') return false;
                 return Auth.hasRole('ROLE_ADMIN') || Auth.hasRole('ROLE_CS') || Auth.hasPermission('shipment:read_all');
             });
 
-            // Kiểm tra quyền tạo đơn hộ cho khách hàng khác (RBAC module SHIPMENT)
+            // Phân biệt chính xác vai trò nghiệp vụ (RBAC) - Admin có độ ưu tiên cao nhất
+            const isAdmin = computed(() => {
+                if (typeof Auth === 'undefined') return false;
+                return Auth.hasRole('ROLE_ADMIN');
+            });
+
+            const isCSStaff = computed(() => {
+                if (typeof Auth === 'undefined') return false;
+                return !isAdmin.value && Auth.hasRole('ROLE_CS');
+            });
+
+            const isShopOwner = computed(() => {
+                if (typeof Auth === 'undefined') return false;
+                return !isAdmin.value && !isCSStaff.value && Auth.hasRole('ROLE_CUSTOMER');
+            });
+
+            // Kiểm tra quyền tạo đơn hộ cho khách hàng khác (CSKH & Admin)
             const canCreateForOthers = computed(() => {
                 if (typeof Auth === 'undefined') return false;
                 return Auth.hasRole('ROLE_ADMIN') || Auth.hasRole('ROLE_CS') || Auth.hasPermission('shipment:create_for_others');
             });
+
+            // Chế độ tạo đơn dành cho Admin: 'self' (Nội bộ VNPT Post) hoặc 'for_customer' (Tạo hộ đối tác)
+            const adminCreateMode = ref('self');
 
             // Form khởi tạo vận đơn
             const form = reactive({
@@ -88,6 +108,23 @@
                 }
             };
 
+            const setAdminCreateMode = (mode) => {
+                adminCreateMode.value = mode;
+                if (mode === 'self') {
+                    form.customerId = null;
+                    if (myProfile.value) {
+                        form.senderName = myProfile.value.fullName || currentUser?.fullName || 'Quản Trị Viên VNPT';
+                        form.senderPhone = myProfile.value.phoneNumber || '02438888999';
+                        form.senderDetail = myProfile.value.address || '57 Huỳnh Thúc Kháng, Đống Đa, Hà Nội';
+                    }
+                } else {
+                    form.customerId = null;
+                    if (!customersList.value || customersList.value.length === 0) {
+                        loadCustomersList();
+                    }
+                }
+            };
+
             const loadMyProfile = async () => {
                 if (typeof Auth === 'undefined' || !Auth.isAuthenticated()) return;
                 isLoadingProfile.value = true;
@@ -99,8 +136,10 @@
                         profileForm.phoneNumber = prof.phoneNumber || '';
                         profileForm.address = prof.address || '';
 
-                        // Tự động điền thông tin người gửi nếu là khách gửi thông thường
-                        if (!canCreateForOthers.value) {
+                        // Tự động điền thông tin người gửi:
+                        // 1. Nếu là Shop (ROLE_CUSTOMER): Luôn tự động điền hồ sơ của Shop
+                        // 2. Nếu là Admin (ROLE_ADMIN) ở chế độ Nội bộ (self): Tự động điền hồ sơ của Admin
+                        if (isShopOwner.value || (isAdmin.value && adminCreateMode.value === 'self')) {
                             if (prof.fullName) form.senderName = prof.fullName;
                             if (prof.phoneNumber) form.senderPhone = prof.phoneNumber;
                             if (prof.address) form.senderDetail = prof.address;
@@ -154,9 +193,10 @@
             watch(() => props.customerPrefill, (cust) => {
                 if (cust) {
                     currentSubtab.value = 'create';
-                    if (canCreateForOthers.value) {
-                        form.customerId = cust.id;
+                    if (isAdmin.value) {
+                        adminCreateMode.value = 'for_customer';
                     }
+                    form.customerId = cust.id;
                     form.senderName = cust.fullName || form.senderName;
                     form.senderPhone = cust.phoneNumber || form.senderPhone;
                     form.senderDetail = cust.address || form.senderDetail;
@@ -340,10 +380,24 @@
                 Utils.showToast('Làm Mới', 'Đã đặt lại biểu mẫu tạo vận đơn');
             };
 
+            const setWeight = (val) => {
+                form.weight = Number(val);
+            };
+
+            const setCodAmount = (val) => {
+                form.codAmount = Number(val);
+            };
+
+            const setServiceType = (val) => {
+                form.serviceType = val;
+            };
+
             // Khởi tạo đơn và tự động điều hướng sang Danh Sách Vận Đơn
             const handleSubmit = async () => {
-                if (canCreateForOthers.value && !form.customerId) {
-                    Utils.showToast('Chưa Chọn Khách Hàng', 'Vui lòng chọn hoặc nhập mã khách hàng gửi', 'warning');
+                // Chỉ CSKH hoặc Admin khi đang ở chế độ Tạo Hộ mới bắt buộc chọn khách hàng
+                const isCreatingForOthers = isCSStaff.value || (isAdmin.value && adminCreateMode.value === 'for_customer');
+                if (isCreatingForOthers && !form.customerId) {
+                    Utils.showToast('Chưa Chọn Khách Hàng', 'Vui lòng chọn khách hàng gửi từ danh bạ để tạo đơn hộ', 'warning');
                     return;
                 }
                 if (!form.senderName || !form.senderPhone || !form.senderProvince || !form.senderDetail) {
@@ -370,7 +424,7 @@
                         codAmount: Number(form.codAmount)
                     };
 
-                    if (canCreateForOthers.value && form.customerId) {
+                    if (isCreatingForOthers && form.customerId) {
                         payload.customerId = Number(form.customerId);
                     }
 
@@ -394,6 +448,7 @@
 
             // Chuyển sang Tra Cứu Lộ Trình & Bản Đồ Leaflet
             const viewTracking = (trackingCode) => {
+                emit('view-tracking', trackingCode, 'shipment');
                 emit('created-shipment', trackingCode);
             };
 
@@ -416,11 +471,19 @@
                 codFee,
                 fuelSurcharge,
                 totalEstimatedFee,
+                setWeight,
+                setCodAmount,
+                setServiceType,
                 senderHubName,
                 receiverHubName,
                 currentUser,
                 hasReadAllPermission,
+                isShopOwner,
+                isCSStaff,
+                isAdmin,
                 canCreateForOthers,
+                adminCreateMode,
+                setAdminCreateMode,
                 myProfile,
                 isLoadingProfile,
                 showProfileModal,
@@ -532,119 +595,257 @@
                 </div>
 
                 <!-- ============================================================ -->
-                <!-- SUBTAB 1: KHỞI TẠO BƯU GỬI (DISPATCH FORM)                   -->
+                <!-- TRANSITION CHUYỂN SUBTAB MƯỢT MÀ                             -->
                 <!-- ============================================================ -->
-                <div v-show="currentSubtab === 'create'" class="space-y-3">
-                    <!-- Cảnh Báo Hồ Sơ Người Gửi Thiếu Thông Tin (Dành cho tài khoản khách hàng thông thường) -->
-                    <div v-if="!canCreateForOthers && myProfile && (!myProfile.phoneNumber || !myProfile.address)" class="p-3 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-900 shadow-sm">
+                <transition name="subtab" mode="out-in">
+                    <!-- SUBTAB 1: KHỞI TẠO BƯU GỬI (DISPATCH FORM)                   -->
+                    <div v-if="currentSubtab === 'create'" key="create" class="space-y-3">
+                    <!-- Cảnh Báo Hồ Sơ Người Gửi Thiếu Thông Tin (Dành cho tài khoản Shop) -->
+                    <div v-if="isShopOwner && myProfile && (!myProfile.phoneNumber || !myProfile.address)" class="p-3 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-900 shadow-sm">
                         <div class="flex items-center space-x-2">
                             <span class="font-bold">Lưu ý:</span>
-                            <span>Hồ sơ người gửi của bạn chưa đầy đủ Số điện thoại hoặc Địa chỉ tiếp nhận. Vui lòng cập nhật để tạo đơn thuận tiện hơn.</span>
+                            <span>Hồ sơ Shop của bạn chưa đầy đủ Số điện thoại hoặc Địa chỉ kho lấy hàng. Vui lòng cập nhật để bưu tá tiếp nhận bưu phẩm thuận tiện hơn.</span>
                         </div>
                         <button type="button" @click="showProfileModal = true" class="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold transition shadow-sm whitespace-nowrap self-start sm:self-auto">
-                            Cập Nhật Hồ Sơ
+                            Cập Nhật Hồ Sơ Shop
                         </button>
                     </div>
 
                     <form @submit.prevent="handleSubmit" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                         <!-- CỘT TRÁI (2/3): FORM TIẾP NHẬN 2 KHỐI -->
                         <div class="lg:col-span-2 space-y-4">
-                            <!-- KHỐI 1: THÔNG SỐ DỊCH VỤ & HÀNG HÓA -->
+                            <!-- KHỐI 1: THÔNG SỐ DỊCH VỤ & BƯU PHẨM (CLEAN MINIMALIST) -->
                             <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-3.5">
+                                <!-- Tiêu Đề Khối 1 -->
                                 <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                                    <div class="flex items-center space-x-2">
-                                        <span class="w-2 h-2 rounded-full bg-blue-600"></span>
-                                        <span class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
-                                            1. Thông Số Dịch Vụ &amp; Bưu Phẩm Ký Gửi
-                                        </span>
-                                    </div>
-                                    <span class="text-[11px] font-mono font-semibold px-2 py-0.5 bg-slate-100 text-slate-600 rounded">
-                                        Bước 1/2
-                                    </span>
+                                    <h2 class="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                                        Thông Số Dịch Vụ &amp; Bưu Phẩm
+                                    </h2>
                                 </div>
 
-                                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3.5 pt-1">
-                                    <!-- Mã Khách Hàng / Hồ Sơ Gửi Hàng -->
-                                    <div>
-                                        <label class="block text-[11px] font-bold text-slate-700 mb-1">
-                                            <span v-if="canCreateForOthers">Khách Hàng Ký Gửi (Tạo Hộ) <span class="text-rose-500">*</span></span>
-                                            <span v-else>Tài Khoản Ký Gửi</span>
-                                        </label>
-                                        <div v-if="canCreateForOthers">
-                                            <select 
-                                                v-if="customersList.length > 0"
-                                                v-model.number="form.customerId" 
-                                                @change="onCustomerSelectChange($event)"
-                                                required 
-                                                class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-blue-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
-                                            >
-                                                <option :value="null" disabled>-- Chọn khách hàng --</option>
-                                                <option v-for="c in customersList" :key="c.id" :value="c.id">
-                                                    #{{ c.id }} - {{ c.fullName }} ({{ c.phoneNumber || c.customerCode || 'Chưa có SĐT' }})
-                                                </option>
-                                            </select>
-                                            <input 
-                                                v-else
-                                                v-model.number="form.customerId" 
-                                                type="number" 
-                                                required 
-                                                placeholder="Mã KH: 1, 2..."
-                                                class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-blue-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
-                                            />
-                                        </div>
-                                        <div v-else class="flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs">
-                                            <div class="truncate">
-                                                <span class="font-bold text-blue-700">{{ myProfile?.fullName || currentUser?.fullName || 'Khách Hàng' }}</span>
-                                                <span v-if="myProfile?.customerCode" class="ml-1 text-[10px] font-mono text-slate-500">({{ myProfile.customerCode }})</span>
-                                            </div>
+                                <!-- PHẦN 1.1: ĐỊNH DANH NGƯỜI GỬI -->
+                                <div class="p-3 bg-slate-50 rounded-lg border border-slate-200/70">
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-tight">
+                                            <span v-if="isAdmin">
+                                                {{ adminCreateMode === 'self' ? 'Ủy Thác Vận Đơn (Nội Bộ VNPT)' : 'Tạo Đơn Hộ Khách Hàng' }}
+                                            </span>
+                                            <span v-else-if="isCSStaff">Khách Hàng Tại Quầy <span class="text-rose-500">*</span></span>
+                                            <span v-else-if="isShopOwner">Chủ Hàng Ký Gửi</span>
+                                            <span v-else>Hồ Sơ Ký Gửi</span>
+                                        </span>
+
+                                        <!-- Segmented Toggle cho Admin (Gọn nhẹ, không emoji) -->
+                                        <div v-if="isAdmin" class="flex items-center bg-slate-200/80 p-0.5 rounded-lg text-xs font-semibold">
                                             <button 
                                                 type="button" 
-                                                @click="showProfileModal = true" 
-                                                class="text-[11px] font-bold text-blue-600 hover:text-blue-800 underline ml-2 whitespace-nowrap"
+                                                @click="setAdminCreateMode('self')" 
+                                                :class="adminCreateMode === 'self' ? 'bg-white font-bold text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                                class="px-2.5 py-0.5 rounded-md transition text-[11px]"
                                             >
-                                                Sửa hồ sơ
+                                                Nội Bộ VNPT
+                                            </button>
+                                            <button 
+                                                type="button" 
+                                                @click="setAdminCreateMode('for_customer')" 
+                                                :class="adminCreateMode === 'for_customer' ? 'bg-blue-600 font-bold text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                                class="px-2.5 py-0.5 rounded-md transition text-[11px]"
+                                            >
+                                                Tạo Hộ Khách Hàng
                                             </button>
                                         </div>
                                     </div>
 
-                                    <!-- Loại Dịch Vụ -->
-                                    <div>
-                                        <label class="block text-[11px] font-bold text-slate-700 mb-1">Dịch Vụ Vận Chuyển</label>
+                                    <!-- A. CSKH hoặc Admin Tạo Hộ Khách Hàng -->
+                                    <div v-if="isCSStaff || (isAdmin && adminCreateMode === 'for_customer')" class="mt-2 pt-1.5 border-t border-slate-200/60">
                                         <select 
-                                            v-model="form.serviceType" 
-                                            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
+                                            v-if="customersList.length > 0"
+                                            v-model.number="form.customerId" 
+                                            @change="onCustomerSelectChange($event)"
+                                            required 
+                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                                         >
-                                            <option value="EXPRESS">Chuyển phát hỏa tốc (Express 24h)</option>
-                                            <option value="STANDARD">Chuyển phát tiêu chuẩn (Standard)</option>
+                                            <option :value="null" disabled>-- Chọn khách hàng / đối tác từ danh bạ --</option>
+                                            <option v-for="c in customersList" :key="c.id" :value="c.id">
+                                                #{{ c.id }} - {{ c.fullName }} | {{ c.phoneNumber || 'N/A' }}
+                                            </option>
                                         </select>
+                                        <input 
+                                            v-else
+                                            v-model.number="form.customerId" 
+                                            type="number" 
+                                            required 
+                                            placeholder="Nhập ID khách hàng: 1, 2, 3..."
+                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-blue-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
+                                        />
                                     </div>
 
-                                    <!-- Khối Lượng -->
-                                    <div>
-                                        <label class="block text-[11px] font-bold text-slate-700 mb-1">
-                                            Khối Lượng (kg) <span class="text-rose-500">*</span>
+                                    <!-- B. Admin Nội Bộ VNPT -->
+                                    <div v-else-if="isAdmin && adminCreateMode === 'self'" class="mt-2 flex items-center justify-between gap-2 pt-1.5 border-t border-slate-200/60 text-xs">
+                                        <div class="flex items-center space-x-2">
+                                            <span class="font-bold text-slate-800">{{ myProfile?.fullName || currentUser?.fullName || 'Quản Trị Viên VNPT' }}</span>
+                                            <span class="text-[10px] font-mono px-1.5 py-0.5 bg-slate-200/70 text-slate-700 rounded font-medium">Nội bộ</span>
+                                        </div>
+                                        <button 
+                                            type="button" 
+                                            @click="showProfileModal = true" 
+                                            class="text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline transition"
+                                        >
+                                            Chỉnh sửa
+                                        </button>
+                                    </div>
+
+                                    <!-- C. Shop (ROLE_CUSTOMER độc lập) -->
+                                    <div v-else-if="isShopOwner" class="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1.5 border-t border-slate-200/60">
+                                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                                            <span class="font-bold text-slate-800">{{ myProfile?.fullName || currentUser?.fullName || 'Shop Của Bạn' }}</span>
+                                            <span v-if="myProfile?.customerCode" class="text-[10px] font-mono px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded font-bold border border-blue-200">
+                                                {{ myProfile.customerCode }}
+                                            </span>
+                                            <span class="text-slate-500 text-[11px]">SĐT: <strong class="font-mono text-slate-700 font-semibold">{{ myProfile?.phoneNumber || 'Chưa có' }}</strong></span>
+                                            <span class="text-slate-400">•</span>
+                                            <span class="text-slate-500 text-[11px] truncate max-w-[320px]">{{ myProfile?.address || 'Chưa cập nhật địa chỉ kho' }}</span>
+                                        </div>
+                                        <button 
+                                            type="button" 
+                                            @click="showProfileModal = true" 
+                                            class="text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline transition self-start sm:self-auto"
+                                        >
+                                            Chỉnh sửa
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- PHẦN 1.2: GÓI CƯỚC DỊCH VỤ (MINIMALIST CARDS) -->
+                                <div class="space-y-1.5">
+                                    <label class="block text-[11px] font-bold text-slate-700 uppercase tracking-tight">
+                                        Gói Cước Dịch Vụ
+                                    </label>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                        <!-- Gói 1: Hỏa Tốc -->
+                                        <div 
+                                            @click="setServiceType('EXPRESS')"
+                                            :class="[
+                                                'px-3.5 py-2.5 rounded-lg border cursor-pointer transition-all flex items-center justify-between select-none',
+                                                form.serviceType === 'EXPRESS' 
+                                                    ? 'border-blue-600 bg-blue-50/50 text-blue-900 font-bold shadow-xs' 
+                                                    : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
+                                            ]"
+                                        >
+                                            <div>
+                                                <div class="text-xs">VNPT Hỏa Tốc (Express)</div>
+                                                <div class="text-[11px] font-normal text-slate-500 mt-0.5">Toàn quốc trong 24h</div>
+                                            </div>
+                                            <span 
+                                                :class="form.serviceType === 'EXPRESS' ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white'"
+                                                class="w-4 h-4 rounded-full border flex items-center justify-center text-[9px] font-bold"
+                                            >
+                                                <span v-if="form.serviceType === 'EXPRESS'">✓</span>
+                                            </span>
+                                        </div>
+
+                                        <!-- Gói 2: Tiêu Chuẩn -->
+                                        <div 
+                                            @click="setServiceType('STANDARD')"
+                                            :class="[
+                                                'px-3.5 py-2.5 rounded-lg border cursor-pointer transition-all flex items-center justify-between select-none',
+                                                form.serviceType === 'STANDARD' 
+                                                    ? 'border-blue-600 bg-blue-50/50 text-blue-900 font-bold shadow-xs' 
+                                                    : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
+                                            ]"
+                                        >
+                                            <div>
+                                                <div class="text-xs">VNPT Tiêu Chuẩn (Standard)</div>
+                                                <div class="text-[11px] font-normal text-slate-500 mt-0.5">Liên tỉnh 2 - 3 ngày</div>
+                                            </div>
+                                            <span 
+                                                :class="form.serviceType === 'STANDARD' ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white'"
+                                                class="w-4 h-4 rounded-full border flex items-center justify-center text-[9px] font-bold"
+                                            >
+                                                <span v-if="form.serviceType === 'STANDARD'">✓</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- PHẦN 1.3: THÔNG SỐ KIỆN HÀNG & TIỀN THU HỘ COD -->
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-0.5">
+                                    <!-- Khối Lượng Kiện Hàng -->
+                                    <div class="space-y-1.5">
+                                        <label class="block text-[11px] font-bold text-slate-700 uppercase tracking-tight">
+                                            Khối Lượng <span class="text-rose-500">*</span>
                                         </label>
-                                        <input 
-                                            v-model.number="form.weight" 
-                                            type="number" 
-                                            step="0.1" 
-                                            min="0.1" 
-                                            required 
-                                            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
-                                        />
+                                        <div class="relative flex items-center">
+                                            <input 
+                                                v-model.number="form.weight" 
+                                                type="number" 
+                                                step="0.1" 
+                                                min="0.1" 
+                                                required 
+                                                class="w-full pl-3 pr-10 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
+                                            />
+                                            <span class="absolute right-3 text-xs font-bold text-slate-400 select-none">kg</span>
+                                        </div>
+
+                                        <!-- Chips chọn nhanh khối lượng (Gọn gàng, không chữ Gợi ý) -->
+                                        <div class="flex items-center space-x-1.5">
+                                            <button 
+                                                type="button" 
+                                                v-for="w in [0.5, 1.0, 2.0, 5.0]" 
+                                                :key="w"
+                                                @click="setWeight(w)"
+                                                :class="form.weight === w ? 'bg-blue-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                                                class="px-2 py-0.5 rounded text-[10px] font-mono transition"
+                                            >
+                                                {{ w }} kg
+                                            </button>
+                                        </div>
                                     </div>
 
-                                    <!-- Thu Hộ COD -->
-                                    <div>
-                                        <label class="block text-[11px] font-bold text-slate-700 mb-1">Tiền Thu Hộ COD (VNĐ)</label>
-                                        <input 
-                                            v-model.number="form.codAmount" 
-                                            type="number" 
-                                            step="1000" 
-                                            min="0" 
-                                            required 
-                                            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-emerald-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
-                                        />
+                                    <!-- Tiền Thu Hộ COD -->
+                                    <div class="space-y-1.5">
+                                        <div class="flex items-center justify-between">
+                                            <label class="block text-[11px] font-bold text-slate-700 uppercase tracking-tight">
+                                                Tiền Thu Hộ COD
+                                            </label>
+                                            <span class="text-[10px] font-mono font-bold text-emerald-600">
+                                                {{ form.codAmount > 0 ? Utils.formatCurrency(form.codAmount) : '0 đ' }}
+                                            </span>
+                                        </div>
+
+                                        <div class="relative flex items-center">
+                                            <input 
+                                                v-model.number="form.codAmount" 
+                                                type="number" 
+                                                step="1000" 
+                                                min="0" 
+                                                required 
+                                                class="w-full pl-3 pr-12 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-emerald-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
+                                            />
+                                            <span class="absolute right-3 text-xs font-bold text-slate-400 select-none">VNĐ</span>
+                                        </div>
+
+                                        <!-- Chips chọn nhanh số tiền COD (Gọn gàng) -->
+                                        <div class="flex items-center space-x-1.5 overflow-x-auto">
+                                            <button 
+                                                type="button" 
+                                                @click="setCodAmount(0)"
+                                                :class="form.codAmount === 0 ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                                                class="px-2 py-0.5 rounded text-[10px] font-mono transition whitespace-nowrap"
+                                            >
+                                                0 đ
+                                            </button>
+                                            <button 
+                                                type="button" 
+                                                v-for="amt in [200000, 500000, 1000000]" 
+                                                :key="amt"
+                                                @click="setCodAmount(amt)"
+                                                :class="form.codAmount === amt ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                                                class="px-2 py-0.5 rounded text-[10px] font-mono transition whitespace-nowrap"
+                                            >
+                                                {{ amt / 1000 }}k
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -883,7 +1084,7 @@
                 <!-- ============================================================ -->
                 <!-- SUBTAB 2: QUẢN LÝ DANH SÁCH VẬN ĐƠN (WAYBILL MANAGEMENT)     -->
                 <!-- ============================================================ -->
-                <div v-show="currentSubtab === 'list'" class="space-y-4">
+                <div v-else-if="currentSubtab === 'list'" key="list" class="space-y-4">
                     <!-- 1. CÁC THẺ KPI METRICS TỔNG QUAN (TỐI GIẢN ICON) -->
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <!-- Thẻ 1: Tổng đơn -->
@@ -1023,13 +1224,15 @@
                                         <!-- Mã Bưu Gửi -->
                                         <td class="py-3 px-3.5">
                                             <div class="flex items-center space-x-1.5">
-                                                <span 
+                                                <button 
+                                                    type="button"
                                                     @click="viewTracking(s.trackingCode)"
-                                                    class="font-mono font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer tracking-tight"
-                                                    title="Bấm để xem chi tiết lộ trình"
+                                                    class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group text-left transition-colors tracking-tight"
+                                                    title="Click để xem chi tiết hành trình & bản đồ"
                                                 >
-                                                    {{ s.trackingCode }}
-                                                </span>
+                                                    <span>{{ s.trackingCode }}</span>
+                                                    <span class="text-[11px] text-blue-500 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all">↗</span>
+                                                </button>
                                             </div>
                                             <div class="flex items-center space-x-1.5 mt-0.5">
                                                 <span 
@@ -1130,6 +1333,7 @@
                         </div>
                     </div>
                 </div>
+                </transition>
 
                 <!-- MODAL CẬP NHẬT HỒ SƠ KHÁCH HÀNG (GET/PUT /api/customers/me) -->
                 <div v-if="showProfileModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">

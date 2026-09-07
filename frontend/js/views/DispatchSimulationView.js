@@ -11,7 +11,8 @@
 
     const DispatchSimulationView = {
         name: 'DispatchSimulationView',
-        setup() {
+        emits: ['view-tracking'],
+        setup(props, { emit }) {
             const isLoading = ref(false);
             const isSimulating = ref(false);
             const simSpeedMultiplier = ref(1); // 1x | 2x | 4x
@@ -199,6 +200,13 @@
                 stopSimulation();
             });
 
+            // Mở chi tiết hành trình & bản đồ tại TrackingView
+            const viewTrackingDetail = (code) => {
+                if (code && code.trim()) {
+                    emit('view-tracking', code.trim(), 'dispatch-simulation');
+                }
+            };
+
             return {
                 isLoading,
                 isSimulating,
@@ -212,6 +220,7 @@
                 advanceOneStep,
                 togglePlaySimulation,
                 setSpeed,
+                viewTrackingDetail,
                 Utils
             };
         },
@@ -354,7 +363,17 @@
                     <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm text-xs space-y-2.5">
                         <div class="flex items-center justify-between border-b border-slate-100 pb-2">
                             <span class="font-extrabold text-slate-800 uppercase tracking-wider text-[11px]">Chi Tiết Bưu Gửi</span>
-                            <span class="font-mono text-blue-700 font-bold">{{ currentShipment?.trackingCode }}</span>
+                            <button 
+                                type="button"
+                                v-if="currentShipment?.trackingCode"
+                                @click="viewTrackingDetail(currentShipment.trackingCode)"
+                                class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group transition-colors"
+                                title="Click để xem chi tiết toàn trình & bản đồ tại trang Tra Cứu"
+                            >
+                                <span>{{ currentShipment.trackingCode }}</span>
+                                <span class="text-[11px] text-blue-500 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all">↗</span>
+                            </button>
+                            <span v-else class="font-mono text-slate-400">--</span>
                         </div>
 
                         <div class="space-y-2">

@@ -14,9 +14,15 @@
             trackingCode: {
                 type: String,
                 default: ''
+            },
+            previousTab: {
+                type: Object,
+                default: null
             }
         },
-        setup(props) {
+        emits: ['back-previous'],
+        setup(props, { emit }) {
+            const previousTab = computed(() => props.previousTab);
             const searchCode = ref(props.trackingCode || '');
             const isLoading = ref(false);
             const isLiveTracking = ref(true);
@@ -397,11 +403,30 @@
                 counterProvinces,
                 counterInsurance,
                 animateNumbers,
+                previousTab,
                 Utils
             };
         },
         template: `
             <div class="space-y-4 pb-10 text-slate-800">
+                <!-- THANH ĐIỀU HƯỚNG QUAY LẠI TRANG TÁC NGHIỆP TRƯỚC (KHO BÃI / BƯU TÁ / ĐƠN HÀNG) -->
+                <div v-if="previousTab" class="bg-blue-50/90 border border-blue-200/80 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs shadow-sm animate-fade-in">
+                    <div class="flex items-center space-x-2 text-slate-700 min-w-0">
+                        <span class="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse flex-shrink-0"></span>
+                        <span class="truncate">
+                            Đang xem chi tiết hành trình bưu gửi: 
+                            <strong class="font-mono text-blue-700 font-extrabold text-sm ml-1">{{ currentShipment?.trackingCode || searchCode }}</strong>
+                        </span>
+                    </div>
+                    <button 
+                        type="button"
+                        @click="$emit('back-previous')"
+                        class="px-3 py-1.5 rounded-lg bg-white border border-blue-300 text-blue-700 font-bold hover:bg-blue-600 hover:text-white hover:border-blue-600 transition flex items-center space-x-1.5 shadow-sm flex-shrink-0"
+                    >
+                        <span>← Quay lại {{ previousTab.name }}</span>
+                    </button>
+                </div>
+
                 <!-- 1. HERO BANNER: CHUẨN VNPT GRADIENT ĐỒNG BỘ RBAC -->
                 <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
