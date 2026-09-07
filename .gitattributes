@@ -1,0 +1,8 @@
+# ==============================================================================
+# GITHUB LINGUIST LANGUAGE OVERRIDES
+# Cấu hình để GitHub nhận diện dự án là Java Spring Boot Microservices
+# Loại trừ mã nguồn frontend (HTML/Tailwind/Vue CDN) khỏi bảng thống kê ngôn ngữ
+# ==============================================================================
+
+frontend/** linguist-detectable=false
+server.js linguist-detectable=false
