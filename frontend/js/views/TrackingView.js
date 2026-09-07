@@ -1,7 +1,7 @@
 /**
  * ==============================================================================
  * VNPT CLOUD - VIEW: TRA CỨU BƯU GỬI & THEO DÕI HÀNH TRÌNH (TRACKING VIEW)
- * Phong cách B2B Enterprise Blue, Đồng Bộ Hero Banner & Phân Quyền Nút Tác Nghiệp
+ * Phong cách B2B Enterprise Blue, Thanh Tiến Trình Liên Tục & Timeline Thông Minh
  * ==============================================================================
  */
 
@@ -27,63 +27,106 @@
 
             const currentShipment = ref(null);
             const trackingHistory = ref([]);
-            const notificationList = ref([]);
-            const auditList = ref([]);
             const routeInfo = ref(null);
             const lastRenderedCode = ref(null);
 
             let livePollTimer = null;
 
-            // Subtab chi tiết phía dưới: 'history' | 'audit' | 'notification'
-            const activeSubtab = ref('history');
-
-            // Quyền xem nhật ký kiểm toán (Audit Log)
-            const canReadAudit = computed(() => {
-                if (typeof Auth === 'undefined') return false;
-                return Auth.hasPermission('audit:read') || Auth.hasRole('ROLE_ADMIN');
-            });
-
-            // Tính toán chặng hiện tại cho Stepper (1 đến 4) - bám đúng enum backend
+            // Tính toán chặng hiện tại (1 đến 4) - bám sát các trạng thái chuẩn của hệ thống
             const currentStageIndex = computed(() => {
                 const s = currentShipment.value?.status;
                 if (!s || s === 'CREATED' || s === 'PENDING_ROUTING' || s === 'ROUTE_ASSIGNED') return 1;
                 if (s === 'PICKED_UP' || s === 'IN_TRANSIT') return 2;
-                if (s === 'OUT_FOR_DELIVERY' || s === 'DELIVERY_FAILED') return 3;
+                if (s === 'ARRIVED_DEST_HUB' || s === 'OUT_FOR_DELIVERY' || s === 'DELIVERY_FAILED') return 3;
                 if (s === 'DELIVERED') return 4;
                 return 1;
             });
 
-            // Đơn đã kết thúc hành trình thì không cần đồng bộ nữa
+            // Tỉ lệ thanh tiến trình và vị trí xe tải
+            const stageProgress = computed(() => {
+                switch (currentStageIndex.value) {
+                    case 1:
+                        return { width: '6%', left: 'calc(24px + (100% - 48px) * 0.06)' };
+                    case 2:
+                        return { width: '38%', left: 'calc(24px + (100% - 48px) * 0.38)' };
+                    case 3:
+                        return { width: '75%', left: 'calc(24px + (100% - 48px) * 0.75)' };
+                    case 4:
+                        return { width: '100%', left: 'calc(24px + (100% - 48px) * 1.0)' };
+                    default:
+                        return { width: '6%', left: 'calc(24px + (100% - 48px) * 0.06)' };
+                }
+            });
+
+            // Hub nguồn & Hub phát đích
+            const currentSourceHub = computed(() => {
+                return routeInfo.value?.sourceHub || currentShipment.value?.originHub || 'HUB-HN-01';
+            });
+
+            const currentDestHub = computed(() => {
+                return routeInfo.value?.destHub || currentShipment.value?.destinationHub || 'HUB-HCM-01';
+            });
+
+            // Sắp xếp lịch sử luân chuyển: Mốc mới nhất luôn đưa lên đầu
+            const sortedHistory = computed(() => {
+                if (!trackingHistory.value || trackingHistory.value.length === 0) return [];
+                return [...trackingHistory.value].sort((a, b) => {
+                    const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+                    const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+                    return timeB - timeA;
+                });
+            });
+
+            // Đơn đã kết thúc hành trình thì dừng polling
             const isFinalState = computed(() => currentShipment.value?.status === 'DELIVERED');
 
-            // 4. Tải các dữ liệu phụ trợ (hành trình, thông báo, kiểm toán)
-            const loadSecondaryData = async (code) => {
-                const tasks = [
-                    TrackingService.getHistory(code)
-                        .then(res => { trackingHistory.value = Array.isArray(res) ? res : []; })
-                        .catch(() => {}),
-                    NotificationService.getByTrackingCode(code)
-                        .then(res => { notificationList.value = res || []; })
-                        .catch(() => {})
-                ];
-
-                if (canReadAudit.value) {
-                    tasks.push(
-                        AuditService.getByTrackingCode(code)
-                            .then(res => { auditList.value = res || []; })
-                            .catch(() => {})
-                    );
-                } else {
-                    auditList.value = [];
-                }
-
-                await Promise.all(tasks);
+            // Định dạng thời gian tương đối
+            const formatRelativeTime = (ts) => {
+                if (!ts) return '';
+                const now = Date.now();
+                const diff = Math.floor((now - new Date(ts).getTime()) / 1000);
+                if (diff < 60) return 'Vừa xong';
+                if (diff < 3600) return `Cách đây ${Math.floor(diff / 60)} phút`;
+                if (diff < 86400) return `Cách đây ${Math.floor(diff / 3600)} giờ`;
+                return `Cách đây ${Math.floor(diff / 86400)} ngày`;
             };
 
-            /**
-             * Chi tiết bưu gửi (serviceType, weight, COD, địa chỉ) nằm ở shipment-service,
-             * không có trong response của tracking-service. Cache theo mã để không gọi lại mỗi lần polling.
-             */
+            // Cấu hình icon theo trạng thái
+            const getStatusIconConfig = (status) => {
+                switch (status) {
+                    case 'DELIVERED':
+                        return { bg: 'bg-emerald-600', icon: 'check' };
+                    case 'OUT_FOR_DELIVERY':
+                        return { bg: 'bg-indigo-600', icon: 'courier' };
+                    case 'ARRIVED_DEST_HUB':
+                        return { bg: 'bg-blue-600', icon: 'warehouse' };
+                    case 'IN_TRANSIT':
+                        return { bg: 'bg-blue-600', icon: 'truck' };
+                    case 'PICKED_UP':
+                        return { bg: 'bg-amber-500', icon: 'package' };
+                    case 'ROUTE_ASSIGNED':
+                    case 'PENDING_ROUTING':
+                        return { bg: 'bg-slate-600', icon: 'route' };
+                    case 'FAILED':
+                    case 'DELIVERY_FAILED':
+                        return { bg: 'bg-rose-500', icon: 'alert' };
+                    case 'CREATED':
+                    default:
+                        return { bg: 'bg-slate-400', icon: 'document' };
+                }
+            };
+
+            // Tải dữ liệu lịch sử luân chuyển
+            const loadSecondaryData = async (code) => {
+                try {
+                    const res = await TrackingService.getHistory(code);
+                    trackingHistory.value = Array.isArray(res) ? res : [];
+                } catch (e) {
+                    // Im lặng nếu không tải được lịch sử phụ trợ
+                }
+            };
+
+            // Cache thông tin chi tiết bưu gửi (sender, receiver, cod, weight)
             const shipmentDetailCache = {};
             const loadShipmentDetail = async (code) => {
                 if (Object.prototype.hasOwnProperty.call(shipmentDetailCache, code)) {
@@ -96,7 +139,7 @@
                 return detail;
             };
 
-            // Che số điện thoại cho khách vãng lai (0912***678)
+            // Che số điện thoại cho khách vãng lai
             const maskPhone = (phone) => {
                 if (!phone) return 'N/A';
                 if (typeof Auth !== 'undefined' && Auth.isAuthenticated()) {
@@ -115,7 +158,7 @@
                 }
             };
 
-            // 5. Tra cứu đầy đủ (người dùng bấm Tra Cứu hoặc lần nạp đầu)
+            // Tra cứu bưu gửi
             const fetchTrackingData = async (codeToSearch) => {
                 validationError.value = '';
                 const raw = (codeToSearch || searchCode.value || '').trim();
@@ -153,7 +196,7 @@
                     };
                     trackingHistory.value = data.history || [];
 
-                    // Vẽ bản đồ lộ trình dựa trên hành trình thật của đơn
+                    // Vẽ bản đồ lộ trình dựa trên hành trình thật
                     await nextTick();
                     if (window.MapManager) {
                         window.MapManager.init('tracking-map');
@@ -167,18 +210,6 @@
                             );
                             lastRenderedCode.value = code;
                         }
-                    }
-
-                    NotificationService.getByTrackingCode(code)
-                        .then(res => { notificationList.value = res || []; })
-                        .catch(() => {});
-
-                    if (canReadAudit.value) {
-                        AuditService.getByTrackingCode(code)
-                            .then(res => { auditList.value = res || []; })
-                            .catch(() => {});
-                    } else {
-                        auditList.value = [];
                     }
 
                     Utils.showToast('Thành Công', `Đã nạp dữ liệu hành trình bưu gửi ${code}`);
@@ -199,11 +230,7 @@
                 }
             };
 
-            /**
-             * 6. Đồng bộ nền: chỉ gọi endpoint trạng thái (nhẹ).
-             * Các dữ liệu nặng (hành trình, thông báo, kiểm toán) chỉ tải lại khi trạng thái đổi.
-             * Không gọi lại MapManager.init() để bản đồ không bị giật theo nhịp polling.
-             */
+            // Đồng bộ trạng thái chạy ngầm (Silent Sync)
             const syncStatusInBackground = async () => {
                 const code = currentShipment.value?.trackingCode;
                 if (!code) return;
@@ -219,22 +246,21 @@
                         window.MapManager.updateProgress(newStatus);
                     }
 
-                    Utils.showToast('Cập Nhật Real-Time', `Bưu gửi vừa chuyển sang: ${Utils.formatStatusText(newStatus)}`);
+                    Utils.showToast('Cập Nhật Tự Động', `Bưu gửi vừa chuyển sang: ${Utils.formatStatusText(newStatus)}`);
                     await loadSecondaryData(code);
                 } catch (err) {
-                    // Đồng bộ nền thất bại thì im lặng, tránh spam toast cho người dùng
+                    // Lỗi đồng bộ ngầm thì bỏ qua
                 }
             };
 
-            // 7. Smart Polling Timer (5 giây một lần khi bật Live Tracking)
             const POLL_INTERVAL_MS = 5000;
 
             const startLivePolling = () => {
                 stopLivePolling();
                 livePollTimer = setInterval(() => {
                     if (!isLiveTracking.value) return;
-                    if (document.hidden) return;                 // tab đang ẩn: bỏ qua để đỡ tốn tài nguyên
-                    if (isFinalState.value) return;              // đơn đã giao xong: không cần hỏi nữa
+                    if (document.hidden) return;
+                    if (isFinalState.value) return;
                     if (!currentShipment.value?.trackingCode) return;
                     syncStatusInBackground();
                 }, POLL_INTERVAL_MS);
@@ -247,7 +273,6 @@
                 }
             };
 
-            // Quan sát prop nếu có mã truyền từ màn hình Tạo Đơn sang
             watch(() => props.trackingCode, (newCode) => {
                 if (newCode) {
                     searchCode.value = newCode;
@@ -255,12 +280,6 @@
                 }
             });
 
-            watch(isLiveTracking, (val) => {
-                if (val) startLivePolling();
-                else stopLivePolling();
-            });
-
-            // Khi quay lại tab, đồng bộ ngay một lần thay vì chờ hết chu kỳ polling
             const handleVisibilityChange = () => {
                 if (document.hidden) return;
                 if (window.MapManager) window.MapManager.invalidateSize();
@@ -303,7 +322,6 @@
             return {
                 searchCode,
                 isLoading,
-                isLiveTracking,
                 validationError,
                 isNotFound,
                 notFoundCode,
@@ -311,13 +329,15 @@
                 focusSearchInput,
                 currentShipment,
                 trackingHistory,
-                notificationList,
-                auditList,
+                sortedHistory,
                 routeInfo,
-                activeSubtab,
-                canReadAudit,
                 isFinalState,
                 currentStageIndex,
+                stageProgress,
+                currentSourceHub,
+                currentDestHub,
+                getStatusIconConfig,
+                formatRelativeTime,
                 fetchTrackingData,
                 fitVietnamView,
                 fitRouteView,
@@ -325,7 +345,7 @@
             };
         },
         template: `
-            <div class="space-y-3.5 pb-8 text-slate-800">
+            <div class="space-y-4 pb-10 text-slate-800">
                 <!-- 1. HERO BANNER: CHUẨN VNPT GRADIENT ĐỒNG BỘ RBAC -->
                 <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
@@ -342,29 +362,21 @@
                                 Định Vị &amp; Theo Dõi Hành Trình Bưu Gửi Toàn Trình
                             </h1>
                             <p class="text-xs text-blue-100/90 mt-0.5 leading-normal">
-                                Giám sát chuyển phát thời gian thực, trực quan hóa tuyến đường bộ OSRM và quản lý lịch sử giao dịch minh bạch.
+                                Giám sát chuyển phát thời gian thực, trực quan hóa tuyến luân chuyển bưu cục và dòng thời gian xử lý minh bạch.
                             </p>
                         </div>
 
                         <!-- Thống kê nhanh KPI -->
                         <div class="flex items-center space-x-2 self-start sm:self-auto">
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[76px]">
-                                <div class="text-xs sm:text-sm font-bold leading-tight truncate max-w-[100px]" :title="currentShipment ? Utils.formatStatusText(currentShipment.status) : 'Chờ Tra Cứu'">
+                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[80px]">
+                                <div class="text-xs sm:text-sm font-bold leading-tight truncate max-w-[120px]" :title="currentShipment ? Utils.formatStatusText(currentShipment.status) : 'Chờ Tra Cứu'">
                                     {{ currentShipment ? Utils.formatStatusText(currentShipment.status) : 'Chờ Tra Cứu' }}
                                 </div>
                                 <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Trạng Thái</div>
                             </div>
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[68px]">
+                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px]">
                                 <div class="text-sm sm:text-base font-bold leading-tight">{{ trackingHistory.length }}</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Chặng Quét</div>
-                            </div>
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[68px]">
-                                <div class="text-sm sm:text-base font-bold leading-tight text-emerald-300">{{ notificationList.length }}</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Thông Báo</div>
-                            </div>
-                            <div v-if="canReadAudit" class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[68px]">
-                                <div class="text-sm sm:text-base font-bold leading-tight text-amber-300">{{ auditList.length }}</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Kiểm Toán</div>
+                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Mốc Quét</div>
                             </div>
                         </div>
                     </div>
@@ -424,7 +436,7 @@
                         <span>{{ validationError }}</span>
                     </div>
 
-                    <!-- Quy chuẩn định dạng mã hợp lệ (Theo chỉ đạo: KHÔNG hiển thị nút mã mẫu) -->
+                    <!-- Quy chuẩn định dạng mã hợp lệ -->
                     <div class="flex items-center space-x-1.5 text-[11px] text-slate-500 pt-2 border-t border-slate-100">
                         <svg class="w-3.5 h-3.5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -433,7 +445,7 @@
                     </div>
                 </div>
 
-                <!-- 2.1 KHỐI GIAO DIỆN BÁO LỖI: KHÔNG TÌM THẤY BƯU GỬI (B2B NOT FOUND STATE) -->
+                <!-- 2.1 KHỐI GIAO DIỆN BÁO LỖI: KHÔNG TÌM THẤY BƯU GỬI -->
                 <div v-if="isNotFound" class="b2b-card bg-white border border-slate-200 rounded-xl p-6 sm:p-10 shadow-sm text-center max-w-3xl mx-auto my-2">
                     <div class="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center mx-auto mb-4 text-rose-600 shadow-sm">
                         <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -448,80 +460,32 @@
                     <h2 class="text-lg sm:text-xl font-bold text-slate-800 tracking-tight mt-1">
                         Không Tìm Thấy Thông Tin Bưu Gửi
                     </h2>
-                    <p class="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
-                        Hệ thống quản trị bưu chính VNPT Cloud chưa ghi nhận dữ liệu luân chuyển cho mã vận đơn này trên toàn quốc.
+                    <p class="text-xs sm:text-sm text-slate-500 mt-2 max-w-lg mx-auto leading-relaxed">
+                        Hệ thống không tìm thấy hành trình của mã bưu gửi này trong cơ sở dữ liệu phân tán. Vui lòng kiểm tra lại tính chính xác của mã vận đơn.
                     </p>
-
-                    <div class="mt-6 text-left bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5 max-w-xl mx-auto text-xs space-y-2.5">
-                        <div class="font-bold text-slate-700 uppercase tracking-wider text-[11px] flex items-center space-x-1.5">
-                            <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                            <span>Các nguyên nhân thường gặp:</span>
-                        </div>
-                        <ul class="space-y-1.5 text-slate-600 list-disc list-inside leading-normal text-[11.5px]">
-                            <li><strong>Mã bưu gửi chưa chính xác:</strong> Vui lòng kiểm tra lại từng ký tự trên phiếu gửi hoặc tin nhắn SMS, tránh thừa khoảng trắng.</li>
-                            <li><strong>Bưu kiện mới tiếp nhận tại bưu cục:</strong> Bưu phẩm vừa gửi tại quầy giao dịch có thể mất từ 15 - 30 phút để thiết bị quét barcode đẩy dữ liệu lên máy chủ đám mây.</li>
-                            <li><strong>Quá hạn tra cứu trực tuyến:</strong> Theo quy định bưu chính, các bưu gửi đã phát thành công quá 90 ngày sẽ được lưu kho lưu trữ (Archive) và không hiển thị tra cứu nhanh.</li>
-                        </ul>
-                    </div>
-
-                    <div class="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                    <div class="mt-5">
                         <button 
                             @click="focusSearchInput()" 
-                            class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center space-x-2 shadow-sm shadow-blue-500/20"
+                            class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition"
                         >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            <span>Nhập Mã Khác</span>
+                            Nhập Lại Mã Vận Đơn Khác
                         </button>
-
-                        <a 
-                            href="tel:1900545481" 
-                            class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center space-x-2 border border-slate-200"
-                        >
-                            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                            </svg>
-                            <span>Hotline Hỗ Trợ: 1900 54 54 81 (24/7)</span>
-                        </a>
                     </div>
                 </div>
 
-                <!-- 3. KHU VỰC CHÍNH: BẢN ĐỒ LỘ TRÌNH (TRÁI) & CHI TIẾT BƯU GỬI (PHẢI) -->
-                <div v-show="!isNotFound" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <!-- Cột Trái (2/3): Bản đồ định vị lộ trình Leaflet -->
-                    <div class="lg:col-span-2 b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col">
-                        <div class="flex flex-wrap items-center justify-between border-b border-slate-100 pb-3 mb-3 gap-2">
+                <!-- 3. KHU VỰC BẢN ĐỒ LỘ TRÌNH & THÔNG TIN BƯU GỬI (KHI CÓ DỮ LIỆU) -->
+                <div v-show="!isNotFound && currentShipment" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <!-- Cột Trái (2/3): Bản đồ lộ trình & Thanh Tiến Trình Liên Tục Mới -->
+                    <div class="lg:col-span-2 b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col justify-between">
+                        <!-- Map Card Header Tối Giản -->
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-3">
                             <div class="flex items-center space-x-2">
-                                <span class="w-2 h-2 rounded-full bg-blue-600"></span>
-                                <span class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+                                <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                <span class="font-extrabold text-slate-800 uppercase tracking-wider text-xs">
                                     Sơ Đồ Tuyến Luân Chuyển Bưu Cục
                                 </span>
-                                <!-- Live Sync Toggle Badge -->
-                                <button 
-                                    @click="isLiveTracking = !isLiveTracking" 
-                                    :class="['px-2 py-0.5 rounded-md text-[10.5px] font-bold border transition flex items-center space-x-1.5', isLiveTracking && !isFinalState ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-slate-100 text-slate-500 border-slate-200']"
-                                    title="Tự động đồng bộ trạng thái bưu gửi sau mỗi 5 giây (tự dừng khi đơn đã phát thành công)"
-                                >
-                                    <span :class="['w-2 h-2 rounded-full', isLiveTracking && !isFinalState ? 'bg-emerald-500 live-pulse-dot' : 'bg-slate-400']"></span>
-                                    <span>{{ isFinalState ? 'ĐÃ HOÀN TẤT' : 'LIVE SYNC' }}</span>
-                                </button>
                             </div>
                             <div class="flex items-center space-x-2">
-                                <div v-if="routeInfo" class="text-[11px] font-mono text-blue-700 font-bold flex items-center space-x-2 mr-1">
-                                    <span>{{ routeInfo.sourceHub }} ➔ {{ routeInfo.destHub }}</span>
-                                    <span v-if="routeInfo.distanceKm" class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full border border-blue-200">
-                                        {{ routeInfo.distanceKm }} km (~{{ routeInfo.durationHours }}h)
-                                    </span>
-                                    <span
-                                        :class="['px-2 py-0.5 rounded-full border', routeInfo.isRealRoad ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200']"
-                                        :title="routeInfo.isRealRoad ? 'Tuyến đường bộ thực tế tính bằng OSRM' : 'Không lấy được dữ liệu OSRM, đang hiển thị tuyến ước lượng theo hành lang QL1A'"
-                                    >
-                                        {{ routeInfo.isRealRoad ? 'ĐƯỜNG BỘ OSRM' : 'TUYẾN ƯỚC LƯỢNG' }}
-                                    </span>
-                                </div>
                                 <button 
                                     @click="fitVietnamView()" 
                                     type="button" 
@@ -542,80 +506,81 @@
                             </div>
                         </div>
 
-                        <!-- 4-STEP STEPPER PROGRESS BAR (THEO CHẶNG HÀNH TRÌNH) -->
-                        <div class="mb-3.5 bg-slate-50 border border-slate-200 rounded-xl p-3">
-                            <div class="grid grid-cols-4 relative">
-                                <!-- Đường kết nối nền -->
-                                <div class="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-200 -translate-y-1/2 z-0 hidden sm:block"></div>
-                                <div class="absolute top-1/2 left-0 h-0.5 bg-blue-600 -translate-y-1/2 z-0 transition-all duration-500 hidden sm:block"
-                                     :style="{ width: ((currentStageIndex - 1) / 3 * 100) + '%' }"></div>
+                        <!-- THANH TIẾN TRÌNH LIÊN TỤC KÈM PIN XE TẢI (CONTINUOUS PROGRESS BAR) -->
+                        <div class="mb-3.5 bg-slate-50/70 border border-slate-200 rounded-xl p-3.5">
+                            <!-- 1. Hàng trên: Tên 4 giai đoạn -->
+                            <div class="grid grid-cols-4 text-center text-xs font-bold mb-2">
+                                <div>
+                                    <span :class="currentStageIndex >= 1 ? 'text-blue-700' : 'text-slate-400 font-medium'">1. Tiếp Nhận</span>
+                                </div>
+                                <div>
+                                    <span :class="currentStageIndex >= 2 ? 'text-blue-700' : 'text-slate-400 font-medium'">2. Luân Chuyển</span>
+                                </div>
+                                <div>
+                                    <span :class="currentStageIndex >= 3 ? 'text-blue-700' : 'text-slate-400 font-medium'">3. Đến Kho Đích</span>
+                                </div>
+                                <div>
+                                    <span :class="currentStageIndex >= 4 ? 'text-emerald-700' : 'text-slate-400 font-medium'">4. Thành Công</span>
+                                </div>
+                            </div>
 
-                                <!-- Step 1: Tiếp nhận -->
-                                <div class="relative z-10 flex flex-col items-center text-center px-1">
-                                    <div :class="['w-7 h-7 rounded-full flex items-center justify-center font-mono font-bold text-xs border-2 transition shadow-sm', 
-                                                  currentStageIndex >= 1 ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-500']">
-                                        1
-                                    </div>
-                                    <div class="mt-1 font-bold text-[11px] leading-tight" :class="currentStageIndex >= 1 ? 'text-blue-700' : 'text-slate-500'">
-                                        Tiếp Nhận
-                                    </div>
-                                    <div class="text-[9.5px] text-slate-400 truncate max-w-full font-mono mt-0.5">
-                                        {{ currentSourceHub || 'Kho Gửi' }}
-                                    </div>
+                            <!-- 2. Rãnh trượt Progress Bar kèm xe tải -->
+                            <div class="relative px-6 py-2">
+                                <div class="h-2.5 w-full bg-slate-100 border border-slate-200/80 rounded-full overflow-hidden relative">
+                                    <div class="h-full bg-gradient-to-r from-blue-700 via-blue-600 to-blue-500 rounded-full smooth-transition" 
+                                         :style="{ width: stageProgress.width }"></div>
                                 </div>
 
-                                <!-- Step 2: Luân chuyển -->
-                                <div class="relative z-10 flex flex-col items-center text-center px-1">
-                                    <div :class="['w-7 h-7 rounded-full flex items-center justify-center font-mono font-bold text-xs border-2 transition shadow-sm', 
-                                                  currentStageIndex >= 2 ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-500']">
-                                        2
-                                    </div>
-                                    <div class="mt-1 font-bold text-[11px] leading-tight" :class="currentStageIndex >= 2 ? 'text-blue-700' : 'text-slate-500'">
-                                        Luân Chuyển
-                                    </div>
-                                    <div class="text-[9.5px] text-slate-400 truncate max-w-full font-mono mt-0.5">
-                                        Cao Tốc / Tuyến
-                                    </div>
+                                <!-- 4 Mốc Điểm Tròn Trên Thanh Bar -->
+                                <div class="absolute inset-x-6 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none">
+                                    <div :class="['w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm -ml-1.5', currentStageIndex >= 1 ? 'bg-blue-600' : 'bg-slate-300']"></div>
+                                    <div :class="['w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm -ml-1.5', currentStageIndex >= 2 ? 'bg-blue-600' : 'bg-slate-300']"></div>
+                                    <div :class="['w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm -ml-1.5', currentStageIndex >= 3 ? 'bg-blue-600' : 'bg-slate-300']"></div>
+                                    <div :class="['w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm -mr-1.5', currentStageIndex >= 4 ? 'bg-emerald-600' : 'bg-slate-300']"></div>
                                 </div>
 
-                                <!-- Step 3: Đến kho đích -->
-                                <div class="relative z-10 flex flex-col items-center text-center px-1">
-                                    <div :class="['w-7 h-7 rounded-full flex items-center justify-center font-mono font-bold text-xs border-2 transition shadow-sm', 
-                                                  currentStageIndex >= 3 ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300 text-slate-500']">
-                                        3
-                                    </div>
-                                    <div class="mt-1 font-bold text-[11px] leading-tight" :class="currentStageIndex >= 3 ? 'text-blue-700' : 'text-slate-500'">
-                                        Đến Kho Đích
-                                    </div>
-                                    <div class="text-[9.5px] text-slate-400 truncate max-w-full font-mono mt-0.5">
-                                        {{ currentDestHub || 'Kho Phát' }}
+                                <!-- HUY HIỆU XE TẢI MINI DI CHUYỂN LIÊN TỤC -->
+                                <div class="truck-pin absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-20 pointer-events-none" 
+                                     :style="{ left: stageProgress.left }" 
+                                     title="Bưu kiện đang ở chặng này">
+                                    <div :class="['w-8 h-8 rounded-full text-white border-2 border-white shadow-lg flex items-center justify-center pulse-active', currentStageIndex === 4 ? 'bg-emerald-600' : 'bg-blue-600']">
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M18 18.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM6 18.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+                                            <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 17c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm11-7h2.5l2 2.67V15H17v-5zm1 7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z" />
+                                        </svg>
                                     </div>
                                 </div>
+                            </div>
 
-                                <!-- Step 4: Phát thành công -->
-                                <div class="relative z-10 flex flex-col items-center text-center px-1">
-                                    <div :class="['w-7 h-7 rounded-full flex items-center justify-center font-mono font-bold text-xs border-2 transition shadow-sm', 
-                                                  currentStageIndex >= 4 ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-slate-300 text-slate-500']">
-                                        4
-                                    </div>
-                                    <div class="mt-1 font-bold text-[11px] leading-tight" :class="currentStageIndex >= 4 ? 'text-emerald-700' : 'text-slate-500'">
-                                        Thành Công
-                                    </div>
-                                    <div class="text-[9.5px] text-slate-400 truncate max-w-full font-mono mt-0.5">
-                                        Khách Nhận
-                                    </div>
+                            <!-- 3. Hàng dưới: Địa điểm bưu cục chi tiết -->
+                            <div class="grid grid-cols-4 text-center text-[10.5px] font-mono text-slate-400 mt-2 select-none">
+                                <div>
+                                    <span class="font-semibold text-slate-600">{{ currentSourceHub }}</span>
+                                    <div class="text-[9.5px] text-slate-400">Kho Gửi</div>
+                                </div>
+                                <div>
+                                    <span class="font-semibold text-slate-600">Quốc Lộ 1A</span>
+                                    <div class="text-[9.5px] text-slate-400">Liên Tỉnh</div>
+                                </div>
+                                <div>
+                                    <span :class="currentStageIndex >= 3 ? 'font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200' : 'font-semibold text-slate-600'">{{ currentDestHub }}</span>
+                                    <div class="text-[9.5px] text-blue-600 font-semibold">Kho Phát Đích</div>
+                                </div>
+                                <div>
+                                    <span :class="currentStageIndex >= 4 ? 'font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200' : 'text-slate-400'">Khách Nhận</span>
+                                    <div class="text-[9.5px] text-slate-300">Tận Nơi</div>
                                 </div>
                             </div>
                         </div>
 
+                        <!-- Khung Bản Đồ Leaflet -->
                         <div class="flex-1 min-h-[460px] relative rounded-lg overflow-hidden border border-slate-200">
                             <div id="tracking-map" style="height: 460px; width: 100%;"></div>
                         </div>
                     </div>
 
-                    <!-- Cột Phải (1/3): Thẻ thông tin bưu gửi & Tác nghiệp theo phân quyền -->
+                    <!-- Cột Phải (1/3): Thẻ Thông Tin Bưu Gửi Chi Tiết -->
                     <div class="space-y-4">
-                        <!-- Chi tiết bưu gửi -->
                         <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-3 text-xs">
                             <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
                                 <span class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
@@ -666,152 +631,102 @@
                                 <span>Chưa có dữ liệu. Vui lòng nhập mã bưu gửi để tra cứu.</span>
                             </div>
                         </div>
-
                     </div>
                 </div>
 
-                <!-- 4. KHU VỰC SUBTABS ĐỒNG BỘ: LỘ TRÌNH | THÔNG BÁO | NHẬT KÝ KIỂM TOÁN (AUDIT) -->
-                <div v-show="!isNotFound && currentShipment" class="b2b-card bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                    <!-- Subtab Navigation Bar -->
-                    <div class="flex border-b border-slate-200 bg-slate-50/70 px-4 pt-1.5 space-x-3">
-                        <button 
-                            @click="activeSubtab = 'history'" 
-                            :class="[
-                                'pb-2.5 pt-1 px-3 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center space-x-1.5', 
-                                activeSubtab === 'history' 
-                                    ? 'border-blue-600 text-blue-700' 
-                                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                            ]"
-                        >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <span>LỊCH SỬ LUÂN CHUYỂN BƯU CỤC</span>
-                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">{{ trackingHistory.length }}</span>
-                        </button>
-
-                        <button 
-                            @click="activeSubtab = 'notification'" 
-                            :class="[
-                                'pb-2.5 pt-1 px-3 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center space-x-1.5', 
-                                activeSubtab === 'notification' 
-                                    ? 'border-blue-600 text-blue-700' 
-                                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                            ]"
-                        >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                            </svg>
-                            <span>THÔNG BÁO GỬI KHÁCH HÀNG</span>
-                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">{{ notificationList.length }}</span>
-                        </button>
-
-                        <button 
-                            v-if="canReadAudit"
-                            @click="activeSubtab = 'audit'" 
-                            :class="[
-                                'pb-2.5 pt-1 px-3 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center space-x-1.5', 
-                                activeSubtab === 'audit' 
-                                    ? 'border-blue-600 text-blue-700' 
-                                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                            ]"
-                        >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                            </svg>
-                            <span>NHẬT KÝ TÁC NGHIỆP KIỂM TOÁN (AUDIT)</span>
-                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700">{{ auditList.length }}</span>
-                        </button>
-                    </div>
-
-                    <!-- Subtab 1: Lịch sử luân chuyển (Timeline Table) -->
-                    <div v-if="activeSubtab === 'history'" class="p-4">
-                        <div v-if="trackingHistory.length > 0" class="overflow-x-auto">
-                            <table class="w-full text-left table-b2b">
-                                <thead>
-                                    <tr>
-                                        <th class="w-44">THỜI GIAN QUÉT</th>
-                                        <th class="w-44">TRẠNG THÁI LUÂN CHUYỂN</th>
-                                        <th class="w-48">ĐIỂM QUÉT / BƯU CỤC</th>
-                                        <th>GHI CHÚ NGHIỆP VỤ &amp; ĐỊNH VỊ ĐOẠN ĐƯỜNG</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="(h, idx) in trackingHistory" :key="idx" class="hover:bg-slate-50/80 transition">
-                                        <td class="font-mono text-slate-500 whitespace-nowrap text-xs font-semibold">
-                                            {{ Utils.formatTime(h.timestamp) }}
-                                        </td>
-                                        <td>
-                                            <span :class="['px-2.5 py-0.5 rounded-full text-xs font-bold border inline-flex items-center space-x-1.5', Utils.getStatusBadgeClass(h.status)]">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-current"></span>
-                                                <span>{{ Utils.formatStatusText(h.status) }}</span>
-                                            </span>
-                                        </td>
-                                        <td class="font-bold text-slate-800 text-xs">{{ h.locationCode || 'Bưu cục trung tâm' }}</td>
-                                        <td class="text-slate-600 text-xs">{{ Utils.formatNodeText(h.node, h.status) }}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div v-else class="text-center py-10 text-xs text-slate-400">
-                            Chưa có lịch sử luân chuyển nào cho mã bưu gửi này.
+                <!-- 4. LỊCH SỬ LUÂN CHUYỂN BƯU CỤC (SMART ICON VERTICAL TIMELINE) -->
+                <div v-show="!isNotFound && currentShipment" class="b2b-card bg-white border border-slate-200 rounded-xl shadow-sm p-5 sm:p-6 text-xs">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-6">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                            <span class="font-extrabold text-slate-800 uppercase tracking-wider text-xs">
+                                Lịch Sử Luân Chuyển Bưu Cục
+                            </span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                {{ sortedHistory.length }} Mốc Quét
+                            </span>
                         </div>
                     </div>
 
-                    <!-- Subtab 2: Thông báo gửi khách hàng -->
-                    <div v-if="activeSubtab === 'notification'" class="p-4">
-                        <div v-if="notificationList.length > 0" class="space-y-2.5">
-                            <div v-for="n in notificationList" :key="n.id" class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs flex justify-between items-start">
-                                <div class="space-y-1">
-                                    <div class="flex items-center space-x-2">
-                                        <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-700 font-bold text-[10px] uppercase">
-                                            {{ n.channel || 'SMS/Zalo' }}
-                                        </span>
-                                        <span class="font-bold text-slate-800 text-xs">{{ n.title || 'Thông báo bưu gửi' }}</span>
-                                    </div>
-                                    <p class="text-slate-600 leading-relaxed">{{ n.message }}</p>
+                    <!-- VERTICAL TIMELINE WITH SMART ICONS -->
+                    <div v-if="sortedHistory.length > 0" class="relative pl-7 sm:pl-10 space-y-5 before:absolute before:left-[17px] sm:before:left-[21px] before:top-4 before:bottom-4 before:w-[2px] before:bg-slate-200">
+                        <div v-for="(h, idx) in sortedHistory" :key="idx" class="relative flex items-start group">
+                            <!-- Icon Thông Minh Tròn Theo Trạng Thái -->
+                            <div :class="[
+                                'absolute -left-[35px] sm:-left-[43px] mt-1 w-9 h-9 rounded-full text-white border-4 border-white shadow-md flex items-center justify-center z-10',
+                                getStatusIconConfig(h.status).bg,
+                                idx === 0 ? 'pulse-active ring-2 ring-blue-500/30' : 'shadow-sm'
+                            ]">
+                                <!-- 1. Truck / Luân Chuyển -->
+                                <svg v-if="getStatusIconConfig(h.status).icon === 'truck'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
+                                </svg>
+                                <!-- 2. Package / Đã Tiếp Nhận -->
+                                <svg v-else-if="getStatusIconConfig(h.status).icon === 'package'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                </svg>
+                                <!-- 3. Route / Phân Tuyến -->
+                                <svg v-else-if="getStatusIconConfig(h.status).icon === 'route'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                </svg>
+                                <!-- 4. Courier / Bưu Tá Phát -->
+                                <svg v-else-if="getStatusIconConfig(h.status).icon === 'courier'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                                <!-- 5. Warehouse / Đến Kho Đích -->
+                                <svg v-else-if="getStatusIconConfig(h.status).icon === 'warehouse'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                                <!-- 6. Check / Giao Thành Công -->
+                                <svg v-else-if="getStatusIconConfig(h.status).icon === 'check'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <!-- 7. Alert / Thất Bại -->
+                                <svg v-else-if="getStatusIconConfig(h.status).icon === 'alert'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <!-- 8. Document / Khởi Tạo Mặc Định -->
+                                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                            </div>
+
+                            <!-- Khung nội dung 3 tầng -->
+                            <div :class="[
+                                'flex-1 rounded-2xl p-4 transition smooth-transition',
+                                idx === 0 
+                                    ? 'bg-blue-50/40 border border-blue-200/80 shadow-sm hover:border-blue-300' 
+                                    : 'bg-white border border-slate-200 shadow-sm hover:border-slate-300'
+                            ]">
+                                <!-- Tầng 1: Thời gian -->
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <span :class="['font-mono text-xs font-bold', idx === 0 ? 'text-blue-700' : 'text-slate-500']">
+                                        {{ Utils.formatTime(h.timestamp) }}
+                                    </span>
+                                    <span v-if="formatRelativeTime(h.timestamp)" :class="['text-[11px] font-mono', idx === 0 ? 'text-blue-600 font-semibold' : 'text-slate-400']">
+                                        {{ formatRelativeTime(h.timestamp) }}
+                                    </span>
                                 </div>
-                                <span class="font-mono text-[11px] text-slate-400 whitespace-nowrap ml-4">{{ Utils.formatTime(n.createdAt) }}</span>
+
+                                <!-- Tầng 2: Trạng thái & Địa điểm bưu cục -->
+                                <div class="flex flex-wrap items-center gap-2 mb-1.5">
+                                    <span :class="['px-2.5 py-0.5 rounded-lg text-xs font-bold border', Utils.getStatusBadgeClass(h.status)]">
+                                        {{ Utils.formatStatusText(h.status) }}
+                                    </span>
+                                    <span class="text-xs font-bold text-slate-800">
+                                        {{ h.locationCode || 'Bưu Cục Trung Tâm' }}
+                                    </span>
+                                </div>
+
+                                <!-- Tầng 3: Ghi chú chi tiết hành trình -->
+                                <p :class="['text-xs leading-relaxed', idx === 0 ? 'text-slate-700' : 'text-slate-500']">
+                                    {{ Utils.formatNodeText(h.node, h.status) }}
+                                </p>
                             </div>
                         </div>
-                        <div v-else class="text-center py-10 text-xs text-slate-400">
-                            Chưa có bản ghi thông báo nào được gửi đến khách hàng.
-                        </div>
                     </div>
-
-                    <!-- Subtab 3: Nhật ký kiểm toán tác nghiệp (Audit Trail - RBAC Only) -->
-                    <div v-if="activeSubtab === 'audit' && canReadAudit" class="p-4">
-                        <div v-if="auditList.length > 0" class="overflow-x-auto">
-                            <table class="w-full text-left table-b2b">
-                                <thead>
-                                    <tr>
-                                        <th class="w-44">THỜI GIAN GHI NHẬN</th>
-                                        <th class="w-44">HÀNH ĐỘNG TÁC NGHIỆP</th>
-                                        <th class="w-48">CHUYỂN ĐỔI TRẠNG THÁI</th>
-                                        <th>PAYLOAD DỮ LIỆU TÁC NGHIỆP</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="a in auditList" :key="a.id" class="hover:bg-slate-50/80 transition">
-                                        <td class="font-mono text-slate-500 whitespace-nowrap text-xs font-semibold">
-                                            {{ Utils.formatTime(a.createdAt) }}
-                                        </td>
-                                        <td class="font-bold text-slate-800 text-xs">{{ a.action }}</td>
-                                        <td class="font-mono text-xs">
-                                            <span class="text-slate-400">{{ a.oldStatus || 'NONE' }}</span>
-                                            <span class="mx-1.5 text-blue-600 font-bold">➔</span>
-                                            <span class="text-emerald-700 font-bold">{{ a.newStatus }}</span>
-                                        </td>
-                                        <td class="font-mono text-[11px] text-slate-500 max-w-xs truncate" :title="a.payload">
-                                            {{ a.payload }}
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div v-else class="text-center py-10 text-xs text-slate-400">
-                            Chưa có bản ghi kiểm toán tác nghiệp nào cho đơn hàng này.
-                        </div>
+                    <div v-else class="text-center py-10 text-xs text-slate-400">
+                        Chưa có lịch sử luân chuyển nào cho mã bưu gửi này.
                     </div>
                 </div>
             </div>
@@ -820,4 +735,3 @@
 
     window.TrackingView = TrackingView;
 })();
-
