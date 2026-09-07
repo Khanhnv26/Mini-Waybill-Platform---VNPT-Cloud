@@ -17,5 +17,6 @@ public class CustomerValidation {
     private boolean isValid;
     private String reason;
     private Long customerId;
+    private String email;
 }
 

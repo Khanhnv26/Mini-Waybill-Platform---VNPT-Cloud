@@ -24,6 +24,7 @@ public class CreateShipmentEvent {
 
     private Long customerId;
 
+    private String customerEmail;
 
     private String senderName;
 

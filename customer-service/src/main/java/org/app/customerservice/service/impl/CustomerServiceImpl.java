@@ -31,6 +31,7 @@ public class CustomerServiceImpl implements CustomerService {
             return CustomerValidation.builder()
                     .isValid(false)
                     .reason("CUSTOMER_NOT_FOUND")
+                    .email(customer.getEmail())
                     .build();
         }
 
@@ -39,12 +40,14 @@ public class CustomerServiceImpl implements CustomerService {
                     .isValid(false)
                     .customerId(customer.getId())
                     .reason("CUSTOMER_INACTIVE")
+                    .email(customer.getEmail())
                     .build();
         }
 
         return CustomerValidation.builder()
                 .isValid(true)
                 .customerId(customer.getId())
+                .email(customer.getEmail())
                 .build();
     }
 
@@ -76,6 +79,7 @@ public class CustomerServiceImpl implements CustomerService {
         return CustomerValidation.builder()
                 .isValid(true)
                 .customerId(customer.getId())
+                .email(customer.getEmail())
                 .build();
     }
 

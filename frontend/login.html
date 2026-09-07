@@ -61,6 +61,65 @@
 </head>
 <body class="min-h-screen flex items-center justify-center p-3 sm:p-6 auth-custom-bg text-slate-800 selection:bg-vnpt-500 selection:text-white font-sans relative">
 
+    <!-- ========================================================================= -->
+    <!-- VNPT ENTERPRISE SPLASH PRELOADER (VÒNG QUỸ ĐẠO XOAY QUANH LOGO)          -->
+    <!-- ========================================================================= -->
+    <div id="vnpt-page-preloader" class="fixed inset-0 z-[99999] bg-slate-50 flex flex-col items-center justify-center transition-opacity duration-300">
+        <div class="flex flex-col items-center text-center space-y-4 max-w-xs px-4">
+            
+            <!-- Vùng Logo VNPT Tâm + Vòng Xoay Quỹ Đạo Smooth Arc -->
+            <div class="relative w-24 h-24 flex items-center justify-center">
+                <!-- Vòng tròn nền mờ tĩnh cố định -->
+                <div class="absolute inset-0 rounded-full border border-blue-200/50"></div>
+                
+                <!-- Vòng cung xoay phát sáng mượt mà (Smooth Arc Spinner) -->
+                <div class="absolute inset-0 rounded-full border-2 border-transparent border-t-blue-600 border-r-blue-400 animate-spin" style="animation-duration: 0.9s;"></div>
+                
+                <!-- Hào quang nhẹ (Glow) -->
+                <div class="absolute inset-2 rounded-full bg-blue-500/5 blur-sm pointer-events-none"></div>
+
+                <!-- Logo VNPT Chuẩn Mới Ở Trung Tâm -->
+                <div class="w-12 h-12 rounded-2xl vnpt-gradient text-white flex items-center justify-center shadow-lg shadow-blue-600/25 border border-white/30 select-none z-10">
+                    <span class="text-xs sm:text-sm font-black tracking-tight leading-none">VNPT</span>
+                </div>
+            </div>
+
+            <!-- Tên Thương Hiệu -->
+            <div class="space-y-0.5 pt-1">
+                <div class="font-extrabold text-base text-slate-800 tracking-tight">
+                    Waybill Post
+                </div>
+                <p class="text-[11.5px] text-slate-400 font-medium">Cổng Xác Thực Nghiệp Vụ &amp; Vận Hành</p>
+            </div>
+
+            <!-- Dòng Trạng Thái Tải Động Tối Giản -->
+            <div class="pt-2 flex items-center justify-center space-x-2 text-xs text-slate-500 font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-ping"></span>
+                <span id="preloader-status-text">Khởi tạo cổng bảo mật...</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            var preloader = document.getElementById('vnpt-page-preloader');
+            var status = document.getElementById('preloader-status-text');
+            if (!preloader) return;
+
+            setTimeout(function () {
+                if (status) status.innerText = 'Kiểm tra phiên đăng nhập...';
+            }, 400);
+
+            setTimeout(function () {
+                if (status) status.innerText = 'Sẵn sàng!';
+                preloader.classList.add('opacity-0', 'pointer-events-none');
+                setTimeout(function () {
+                    preloader.style.display = 'none';
+                }, 300);
+            }, 800);
+        })();
+    </script>
+
     <!-- Khối thẻ Split-Screen chính giữa -->
     <div id="app" v-cloak class="relative z-10 max-w-5xl w-full bg-white rounded-3xl shadow-2xl shadow-black/40 border border-slate-700/20 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[640px]">
         
