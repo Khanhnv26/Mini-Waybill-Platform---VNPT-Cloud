@@ -65,6 +65,35 @@
                 }
             ];
 
+            // 1.1. Danh mục tiện ích công khai dành cho khách chưa đăng nhập (Hướng B)
+            const publicGuestTabs = [
+                {
+                    id: 'tracking',
+                    name: 'Tra Cứu Bưu Gửi',
+                    icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
+                },
+                {
+                    id: 'network',
+                    name: 'Mạng Lưới Hub / Bưu Cục',
+                    icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z'
+                },
+                {
+                    id: 'calculator',
+                    name: 'Ước Tính Cước Phí',
+                    icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z'
+                },
+                {
+                    id: 'guide',
+                    name: 'Cẩm Nang & Quy Định',
+                    icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253'
+                },
+                {
+                    id: 'support',
+                    name: 'Hỗ Trợ & Khiếu Nại',
+                    icon: 'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z'
+                }
+            ];
+
             // 2. Dynamic Navigation: Chỉ hiển thị các Tab mà tài khoản có quyền truy cập
             const navigationTabs = computed(() => {
                 return allNavigationTabs.filter(tab => {
@@ -77,6 +106,46 @@
                     return Auth.hasPermission(tab.permission);
                 });
             });
+
+            // Tiêu đề tab hiện tại hiển thị trên Breadcrumb
+            const currentTabTitle = computed(() => {
+                const foundNav = allNavigationTabs.find(t => t.id === currentTab.value);
+                if (foundNav) return foundNav.name;
+                const foundGuest = publicGuestTabs.find(t => t.id === currentTab.value);
+                if (foundGuest) return foundGuest.name;
+                return 'Hệ Thống';
+            });
+
+            // Xử lý khi khách vãng lai bấm các tiện ích ở sidebar (Hướng B)
+            const handleGuestTabClick = (tab) => {
+                if (tab.id === 'tracking') {
+                    currentTab.value = 'tracking';
+                } else if (tab.id === 'network') {
+                    currentTab.value = 'tracking';
+                    setTimeout(() => {
+                        const el = document.getElementById('network-corridor-section');
+                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }, 50);
+                } else if (tab.id === 'calculator') {
+                    if (window.Utils && window.Utils.showToast) {
+                        window.Utils.showToast('Ước Tính Cước Phí', 'Cước bưu gửi tiêu chuẩn: 15.000đ/kg đầu tiên, +5.000đ cho mỗi 500g tiếp theo. Tuyến Express: 25.000đ/kg.', 'info');
+                    } else {
+                        alert('Cước bưu gửi tiêu chuẩn: 15.000đ/kg đầu tiên. Express: 25.000đ/kg.');
+                    }
+                } else if (tab.id === 'guide') {
+                    currentTab.value = 'tracking';
+                    setTimeout(() => {
+                        const el = document.getElementById('guide-section');
+                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }, 50);
+                } else if (tab.id === 'support') {
+                    if (window.Utils && window.Utils.showToast) {
+                        window.Utils.showToast('Tổng Đài CSKH 24/7', 'Hotline miễn cước: 1900 54 54 81 - Tiếp nhận tra cứu bưu gửi và giải quyết khiếu nại.', 'info');
+                    } else {
+                        alert('Hotline CSKH VNPT: 1900 54 54 81 (24/7)');
+                    }
+                }
+            };
 
             // 3. View Component động tương ứng với tab được chọn
             const activeComponent = computed(() => {
@@ -168,9 +237,12 @@
             return {
                 currentUser,
                 currentTab,
+                currentTabTitle,
                 isSidebarCollapsed,
                 toggleSidebarCollapse,
                 navigationTabs,
+                publicGuestTabs,
+                handleGuestTabClick,
                 activeComponent,
                 currentTrackingCode,
                 selectedCustomerForShipment,

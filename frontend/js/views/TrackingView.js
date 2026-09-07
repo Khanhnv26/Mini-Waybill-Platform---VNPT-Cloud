@@ -288,6 +288,53 @@
                 }
             };
 
+            // Hiệu ứng số nhảy tăng dần cho 4 chỉ số năng lực mạng lưới
+            const counterHubs = ref('03');
+            const counterVolume = ref('500K+');
+            const counterProvinces = ref('63');
+            const counterInsurance = ref('100%');
+            let counterAnimId = null;
+
+            const animateNumbers = () => {
+                if (counterAnimId) {
+                    cancelAnimationFrame(counterAnimId);
+                }
+
+                const duration = 1600; // 1.6 giây mượt mà
+                const startTime = performance.now();
+
+                const targets = {
+                    hubs: { start: 0, end: 3, format: v => (Math.round(v) < 10 ? '0' : '') + Math.round(v), set: val => { counterHubs.value = val; } },
+                    volume: { start: 0, end: 500, format: v => Math.round(v) + 'K+', set: val => { counterVolume.value = val; } },
+                    provinces: { start: 0, end: 63, format: v => Math.round(v).toString(), set: val => { counterProvinces.value = val; } },
+                    insurance: { start: 0, end: 100, format: v => Math.round(v) + '%', set: val => { counterInsurance.value = val; } }
+                };
+
+                function easeOutQuart(x) {
+                    return 1 - Math.pow(1 - x, 4);
+                }
+
+                function frame(now) {
+                    const elapsed = now - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const ease = easeOutQuart(progress);
+
+                    for (const key in targets) {
+                        const item = targets[key];
+                        const currentVal = item.start + (item.end - item.start) * ease;
+                        item.set(item.format(currentVal));
+                    }
+
+                    if (progress < 1) {
+                        counterAnimId = requestAnimationFrame(frame);
+                    } else {
+                        counterAnimId = null;
+                    }
+                }
+
+                counterAnimId = requestAnimationFrame(frame);
+            };
+
             onMounted(() => {
                 nextTick(() => {
                     if (window.MapManager) {
@@ -295,6 +342,9 @@
                     }
                     if (searchCode.value) {
                         fetchTrackingData(searchCode.value);
+                    } else {
+                        // Tự động kích hoạt hiệu ứng số nhảy sau 300ms khi vừa vào trang
+                        setTimeout(animateNumbers, 300);
                     }
                 });
                 startLivePolling();
@@ -302,6 +352,7 @@
             });
 
             onUnmounted(() => {
+                if (counterAnimId) cancelAnimationFrame(counterAnimId);
                 stopLivePolling();
                 document.removeEventListener('visibilitychange', handleVisibilityChange);
                 if (window.MapManager) window.MapManager.cancelPendingRenders();
@@ -341,6 +392,11 @@
                 fetchTrackingData,
                 fitVietnamView,
                 fitRouteView,
+                counterHubs,
+                counterVolume,
+                counterProvinces,
+                counterInsurance,
+                animateNumbers,
                 Utils
             };
         },
@@ -401,8 +457,8 @@
                                 </svg>
                                 <button 
                                     v-if="searchCode" 
-                                    @click="searchCode = ''; validationError = ''" 
-                                    class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                                    @click="searchCode = ''; validationError = ''; currentShipment = null; isNotFound = false; animateNumbers()" 
+                                    class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
                                 >
                                     ✕
                                 </button>
@@ -470,6 +526,145 @@
                         >
                             Nhập Lại Mã Vận Đơn Khác
                         </button>
+                    </div>
+                </div>
+
+                <!-- 2.5 KHỐI KHÁM PHÁ & NĂNG LỰC MẠNG LƯỚI (KHI CHƯA TRA CỨU ĐƠN) -->
+                <div v-if="!isNotFound && !currentShipment" class="space-y-6">
+                    <!-- 1. BỐN TRỤ CỘT NĂNG LỰC MẠNG LƯỚI BƯU CHÍNH (SỐ NHẢY ĐỘNG) -->
+                    <div>
+                        <div class="flex items-center justify-between mb-3 px-1">
+                            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+                                Chỉ Số Năng Lực Vận Hành Toàn Mạng
+                            </span>
+                            <span class="text-[11px] text-slate-400 font-medium">Thống kê thời gian thực</span>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in delay-200">
+                            <!-- Cột 1: 03 -->
+                            <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1.5 hover:border-blue-300 transition smooth-transition">
+                                <div class="text-[11px] font-bold text-blue-600 uppercase tracking-wider">Hạ Tầng Khai Thác</div>
+                                <div class="text-3xl font-black text-slate-900 tracking-tight font-mono">{{ counterHubs }}</div>
+                                <div class="text-xs font-bold text-slate-800">Siêu Hub Trọng Điểm</div>
+                                <div class="text-[11px] font-semibold text-slate-500">Hà Nội • Đà Nẵng • TP.HCM</div>
+                                <p class="text-[11.5px] text-slate-400 leading-relaxed pt-1 border-t border-slate-100">
+                                    Diện tích &gt; 90.000m², trang bị dây chuyền chia chọn tự động Cross-Belt Matrix.
+                                </p>
+                            </div>
+
+                            <!-- Cột 2: 500K+ -->
+                            <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1.5 hover:border-blue-300 transition smooth-transition">
+                                <div class="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Công Suất Xử Lý</div>
+                                <div class="text-3xl font-black text-slate-900 tracking-tight font-mono">{{ counterVolume }}</div>
+                                <div class="text-xs font-bold text-slate-800">Kiện Hàng / Ngày</div>
+                                <div class="text-[11px] font-semibold text-slate-500">Tốc Độ Xử Lý 24/7</div>
+                                <p class="text-[11.5px] text-slate-400 leading-relaxed pt-1 border-t border-slate-100">
+                                    Quét mã tự động và đối soát trọng lượng chính xác đến từng gram.
+                                </p>
+                            </div>
+
+                            <!-- Cột 3: 63 -->
+                            <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1.5 hover:border-blue-300 transition smooth-transition">
+                                <div class="text-[11px] font-bold text-indigo-600 uppercase tracking-wider">Độ Phủ Mạng Lưới</div>
+                                <div class="text-3xl font-black text-slate-900 tracking-tight font-mono">{{ counterProvinces }}</div>
+                                <div class="text-xs font-bold text-slate-800">Tỉnh &amp; Thành Phố</div>
+                                <div class="text-[11px] font-semibold text-slate-500">10.000+ Điểm Phục Vụ</div>
+                                <p class="text-[11.5px] text-slate-400 leading-relaxed pt-1 border-t border-slate-100">
+                                    Mạng lưới bưu tá chuyên trách giao nhận bưu gửi tận nơi toàn quốc.
+                                </p>
+                            </div>
+
+                            <!-- Cột 4: 100% -->
+                            <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1.5 hover:border-blue-300 transition smooth-transition">
+                                <div class="text-[11px] font-bold text-amber-600 uppercase tracking-wider">Chính Sách An Toàn</div>
+                                <div class="text-3xl font-black text-slate-900 tracking-tight font-mono">{{ counterInsurance }}</div>
+                                <div class="text-xs font-bold text-slate-800">Bảo Hiểm Bưu Gửi</div>
+                                <div class="text-[11px] font-semibold text-slate-500">Bảo Toàn Giá Trị Hàng Hóa</div>
+                                <p class="text-[11.5px] text-slate-400 leading-relaxed pt-1 border-t border-slate-100">
+                                    Cam kết bồi thường minh bạch theo quy chuẩn Bưu chính Quốc gia.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. SƠ ĐỒ HÀNH LANG KẾT NỐI BẮC - NAM (TRỤC XƯƠNG SỐNG) -->
+                    <div id="network-corridor-section" class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm animate-fade-in delay-300">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-5">
+                            <div class="border-l-4 border-blue-600 pl-3">
+                                <span class="font-extrabold text-slate-800 uppercase tracking-wider text-xs block">
+                                    Hành Lang Vận Tải Trục Xương Sống Bắc - Nam
+                                </span>
+                                <span class="text-[11px] text-slate-400">Liên kết 3 cụm khai thác trọng điểm qua mạng lưới cao tốc và đường bay</span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                            <!-- Trạm 1 -->
+                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-mono text-xs font-extrabold text-blue-700">HUB-HN-01</span>
+                                    <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold text-[10px]">MIỀN BẮC</span>
+                                </div>
+                                <div class="text-sm font-bold text-slate-800">Trung Tâm Khai Thác Hà Nội</div>
+                                <p class="text-slate-500 text-[11px] leading-relaxed">
+                                    Tiếp nhận và điều phối bưu phẩm khu vực Đồng bằng Sông Hồng và các tỉnh miền núi phía Bắc.
+                                </p>
+                            </div>
+
+                            <!-- Trạm 2 -->
+                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-mono text-xs font-extrabold text-indigo-700">HUB-DN-01</span>
+                                    <span class="px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold text-[10px]">MIỀN TRUNG</span>
+                                </div>
+                                <div class="text-sm font-bold text-slate-800">Trung Tâm Khai Thác Đà Nẵng</div>
+                                <p class="text-slate-500 text-[11px] leading-relaxed">
+                                    Trạm trung chuyển chiến lược kết nối Duyên hải Miền Trung và trục cao nguyên Tây Nguyên.
+                                </p>
+                            </div>
+
+                            <!-- Trạm 3 -->
+                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-mono text-xs font-extrabold text-emerald-700">HUB-HCM-01</span>
+                                    <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">MIỀN NAM</span>
+                                </div>
+                                <div class="text-sm font-bold text-slate-800">Trung Tâm Khai Thác TP.HCM</div>
+                                <p class="text-slate-500 text-[11px] leading-relaxed">
+                                    Cửa ngõ luân chuyển hàng hóa trọng điểm Đông Nam Bộ và 13 tỉnh Đồng bằng Sông Cửu Long.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. CẨM NANG HƯỚNG DẪN & QUY ĐỊNH GỬI HÀNG -->
+                    <div id="guide-section" class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs animate-fade-in delay-400">
+                        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-2">
+                            <div class="text-blue-700 font-bold text-xs uppercase tracking-wider">
+                                01. Vị Trí Mã Vận Đơn
+                            </div>
+                            <p class="text-slate-600 text-[11.5px] leading-relaxed">
+                                Mã gồm chuỗi ký tự in dưới mã vạch trên phiếu gửi giấy (Bill gửi), hoặc trong tin nhắn SMS / Email thông báo xác nhận gửi hàng thành công từ hệ thống.
+                            </p>
+                        </div>
+
+                        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-2">
+                            <div class="text-indigo-700 font-bold text-xs uppercase tracking-wider">
+                                02. Cam Kết Toàn Trình
+                            </div>
+                            <p class="text-slate-600 text-[11.5px] leading-relaxed">
+                                Tuyến Express hỏa tốc: <strong>12h - 24h</strong> liên tỉnh. Tuyến tiêu chuẩn đường bộ QL1A: <strong>36h - 48h</strong>. Bưu phẩm nội tỉnh phát trong ngày.
+                            </p>
+                        </div>
+
+                        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-2">
+                            <div class="text-rose-700 font-bold text-xs uppercase tracking-wider">
+                                03. Quy Cách Đóng Gói
+                            </div>
+                            <p class="text-slate-600 text-[11.5px] leading-relaxed">
+                                Không nhận vận chuyển chất cháy nổ, tiền mặt, kim khí quý. Hàng dễ vỡ hoặc chất lỏng cần được bọc mút xốp bong bóng và đóng hộp carton nhiều lớp chắc chắn.
+                            </p>
+                        </div>
                     </div>
                 </div>
 

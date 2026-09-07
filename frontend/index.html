@@ -48,6 +48,65 @@
 </head>
 <body class="bg-[#f8fafc] text-slate-900 antialiased min-h-full flex flex-col selection:bg-blue-600 selection:text-white font-sans">
 
+    <!-- ========================================================================= -->
+    <!-- VNPT ENTERPRISE SPLASH PRELOADER (VÒNG QUỸ ĐẠO XOAY QUANH LOGO)          -->
+    <!-- ========================================================================= -->
+    <div id="vnpt-page-preloader" class="fixed inset-0 z-[99999] bg-slate-50 flex flex-col items-center justify-center transition-opacity duration-300">
+        <div class="flex flex-col items-center text-center space-y-4 max-w-xs px-4">
+            
+            <!-- Vùng Logo VNPT Tâm + Vòng Xoay Quỹ Đạo Smooth Arc -->
+            <div class="relative w-24 h-24 flex items-center justify-center">
+                <!-- Vòng tròn nền mờ tĩnh cố định -->
+                <div class="absolute inset-0 rounded-full border border-blue-200/50"></div>
+                
+                <!-- Vòng cung xoay phát sáng mượt mà (Smooth Arc Spinner) -->
+                <div class="absolute inset-0 rounded-full border-2 border-transparent border-t-blue-600 border-r-blue-400 animate-spin" style="animation-duration: 0.9s;"></div>
+                
+                <!-- Hào quang nhẹ (Glow) -->
+                <div class="absolute inset-2 rounded-full bg-blue-500/5 blur-sm pointer-events-none"></div>
+
+                <!-- Logo VNPT Chuẩn Mới Ở Trung Tâm -->
+                <div class="w-12 h-12 rounded-2xl vnpt-gradient text-white flex items-center justify-center shadow-lg shadow-blue-600/25 border border-white/30 select-none z-10">
+                    <span class="text-xs sm:text-sm font-black tracking-tight leading-none">VNPT</span>
+                </div>
+            </div>
+
+            <!-- Tên Thương Hiệu -->
+            <div class="space-y-0.5 pt-1">
+                <div class="font-extrabold text-base text-slate-800 tracking-tight">
+                    Waybill Post
+                </div>
+                <p class="text-[11.5px] text-slate-400 font-medium">Hệ Thống Điều Phối Bưu Chính &amp; Vận Đơn</p>
+            </div>
+
+            <!-- Dòng Trạng Thái Tải Động Tối Giản -->
+            <div class="pt-2 flex items-center justify-center space-x-2 text-xs text-slate-500 font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-ping"></span>
+                <span id="preloader-status-text">Đang kết nối hệ thống bưu chính...</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            var preloader = document.getElementById('vnpt-page-preloader');
+            var status = document.getElementById('preloader-status-text');
+            if (!preloader) return;
+
+            setTimeout(function () {
+                if (status) status.innerText = 'Đồng bộ dữ liệu bưu cục...';
+            }, 400);
+
+            setTimeout(function () {
+                if (status) status.innerText = 'Sẵn sàng khởi động!';
+                preloader.classList.add('opacity-0', 'pointer-events-none');
+                setTimeout(function () {
+                    preloader.style.display = 'none';
+                }, 300);
+            }, 800);
+        })();
+    </script>
+
 <div id="app" v-cloak class="flex h-screen w-screen overflow-hidden bg-slate-50">
     
     <!-- ========================================================================= -->
@@ -78,21 +137,20 @@
                 :class="{ 'justify-center !px-0': isSidebarCollapsed }"
             >
                 <div class="flex items-center space-x-3 overflow-hidden">
-                    <div class="w-9 h-9 rounded-xl vnpt-gradient text-white font-black flex items-center justify-center text-xs tracking-wider shadow-md shadow-blue-600/20 flex-shrink-0">
-                        VNPT
+                    <div class="w-9 h-9 rounded-xl vnpt-gradient text-white flex items-center justify-center shadow-md shadow-blue-600/25 flex-shrink-0 border border-white/20 select-none">
+                        <span class="text-[10px] font-black tracking-tight leading-none">VNPT</span>
                     </div>
                     <div v-show="!isSidebarCollapsed" class="leading-tight overflow-hidden">
-                        <div class="flex items-center space-x-1.5">
-                            <span class="font-extrabold text-sm text-slate-900 tracking-tight whitespace-nowrap">Waybill Post</span>
-                            <span class="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200 uppercase">Cloud</span>
+                        <div class="font-extrabold text-sm text-slate-900 tracking-tight whitespace-nowrap">
+                            Waybill Post
                         </div>
                         <p class="text-[10.5px] text-slate-400 font-medium whitespace-nowrap">Quản trị &amp; Điều phối</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Menu Phân Hệ Nghiệp Vụ -->
-            <div class="p-3 space-y-1">
+            <!-- 1. Menu Phân Hệ Nghiệp Vụ (Khi đã đăng nhập) -->
+            <div v-if="currentUser" class="p-3 space-y-1">
                 <div v-show="!isSidebarCollapsed" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Phân Hệ Nghiệp Vụ
                 </div>
@@ -116,24 +174,69 @@
                     <span v-show="!isSidebarCollapsed" class="truncate">{{ tab.name }}</span>
                 </button>
             </div>
+
+            <!-- 2. Menu Tiện Ích Khách Hàng (Khi chưa đăng nhập - Hướng B) -->
+            <div v-else class="p-3 space-y-1">
+                <div v-show="!isSidebarCollapsed" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Tiện Ích Khách Hàng
+                </div>
+
+                <button 
+                    v-for="tab in publicGuestTabs" 
+                    :key="tab.id"
+                    @click="handleGuestTabClick(tab)"
+                    :title="isSidebarCollapsed ? tab.name : ''"
+                    :class="[
+                        'w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs transition smooth-transition cursor-pointer text-left',
+                        isSidebarCollapsed ? 'justify-center !px-0 !space-x-0' : '',
+                        (currentTab === tab.id) 
+                            ? 'bg-blue-50 text-blue-700 border border-blue-100 shadow-sm shadow-blue-500/10 font-bold' 
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-medium'
+                    ]"
+                >
+                    <svg class="w-4 h-4 flex-shrink-0" :class="(currentTab === tab.id) ? 'text-blue-600' : 'text-slate-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tab.icon" />
+                    </svg>
+                    <span v-show="!isSidebarCollapsed" class="truncate">{{ tab.name }}</span>
+                </button>
+            </div>
         </div>
 
-        <!-- Bottom: Thẻ Hồ Sơ Người Dùng -->
+        <!-- Bottom: Thẻ Hồ Sơ Người Dùng / Đăng Nhập & B2B -->
         <div class="p-3 border-t border-slate-100 bg-slate-50/50">
-            <!-- Nếu chưa đăng nhập -->
-            <div v-if="!currentUser">
+            <!-- Nếu chưa đăng nhập (Khách vãng lai) -->
+            <div v-if="!currentUser" class="space-y-2">
+                <!-- Card B2B CTA (ẩn khi thu gọn) -->
+                <div v-show="!isSidebarCollapsed" class="p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm space-y-1.5">
+                    <div class="flex items-center space-x-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                        <span class="text-[10.5px] font-bold text-slate-800 uppercase tracking-tight">Đối Tác Doanh Nghiệp</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500 leading-relaxed">
+                        Tích hợp API bưu chính tự động cho các sàn TMĐT &amp; chuỗi bán lẻ.
+                    </p>
+                    <a href="tel:1900545481" class="inline-block text-[11px] font-bold text-blue-600 hover:text-blue-700">
+                        Liên hệ kinh doanh &rarr;
+                    </a>
+                </div>
+
+                <!-- Nút Đăng Nhập Nghiệp Vụ -->
                 <a 
                     href="login.html" 
-                    class="w-full flex items-center justify-center space-x-2 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/20 transition"
+                    :title="isSidebarCollapsed ? 'Đăng nhập tài khoản nghiệp vụ' : ''"
+                    :class="[
+                        'w-full flex items-center py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/20 transition cursor-pointer',
+                        isSidebarCollapsed ? 'justify-center !px-0 w-10 h-10 mx-auto' : 'justify-center space-x-2 px-3'
+                    ]"
                 >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                     </svg>
                     <span v-show="!isSidebarCollapsed">Đăng Nhập</span>
                 </a>
             </div>
 
-            <!-- Đã đăng nhập -->
+            <!-- Nếu đã đăng nhập (Nhân sự hệ thống) -->
             <div v-else class="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200 shadow-sm" :class="{ 'justify-center !p-1.5': isSidebarCollapsed }">
                 <div class="flex items-center space-x-2.5 overflow-hidden">
                     <div class="w-8 h-8 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 shadow-sm" :title="currentUser.fullName || currentUser.email">
@@ -171,7 +274,7 @@
                 <span class="text-slate-400">Nền Tảng</span>
                 <span class="text-slate-300">/</span>
                 <span class="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
-                    {{ (navigationTabs.find(t => t.id === currentTab) || {}).name || 'Hệ Thống' }}
+                    {{ currentTabTitle }}
                 </span>
                 <span v-if="currentTrackingCode" class="text-slate-300">/</span>
                 <span v-if="currentTrackingCode" class="font-mono text-slate-500 font-semibold">{{ currentTrackingCode }}</span>
