@@ -177,7 +177,7 @@ flowchart TB
 * Mỗi request gửi qua Header `Authorization: Bearer <token>`.
 * Gateway xác thực chữ ký HMAC-SHA256 bí mật, bóc tách `userId`, `roles`, `permissions` và đính kèm vào Header nội bộ (`X-User-Id`, `X-User-Roles`, `X-User-Permissions`) đẩy xuống các microservice. Không sử dụng Session bộ nhớ, hỗ trợ Scale-out vô hạn.
 
-### 5.4. Giao Diện Chuẩn 60fps Enterprise & Hoạt Ảnh Mượt Mà
+### 5.4. Giao Diện Chuẩn Enterprise & Hoạt Ảnh Mượt Mà
 * Áp dụng nguyên tắc thiết kế tối giản dành cho B2B Logistics:
   * **Chuyển đổi trang chính (Main Page):** Fade & Slide-up (`0.20s`, `cubic-bezier(0.16, 1, 0.3, 1)`).
   * **Chuyển đổi biểu mẫu & subtab:** Slide-fade mượt mà (`0.18s - 0.22s`), không giật layout.
