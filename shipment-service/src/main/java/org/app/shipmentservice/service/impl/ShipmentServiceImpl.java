@@ -142,6 +142,7 @@ public class ShipmentServiceImpl implements ShipmentService {
         CreateShipmentEvent event = CreateShipmentEvent.builder()
                 .trackingCode(saved.getTrackingCode())
                 .customerId(saved.getCustomerId())
+                .customerEmail(validationResponse.getEmail())
                 .senderName(saved.getSenderName())
                 .senderPhone(saved.getSenderPhone())
                 .senderAddress(saved.getSenderAddress())

@@ -18,4 +18,5 @@ public class CreateShipmentEvent {
     private String senderPhone;
     private String receiverName;
     private String receiverPhone;
+    private String customerEmail;
 }
