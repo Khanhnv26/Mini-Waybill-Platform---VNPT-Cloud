@@ -10,6 +10,6 @@ public interface TrackingService {
 
     Map<String, String> getCurrentStatus(String trackingCode);
     List<TrackingHistory> getTrackingHistory(String trackingCode);
-    TrackingHistory updateStatus(String trackingCode, UpdateStatusRequest request);
+    TrackingHistory updateStatus(String trackingCode, UpdateStatusRequest request, String roles, String permissions);
 }
 

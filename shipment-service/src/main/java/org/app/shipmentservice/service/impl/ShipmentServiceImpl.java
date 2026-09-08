@@ -265,7 +265,9 @@ public class ShipmentServiceImpl implements ShipmentService {
         Shipment shipment = shipmentRepository.findShipmentByTrackingCode(trackCode)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + trackCode));
 
-        boolean hasAdminPermission = permissions != null && permissions.contains("shipment:cancel_all") || permissions.contains("ROLE_ADMIN") || permissions.contains("ROLE_CS");
+
+        boolean hasAdminPermission = permissions != null &&
+                (permissions.contains("shipment:cancel_all") || permissions.contains("ROLE_ADMIN") || permissions.contains("ROLE_CS"));
         if (!hasAdminPermission) {
             Long myCustomerId = resolveCustomerId(currentUserId);
             if (!shipment.getCustomerId().equals(myCustomerId)) {
@@ -287,22 +289,22 @@ public class ShipmentServiceImpl implements ShipmentService {
         Shipment updatedShipment = shipmentRepository.save(shipment);
         log.info("[SHIPMENT] Đơn hàng {} đã được hủy bởi userId: {} (permissions: {})", trackCode, currentUserId, permissions);
 
-        String redisKey = "shipment:requestId:" + trackCode;
+        String redisKey = "shipment-status:" + trackCode;
         redisTemplate.opsForValue().set(redisKey,ShipmentStatus.CANCELLED.name(), Duration.ofDays(7));
 
         ShipmentStatusUpdatedEvent event = ShipmentStatusUpdatedEvent.builder()
                 .trackingCode(updatedShipment.getTrackingCode())
                 .status(ShipmentStatus.CANCELLED.name())
-                .note("Đơn hàng đã bị hủy bởi userId: " + currentUserId + " (permissions: " + permissions + ")")
+                .note("CUSTOMER_CANCEL")
+                .locationCode("Người gửi yêu cầu hủy vận đơn")
                 .updateAt(LocalDateTime.now())
                 .build();
 
+        kafkaTemplate.send("tracking-status-events", updatedShipment.getTrackingCode(), event);
 
+        log.info("[SHIPMENT] Đã hủy thành công đơn hàng: {}", trackCode);
 
         return updatedShipment;
-
-
-
     }
 
     private boolean isSupportedAddress(String address) {

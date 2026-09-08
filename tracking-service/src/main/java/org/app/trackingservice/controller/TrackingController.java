@@ -1,15 +1,11 @@
 package org.app.trackingservice.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.app.trackingservice.dto.request.UpdateStatusRequest;
 import org.app.trackingservice.entity.TrackingHistory;
 import org.app.trackingservice.service.TrackingService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
@@ -35,8 +31,10 @@ public class TrackingController {
 
     @PostMapping("/{trackingCode}/status")
     public ResponseEntity<TrackingHistory> updateStatus(@PathVariable String trackingCode,
-                                                        @RequestBody org.app.trackingservice.dto.request.UpdateStatusRequest request) {
-        TrackingHistory history = trackingService.updateStatus(trackingCode, request);
+                                                        @RequestBody UpdateStatusRequest request,
+                                                        @RequestHeader(value = "X-User-Roles", required = false) String roles,
+                                                        @RequestHeader(value = "X-User-Permissions", required = false) String permissions) {
+        TrackingHistory history = trackingService.updateStatus(trackingCode, request, roles, permissions);
         return ResponseEntity.ok(history);
     }
 }

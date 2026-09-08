@@ -34,7 +34,6 @@ public class SecurityConfig {
                         "/api/auth/forgot-password",
                         "/api/auth/reset-password").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/tracking/**").permitAll()
-                        .requestMatchers(HttpMethod.GET,"/api/shipments/*").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/notifications/*").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/audits/**").hasAnyRole("CS", "ADMIN")

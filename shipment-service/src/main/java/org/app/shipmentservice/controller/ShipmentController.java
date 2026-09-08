@@ -45,4 +45,13 @@ public class ShipmentController {
         List<Shipment> shipments = shipmentService.getShipments(customerId, currentUserId, permissions);
         return ResponseEntity.ok(shipments);
     }
+
+    @PostMapping("/{code}/cancel")
+    public ResponseEntity<Shipment> cancelShipment(
+            @PathVariable("code") String code,
+            @RequestHeader(value = "X-User-Id", required = false) String currentUserId,
+            @RequestHeader(value = "X-User-Permissions",required = false) String permissions) {
+        Shipment shipment = shipmentService.cancelShipment(code, currentUserId, permissions);
+        return ResponseEntity.ok(shipment);
+    }
 }

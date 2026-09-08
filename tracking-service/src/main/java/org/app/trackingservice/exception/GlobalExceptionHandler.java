@@ -41,4 +41,13 @@ public class GlobalExceptionHandler {
         error.put("timestamp", LocalDateTime.now().toString());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<Map<String, Object>> handleForbiddenException(ForbiddenException ex) {
+        Map<String, Object> error = new LinkedHashMap<>();
+        error.put("errorCode","FORBIDDEN");
+        error.put("message", ex.getMessage());
+        error.put("timestamp", LocalDateTime.now().toString());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+    }
 }

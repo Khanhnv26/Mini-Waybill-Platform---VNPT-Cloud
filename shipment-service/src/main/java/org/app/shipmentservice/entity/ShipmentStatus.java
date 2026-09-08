@@ -11,7 +11,9 @@ public enum ShipmentStatus {
     OUT_FOR_DELIVERY,
     DELIVERED,
     DELIVERY_FAILED,
-    CANCELLED;
+    CANCELLED,
+    RETURNING,
+    RETURNED;
 
     public boolean canTransitionTo(ShipmentStatus nextStatus) {
 

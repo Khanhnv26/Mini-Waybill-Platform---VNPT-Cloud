@@ -128,6 +128,10 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Mật khẩu không chính xác!");
         }
 
+        if (user.getStatus() != null && !"ACTIVE".equalsIgnoreCase(user.getStatus())) {
+            throw new RuntimeException("Tài khoản của bạn đã bị khóa hoặc ngừng hoạt động. Vui lòng liên hệ Quản trị viên!");
+        }
+
         return user;
     }
 
