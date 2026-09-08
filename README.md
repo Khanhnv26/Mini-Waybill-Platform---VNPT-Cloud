@@ -29,7 +29,7 @@
 
 **VNPT Waybill Platform** là nền tảng quản trị và điều phối vận đơn bưu chính toàn trình chuẩn Enterprise, được thiết kế chuyên biệt cho hệ sinh thái logistics thông minh và thương mại điện tử (E-Commerce). Hệ thống giải quyết trọn vẹn chuỗi cung ứng chuyển phát: từ khâu tiếp nhận đơn tại quầy bưu cục / kho Shop B2B, luân chuyển đa chặng giữa các Siêu Hub khai thác vùng (Bắc - Trung - Nam), cho đến điều phối bưu tá giao hàng chặng cuối (Last-mile Delivery) và đối soát dòng tiền thu hộ COD.
 
-### 🎯 Bối Cảnh & Thách Thức Ngành Logistics Thực Tế
+### 1.1. Bối Cảnh & Thách Thức Ngành Logistics Thực Tế
 Trong kỷ nguyên bùng nổ thương mại điện tử, các đơn vị bưu chính - chuyển phát phải đối mặt với 5 bài toán nan giải:
 1. **Nghẽn mạng tra cứu giờ cao điểm:** Hàng triệu người mua cùng lúc tra cứu hành trình bưu phẩm trong các đợt Siêu Sale khiến hệ thống CSDL dễ rơi vào tình trạng quá tải, treo quầy giao dịch.
 2. **Vấn nạn lộ lọt thông tin cá nhân (PII) & Lừa đảo COD:** Thông tin số điện thoại, địa chỉ và giá trị tiền thu hộ bị rò rỉ, tạo kẽ hở cho đối tượng xấu mạo danh bưu tá giao hàng giả để chiếm đoạt tiền của người mua.
@@ -37,7 +37,7 @@ Trong kỷ nguyên bùng nổ thương mại điện tử, các đơn vị bưu 
 4. **Ách tắc kho bãi do bưu phẩm "bom" (Hàng không phát được):** Hàng giao không thành công bị ngâm tại bưu cục phát quá hạn mà không có quy trình kích hoạt chuyển hoàn tự động về người gửi, gây đọng vốn và nguy cơ thất lạc.
 5. **Rủi ro an ninh nhân sự nội bộ:** Nhân viên kho hoặc bưu tá vi phạm/nghỉ việc nhưng phiên đăng nhập (JWT Token) vẫn còn hiệu lực đến 24 giờ, có thể tiếp tục truy cập dữ liệu nhạy cảm.
 
-### 💡 Giá Trị Cốt Lõi Của Giải Pháp VNPT Waybill Platform
+### 1.2. Giá Trị Cốt Lõi Của Giải Pháp VNPT Waybill Platform
 * **Bảo vệ toàn vẹn doanh thu:** Động cơ định giá cước bưu chính độc lập tại máy chủ theo công thức chuẩn logistics (tính lũy tiến theo khối lượng + phụ phí biến động xăng dầu + phí quản lý dòng tiền COD).
 * **Bảo mật dữ liệu cá nhân theo nguyên tắc Zero-Trust:** Người nhận tra cứu công khai chỉ thấy lộ trình bưu phẩm; toàn bộ số điện thoại, địa chỉ nhà chi tiết và tiền COD được bảo mật tuyệt đối.
 * **Tự động hóa luân chuyển & Chuyển hoàn thông minh:** Máy trạng thái 11 bước chuẩn hóa toàn trình, tự động kích hoạt lệnh chuyển hoàn khi giao thất bại quá 3 lần.
@@ -302,13 +302,13 @@ Hệ thống thiết lập cơ cấu phân quyền phản ánh chuẩn xác mô 
 
 | Mốc Thao Tác Trên Bưu Gửi | Nhân Viên Hub (`ROLE_HUB_OPERATOR`) | Bưu Tá Phát (`ROLE_SHIPPER`) | Khách Hàng Shop (`ROLE_CUSTOMER`) | Quản Trị / CSKH (`ROLE_ADMIN` / `ROLE_CS`) |
 | :--- | :---: | :---: | :---: | :---: |
-| **`PICKED_UP`** (Tiếp nhận vào kho Hub) | :white_check_mark: Cho phép | :x: Bị từ chối (403) | :x: Bị từ chối (403) | :white_check_mark: Toàn quyền can thiệp |
-| **`IN_TRANSIT`** (Đóng chuyến xe luân chuyển) | :white_check_mark: Cho phép | :x: Bị từ chối (403) | :x: Bị từ chối (403) | :white_check_mark: Toàn quyền can thiệp |
-| **`OUT_FOR_DELIVERY`** (Xuất phát đi phát) | :x: Bị từ chối (403) | :white_check_mark: Cho phép | :x: Bị từ chối (403) | :white_check_mark: Toàn quyền can thiệp |
-| **`DELIVERED`** (Phát hàng thành công) | :x: Bị từ chối (403) | :white_check_mark: Cho phép | :x: Bị từ chối (403) | :white_check_mark: Toàn quyền can thiệp |
-| **`DELIVERY_FAILED`** (Báo phát thất bại) | :x: Bị từ chối (403) | :white_check_mark: Cho phép | :x: Bị từ chối (403) | :white_check_mark: Toàn quyền can thiệp |
-| **`CANCELLED`** (Hủy bưu phẩm) | :x: Không có thẩm quyền | :x: Không có thẩm quyền | :white_check_mark: Đơn chính chủ (Chưa xếp xe) | :white_check_mark: Toàn quyền hủy bảo trợ |
-| **`RETURNING`** (Chuyển hoàn bưu phẩm) | *Hệ thống tự động kích hoạt* | *Hệ thống tự động kích hoạt* | :x: Không có thẩm quyền | :white_check_mark: Can thiệp thủ công |
+| **`PICKED_UP`** (Tiếp nhận vào kho Hub) | Cho phép | Từ chối (403) | Từ chối (403) | Toàn quyền can thiệp |
+| **`IN_TRANSIT`** (Đóng chuyến xe luân chuyển) | Cho phép | Từ chối (403) | Từ chối (403) | Toàn quyền can thiệp |
+| **`OUT_FOR_DELIVERY`** (Xuất phát đi phát) | Từ chối (403) | Cho phép | Từ chối (403) | Toàn quyền can thiệp |
+| **`DELIVERED`** (Phát hàng thành công) | Từ chối (403) | Cho phép | Từ chối (403) | Toàn quyền can thiệp |
+| **`DELIVERY_FAILED`** (Báo phát thất bại) | Từ chối (403) | Cho phép | Từ chối (403) | Toàn quyền can thiệp |
+| **`CANCELLED`** (Hủy bưu phẩm) | Không có quyền | Không có quyền | Đơn chính chủ (Chưa xuất kho) | Toàn quyền hủy bảo trợ |
+| **`RETURNING`** (Chuyển hoàn bưu phẩm) | Tự động (Hệ thống) | Tự động (Hệ thống) | Không có quyền | Can thiệp thủ công |
 
 ---
 
