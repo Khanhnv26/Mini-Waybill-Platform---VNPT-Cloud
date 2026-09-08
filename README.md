@@ -1,4 +1,4 @@
-# VNPT Waybill Platform - Hệ Thống Điều Phối & Quản Trị Vận Đơn Bưu Chính Toàn Trình
+# Waybill Platform - Hệ Thống Điều Phối & Quản Trị Vận Đơn Bưu Chính Toàn Trình
 
 [![Java](https://img.shields.io/badge/Java-21%20LTS-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x%20%2F%204.x-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
@@ -242,46 +242,32 @@ stateDiagram-v2
 
 ---
 
-## 5. Các Giải Pháp Kiến Trúc Đột Phá Vì Nghiệp Vụ (Key Architectural Solutions)
+## 5. Các Điểm Nhấn Kỹ Thuật Đột Phá
 
-Mỗi giải pháp kỹ thuật trong hệ thống đều được xây dựng để giải quyết trực tiếp một bài toán nghiệp vụ thực tiễn trong ngành bưu chính:
+### 5.1. Tối Ưu Hóa Tốc Độ Tra Cứu Với Redis (Cache-Aside Pattern)
+* Tra cứu vận đơn là thao tác có tần suất đọc (Read-heavy) lớn nhất hệ sinh thái.
+* Khi có yêu cầu tra cứu:
+  * **Cache HIT:** Lấy trực tiếp từ Redis RAM trong **1 - 2ms**, không chạm vào SQL Server.
+  * **Cache MISS:** Đọc CSDL SQL Server 1 lần duy nhất rồi nạp lại vào Redis.
+* Khi có cập nhật trạng thái: `tracking-service` ghi đè ngay trạng thái mới vào Redis, đảm bảo dữ liệu luôn thời gian thực (Real-time consistency).
 
-### 5.1. Tra Cứu Hành Trình Siêu Tốc (< 2ms) Bằng Bộ Nhớ Đệm Phân Tán (Redis Cache-Aside)
-* **Bài toán thực tế:** Vào các đợt khuyến mãi lớn (Mega Sale, Black Friday), hàng triệu người mua cùng truy cập tra cứu vị trí đơn hàng. Nếu mỗi lượt tra cứu đều gọi thẳng vào CSDL SQL Server, hệ thống sẽ sập nguồn, khiến toàn bộ quầy bưu cục trên toàn quốc bị tê liệt.
-* **Giải pháp kiến trúc:** Áp dụng mô hình Cache-Aside trên bộ nhớ đệm phân tán Redis. Trạng thái hành trình mới nhất luôn được nạp sẵn trên bộ nhớ RAM.
-* **Giá trị kinh doanh:** Tốc độ phản hồi tra cứu đạt **1 - 2ms**, giảm tải hơn 95% áp lực truy vấn cho CSDL trung tâm, mang lại trải nghiệm tra cứu mượt mà, tức thì cho khách hàng.
+### 5.2. Chống Tấn Công DDoS Bằng Token Bucket (Bucket4j-Redis)
+* Tích hợp bộ lọc phân tán `RateLimitingFilter` ngay tại Gateway:
+  * Mỗi IP bị giới hạn tối đa **60 requests / 30 giây**.
+  * Toàn hệ thống có trần bảo vệ **100 requests / 60 giây**.
+* Nếu vượt ngưỡng, hệ thống trả về HTTP `429 Too Many Requests` ngay lập tức, triệt tiêu nguy cơ quá tải dịch vụ nội bộ.
 
-### 5.2. Lá Chắn Chống Tắc Nghẽn Quầy Giao Dịch & Dò Quét Dữ Liệu (Token Bucket Rate Limiting)
-* **Bài toán thực tế:** Nguy cơ các phần mềm tự động (bot) liên tục cào dữ liệu cước phí, dò tìm thông tin đơn hàng hoặc tấn công từ chối dịch vụ (DDoS) làm cạn kiệt băng thông của hệ thống bưu điện.
-* **Giải pháp kiến trúc:** Đặt bộ lọc giới hạn tần suất phân tán tại cửa ngõ API Gateway theo thuật toán Hộp Thẻ Bài (Token Bucket):
-  - Giới hạn tối đa **60 yêu cầu / 30 giây** cho từng địa chỉ IP.
-  - Thiết lập ngưỡng bảo vệ toàn hệ thống **100 yêu cầu / 60 giây**.
-* **Giá trị kinh doanh:** Tự động chặn đứng các hành vi spam và bot cào dữ liệu bằng mã lỗi `429 Too Many Requests`, ưu tiên tuyệt đối tài nguyên mạng cho bưu tá và giao dịch viên tại quầy.
+### 5.3. Phiên Đăng Nhập Phi Trạng Thái (Stateless JWT Security)
+* Client lưu trữ `accessToken` trong `localStorage`.
+* Mỗi request gửi qua Header `Authorization: Bearer <token>`.
+* Gateway xác thực chữ ký HMAC-SHA256 bí mật, bóc tách `userId`, `roles`, `permissions` và đính kèm vào Header nội bộ (`X-User-Id`, `X-User-Roles`, `X-User-Permissions`) đẩy xuống các microservice. Không sử dụng Session bộ nhớ, hỗ trợ Scale-out vô hạn.
 
-### 5.3. Phiên Đăng Nhập Không Trạng Thái Cho Hàng Ngàn Bưu Tá (Stateless JWT Architecture)
-* **Bài toán thực tế:** Mạng lưới bưu chính có hàng vạn nhân viên giao hàng, thủ kho và giao dịch viên làm việc cùng lúc trên toàn quốc. Việc duy trì phiên đăng nhập truyền thống trong bộ nhớ máy chủ (Session) sẽ gây nghẽn cổ chai và cạn kiệt tài nguyên hệ thống.
-* **Giải pháp kiến trúc:** Áp dụng chuẩn bảo mật không trạng thái (Stateless JWT). Khách hàng và nhân viên mang theo chứng chỉ điện tử an toàn trong mỗi yêu cầu gửi lên.
-* **Giá trị kinh doanh:** Cửa ngõ Gateway tự động giải mã và điều hướng quyền hạn mà không tốn bộ nhớ máy chủ, giúp hệ thống sẵn sàng mở rộng quy mô (Scale-out) thêm nhiều máy chủ mà không làm gián đoạn ca làm việc của bưu tá.
-
-### 5.4. Vô Hiệu Hóa Quyền Truy Cập Tức Thì Khi Có Rủi Ro Nhân Sự (Real-time Redis Blacklist < 0.5ms)
-* **Bài toán thực tế:** Điểm yếu chí mạng của chuẩn JWT thông thường là Token đã cấp phát thì không thể thu hồi trước khi hết hạn (thường là 24 giờ). Nếu một nhân viên bị phát hiện sai phạm hoặc đột ngột nghỉ việc, dù tài khoản đã bị khóa trong CSDL nhưng Token trên điện thoại vẫn có thể gọi API xem thông tin đơn hàng trong 24 giờ tiếp theo.
-* **Giải pháp kiến trúc:** Tích hợp cơ chế "Danh sách đen thời gian thực" (Redis Blacklist). Ngay khi Quản trị viên chuyển trạng thái người dùng sang `BLOCKED` hoặc người dùng đăng xuất, định danh tài khoản được nạp ngay vào bộ nhớ đệm với thời gian sống tương ứng.
-* **Giá trị kinh doanh:** Cổng API Gateway kiểm tra danh sách đen chỉ mất **$< 0.5\text{ ms}$** và ngắt kết nối ngay lập tức (`401 Unauthorized`), ngăn chặn triệt để nguy cơ thất thoát dữ liệu bưu chính từ các rủi ro nhân sự nội bộ.
-
-### 5.5. Bảo Vệ Dữ Liệu Cá Nhân (PII) - Phòng Chống Gian Lận & Lừa Đảo Thu Tiền COD
-* **Bài toán thực tế:** Vấn nạn nhức nhối hiện nay của ngành giao hàng TMĐT là thông tin người nhận (họ tên, số điện thoại, địa chỉ nhà chi tiết và số tiền COD) bị lộ lọt, kẻ gian lợi dụng để gọi điện mạo danh bưu tá giao các gói hàng giả nhằm lừa đảo chiếm đoạt tiền thu hộ.
-* **Giải pháp kiến trúc:** Triển khai mô hình bảo vệ dữ liệu cá nhân theo nguyên tắc Zero-Trust:
-  - **Cổng tra cứu công khai (dành cho người nhận tra cứu tự do):** Chỉ hiển thị lộ trình di chuyển giữa các Siêu Hub, thời gian quét mã và trạng thái bưu kiện. **Toàn bộ thông tin nhạy cảm (số điện thoại, họ tên, địa chỉ người nhận và tiền COD) được giấu kín tuyệt đối**.
-  - **Cổng thông tin chi tiết đơn hàng:** Bắt buộc phải đăng nhập và kiểm tra quyền sở hữu chặt chẽ: chỉ chính chủ Shop tạo đơn hoặc Quản trị viên/CSKH bưu điện mới được phép truy cập đầy đủ thông tin cá nhân.
-* **Giá trị kinh doanh:** Chặn đứng hoàn toàn nguy cơ rò rỉ dữ liệu khách hàng từ cổng tra cứu trực tuyến, bảo vệ uy tín thương hiệu của bưu điện và quyền lợi người tiêu dùng.
-
-### 5.6. Quầy Giao Dịch Vận Hành Không Gián Đoạn (High Availability & Resilient Fallback)
-* **Bài toán thực tế:** Tại quầy giao dịch bưu cục, khách hàng xếp hàng dài chờ gửi bưu phẩm. Nếu dịch vụ định tuyến bưu cục gặp sự cố tạm thời về mạng viễn thông, quầy giao dịch không thể bị "đứng hình" từ chối nhận hàng của khách.
-* **Giải pháp kiến trúc:** Thiết kế cơ chế chịu lỗi chủ động (Resilient Fallback). Dịch vụ vận đơn tự động chuyển sang danh mục dự phòng gồm 5 Siêu Hub cốt lõi (Hà Nội, Hải Phòng, Đà Nẵng, TP.HCM, Cần Thơ) khi mất kết nối phân tuyến.
-* **Giá trị kinh doanh:** Đảm bảo quầy giao dịch luôn tiếp nhận đơn thông suốt 100% thời gian (High Availability), không bao giờ làm gián đoạn dòng chảy kinh doanh của bưu cục.
-
-### 5.7. Trung Tâm Điều Hành Số Trực Quan Với Bản Đồ GIS & Trải Nghiệm 60fps
-* **Giá trị kinh doanh:** Cung cấp cho điều phối viên góc nhìn toàn cảnh về dòng chảy hàng hóa trên bản đồ số tương tác nhiều lớp (đường bộ, vệ tinh, địa danh tiếng Việt). Các nút định vị nhanh lãnh thổ và hoạt ảnh chuyển trang 60fps mượt mà giúp nhân viên khai thác thao tác nhanh chóng, giảm thiểu nhầm lẫn khi phân luồng xe tải.
+### 5.4. Giao Diện Chuẩn Enterprise & Hoạt Ảnh Mượt Mà
+* Áp dụng nguyên tắc thiết kế tối giản dành cho B2B Logistics:
+  * **Chuyển đổi trang chính (Main Page):** Fade & Slide-up (`0.20s`, `cubic-bezier(0.16, 1, 0.3, 1)`).
+  * **Chuyển đổi biểu mẫu & subtab:** Slide-fade mượt mà (`0.18s - 0.22s`), không giật layout.
+  * **Splash Preloader:** Vòng quay công nghệ Smooth Arc xoay 360° quanh Logo VNPT.
+  * **Bản đồ số Leaflet:** Tích hợp tùy biến các lớp bản đồ đường bộ, Google tiếng Việt và ảnh vệ tinh, kèm các nút định vị nhanh lãnh thổ Việt Nam.
 
 ---
 
