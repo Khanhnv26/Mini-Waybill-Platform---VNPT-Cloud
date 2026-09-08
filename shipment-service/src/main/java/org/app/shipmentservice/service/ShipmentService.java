@@ -11,5 +11,5 @@ public interface ShipmentService {
     Shipment getShipmentByTrackCode(String trackCode, String currentUserId, String permissions);
     List<Shipment> getShipmentByCustomerId(Long customerId, String currentUserId, String permissions);
     List<Shipment> getShipments(Long customerId, String currentUserId, String permissions);
-
+    Shipment cancelShipment(String trackCode, String currentUserId, String permissions);
 }

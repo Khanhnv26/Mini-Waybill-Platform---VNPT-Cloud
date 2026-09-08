@@ -4,12 +4,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.app.shipmentservice.client.CustomerClient;
 import org.app.shipmentservice.client.HubClient;
+import org.app.shipmentservice.consumer.ShipmentStatusConsumer;
 import org.app.shipmentservice.dto.event.CreateShipmentEvent;
+import org.app.shipmentservice.dto.event.ShipmentStatusUpdatedEvent;
 import org.app.shipmentservice.dto.request.CreateShipmentRequest;
 import org.app.shipmentservice.dto.response.CustomerValidationResponse;
 import org.app.shipmentservice.dto.response.HubResponse;
 import org.app.shipmentservice.entity.ServiceType;
 import org.app.shipmentservice.entity.Shipment;
+import org.app.shipmentservice.entity.ShipmentStatus;
 import org.app.shipmentservice.exception.DuplicateRequestException;
 import org.app.shipmentservice.exception.ForbiddenException;
 import org.app.shipmentservice.exception.UnauthorizedException;
@@ -21,6 +24,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
@@ -253,6 +257,51 @@ public class ShipmentServiceImpl implements ShipmentService {
 
         log.info("[SHIPMENT] Khách hàng {} (userId: {}) đang xem danh sách đơn của chính mình", myCustomerId, currentUserId);
         return shipmentRepository.findAllByCustomerIdOrderByCreatedAtDesc(myCustomerId);
+
+    }
+
+    @Override
+    public Shipment cancelShipment(String trackCode, String currentUserId, String permissions) {
+        Shipment shipment = shipmentRepository.findShipmentByTrackingCode(trackCode)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + trackCode));
+
+        boolean hasAdminPermission = permissions != null && permissions.contains("shipment:cancel_all") || permissions.contains("ROLE_ADMIN") || permissions.contains("ROLE_CS");
+        if (!hasAdminPermission) {
+            Long myCustomerId = resolveCustomerId(currentUserId);
+            if (!shipment.getCustomerId().equals(myCustomerId)) {
+                throw new ForbiddenException("Người dùng không có quyền hủy đơn hàng của khách khác!");
+            }
+        }
+
+        ShipmentStatus currentStatus = shipment.getCurrentStatus();
+        if (currentStatus == ShipmentStatus.CANCELLED) {
+            throw new IllegalStateException("Đơn hàng đã bị hủy trước đó: " + trackCode);
+        }
+
+        if(currentStatus != ShipmentStatus.CREATED && currentStatus != ShipmentStatus.PENDING_ROUTING) {
+
+            throw new IllegalStateException("Đơn hàng không thể hủy ở trạng thái hiện tại: " + currentStatus);
+        }
+
+        shipment.setCurrentStatus(ShipmentStatus.CANCELLED);
+        Shipment updatedShipment = shipmentRepository.save(shipment);
+        log.info("[SHIPMENT] Đơn hàng {} đã được hủy bởi userId: {} (permissions: {})", trackCode, currentUserId, permissions);
+
+        String redisKey = "shipment:requestId:" + trackCode;
+        redisTemplate.opsForValue().set(redisKey,ShipmentStatus.CANCELLED.name(), Duration.ofDays(7));
+
+        ShipmentStatusUpdatedEvent event = ShipmentStatusUpdatedEvent.builder()
+                .trackingCode(updatedShipment.getTrackingCode())
+                .status(ShipmentStatus.CANCELLED.name())
+                .note("Đơn hàng đã bị hủy bởi userId: " + currentUserId + " (permissions: " + permissions + ")")
+                .updateAt(LocalDateTime.now())
+                .build();
+
+
+
+        return updatedShipment;
+
+
 
     }
 
