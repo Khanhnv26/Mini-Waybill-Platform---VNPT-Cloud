@@ -10,6 +10,7 @@ import org.app.customerservice.service.CustomerService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -31,7 +32,7 @@ public class CustomerServiceImpl implements CustomerService {
             return CustomerValidation.builder()
                     .isValid(false)
                     .reason("CUSTOMER_NOT_FOUND")
-                    .email(customer.getEmail())
+                    .email(null)
                     .build();
         }
 
@@ -89,13 +90,13 @@ public class CustomerServiceImpl implements CustomerService {
             throw new IllegalArgumentException("User ID không được để trống");
         }
 
-        java.util.Optional<Customer> existingByUserId = customerRepository.findByUserId(request.getUserId());
+        Optional<Customer> existingByUserId = customerRepository.findByUserId(request.getUserId());
         if (existingByUserId.isPresent()) {
             return existingByUserId.get();
         }
 
         if (request.getEmail() != null && !request.getEmail().isBlank()) {
-            java.util.Optional<Customer> existingByEmail = customerRepository.findByEmail(request.getEmail().trim());
+            Optional<Customer> existingByEmail = customerRepository.findByEmail(request.getEmail().trim());
             if (existingByEmail.isPresent()) {
                 Customer cust = existingByEmail.get();
                 if (cust.getUserId() == null) {

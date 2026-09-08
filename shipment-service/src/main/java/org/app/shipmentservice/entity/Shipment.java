@@ -60,6 +60,12 @@ public class Shipment {
     @Enumerated(EnumType.STRING)
     private ShipmentStatus currentStatus;
 
+    @Column(name = "shipping_fee", nullable = false)
+    private BigDecimal shippingFee;
+
+    @Column(name = "total_fee", nullable = false)
+    private BigDecimal totalFee;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 

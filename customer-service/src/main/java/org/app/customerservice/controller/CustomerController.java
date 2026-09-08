@@ -38,7 +38,7 @@ public class CustomerController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Customer> updateCustomer(@PathVariable Long id,
-                                                   @RequestBody UpdateCustomerRequest request) {
+                                                   @Valid @RequestBody UpdateCustomerRequest request) {
         return ResponseEntity.ok(customerService.updateCustomer(id, request));
     }
 
@@ -68,7 +68,7 @@ public class CustomerController {
     @PutMapping("/me")
     public ResponseEntity<Customer> updateMyProfile(
             @RequestHeader(value = "X-User-Id", required = false) String currentUserId,
-            @RequestBody UpdateCustomerRequest request) {
+            @Valid @RequestBody UpdateCustomerRequest request) {
         if (currentUserId == null || currentUserId.isBlank() || "null".equalsIgnoreCase(currentUserId)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }

@@ -3,9 +3,12 @@ package org.app.shipmentservice.service.impl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.app.shipmentservice.client.CustomerClient;
+import org.app.shipmentservice.client.HubClient;
 import org.app.shipmentservice.dto.event.CreateShipmentEvent;
 import org.app.shipmentservice.dto.request.CreateShipmentRequest;
 import org.app.shipmentservice.dto.response.CustomerValidationResponse;
+import org.app.shipmentservice.dto.response.HubResponse;
+import org.app.shipmentservice.entity.ServiceType;
 import org.app.shipmentservice.entity.Shipment;
 import org.app.shipmentservice.exception.DuplicateRequestException;
 import org.app.shipmentservice.exception.ForbiddenException;
@@ -16,9 +19,14 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
+
+import static org.app.shipmentservice.constant.ShipmentFeeConstant.*;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +36,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final CustomerClient customerClient;
     private final StringRedisTemplate redisTemplate;
     private final KafkaTemplate<String,Object> kafkaTemplate;
+    private final HubClient hubClient;
 
     private Long resolveCustomerId(String currentUserId) {
         if (currentUserId == null || currentUserId.isBlank() || "null".equalsIgnoreCase(currentUserId)) {
@@ -71,6 +80,15 @@ public class ShipmentServiceImpl implements ShipmentService {
         if (currentUserId == null || currentUserId.isBlank() || "null".equalsIgnoreCase(currentUserId)) {
             throw new UnauthorizedException("Yêu cầu thông tin đăng nhập hợp lệ để tạo đơn hàng!");
         }
+
+        if(!isSupportedAddress(request.getSenderAddress())) {
+            throw new RuntimeException("Địa chỉ người gửi không được hỗ trợ: " + request.getSenderAddress());
+        }
+
+        if(!isSupportedAddress(request.getReceiverAddress())) {
+            throw new RuntimeException("Địa chỉ người nhận không được hỗ trợ: " + request.getReceiverAddress());
+        }
+
 
         boolean canCreateForOthers = permissions != null && permissions.contains("shipment:create_for_others");
         Long targetCustomerId;
@@ -122,6 +140,25 @@ public class ShipmentServiceImpl implements ShipmentService {
                     " Lí do: " + (validationResponse != null ? validationResponse.getReason() : "Unknown"));
         }
 
+        double weight = request.getWeight();
+        BigDecimal baseFee;
+
+        if(request.getServiceType() == ServiceType.EXPRESS) {
+            baseFee = BigDecimal.valueOf(Math.max(BASE_COST_EXPRESS.doubleValue(), weight * COST_EXPRESS.doubleValue()));
+        } else {
+            baseFee = BigDecimal.valueOf(Math.max(BASE_COST_STANDARD.doubleValue(), weight * COST_STANDARD.doubleValue()));
+        }
+
+        BigDecimal codFee = BigDecimal.ZERO;
+        if(request.getCodAmount() != null && request.getCodAmount().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal calculatedCodFee = request.getCodAmount().multiply(COD_FEE_RATE);
+            codFee = calculatedCodFee.max(BASE_COD_COST);
+        }
+
+        BigDecimal fuelFee = baseFee.multiply(FUEL_FEE);
+        BigDecimal totalFee = baseFee.add(codFee).add(fuelFee);
+
+
         String trackingCode = "WB" + System.currentTimeMillis() + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
         Shipment shipment = Shipment.builder()
                 .trackingCode(trackingCode)
@@ -135,6 +172,8 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .serviceType(request.getServiceType())
                 .weight(request.getWeight())
                 .codAmount(request.getCodAmount())
+                .shippingFee(totalFee)
+                .totalFee(totalFee)
                 .build();
         Shipment saved = shipmentRepository.save(shipment);
         redisTemplate.opsForValue().set(redisKey, saved.getTrackingCode(), Duration.ofMinutes(5));
@@ -152,6 +191,8 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .serviceType(saved.getServiceType())
                 .weight(saved.getWeight())
                 .codAmount(saved.getCodAmount())
+                .shippingFee(baseFee)
+                .totalFee(totalFee)
                 .build();
         kafkaTemplate.send("shipment-events",String.valueOf(saved.getTrackingCode()),event);
 
@@ -213,5 +254,28 @@ public class ShipmentServiceImpl implements ShipmentService {
         log.info("[SHIPMENT] Khách hàng {} (userId: {}) đang xem danh sách đơn của chính mình", myCustomerId, currentUserId);
         return shipmentRepository.findAllByCustomerIdOrderByCreatedAtDesc(myCustomerId);
 
+    }
+
+    private boolean isSupportedAddress(String address) {
+        if (address == null || address.isBlank()) {
+            return false;
+        }
+        List<HubResponse> hubs;
+        try {
+            hubs = hubClient.getAllHubs();
+        } catch (Exception e) {
+            log.error("Lỗi khi gọi HubClient để lấy danh sách hub: {}", e.getMessage());
+            return false;
+        }
+
+        if (hubs == null || hubs.isEmpty()) {
+            log.warn("Danh sách hub trống hoặc null, không thể xác thực địa chỉ: {}", address);
+            return false;
+        }
+
+        return hubs.stream()
+                .map(HubResponse::getProvince)
+                .filter(Objects::nonNull)
+                .anyMatch(province -> address.toLowerCase().contains(province.toLowerCase()));
     }
 }

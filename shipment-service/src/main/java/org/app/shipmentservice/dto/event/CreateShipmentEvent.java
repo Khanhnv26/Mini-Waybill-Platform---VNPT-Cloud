@@ -53,4 +53,8 @@ public class CreateShipmentEvent {
     private ShipmentStatus currentStatus;
 
 
+    private BigDecimal shippingFee;
+
+    private BigDecimal totalFee;
+
 }

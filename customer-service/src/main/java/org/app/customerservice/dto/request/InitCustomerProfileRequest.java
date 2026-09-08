@@ -19,5 +19,6 @@ public class InitCustomerProfileRequest {
     @NotBlank(message = "Email không được để trống")
     private String email;
 
+    @NotBlank(message = "Họ và tên không được để trống")
     private String fullName;
 }
