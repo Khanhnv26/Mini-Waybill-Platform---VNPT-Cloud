@@ -15,9 +15,9 @@
 1. [Giới Thiệu Tổng Quan](#1-giới-thiệu-tổng-quan)
 2. [Kiến Trúc Hệ Thống (System Architecture)](#2-kiến-trúc-hệ-thống-system-architecture)
 3. [Danh Sách Microservices & Cổng Dịch Vụ](#3-danh-sách-microservices--cổng-dịch-vụ)
-4. [Luồng Nghiệp Vụ Cốt Lõi (Core Workflows)](#4-luồng-nghiệp-vụ-cốt-lõi-core-workflows)
-5. [Các Điểm Nhấn Kỹ Thuật Đột Phá](#5-các-điểm-nhấn-kỹ-thuật-đột-phá)
-6. [Hệ Thống Phân Quyền Ma Trận (RBAC Matrix)](#6-hệ-thống-phân-quyền-ma-trận-rbac-matrix)
+4. [Chuỗi Nghiệp Vụ & Quy Trình Vận Hành Toàn Trình (Core Business Workflows)](#4-chuỗi-nghiệp-vụ--quy-trình-vận-hành-toàn-trình-core-business-workflows)
+5. [Các Giải Pháp Kiến Trúc Đột Phá Vì Nghiệp Vụ (Key Architectural Solutions)](#5-các-giải-pháp-kiến-trúc-đột-phá-vì-nghiệp-vụ-key-architectural-solutions)
+6. [Hệ Thống Phân Quyền Vận Hành Chuyên Trách (RBAC Matrix)](#6-hệ-thống-phân-quyền-vận-hành-chuyên-trách-rbac-matrix)
 7. [Yêu Cầu Môi Trường & Công Nghệ](#7-yêu-cầu-môi-trường--công-nghệ)
 8. [Hướng Dẫn Cài Đặt & Khởi Chạy (Step-by-Step)](#8-hướng-dẫn-cài-đặt--khởi-chạy-step-by-step)
 9. [Tài Khoản Kiểm Thử Mẫu (Demo Accounts)](#9-tài-khoản-kiểm-thử-mẫu-demo-accounts)
@@ -27,13 +27,22 @@
 
 ## 1. Giới Thiệu Tổng Quan
 
-**VNPT Waybill Platform** là nền tảng quản trị và điều phối vận đơn bưu chính toàn trình chuẩn Enterprise, được thiết kế chuyên biệt cho hệ sinh thái logistics thông minh. Hệ thống giải quyết bài toán luân chuyển bưu phẩm đa chặng giữa các Siêu Hub khai thác (Bắc - Trung - Nam), kết nối bưu tá giao hàng chặng cuối (Last-mile Delivery) và cổng dịch vụ cho khách hàng doanh nghiệp B2B / chủ Shop thương mại điện tử.
+**VNPT Waybill Platform** là nền tảng quản trị và điều phối vận đơn bưu chính toàn trình chuẩn Enterprise, được thiết kế chuyên biệt cho hệ sinh thái logistics thông minh và thương mại điện tử (E-Commerce). Hệ thống giải quyết trọn vẹn chuỗi cung ứng chuyển phát: từ khâu tiếp nhận đơn tại quầy bưu cục / kho Shop B2B, luân chuyển đa chặng giữa các Siêu Hub khai thác vùng (Bắc - Trung - Nam), cho đến điều phối bưu tá giao hàng chặng cuối (Last-mile Delivery) và đối soát dòng tiền thu hộ COD.
 
-### Điểm nổi bật:
-- **Kiến trúc Microservices độc lập (Database-per-Service):** Mỗi dịch vụ sở hữu cơ sở dữ liệu riêng biệt, không chia sẻ trực tiếp dữ liệu tầng DB, giao tiếp qua REST API (Gateway) và Message Broker.
-- **Hạ tầng hướng sự kiện (Event-Driven Architecture với Kafka):** Tách rời các tác vụ nặng (phân tuyến, thông báo, kiểm toán) ra khỏi luồng xử lý chính, đảm bảo tốc độ phản hồi người dùng `< 50ms`.
-- **Tầng đệm bộ nhớ siêu tốc (Redis Caching & Distributed Rate Limiting):** Tối ưu tốc độ tra cứu hành trình (`< 2ms`), bảo vệ hệ thống khỏi tấn công DDoS bằng thuật toán Token Bucket.
-- **Bản đồ số GIS tương tác:** Trực quan hóa lộ trình luân chuyển xe tải giữa các bưu cục trên nền bản đồ Leaflet đa lớp (OSM, Google Maps Tiếng Việt, Ảnh vệ tinh).
+### 🎯 Bối Cảnh & Thách Thức Ngành Logistics Thực Tế
+Trong kỷ nguyên bùng nổ thương mại điện tử, các đơn vị bưu chính - chuyển phát phải đối mặt với 5 bài toán nan giải:
+1. **Nghẽn mạng tra cứu giờ cao điểm:** Hàng triệu người mua cùng lúc tra cứu hành trình bưu phẩm trong các đợt Siêu Sale khiến hệ thống CSDL dễ rơi vào tình trạng quá tải, treo quầy giao dịch.
+2. **Vấn nạn lộ lọt thông tin cá nhân (PII) & Lừa đảo COD:** Thông tin số điện thoại, địa chỉ và giá trị tiền thu hộ bị rò rỉ, tạo kẽ hở cho đối tượng xấu mạo danh bưu tá giao hàng giả để chiếm đoạt tiền của người mua.
+3. **Thất thoát cước phí & Gian lận tham số:** Nguy cơ người gửi cố tình can thiệp giá cước, làm sai lệch trọng lượng hoặc khai báo thiếu cước dịch vụ bưu chính.
+4. **Ách tắc kho bãi do bưu phẩm "bom" (Hàng không phát được):** Hàng giao không thành công bị ngâm tại bưu cục phát quá hạn mà không có quy trình kích hoạt chuyển hoàn tự động về người gửi, gây đọng vốn và nguy cơ thất lạc.
+5. **Rủi ro an ninh nhân sự nội bộ:** Nhân viên kho hoặc bưu tá vi phạm/nghỉ việc nhưng phiên đăng nhập (JWT Token) vẫn còn hiệu lực đến 24 giờ, có thể tiếp tục truy cập dữ liệu nhạy cảm.
+
+### 💡 Giá Trị Cốt Lõi Của Giải Pháp VNPT Waybill Platform
+* **Bảo vệ toàn vẹn doanh thu:** Động cơ định giá cước bưu chính độc lập tại máy chủ theo công thức chuẩn logistics (tính lũy tiến theo khối lượng + phụ phí biến động xăng dầu + phí quản lý dòng tiền COD).
+* **Bảo mật dữ liệu cá nhân theo nguyên tắc Zero-Trust:** Người nhận tra cứu công khai chỉ thấy lộ trình bưu phẩm; toàn bộ số điện thoại, địa chỉ nhà chi tiết và tiền COD được bảo mật tuyệt đối.
+* **Tự động hóa luân chuyển & Chuyển hoàn thông minh:** Máy trạng thái 11 bước chuẩn hóa toàn trình, tự động kích hoạt lệnh chuyển hoàn khi giao thất bại quá 3 lần.
+* **Kiểm soát truy cập tức thời (< 0.5ms):** Cơ chế "Danh sách đen" (Blacklist) tại cửa ngõ API Gateway vô hiệu hóa ngay lập tức quyền truy cập của tài khoản bị khóa mà không cần chờ hết hạn Token.
+* **Trải nghiệm tra cứu thời gian thực siêu tốc (< 2ms):** Sử dụng tầng đệm phân tán giúp hệ thống chịu tải hàng chục ngàn yêu cầu đồng thời mà không chạm tới CSDL cốt lõi.
 
 ---
 
@@ -134,26 +143,102 @@ flowchart TB
 
 ---
 
-## 4. Luồng Nghiệp Vụ Cốt Lõi (Core Workflows)
+## 4. Chuỗi Nghiệp Vụ & Quy Trình Vận Hành Toàn Trình (Core Business Workflows)
 
-### 4.1. Luồng Khởi Tạo Vận Đơn Tự Động (Shipment Creation & Routing)
-1. **Khách hàng / Giao dịch viên** điền form tạo đơn trên giao diện $\rightarrow$ Gọi `POST /api/shipments`.
-2. `shipment-service` lưu bản ghi vào `shipment_db` với trạng thái `CREATED`.
-3. `shipment-service` bắn sự kiện `CreateShipmentEvent` lên Kafka Topic `shipment-events` (Partition Key = `trackingCode`).
-4. **Các Consumer phản hồi song song:**
-   - **`routing-service`**: Tính toán tuyến đường tối ưu qua các Siêu Hub và bắn event `RouteAssignedEvent` lên Topic `route-assigned`.
-   - **`tracking-service`**: Khởi tạo mốc lịch sử đầu tiên (`CREATED`) và ghi trạng thái vào Redis Cache.
-   - **`notification-service`**: Lưu mapping email khách vào Redis và gửi email xác nhận tạo đơn thành công.
-   - **`audit-service`**: Ghi log kiểm toán khởi tạo đơn.
+### 4.1. Quy Trình Tiếp Nhận & Tự Động Định Tuyến Bưu Gửi (Shipment Intake & Smart Routing)
+1. **Tiếp nhận nhu cầu gửi hàng:**
+   - Khách hàng doanh nghiệp / Chủ Shop khởi tạo đơn số lượng lớn qua cổng thông tin trực tuyến, hoặc Giao dịch viên tiếp nhận bưu phẩm trực tiếp tại quầy bưu cục.
+2. **Kiểm soát chất lượng dữ liệu bưu phẩm (Data Quality Control):**
+   - **Trọng lượng kiện hàng:** Tự động đối soát trong khung chuẩn vận tải bưu chính từ $0.01\text{ kg}$ đến $50.0\text{ kg}$/kiện (phù hợp năng lực vận chuyển xe máy chặng cuối và xe tải liên tỉnh).
+   - **Hạn mức bảo hiểm tiền mặt COD:** Kiểm soát chặt chẽ giá trị thu hộ tối đa $50.000.000\text{ VNĐ}$/đơn nhằm giảm thiểu rủi ro bảo an tiền mặt cho bưu tá.
+   - **Thông tin liên lạc:** Kiểm tra định dạng số điện thoại di động chuẩn 10 số của các nhà mạng viễn thông Việt Nam để bảo đảm tỷ lệ kết nối thành công khi giao hàng.
+   - **Xác thực mạng lưới bưu cục:** Tự động đối chiếu địa chỉ gửi - nhận với danh mục 5 Siêu Hub khai thác trọng điểm toàn quốc (Hà Nội, Hải Phòng, Đà Nẵng, TP.HCM, Cần Thơ).
+3. **Niêm phong & Tính cước bưu phẩm độc lập (Tamper-Proof Pricing):**
+   - Hệ thống máy chủ tự động tính cước chuẩn xác dựa trên khối lượng thực tế và gói dịch vụ lựa chọn, ngăn chặn triệt để mọi hành vi gian lận hoặc can thiệp sửa đổi giá cước từ phía người dùng.
+4. **Phản hồi tức thì & Kích hoạt luân chuyển ngầm (Event-Driven Stream):**
+   - Người gửi nhận ngay mã vận đơn bưu chính thời gian thực ($< 50\text{ ms}$) mà không cần chờ đợi.
+   - Dưới nền tảng, hệ thống phát tín hiệu điều phối song song:
+     - Dịch vụ điều tuyến tự động tính toán lộ trình xe tải tối ưu qua các Siêu Hub.
+     - Dịch vụ hành trình nạp mốc trạng thái khởi tạo (`CREATED`) vào bộ nhớ đệm siêu tốc.
+     - Dịch vụ thông báo kích hoạt gửi email xác nhận tạo đơn kèm mã tra cứu cho người gửi.
+     - Dịch vụ kiểm toán lập biên bản ghi nhận nhật ký điện tử phục vụ tra soát.
 
-### 4.2. Luồng Luân Chuyển Bưu Cục & Giao Hàng (Hub Operations & Last-mile Delivery)
-1. **Thủ kho Hub hoặc Bưu tá** quét mã barcode trên kiện hàng $\rightarrow$ Gọi `POST /api/tracking/{code}/status`.
-2. `tracking-service` kiểm tra tính hợp lệ của bước chuyển trạng thái (chống nhảy cóc trạng thái).
-3. `tracking-service` ghi nhận mốc hành trình vào `tracking_db`, cập nhật Redis Cache và bắn event `ShipmentStatusUpdatedEvent` lên Topic `tracking-status-events`.
-4. **Các Consumer phản hồi:**
-   - **`shipment-service`**: Lắng nghe topic cập nhật trường `currentStatus` trong `shipment_db` (có cơ chế Retry 3 lần nếu CSDL bận).
-   - **`notification-service`**: Khi trạng thái là `OUT_FOR_DELIVERY` (Đang phát), `DELIVERED` (Thành công) hoặc `DELIVERY_FAILED` (Thất bại), tự động lấy email khách hàng từ Redis và gửi email thông báo chi tiết.
-   - **`audit-service`**: Ghi nhận vết kiểm toán luân chuyển.
+### 4.2. Luân Chuyển Liên Hub & Điều Phối Giao Hàng Chặng Cuối (Hub Logistics & Last-Mile Delivery)
+1. **Khai thác và phân luồng tại Siêu Hub:**
+   - Thủ kho trung chuyển sử dụng máy quét mã vạch POS chuyên dụng để quét tiếp nhận bưu phẩm vào kho Hub (**Scan In** - `PICKED_UP`) và quét xuất kho đóng chuyến xe tải liên tỉnh (**Scan Out** - `IN_TRANSIT`).
+   - **Phân định nghiệp vụ nghiêm ngặt:** Nhân viên Hub chỉ có thẩm quyền thao tác trong phạm vi kho bãi và các chuyến xe trung chuyển, không thể can thiệp vào quy trình giao hàng chặng cuối.
+2. **Giao hàng chặng cuối (Last-Mile Delivery):**
+   - Bưu tá tại bưu cục phát tiếp nhận danh sách bưu phẩm trên tuyến và quét xuất phát đi giao (`OUT_FOR_DELIVERY`).
+   - Sau khi tiếp xúc người nhận, bưu tá cập nhật kết quả giao hàng thực tế:
+     - **Giao thành công (`DELIVERED`):** Người nhận ký nhận bưu phẩm, bưu tá thu tiền COD (nếu có) và đơn hàng hoàn tất toàn trình.
+     - **Giao thất bại (`DELIVERY_FAILED`):** Bưu tá ghi nhận nguyên nhân cụ thể (khách hẹn lại ngày giao, sai địa chỉ, không liên lạc được điện thoại) để hệ thống lên lịch phát lại.
+3. **Chăm sóc khách hàng tự động đa kênh:**
+   - Mỗi khi kiện hàng chuyển qua các mốc then chốt (xuất phát đi phát, giao thành công, báo phát thất bại hoặc chuyển hoàn), hệ thống tự động gửi thông báo chi tiết qua Email/SMS giúp người gửi và người nhận luôn chủ động nắm bắt hành trình.
+
+### 4.3. Động Cơ Định Giá Cước Thông Minh & Bảo Toàn Doanh Thu (Smart Pricing Engine)
+Cước phí bưu chính là huyết mạch doanh thu của doanh nghiệp vận tải. Hệ thống thiết lập bảng cước minh bạch, tính toán hoàn toàn tự động theo chuẩn mực ngành chuyển phát:
+
+$$\text{Tổng Cước Thanh Toán} = (\text{Cước Cơ Bản} + \text{Phụ Phí Nhiên Liệu}) + \text{Phí Dịch Vụ Thu Hộ COD}$$
+
+| Hạng Mục Cấu Thành Cước | Dịch Vụ Hỏa Tốc (EXPRESS) | Dịch Vụ Tiêu Chuẩn (STANDARD) | Ý Nghĩa Nghiệp Vụ Logistics |
+| :--- | :--- | :--- | :--- |
+| **Cước Khởi Điểm** ($\le 2.0\text{ kg}$) | **35.000 VNĐ** | **20.000 VNĐ** | Chi phí tiếp nhận, xử lý bao bì và chặng vận chuyển tối thiểu. |
+| **Cước Vượt Cân** (Mỗi $\text{kg}$ tiếp theo) | **+22.000 VNĐ / kg** | **+13.000 VNĐ / kg** | Bù đắp chi phí tải trọng phương tiện trên từng cung đường. |
+| **Phụ Phí Xăng Dầu (Fuel Surcharge)** | **6%** trên cước cơ bản | **6%** trên cước cơ bản | Cơ chế tự động thích ứng với biến động giá xăng dầu thị trường. |
+| **Phí Dịch Vụ COD (Cash On Delivery)** | **1%** giá trị thu hộ *(Sàn tối thiểu 10.000 VNĐ)* | **1%** giá trị thu hộ *(Sàn tối thiểu 10.000 VNĐ)* | Chi phí quản lý rủi ro tiền mặt, bảo hiểm bưu gửi và đối soát ngân hàng. |
+
+> [!IMPORTANT]
+> **Nguyên tắc Bảo Toàn Doanh Thu (Backend Single Source of Truth):** Toàn bộ phép tính cước phí được thực thi độc quyền tại máy chủ trung tâm. Giao diện người dùng chỉ có nhiệm vụ hiển thị kết quả, hoàn toàn bị tước quyền tự khai báo hoặc chỉnh sửa giá tiền, triệt tiêu mọi khả năng gian lận cước phí.
+
+### 4.4. Quy Trình Hủy Vận Đơn An Toàn & Chống Can Thiệp Chéo (Safe Cancellation & Anti-IDOR)
+Trong thực tế vận hành logistics, khi bưu phẩm đã được xếp lên xe tải di chuyển trên cao tốc, việc hủy đơn giữa chặng là bất khả thi về mặt vật lý. Hệ thống thiết lập các chốt chặn kiểm soát:
+1. **Kiểm tra trạng thái vật lý của bưu phẩm:**
+   - Bưu phẩm **chỉ được phép hủy** khi còn nằm ở trạng thái ban đầu: vừa tạo đơn (`CREATED`) hoặc đang chờ phân tuyến xe (`PENDING_ROUTING`).
+   - Một khi bưu phẩm đã vào luồng luân chuyển (`ROUTE_ASSIGNED`, `PICKED_UP`, v.v.), hệ thống lập tức từ chối lệnh hủy để bảo đảm tính chính xác của kế hoạch điều xe và tồn bãi tại các kho Hub.
+2. **Bảo vệ quyền sở hữu dữ liệu (Chống can thiệp chéo IDOR):**
+   - Chủ Shop chỉ có quyền hủy những vận đơn do chính cửa hàng mình tạo ra. Tuyệt đối không thể xem trộm hoặc hủy nhầm đơn hàng của đối tác khác.
+   - Nhân viên Chăm sóc khách hàng (CS) và Quản trị viên (Admin) được cấp quyền hủy bảo trợ khi nhận được yêu cầu xác thực qua tổng đài hỗ trợ.
+3. **Đồng bộ thời gian thực toàn mạng lưới:**
+   - Ngay khi lệnh hủy được phê duyệt, hệ thống cập nhật trạng thái `CANCELLED`, xóa ngay bộ nhớ đệm để tránh hiển thị sai lệch và phát sự kiện đồng bộ toàn mạng, ngăn các bưu cục tiếp tục gom hàng nhầm.
+
+### 4.5. Vòng Đời Bưu Gửi & Cơ Chế Tự Động Chuyển Hoàn (State Machine & Auto-Returning)
+Hành trình bưu phẩm từ khi gửi đến khi phát tận tay người nhận được kiểm soát nghiêm ngặt qua cỗ máy trạng thái 11 bước:
+
+```mermaid
+stateDiagram-v2
+    [*] --> CREATED: Tiếp nhận đơn tại quầy / Tạo đơn Shop B2B
+    
+    CREATED --> PENDING_ROUTING: Chờ xếp lịch xe & định tuyến Hub
+    CREATED --> CANCELLED: Người gửi / CS hủy đơn trước khi xuất kho
+    
+    PENDING_ROUTING --> ROUTE_ASSIGNED: Đã xác định lộ trình các Siêu Hub
+    PENDING_ROUTING --> CANCELLED: Người gửi / CS hủy đơn
+    
+    ROUTE_ASSIGNED --> PICKED_UP: Siêu Hub gửi quét nhận hàng vào kho
+    
+    PICKED_UP --> IN_TRANSIT: Đóng chuyến xe tải xuất bến
+    
+    IN_TRANSIT --> IN_TRANSIT: Luân chuyển qua các Siêu Hub trung gian
+    IN_TRANSIT --> OUT_FOR_DELIVERY: Bưu cục phát bàn giao bưu tá đi phát
+    
+    OUT_FOR_DELIVERY --> DELIVERED: Giao hàng thành công & Thu tiền COD
+    OUT_FOR_DELIVERY --> DELIVERY_FAILED: Giao thất bại (Khách hẹn / Sai địa chỉ)
+    
+    DELIVERY_FAILED --> OUT_FOR_DELIVERY: Bưu tá xuất phát giao lại (< 3 lần)
+    DELIVERY_FAILED --> RETURNING: Tự động chuyển hoàn (Thất bại lần thứ 3)
+    
+    RETURNING --> RETURNED: Bưu phẩm đã hoàn về tay người gửi
+    
+    DELIVERED --> [*]
+    CANCELLED --> [*]
+    RETURNED --> [*]
+```
+
+* **Trạng thái kết thúc bất biến (Terminal States):**
+  - Giao thành công (`DELIVERED`), Đã hủy đơn (`CANCELLED`) và Đã chuyển hoàn (`RETURNED`) là các điểm dừng cuối cùng của vòng đời. Khi đã rơi vào các trạng thái này, dữ liệu hành trình được đóng băng, không một cá nhân nào có thể quét thêm mốc mới vào bưu gửi.
+* **Cơ chế tự động chuyển hoàn (Auto-Returning) bảo vệ người gửi:**
+  - *Bài toán:* Hàng giao không thành công nhiều lần nếu không xử lý dứt điểm sẽ bị "ngâm" vô thời hạn tại bưu cục phát, gây đọng vốn COD của Shop và tăng nguy cơ hư hỏng, thất lạc.
+  - *Giải pháp:* Hệ thống quy định bưu tá được giao lại tối đa **3 lượt**. Khi bưu tá báo giao thất bại đến lần thứ 3, máy trạng thái sẽ **tự động kích hoạt lệnh `RETURNING` (Chuyển hoàn bưu phẩm)** ngay lập tức, đưa hàng lên chuyến xe quay về người gửi, giải phóng kho bãi bưu cục phát.
 
 ---
 
@@ -186,17 +271,30 @@ flowchart TB
 
 ---
 
-## 6. Hệ Thống Phân Quyền Ma Trận (RBAC Matrix)
+## 6. Hệ Thống Phân Quyền Vận Hành Chuyên Trách (RBAC Matrix)
 
-Hệ thống thiết lập 5 vai trò phân quyền chặt chẽ:
+Hệ thống thiết lập cơ cấu phân quyền phản ánh chuẩn xác mô hình tổ chức doanh nghiệp bưu chính, đảm bảo mỗi vị trí chỉ được tiếp cận đúng phạm vi nghiệp vụ được giao:
 
-| Vai Trò (Role Code) | Tên Hiển Thị | Quyền Hạn & Màn Hình Khả Dụng |
+### 6.1. Cơ Cấu Tổ Chức & Trách Nhiệm Nghiệp Vụ
+| Vai Trò Phân Quyền | Vị Trí Vận Hành Tương Đương | Trách Nhiệm & Phạm Vi Thao Tác |
 | :--- | :--- | :--- |
-| **`ROLE_ADMIN`** | Quản Trị Viên Toàn Hệ Thống | Toàn quyền kiểm soát hệ thống, quản lý tài khoản nhân viên, gán vai trò RBAC, xem nhật ký Audit, mô phỏng điều phối toàn mạng. |
-| **`ROLE_CS`** | Giao Dịch Viên Bưu Cục | Tiếp nhận đơn tại quầy, sử dụng chế độ *"Tạo Hộ Khách Hàng"*, tra cứu đơn hàng, hỗ trợ khiếu nại. |
-| **`ROLE_HUB_STAFF`** | Nhân Viên Khai Thác Hub | Quét barcode tiếp nhận hàng (Scan In), đóng chuyến xe luân chuyển (Scan Out), kiểm soát tồn bãi tại Hub. |
-| **`ROLE_SHIPPER`** | Bưu Tá Giao Hàng | Tiếp nhận danh sách đơn phát trong ngày, cập nhật kết quả giao hàng (Thành công / Báo thất bại kèm lý do), quyết toán COD cuối ca. |
-| **`ROLE_CUSTOMER`** | Khách Hàng / Chủ Shop B2B | Tạo vận đơn cá nhân từ kho Shop, quản lý danh sách đơn gửi, theo dõi dòng tiền COD và cập nhật hồ sơ cá nhân. |
+| **`ROLE_ADMIN`** | Quản Trị Viên / Ban Điều Hành | Toàn quyền kiểm soát hệ thống, cấp phát quyền hạn nhân sự, khóa tài khoản vi phạm (kích hoạt Blacklist), xem nhật ký kiểm toán Audit Trail, điều hành toàn mạng lưới. |
+| **`ROLE_CS`** | Giao Dịch Viên Quầy Bưu Cục | Tiếp nhận bưu phẩm tại quầy, sử dụng chế độ *"Tạo Hộ Khách Hàng"*, tra cứu toàn diện hồ sơ đơn, hỗ trợ hủy đơn và xử lý khiếu nại của khách. |
+| **`ROLE_HUB_OPERATOR`** | Nhân Viên Khai Thác Siêu Hub | Quét mã vạch tiếp nhận hàng vào kho Hub (`PICKED_UP`), quét xuất kho đóng chuyến xe tải liên tỉnh (`IN_TRANSIT`), kiểm soát tồn bãi tại kho trung chuyển. |
+| **`ROLE_SHIPPER`** | Bưu Tá Giao Hàng Chặng Cuối | Nhận danh sách bưu phẩm đi phát (`OUT_FOR_DELIVERY`), cập nhật kết quả giao hàng (`DELIVERED` hoặc `DELIVERY_FAILED` kèm lý do), quyết toán tiền mặt COD cuối ngày. |
+| **`ROLE_CUSTOMER`** | Khách Hàng Doanh Nghiệp / Chủ Shop | Tự tạo đơn hàng loạt từ kho Shop, theo dõi lịch sử luân chuyển, hủy đơn khi chưa xếp xe (`CREATED` / `PENDING_ROUTING`), theo dõi dòng tiền thanh toán COD. |
+
+### 6.2. Ma Trận Thẩm Quyền Thao Tác Trạng Thái Bưu Gửi (State Transition RBAC Matrix)
+
+| Mốc Thao Tác Trên Bưu Gửi | Nhân Viên Hub (`ROLE_HUB_OPERATOR`) | Bưu Tá Phát (`ROLE_SHIPPER`) | Khách Hàng Shop (`ROLE_CUSTOMER`) | Quản Trị / CSKH (`ROLE_ADMIN` / `ROLE_CS`) |
+| :--- | :---: | :---: | :---: | :---: |
+| **`PICKED_UP`** (Tiếp nhận vào kho Hub) | :white_check_mark: Cho phép | :x: Bị từ chối (403) | :x: Bị từ chối (403) | :white_check_mark: Toàn quyền can thiệp |
+| **`IN_TRANSIT`** (Đóng chuyến xe luân chuyển) | :white_check_mark: Cho phép | :x: Bị từ chối (403) | :x: Bị từ chối (403) | :white_check_mark: Toàn quyền can thiệp |
+| **`OUT_FOR_DELIVERY`** (Xuất phát đi phát) | :x: Bị từ chối (403) | :white_check_mark: Cho phép | :x: Bị từ chối (403) | :white_check_mark: Toàn quyền can thiệp |
+| **`DELIVERED`** (Phát hàng thành công) | :x: Bị từ chối (403) | :white_check_mark: Cho phép | :x: Bị từ chối (403) | :white_check_mark: Toàn quyền can thiệp |
+| **`DELIVERY_FAILED`** (Báo phát thất bại) | :x: Bị từ chối (403) | :white_check_mark: Cho phép | :x: Bị từ chối (403) | :white_check_mark: Toàn quyền can thiệp |
+| **`CANCELLED`** (Hủy bưu phẩm) | :x: Không có thẩm quyền | :x: Không có thẩm quyền | :white_check_mark: Đơn chính chủ (Chưa xếp xe) | :white_check_mark: Toàn quyền hủy bảo trợ |
+| **`RETURNING`** (Chuyển hoàn bưu phẩm) | *Hệ thống tự động kích hoạt* | *Hệ thống tự động kích hoạt* | :x: Không có thẩm quyền | :white_check_mark: Can thiệp thủ công |
 
 ---
 
@@ -306,7 +404,7 @@ Hệ thống đã nạp sẵn danh sách tài khoản theo từng vai trò nghi�
 | :--- | :--- | :---: | :--- |
 | **Quản Trị Viên (Admin)** | `vankhanhak54@gmail.com` | `123456` | Quản trị RBAC, xem Audit Log, phân phối quyền hạn. |
 | **Giao Dịch Viên (CS)** | `cs_quyet@vnpt.vn` | `123456` | Tiếp nhận đơn tại bưu cục, chế độ "Tạo Hộ Khách Hàng". |
-| **Thủ Kho Hub (Hub Staff)** | `hub_hn_staff@vnpt.vn` | `123456` | Quét mã tiếp nhận (Scan In) & Đóng chuyến xe (Scan Out). |
+| **Thủ Kho Hub (Hub Operator)** | `hub_hn_staff@vnpt.vn` | `123456` | Quét mã tiếp nhận (Scan In) & Đóng chuyến xe (Scan Out). |
 | **Bưu Tá (Shipper)** | `shipper_nam@vnpt.vn` | `123456` | Giao hàng chặng cuối, báo phát thất bại, quyết toán COD. |
 | **Khách Hàng Shop (Customer)** | `shop_hoangmai@gmail.com` | `123456` | Tạo đơn hàng loạt, theo dõi dòng tiền COD và hồ sơ Shop. |
 

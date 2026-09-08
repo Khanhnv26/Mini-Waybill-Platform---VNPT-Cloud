@@ -10,9 +10,11 @@ import org.app.authservice.repository.PermissionRepository;
 import org.app.authservice.repository.RoleRepository;
 import org.app.authservice.repository.UserRepository;
 import org.app.authservice.service.AdminService;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -24,7 +26,7 @@ public class AdminServiceImpl implements AdminService {
     private final PermissionRepository permissionRepository;
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
-
+    private final RedisTemplate redisTemplate;
 
     @Override
     public List<PermissionResponse> getAllPermissions() {
@@ -135,6 +137,16 @@ public class AdminServiceImpl implements AdminService {
 
         user.setStatus(request.getStatus());
         User savedUser = userRepository.save(user);
+
+        String blackListKey = "auth:blacklist:user:" + userId;
+        if("BLOCKED".equalsIgnoreCase(request.getStatus())) {
+            redisTemplate.opsForValue().set(blackListKey, "BLOCKED", Duration.ofHours(24));
+        } else if ("ACTIVE".equalsIgnoreCase(request.getStatus())) {
+            redisTemplate.delete(blackListKey);
+        }
+
+
+
         log.info("Admin đã đổi trạng thái tài khoản {} thành {}", user.getEmail(), request.getStatus());
         return UserAdminResponse.builder()
                 .id(savedUser.getId())

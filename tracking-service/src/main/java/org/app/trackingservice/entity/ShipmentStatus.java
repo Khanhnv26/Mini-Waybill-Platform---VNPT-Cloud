@@ -10,7 +10,10 @@ public enum ShipmentStatus {
     IN_TRANSIT,
     OUT_FOR_DELIVERY,
     DELIVERED,
-    DELIVERY_FAILED;
+    DELIVERY_FAILED,
+    CANCELLED,
+    RETURNING,
+    RETURNED;
 
     public boolean canTransitionTo(ShipmentStatus nextStatus) {
         
@@ -20,9 +23,9 @@ public enum ShipmentStatus {
 
         switch (this) {
             case CREATED:
-                return nextStatus == PENDING_ROUTING;
+                return Set.of(PENDING_ROUTING, CANCELLED).contains(nextStatus);
             case PENDING_ROUTING:
-                return nextStatus == ROUTE_ASSIGNED;
+                return Set.of(ROUTE_ASSIGNED, CANCELLED).contains(nextStatus);
             case ROUTE_ASSIGNED:
                 return nextStatus == PICKED_UP;
             case PICKED_UP:
@@ -31,10 +34,12 @@ public enum ShipmentStatus {
                 return nextStatus == OUT_FOR_DELIVERY;
             case OUT_FOR_DELIVERY:
                 return Set.of(DELIVERED, DELIVERY_FAILED).contains(nextStatus);
-            case DELIVERED:
-                return false;
             case DELIVERY_FAILED:
-                return nextStatus == OUT_FOR_DELIVERY;
+                return Set.of(OUT_FOR_DELIVERY, RETURNING).contains(nextStatus);
+            case RETURNING:
+                return nextStatus == RETURNED;
+            case RETURNED, CANCELLED, DELIVERED:
+                return false;
         }
         return false;
     }

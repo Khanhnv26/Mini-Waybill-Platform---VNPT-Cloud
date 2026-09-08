@@ -6,6 +6,7 @@ import org.app.trackingservice.dto.event.ShipmentStatusUpdatedEvent;
 import org.app.trackingservice.dto.request.UpdateStatusRequest;
 import org.app.trackingservice.entity.ShipmentStatus;
 import org.app.trackingservice.entity.TrackingHistory;
+import org.app.trackingservice.exception.ForbiddenException;
 import org.app.trackingservice.exception.InvalidStateTransitionException;
 import org.app.trackingservice.exception.ShipmentNotFoundException;
 import org.app.trackingservice.repository.TrackingHistoryRepository;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -57,51 +59,79 @@ public class TrackingServiceImpl implements TrackingService {
     }
 
     @Override
-    public TrackingHistory updateStatus(String trackingCode, UpdateStatusRequest request) {
-        log.info("[TRACKING] Cập nhật trạng thái thủ công cho đơn: {} -> {}", trackingCode, request.getStatus());
+    public TrackingHistory updateStatus(String trackingCode, UpdateStatusRequest request, String roles, String permission) {
+        log.info("[TRACKING] Cập nhật trạng thái cho đơn: {} -> {} | Roles: {}", trackingCode, request.getStatus(), roles);
 
-        Map<String,String> currentStatusMap = getCurrentStatus(trackingCode);
-        String currentStatusStr = currentStatusMap.get("currentStatus");
-        ShipmentStatus currentStatus = ShipmentStatus.valueOf(currentStatusStr);
-
+        //validate trang thai
         ShipmentStatus newStatus;
         try {
             newStatus = ShipmentStatus.valueOf(request.getStatus().trim().toUpperCase());
-        } catch (IllegalArgumentException | NullPointerException e) {
+        } catch (IllegalArgumentException e) {
             throw new RuntimeException("Trạng thái mới không hợp lệ: " + request.getStatus());
         }
 
-        if (!currentStatus.canTransitionTo(newStatus)) {
-            log.warn("[TRACKING] VI PHẠM LUỒNG TRẠNG THÁI: Đơn {} đang ở [{}] không thể chuyển sang [{}]",
-                    trackingCode, currentStatus, newStatus);
+        //check quyen
+        boolean isAdminOrCS = roles != null && (roles.contains("ADMIN") || roles.contains("CS"));
+        boolean isHubStaff = roles != null && roles.contains("ROLE_HUB_OPERATOR");
+        boolean isShipper = roles != null && roles.contains("ROLE_SHIPPER");
+        boolean isCustomer = roles != null && roles.contains("ROLE_CUSTOMER") && !isAdminOrCS && !isHubStaff && !isShipper;
+
+
+        if(isCustomer) {
+            throw new ForbiddenException("Khách hàng không có quyền cập nhật trạng thái đơn hàng.");
+        }
+
+        if(!isAdminOrCS) {
+            if(isHubStaff && !Set.of(ShipmentStatus.PICKED_UP, ShipmentStatus.IN_TRANSIT).contains(newStatus)) {
+                throw new ForbiddenException("Nhân viên Hub chỉ có quyền quét tiếp nhận hoặc xuất chuyến !");
+            }
+
+            if(isShipper && !Set.of(ShipmentStatus.OUT_FOR_DELIVERY,ShipmentStatus.DELIVERED, ShipmentStatus.DELIVERY_FAILED).contains(newStatus)) {
+                throw new ForbiddenException("Bưu tá chỉ có quyền cập nhật trạng thái giao hàng !");
+            }
+        }
+
+        //kiem tra trang thai hien tai
+        Map<String, String> currentStatusJSON = getCurrentStatus(trackingCode);
+        String currentStatusStr = currentStatusJSON.get("currentStatus");
+        ShipmentStatus currentStatus = ShipmentStatus.valueOf(currentStatusStr);
+
+        if(!currentStatus.canTransitionTo(newStatus)) {
             throw new InvalidStateTransitionException(currentStatus, newStatus);
+        }
+
+        //chan phat thai bai qua 3 lan se tra ve cho khach hang
+        if (newStatus == ShipmentStatus.DELIVERY_FAILED) {
+            long failedCount = trackingHistoryRepository.countByTrackingCodeAndStatus(trackingCode, ShipmentStatus.DELIVERY_FAILED.name());
+
+            if (failedCount >= 3) {
+                newStatus = ShipmentStatus.RETURNING;
+                request.setStatus(ShipmentStatus.RETURNING.name());
+                request.setNote("Giao thất bại lần 3 - Hệ thống tự động chuyển hoàn về người gửi");
+            }
         }
 
         TrackingHistory history = TrackingHistory.builder()
                 .trackingCode(trackingCode)
-                .status(request.getStatus())
+                .status(newStatus.name())
                 .locationCode(request.getLocationCode() != null ? request.getLocationCode() : "TRANSIT_HUB")
-                .node(request.getNote() != null ? request.getNote() : "Cập nhật trạng thái: " + request.getStatus())
+                .node(request.getNote() != null ? request.getNote() : "Cập nhật trạng thái: " + newStatus.name())
                 .occurredAt(LocalDateTime.now())
                 .build();
+
         TrackingHistory saved = trackingHistoryRepository.save(history);
 
-
         String redisKey = "shipment-status:" + trackingCode;
-        redisTemplate.opsForValue().set(redisKey, request.getStatus());
-        log.info("[TRACKING] Đã cập nhật Redis Cache cho đơn {} -> {}", trackingCode, request.getStatus());
-
+        redisTemplate.opsForValue().set(redisKey, newStatus.name());
 
         ShipmentStatusUpdatedEvent event = ShipmentStatusUpdatedEvent.builder()
                 .trackingCode(trackingCode)
-                .status(request.getStatus())
+                .status(newStatus.name())
                 .locationCode(saved.getLocationCode())
                 .note(saved.getNode())
                 .updatedAt(saved.getOccurredAt())
                 .build();
-        kafkaTemplate.send("tracking-status-events", trackingCode, event);
-        log.info("[TRACKING] Đã bắn event ShipmentStatusUpdatedEvent lên topic 'tracking-status-events'");
-
+        kafkaTemplate.send("tracking-status-events",trackingCode, event);
         return saved;
     }
 }

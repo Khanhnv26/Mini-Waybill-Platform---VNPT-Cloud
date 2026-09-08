@@ -31,4 +31,11 @@ public class RedisConfig {
                         .basedOnTimeForRefillingBucketUpToMax(Duration.ofSeconds(60)))
                 .build();
     }
+
+    @Bean
+    public StatefulRedisConnection<String, String> redisConnection(RedisClient redisClient) {
+        return redisClient.connect();
+    }
+
+
 }

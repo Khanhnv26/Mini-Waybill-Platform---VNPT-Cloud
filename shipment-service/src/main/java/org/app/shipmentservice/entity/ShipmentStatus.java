@@ -10,7 +10,10 @@ public enum ShipmentStatus {
     IN_TRANSIT,
     OUT_FOR_DELIVERY,
     DELIVERED,
-    DELIVERY_FAILED;
+    DELIVERY_FAILED,
+    CANCELLED,
+    RETURNING,
+    RETURNED;
 
     public boolean canTransitionTo(ShipmentStatus nextStatus) {
 

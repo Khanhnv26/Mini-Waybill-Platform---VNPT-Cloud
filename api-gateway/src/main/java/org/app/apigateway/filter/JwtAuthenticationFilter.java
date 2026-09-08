@@ -3,11 +3,13 @@ package org.app.apigateway.filter;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import io.lettuce.core.api.StatefulRedisConnection;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.app.apigateway.util.HeaderMapRequestWrapper;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +31,7 @@ import java.util.Map;
 
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Value("${app.jwt.secret}")
@@ -37,6 +40,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
     }
+
+    private final StatefulRedisConnection<String, String> redisConnection;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
@@ -58,6 +63,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String email = claims.getSubject();
             Object userIdClaim = claims.get("userId");
             String userId = (userIdClaim != null && !"null".equalsIgnoreCase(String.valueOf(userIdClaim))) ? String.valueOf(userIdClaim) : "";
+
+            //kiem tra blacklist trong redis
+            if(!userId.isBlank()) {
+                String blackKeyList = "auth:blacklist:user:" + userId;
+                Long isBacklisted = redisConnection.sync().exists(blackKeyList);
+                if (isBacklisted != null && isBacklisted > 0) {
+                    log.warn("Token cho userId {} đã bị blacklist. Bỏ qua xác thực.", userId);
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json;charset = UTF-8");
+                    response.getWriter().write("{\"error\": \"Tài khoản đã bị blacklist.\"}");
+                    return;
+                }
+            }
 
             @SuppressWarnings("unchecked")
             List<String> roles = claims.get("roles",List.class);
