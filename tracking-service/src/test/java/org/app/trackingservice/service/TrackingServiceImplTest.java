@@ -70,7 +70,7 @@ class TrackingServiceImplTest {
                 .note("Giao thành công")
                 .build();
 
-        TrackingHistory result = trackingService.updateStatus(TRACKING_CODE, request);
+        TrackingHistory result = trackingService.updateStatus(TRACKING_CODE, request, "1", "tracking:update");
 
         assertNotNull(result);
         assertEquals("DELIVERED", result.getStatus());
@@ -91,7 +91,7 @@ class TrackingServiceImplTest {
 
         InvalidStateTransitionException exception = assertThrows(
                 InvalidStateTransitionException.class,
-                () -> trackingService.updateStatus(TRACKING_CODE, request)
+                () -> trackingService.updateStatus(TRACKING_CODE, request, "1", "tracking:update")
         );
 
         assertEquals(ShipmentStatus.DELIVERED, exception.getFromStatus());
@@ -110,7 +110,7 @@ class TrackingServiceImplTest {
                 .status("ABCXYZ")
                 .build();
 
-        assertThrows(RuntimeException.class, () -> trackingService.updateStatus(TRACKING_CODE, request));
+        assertThrows(RuntimeException.class, () -> trackingService.updateStatus(TRACKING_CODE, request, "1", "tracking:update"));
 
         verify(trackingHistoryRepository, never()).save(any());
         verify(kafkaTemplate, never()).send(any(), any(), any());

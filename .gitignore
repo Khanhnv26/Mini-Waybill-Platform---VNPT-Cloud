@@ -37,3 +37,8 @@ build/
 
 ### Mac OS ###
 .DS_Store
+# Flyway ignores
+*.user.toml
+*.artifact
+report.html
+report.json

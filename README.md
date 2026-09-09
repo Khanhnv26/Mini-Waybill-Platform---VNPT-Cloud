@@ -6,6 +6,7 @@
 [![Apache Kafka](https://img.shields.io/badge/Apache%20Kafka-Event--Driven-231F20?style=for-the-badge&logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
 [![Redis](https://img.shields.io/badge/Redis-7.x%20Cache%20%26%20RateLimit-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
 [![SQL Server](https://img.shields.io/badge/Microsoft%20SQL%20Server-Database%20per%20Service-CC292B?style=for-the-badge&logo=microsoftsqlserver&logoColor=white)](https://www.microsoft.com/sql-server)
+[![Flyway](https://img.shields.io/badge/Flyway-Database%20Migration-CC0202?style=for-the-badge&logo=flyway&logoColor=white)](https://flywaydb.org/)
 [![Vue.js](https://img.shields.io/badge/Vue.js-3.x%20Enterprise%20UI-4FC08D?style=for-the-badge&logo=vuedotjs&logoColor=white)](https://vuejs.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-B2B%20Logistics%20Design-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 
@@ -269,6 +270,13 @@ stateDiagram-v2
   * **Splash Preloader:** Vòng quay công nghệ Smooth Arc xoay 360° quanh Logo VNPT.
   * **Bản đồ số Leaflet:** Tích hợp tùy biến các lớp bản đồ đường bộ, Google tiếng Việt và ảnh vệ tinh, kèm các nút định vị nhanh lãnh thổ Việt Nam.
 
+### 5.5. Quản Trị Phiên Bản Cơ Sở Dữ Liệu Tự Động (Flyway Migration per Service)
+* **Kiến trúc Database-per-Service:** Mỗi microservice quản lý độc lập schema của mình (`auth_db`, `shipment_db`, `customer_db`,...) thông qua thư mục `src/main/resources/db/migration/`.
+* **Thay thế hoàn toàn `ddl-auto=update` tiềm ẩn rủi ro:** Khắc phục triệt để lỗi khi thêm các cột ràng buộc `NOT NULL` trên bảng đã có dữ liệu trong SQL Server; kiểm soát chặt chẽ toàn bộ lịch sử thay đổi DDL/DML.
+* **Tự động hóa toàn trình (Zero Manual Intervention):** Tự động phát hiện và thực thi các script `V<Version>__<Mô_tả>.sql` ngay khi Spring Boot khởi động.
+* **Tương thích cơ sở dữ liệu có sẵn:** Sử dụng cơ chế `baseline-on-migrate = true` (Version 0) giúp hệ thống kết nối an toàn với CSDL hiện có mà không phá hủy cấu trúc bảng đang vận hành.
+* **Toàn vẹn Checksum:** Cơ chế băm SHA-256 ngăn chặn việc sửa đổi trái phép các script migration đã chạy, đảm bảo môi trường Dev, Staging và Production luôn đồng nhất 100%.
+
 ---
 
 ## 6. Hệ Thống Phân Quyền Vận Hành Chuyên Trách (RBAC Matrix)
@@ -324,7 +332,7 @@ docker-compose up -d
 ```
 * Kiểm tra Kafka UI tại: [http://localhost:8090](http://localhost:8090)
 
-### Bước 3: Chuẩn Bị Cơ Sở Dữ Liệu SQL Server
+### Bước 3: Chuẩn Bị Cơ Sở Dữ Liệu SQL Server & Quản Trị Migration (Flyway)
 1. Mở **SQL Server Management Studio (SSMS)** hoặc Azure Data Studio.
 2. Tạo 7 cơ sở dữ liệu độc lập:
    ```sql
@@ -336,7 +344,12 @@ docker-compose up -d
    CREATE DATABASE notification_db;
    CREATE DATABASE audit_db;
    ```
-3. Chạy các script tạo dữ liệu mẫu trong thư mục `database/`:
+3. **Cơ chế Tự Động Hóa Migration (Flyway):**
+   - Dự án đã tích hợp sẵn **Flyway** trong tất cả các microservices có cơ sở dữ liệu.
+   - Khi khởi chạy service ở Bước 5, Flyway sẽ **tự động khởi tạo bảng lịch sử `flyway_schema_history` và thực thi các script migration** trong thư mục `src/main/resources/db/migration/`.
+   - **Quy tắc thêm migration mới:** Khi cần thay đổi bảng (thêm/sửa cột, index), chỉ cần tạo file SQL mới theo định dạng:
+     `src/main/resources/db/migration/V<Version>__<Mo_Ta>.sql` (Ví dụ: `V1__add_shipping_fee_and_total_fee.sql`).
+4. Chạy các script tạo dữ liệu mẫu nền (Seed Data) trong thư mục `database/`:
    - Thực thi [`database/HubSeed.sql`](file:///c:/Users/LENOVO/Desktop/microservice/mini-waybill-platform/database/HubSeed.sql) (Nạp 5 Siêu Hub toàn quốc vào `routing_db`).
    - Thực thi [`database/seed_rbac_data.sql`](file:///c:/Users/LENOVO/Desktop/microservice/mini-waybill-platform/database/seed_rbac_data.sql) (Nạp bảng vai trò, quyền hạn và tài khoản mẫu vào `auth_db`).
 
@@ -422,13 +435,20 @@ mini-waybill-platform/
 ├── api-gateway/               # Spring Cloud Gateway (Port 8080)
 │   └── src/main/java/.../filter/  # JWT Authentication & Rate Limiter Filter
 │
-├── auth-service/              # Dịch vụ xác thực & Quản trị RBAC (Port 8087)
-├── customer-service/          # Quản lý hồ sơ đối tác & khách hàng B2B (Port 8081)
-├── shipment-service/          # Quản lý vòng đời bưu phẩm & tính cước (Port 8082)
-├── routing-service/           # Định tuyến thông minh qua 5 Siêu Hub (Port 8083)
-├── tracking-service/          # Quản lý máy trạng thái & Redis Cache (Port 8084)
-├── notification-service/      # Gửi Email thông báo hành trình bưu gửi (Port 8085)
-├── audit-service/             # Lưu vết chuỗi sự kiện Kafka kiểm toán (Port 8086)
+├── auth-service/              # Dịch vụ xác thực & Quản trị RBAC (Port 8087, auth_db)
+│   └── src/main/resources/db/migration/ # Flyway migrations cho auth_db
+├── customer-service/          # Quản lý hồ sơ đối tác & khách hàng B2B (Port 8081, customer_db)
+│   └── src/main/resources/db/migration/ # Flyway migrations cho customer_db
+├── shipment-service/          # Quản lý vòng đời bưu phẩm & tính cước (Port 8082, shipment_db)
+│   └── src/main/resources/db/migration/ # Flyway migrations cho shipment_db (V1...)
+├── routing-service/           # Định tuyến thông minh qua 5 Siêu Hub (Port 8083, routing_db)
+│   └── src/main/resources/db/migration/ # Flyway migrations cho routing_db
+├── tracking-service/          # Quản lý máy trạng thái & Redis Cache (Port 8084, tracking_db)
+│   └── src/main/resources/db/migration/ # Flyway migrations cho tracking_db
+├── notification-service/      # Gửi Email thông báo hành trình bưu gửi (Port 8085, notification_db)
+│   └── src/main/resources/db/migration/ # Flyway migrations cho notification_db
+├── audit-service/             # Lưu vết chuỗi sự kiện Kafka kiểm toán (Port 8086, audit_db)
+│   └── src/main/resources/db/migration/ # Flyway migrations cho audit_db
 ├── service-registry/          # Netflix Eureka Service Discovery (Port 8761)
 │
 ├── database/                  # Tập hợp script SQL Server DDL & Data Seeding

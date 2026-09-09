@@ -138,6 +138,7 @@ public class AdminServiceImpl implements AdminService {
         user.setStatus(request.getStatus());
         User savedUser = userRepository.save(user);
 
+        //backlist
         String blackListKey = "auth:blacklist:user:" + userId;
         if("BLOCKED".equalsIgnoreCase(request.getStatus())) {
             redisTemplate.opsForValue().set(blackListKey, "BLOCKED", Duration.ofHours(24));

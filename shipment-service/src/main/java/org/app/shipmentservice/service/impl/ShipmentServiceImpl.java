@@ -176,7 +176,7 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .serviceType(request.getServiceType())
                 .weight(request.getWeight())
                 .codAmount(request.getCodAmount())
-                .shippingFee(totalFee)
+                .shippingFee(baseFee)
                 .totalFee(totalFee)
                 .build();
         Shipment saved = shipmentRepository.save(shipment);
