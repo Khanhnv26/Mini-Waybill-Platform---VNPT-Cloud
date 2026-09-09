@@ -245,10 +245,17 @@ public class TripServiceImpl implements TripService {
                 .filter(m -> m.getTrackingCode().equals(trackingCode))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy kiện hàng: " + trackingCode + " trong chuyến đi: " + tripId));
-        tripManifestRepository.delete(targetManifest);
+
+        targetManifest.setStatus("REMOVED");
+        targetManifest.setUnloadedAt(LocalDateTime.now());
+        tripManifestRepository.save(targetManifest);
+
         Double updatedWeight = tripManifestRepository.sumActiveWeightByTripId(tripId);
         trip.setCurrentWeight(updatedWeight != null ? updatedWeight : 0.0);
-        trip.setTotalShipments((int) tripManifestRepository.countByTripId(tripId));
+
+        long activeCount = manifests.stream().filter(m -> "LOADED".equals(m.getStatus()) && !m.getId().equals(targetManifest.getId())).count();
+
+        trip.setTotalShipments((int) activeCount);
         tripRepository.save(trip);
         log.info("Gỡ kiện hàng {} khỏi chuyến xe {} thành công. Tải trọng hiện tại: {}/{} kg.", trackingCode, trip.getTripCode(), trip.getCurrentWeight(), trip.getMaxWeight());
         return getTripDetail(trip.getId());
