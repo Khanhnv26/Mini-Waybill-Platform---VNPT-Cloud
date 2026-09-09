@@ -32,4 +32,12 @@ public class Hub {
 
     @Column(name = "longitude", nullable = false)
     private Double longitude;
+
+    @Column(name = "hub_type", nullable = false, length = 20)
+    @Builder.Default
+    private String hubType = "SUPER_HUB";
+
+    @Column(name = "parent_hub_code", length = 50)
+    private String parentHubCode;
+
 }
