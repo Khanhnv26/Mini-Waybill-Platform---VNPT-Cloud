@@ -57,8 +57,6 @@
         renderToken: 0,
         lastRatio: 0,
         markerAnimFrame: null,
-        tileErrorCount: 0,
-        usingFallbackTiles: false,
         vietnamCorridorWaypoints: [
             { name: 'Vinh (Nghệ An)', lat: 18.6796, lng: 105.6813 },
             { name: 'Đồng Hới (Quảng Bình)', lat: 17.4740, lng: 106.6225 },
@@ -129,19 +127,8 @@
                 maxZoom: 20
             });
 
-            // 2. Cấu hình Tile Layers.
-            // Nguồn Google (mt{s}.google.com) không phải endpoint chính thức nên hay bị 403/429
-            // gây vỡ ô bản đồ. Dùng OpenStreetMap làm nền mặc định (ổn định, tên địa danh tiếng Việt
-            // đầy đủ ở VN) và tự động chuyển hẳn sang OSM nếu lớp Google lỗi liên tiếp.
+            // 2. Cấu hình Tile Layers (Google Maps & Google Vệ tinh)
             const BLANK_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-
-            const osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap | Bưu chính VNPT',
-                maxZoom: 19,
-                keepBuffer: 4,
-                updateWhenIdle: false,
-                errorTileUrl: BLANK_TILE
-            });
 
             const roadLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {
                 attribution: '&copy; Google Bản đồ Việt Nam | Bưu chính VNPT',
@@ -161,31 +148,13 @@
                 errorTileUrl: BLANK_TILE
             });
 
-            // Mặc định nạp nền OpenStreetMap để bản đồ luôn hiển thị đầy đủ
-            osmLayer.addTo(this.map);
+            // Mặc định nạp nền Google Maps đường bộ
+            roadLayer.addTo(this.map);
 
             this.baseLayers = {
-                'Bản đồ đường bộ (OSM)': osmLayer,
-                'Bản đồ Google (Tiếng Việt)': roadLayer,
-                'Ảnh vệ tinh': hybridLayer
+                'Google Maps': roadLayer,
+                'Google Vệ tinh': hybridLayer
             };
-
-            // Tự động hạ cấp về OSM khi lớp Google bị chặn/giới hạn tần suất
-            this.tileErrorCount = 0;
-            this.usingFallbackTiles = false;
-            const self = this;
-            [roadLayer, hybridLayer].forEach(layer => {
-                layer.on('tileerror', () => {
-                    if (self.usingFallbackTiles || !self.map || !self.map.hasLayer(layer)) return;
-                    self.tileErrorCount++;
-                    if (self.tileErrorCount >= 6) {
-                        self.usingFallbackTiles = true;
-                        console.warn('[MapManager] Nguồn tile Google bị chặn, tự động chuyển sang OpenStreetMap.');
-                        self.map.removeLayer(layer);
-                        osmLayer.addTo(self.map);
-                    }
-                });
-            });
 
             // 3. Nhóm marker dành cho các Bưu cục và tuyến đường vận chuyển (được xóa/vẽ lại theo đơn hàng)
             this.markersGroup = L.layerGroup().addTo(this.map);
@@ -405,14 +374,14 @@
                 this.completedPolyline.setLatLngs(completedCoords);
             }
 
-            // 2. Cập nhật phân đoạn còn lại (Nét đứt xám nhạt)
+            // 2. Cập nhật phân đoạn còn lại / đường định sẵn (Nét đứt Tím Indigo công nghệ thanh lịch)
             const remainingCoords = this.routePoints.slice(targetIdx);
             if (!this.remainingPolyline) {
                 this.remainingPolyline = L.polyline(remainingCoords, {
-                    color: '#94a3b8',
-                    weight: 3.5,
-                    opacity: 0.75,
-                    dashArray: '5, 8',
+                    color: '#6366f1',
+                    weight: 4,
+                    opacity: 0.85,
+                    dashArray: '4, 6',
                     lineJoin: 'round',
                     lineCap: 'round'
                 }).addTo(this.map);

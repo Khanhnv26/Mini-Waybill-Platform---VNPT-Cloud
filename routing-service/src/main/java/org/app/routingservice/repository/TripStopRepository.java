@@ -11,7 +11,7 @@ import java.util.Optional;
 @Repository
 public interface TripStopRepository extends JpaRepository<TripStop, Long> {
 
-    List<TripStop> findByTripIdOrderByStopOrderAsc(Long tripId);
+    List<TripStop> findByTripIdOrderByStopOrder(Long tripId);
 
     Optional<TripStop> findByTripIdAndHubCode(Long tripId, String hubCode);
 
