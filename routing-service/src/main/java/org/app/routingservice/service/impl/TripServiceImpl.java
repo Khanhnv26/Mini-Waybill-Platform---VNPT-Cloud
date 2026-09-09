@@ -2,6 +2,8 @@ package org.app.routingservice.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.app.routingservice.dto.trip.ConsolidateItemRequest;
+import org.app.routingservice.dto.trip.ConsolidateRequest;
 import org.app.routingservice.dto.trip.CreateTripRequest;
 import org.app.routingservice.dto.trip.TripDetailResponse;
 import org.app.routingservice.entity.Hub;
@@ -17,9 +19,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -139,4 +143,116 @@ public class TripServiceImpl implements TripService {
                 .manifests(manifestDtos)
                 .build();
     }
+
+    @Override
+    @Transactional
+    public TripDetailResponse autoConsolidate(Long tripId, ConsolidateRequest request) {
+        log.info("Bắt đầu chạy thuật toán gom đơn cho chuyến xe: {}", tripId);
+        Trip trip = tripRepository.findById(tripId).orElseThrow(
+                () -> new IllegalArgumentException("Không tìm thấy chuyến đi: " + tripId));
+
+        if (!"SCHEDULED".equals(trip.getStatus())) {
+            throw new IllegalStateException("Chỉ có thể gom đơn cho chuyến đi ở trạng thái SCHEDULED.");
+        }
+
+        List<TripStop> stops = tripStopRepository.findByTripIdOrderByStopOrder(tripId);
+
+        if (stops == null || stops.size() < 2) {
+            throw new IllegalStateException("Chuyến đi phải có ít nhất 2 điểm dừng để gom đơn.");
+        }
+
+        Map<String, Integer> stopOrderMap = stops.stream().collect(Collectors.toMap(TripStop::getHubCode, TripStop::getStopOrder));
+
+        Double currentWeight = tripManifestRepository.sumActiveWeightByTripId(tripId);
+        if (currentWeight == null) {
+            currentWeight = 0.0;
+        }
+
+        Double maxWeight = trip.getMaxWeight() != null ? trip.getMaxWeight() : 5000.0;
+
+        int addedCount = 0;
+
+        if(request != null && request.getItems() != null) {
+            for (ConsolidateItemRequest item : request.getItems()) {
+                String trackingCode = item.getTrackingCode();
+                String origin = item.getOriginHub();
+                String destination = item.getDestinationHub();
+                Double itemWeight = item.getWeight() != null ? item.getWeight() : 1.0;
+
+                Integer originOrder = stopOrderMap.get(origin);
+                Integer destinationOrder = stopOrderMap.get(destination);
+
+                if(originOrder == null || destinationOrder == null) {
+                    log.warn("Không tìm thấy thứ tự điểm dừng cho đơn hàng: {}", trackingCode);
+                    continue;
+                }
+
+                if(originOrder >= destinationOrder) {
+                    log.warn("Thứ tự điểm dừng không hợp lệ cho đơn hàng: {}", trackingCode);
+                    continue;
+                }
+
+                if(currentWeight + itemWeight > maxWeight) {
+                    log.warn("Không thể thêm đơn hàng {} vì vượt quá trọng lượng tối đa.", trackingCode);
+                    continue;
+                }
+
+                if(tripManifestRepository.existsByTripIdAndTrackingCode(tripId, trackingCode)) {
+                    log.warn("Đơn hàng {} đã tồn tại trong chuyến đi.", trackingCode);
+                    continue;
+                }
+
+                TripManifest manifest = TripManifest.builder()
+                        .tripId(trip.getId())
+                        .trackingCode(trackingCode)
+                        .originHub(origin)
+                        .destinationHub(destination)
+                        .weightKg(itemWeight)
+                        .serviceType(item.getServiceType() != null ? item.getServiceType() : "EXPRESS")
+                        .status("LOADED")
+                        .loadedAt(LocalDateTime.now())
+                        .build();
+
+                tripManifestRepository.save(manifest);
+                currentWeight += itemWeight;
+                addedCount++;
+                log.info("Thêm đơn hàng {} vào chuyến đi {} thành công.", trackingCode, trip.getTripCode());
+            }
+        }
+
+        trip.setCurrentWeight(currentWeight);
+        trip.setTotalShipments((int) tripManifestRepository.countByTripId(tripId));
+        tripRepository.save(trip);
+        log.info("Hoàn tất gom đơn cho xe {}: Đã thêm {} kiện mới. Tổng tải trọng hiện tại: {}/{} kg.",
+                trip.getTripCode(), addedCount, currentWeight, maxWeight);
+
+        return getTripDetail(trip.getId());
+    }
+
+    @Override
+    @Transactional
+    public TripDetailResponse removeManifestItem(Long tripId, String trackingCode) {
+        log.info("Yêu cầu gỡ kiện hàng {} khỏi chuyến xe {}", trackingCode, tripId);
+        Trip trip = tripRepository.findById(tripId).orElseThrow(
+                () -> new IllegalArgumentException("Không tìm thấy chuyến đi: " + tripId));
+
+        if(!"SCHEDULED".equals(trip.getStatus())) {
+            throw new IllegalStateException("Chỉ có thể gỡ kiện hàng cho chuyến đi ở trạng thái lập lịch.");
+        }
+
+        List<TripManifest> manifests = tripManifestRepository.findByTripId(tripId);
+        TripManifest targetManifest = manifests.stream()
+                .filter(m -> m.getTrackingCode().equals(trackingCode))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy kiện hàng: " + trackingCode + " trong chuyến đi: " + tripId));
+        tripManifestRepository.delete(targetManifest);
+        Double updatedWeight = tripManifestRepository.sumActiveWeightByTripId(tripId);
+        trip.setCurrentWeight(updatedWeight != null ? updatedWeight : 0.0);
+        trip.setTotalShipments((int) tripManifestRepository.countByTripId(tripId));
+        tripRepository.save(trip);
+        log.info("Gỡ kiện hàng {} khỏi chuyến xe {} thành công. Tải trọng hiện tại: {}/{} kg.", trackingCode, trip.getTripCode(), trip.getCurrentWeight(), trip.getMaxWeight());
+        return getTripDetail(trip.getId());
+    }
+
+
 }
