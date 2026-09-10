@@ -29,19 +29,29 @@ public class RoutingConsumer {
     private final RoutingAssignmentRepository routingAssignmentRepository;
     private final HubRepository hubRepository;
 
+    private record HubRoutingResult(String centralHubCode, String postOfficeCode) {}
+
     @KafkaListener(topics = "shipment-events", groupId = "routing-group")
     @RetryableTopic(attempts = "3", backOff = @BackOff(delay = 1000, multiplier = 2))
     public void handleShipmentCreatedEvent(CreateShipmentEvent event) {
         log.info("[ROUTING-SERVICE] Nhận được event tạo đơn mới: trackingCode = {}", event.getTrackingCode());
 
-        String sourceHub = determineHub(event.getSenderAddress(), "HUB-HN-01");
-        String destinationHub = determineHub(event.getReceiverAddress(), "HUB-HCM-01");
+        HubRoutingResult sourceRoute = determineRouteHierarchy(event.getSenderAddress(), "HUB-HN-01", "POST-HN-CG");
+        HubRoutingResult destRoute = determineRouteHierarchy(event.getReceiverAddress(), "HUB-HCM-01", "POST-HCM-Q1");
+
+        String sourceHub = sourceRoute.centralHubCode();
+        String originPostOffice = sourceRoute.postOfficeCode();
+        String destinationHub = destRoute.centralHubCode();
+        String destPostOffice = destRoute.postOfficeCode();
+
         String routeCode = "ROUTE-" + sourceHub + "-TO-" + destinationHub;
 
         RoutingAssignment assignment = RoutingAssignment.builder()
                 .trackingCode(event.getTrackingCode())
                 .sourceHub(sourceHub)
                 .destinationHub(destinationHub)
+                .originPostOffice(originPostOffice)
+                .destPostOffice(destPostOffice)
                 .routeCode(routeCode)
                 .weight(event.getWeight() != null ? event.getWeight() : 1.0)
                 .serviceType(event.getServiceType() != null ? event.getServiceType() : "EXPRESS")
@@ -49,12 +59,15 @@ public class RoutingConsumer {
                 .assignedAt(LocalDateTime.now())
                 .build();
         routingAssignmentRepository.save(assignment);
-        log.info("[ROUTING-SERVICE] Phân tuyến thành công cho đơn {}: {}", event.getTrackingCode(), routeCode);
+        log.info("[ROUTING-SERVICE] Phân tuyến 3 cấp thành công cho đơn {}: {} (Từ {} qua {} đến {} rồi về {})",
+                event.getTrackingCode(), routeCode, originPostOffice, sourceHub, destinationHub, destPostOffice);
 
         RouteAssignedEvent routeEvent = RouteAssignedEvent.builder()
                 .trackingCode(event.getTrackingCode())
                 .sourceHub(sourceHub)
                 .destinationHub(destinationHub)
+                .originPostOffice(originPostOffice)
+                .destPostOffice(destPostOffice)
                 .routeCode(routeCode)
                 .status("ASSIGNED")
                 .assignedAt(LocalDateTime.now())
@@ -72,20 +85,49 @@ public class RoutingConsumer {
         log.error("[ROUTING-SERVICE] Event CreateShipmentEvent với trackingCode {} đã thất bại sau 3 lần thử. Gửi vào DLT để xử lý thủ công.", event.getTrackingCode());
     }
 
-    private String determineHub(String address, String defaultHub) {
-        if (address == null || address.isBlank()) return defaultHub;
+    private HubRoutingResult determineRouteHierarchy(String address, String defaultCentralHub, String defaultPostOffice) {
+        if (address == null || address.isBlank()) {
+            return new HubRoutingResult(defaultCentralHub, defaultPostOffice);
+        }
 
-        List<Hub> hubs = hubRepository.findAll();
+        List<Hub> allHubs = hubRepository.findAll();
         String addressLower = address.toLowerCase();
-        for (Hub hub : hubs) {
-            if(hub.getProvince() != null && addressLower.contains(hub.getProvince().toLowerCase())) {
-                log.info("[ROUTING] Tìm thấy Hub phù hợp từ DB: {} ({}) cho địa chỉ '{}'", hub.getHubCode(), hub.getProvince(), address);
-                return hub.getHubCode();
+
+        // 1. Tìm Kho Tổng Cấp 1 (Central Hub) theo Tỉnh/Thành phố
+        Hub centralHub = null;
+        for (Hub h : allHubs) {
+            if ((h.getHubLevel() == null || h.getHubLevel() == 1) && h.getProvince() != null) {
+                String provLower = h.getProvince().toLowerCase();
+                if (addressLower.contains(provLower) ||
+                    (provLower.contains("hồ chí minh") && (addressLower.contains("hcm") || addressLower.contains("sài gòn")))) {
+                    centralHub = h;
+                    break;
+                }
             }
         }
 
-        log.warn("[ROUTING] Không tìm thấy Hub khớp cho địa chỉ '{}', dùng Hub mặc định: {}", address, defaultHub);
-        return defaultHub;
+        String centralHubCode = centralHub != null ? centralHub.getHubCode() : defaultCentralHub;
+
+        // 2. Tìm Bưu cục Cấp 2/3 (Sub-hub / Post Office) thuộc Kho Tổng này theo Quận/Huyện
+        String postOfficeCode = null;
+        Hub defaultSubHub = null;
+        for (Hub h : allHubs) {
+            if (h.getHubLevel() != null && h.getHubLevel() == 2 && centralHubCode.equals(h.getParentHubCode())) {
+                if (defaultSubHub == null) {
+                    defaultSubHub = h;
+                }
+                if (h.getDistrict() != null && addressLower.contains(h.getDistrict().toLowerCase())) {
+                    postOfficeCode = h.getHubCode();
+                    break;
+                }
+            }
+        }
+
+        if (postOfficeCode == null) {
+            postOfficeCode = defaultSubHub != null ? defaultSubHub.getHubCode() : defaultPostOffice;
+        }
+
+        return new HubRoutingResult(centralHubCode, postOfficeCode);
     }
 
 }

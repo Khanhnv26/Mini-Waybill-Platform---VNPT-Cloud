@@ -30,6 +30,12 @@ public class RoutingAssignment {
     @Column(name = "destination_hub", nullable = false)
     private String destinationHub;
 
+    @Column(name = "origin_post_office", length = 50)
+    private String originPostOffice;
+
+    @Column(name = "dest_post_office", length = 50)
+    private String destPostOffice;
+
     @Column(name = "route_code", nullable = false)
     private String routeCode;
 

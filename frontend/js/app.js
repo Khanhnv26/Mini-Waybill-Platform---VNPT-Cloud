@@ -185,6 +185,9 @@
                     }
                 }
                 previousTab.value = null; // Người dùng chủ động chuyển tab từ sidebar -> xóa lịch sử quay lại
+                if (tabId !== 'shipment') {
+                    selectedCustomerForShipment.value = null;
+                }
                 currentTab.value = tabId;
             };
 
@@ -209,11 +212,18 @@
 
             // Khi tạo vận đơn thành công ở ShipmentView, nhận sự kiện và chuyển sang Tra Cứu
             const handleShipmentCreated = (trackingCode) => {
+                selectedCustomerForShipment.value = null;
                 handleViewTracking(trackingCode, 'shipment');
             };
 
             // Khi chọn tạo vận đơn nhanh cho đối tác từ CustomerView
             const handleCreateShipmentFor = (customer) => {
+                if (!customer || customer.status !== 'ACTIVE') {
+                    if (window.Utils && window.Utils.showToast) {
+                        window.Utils.showToast('Không Khả Dụng', 'Khách hàng đang ở trạng thái Tạm Dừng, không thể tạo vận đơn.', 'warning');
+                    }
+                    return;
+                }
                 selectedCustomerForShipment.value = customer;
                 switchTab('shipment');
             };

@@ -28,11 +28,282 @@
     ];
 
     const HUB_COORDINATES = {
-        'HUB-HN-01': { name: 'Kho Tổng Hà Nội', lat: 21.028511, lng: 105.782000 },
-        'HUB-HP-01': { name: 'Kho Tổng Hải Phòng', lat: 20.844912, lng: 106.688084 },
-        'HUB-DN-01': { name: 'Kho Tổng Đà Nẵng', lat: 16.054407, lng: 108.202167 },
-        'HUB-HCM-01': { name: 'Kho Tổng TP. Hồ Chí Minh', lat: 10.823099, lng: 106.629664 },
-        'HUB-CT-01': { name: 'Kho Tổng Cần Thơ', lat: 10.045162, lng: 105.746857 }
+        // 5 KHO TỔNG CẤP 1 (SUPER HUBS / CENTRAL HUBS)
+        'HUB-HN-01': { 
+            name: 'Kho Tổng Hà Nội', 
+            address: 'Lô 12-A, KCN Minh Khai, Phường Minh Khai, Quận Bắc Từ Liêm, Hà Nội',
+            province: 'Hà Nội',
+            district: 'Bắc Từ Liêm',
+            lat: 21.028511, 
+            lng: 105.782000, 
+            level: 1 
+        },
+        'HUB-HP-01': { 
+            name: 'Kho Tổng Hải Phòng', 
+            address: 'Số 5 Đường Lê Hồng Phong, Phường Đằng Lâm, Quận Hải An, Hải Phòng',
+            province: 'Hải Phòng',
+            district: 'Hải An',
+            lat: 20.844912, 
+            lng: 106.688084, 
+            level: 1 
+        },
+        'HUB-DN-01': { 
+            name: 'Kho Tổng Đà Nẵng', 
+            address: 'Đường số 3, KCN Hòa Khánh, Phường Hòa Khánh Bắc, Quận Liên Chiểu, Đà Nẵng',
+            province: 'Đà Nẵng',
+            district: 'Liên Chiểu',
+            lat: 16.054407, 
+            lng: 108.202167, 
+            level: 1 
+        },
+        'HUB-HCM-01': { 
+            name: 'Kho Tổng TP. Hồ Chí Minh', 
+            address: 'Số 270 Lý Thường Kiệt, Phường 6, Quận Tân Bình, TP. Hồ Chí Minh',
+            province: 'Hồ Chí Minh',
+            district: 'Tân Bình',
+            lat: 10.823099, 
+            lng: 106.629664, 
+            level: 1 
+        },
+        'HUB-CT-01': { 
+            name: 'Kho Tổng Cần Thơ', 
+            address: 'KCN Hưng Phú 1, Phường Hưng Phú, Quận Cái Răng, Cần Thơ',
+            province: 'Cần Thơ',
+            district: 'Cái Răng',
+            lat: 10.045162, 
+            lng: 105.746857, 
+            level: 1 
+        },
+
+        // 17 BƯU CỤC PHÁT CẤP 2/3 (SUB-HUBS / LOCAL POST OFFICES)
+        // [Hà Nội]
+        'POST-HN-CG': { 
+            name: 'Bưu Cục Cầu Giấy', 
+            address: 'Số 165 Cầu Giấy, Phường Dịch Vọng, Quận Cầu Giấy, Hà Nội',
+            province: 'Hà Nội',
+            district: 'Cầu Giấy',
+            lat: 21.036200, 
+            lng: 105.790600, 
+            level: 2, 
+            parent: 'HUB-HN-01' 
+        },
+        'POST-HN-DDA': { 
+            name: 'Bưu Cục Đống Đa', 
+            address: 'Số 36 Tây Sơn, Phường Quang Trung, Quận Đống Đa, Hà Nội',
+            province: 'Hà Nội',
+            district: 'Đống Đa',
+            lat: 21.018100, 
+            lng: 105.829900, 
+            level: 2, 
+            parent: 'HUB-HN-01' 
+        },
+        'POST-HN-HBT': { 
+            name: 'Bưu Cục Hai Bà Trưng', 
+            address: 'Số 236 Lạc Trung, Phường Vĩnh Tuy, Quận Hai Bà Trưng, Hà Nội',
+            province: 'Hà Nội',
+            district: 'Hai Bà Trưng',
+            lat: 21.006900, 
+            lng: 105.852400, 
+            level: 2, 
+            parent: 'HUB-HN-01' 
+        },
+        'POST-HN-TX': { 
+            name: 'Bưu Cục Thanh Xuân', 
+            address: 'Số 18 Nguyễn Trãi, Phường Thượng Đình, Quận Thanh Xuân, Hà Nội',
+            province: 'Hà Nội',
+            district: 'Thanh Xuân',
+            lat: 20.993700, 
+            lng: 105.807800, 
+            level: 2, 
+            parent: 'HUB-HN-01' 
+        },
+        'POST-HN-HD': { 
+            name: 'Bưu Cục Hà Đông', 
+            address: 'Số 4 Quang Trung, Phường Yết Kiêu, Quận Hà Đông, Hà Nội',
+            province: 'Hà Nội',
+            district: 'Hà Đông',
+            lat: 20.971200, 
+            lng: 105.776600, 
+            level: 2, 
+            parent: 'HUB-HN-01' 
+        },
+
+        // [TP. Hồ Chí Minh]
+        'POST-HCM-Q1': { 
+            name: 'Bưu Cục Bến Nghé (Quận 1)', 
+            address: 'Số 2 Công Xã Paris, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh',
+            province: 'Hồ Chí Minh',
+            district: 'Quận 1',
+            lat: 10.776900, 
+            lng: 106.700900, 
+            level: 2, 
+            parent: 'HUB-HCM-01' 
+        },
+        'POST-HCM-TB': { 
+            name: 'Bưu Cục Tân Bình', 
+            address: 'Số 288 Hoàng Văn Thụ, Phường 4, Quận Tân Bình, TP. Hồ Chí Minh',
+            province: 'Hồ Chí Minh',
+            district: 'Tân Bình',
+            lat: 10.799200, 
+            lng: 106.653400, 
+            level: 2, 
+            parent: 'HUB-HCM-01' 
+        },
+        'POST-HCM-BT': { 
+            name: 'Bưu Cục Bình Thạnh', 
+            address: 'Số 364 Bạch Đằng, Phường 14, Quận Bình Thạnh, TP. Hồ Chí Minh',
+            province: 'Hồ Chí Minh',
+            district: 'Bình Thạnh',
+            lat: 10.810600, 
+            lng: 106.696100, 
+            level: 2, 
+            parent: 'HUB-HCM-01' 
+        },
+        'POST-HCM-TD': { 
+            name: 'Bưu Cục TP. Thủ Đức', 
+            address: 'Số 128 Võ Văn Ngân, Phường Linh Chiểu, TP. Thủ Đức, TP. Hồ Chí Minh',
+            province: 'Hồ Chí Minh',
+            district: 'Thủ Đức',
+            lat: 10.849400, 
+            lng: 106.771700, 
+            level: 2, 
+            parent: 'HUB-HCM-01' 
+        },
+        'POST-HCM-Q7': { 
+            name: 'Bưu Cục Tân Phong (Quận 7)', 
+            address: 'Số 1441 Huỳnh Tấn Phát, Phường Phú Mỹ, Quận 7, TP. Hồ Chí Minh',
+            province: 'Hồ Chí Minh',
+            district: 'Quận 7',
+            lat: 10.732400, 
+            lng: 106.708200, 
+            level: 2, 
+            parent: 'HUB-HCM-01' 
+        },
+
+        // [Đà Nẵng]
+        'POST-DN-HC': { 
+            name: 'Bưu Cục Hải Châu', 
+            address: 'Số 4 Lê Duẩn, Phường Hải Châu 1, Quận Hải Châu, Đà Nẵng',
+            province: 'Đà Nẵng',
+            district: 'Hải Châu',
+            lat: 16.067800, 
+            lng: 108.220800, 
+            level: 2, 
+            parent: 'HUB-DN-01' 
+        },
+        'POST-DN-TK': { 
+            name: 'Bưu Cục Thanh Khê', 
+            address: 'Số 251 Điện Biên Phủ, Phường Chính Gián, Quận Thanh Khê, Đà Nẵng',
+            province: 'Đà Nẵng',
+            district: 'Thanh Khê',
+            lat: 16.061300, 
+            lng: 108.181200, 
+            level: 2, 
+            parent: 'HUB-DN-01' 
+        },
+        'POST-DN-ST': { 
+            name: 'Bưu Cục Sơn Trà', 
+            address: 'Số 1 Ngô Quyền, Phường Thọ Quang, Quận Sơn Trà, Đà Nẵng',
+            province: 'Đà Nẵng',
+            district: 'Sơn Trà',
+            lat: 16.082500, 
+            lng: 108.243100, 
+            level: 2, 
+            parent: 'HUB-DN-01' 
+        },
+
+        // [Hải Phòng]
+        'POST-HP-NQ': { 
+            name: 'Bưu Cục Ngô Quyền', 
+            address: 'Số 147 Lương Khánh Thiện, Phường Cầu Đất, Quận Ngô Quyền, Hải Phòng',
+            province: 'Hải Phòng',
+            district: 'Ngô Quyền',
+            lat: 20.856100, 
+            lng: 106.699700, 
+            level: 2, 
+            parent: 'HUB-HP-01' 
+        },
+        'POST-HP-HB': { 
+            name: 'Bưu Cục Hồng Bàng', 
+            address: 'Số 5 Nguyễn Tri Phương, Phường Minh Khai, Quận Hồng Bàng, Hải Phòng',
+            province: 'Hải Phòng',
+            district: 'Hồng Bàng',
+            lat: 20.865300, 
+            lng: 106.671200, 
+            level: 2, 
+            parent: 'HUB-HP-01' 
+        },
+
+        // [Cần Thơ]
+        'POST-CT-NK': { 
+            name: 'Bưu Cục Ninh Kiều', 
+            address: 'Số 2 Hòa Bình, Phường Tân An, Quận Ninh Kiều, Cần Thơ',
+            province: 'Cần Thơ',
+            district: 'Ninh Kiều',
+            lat: 10.034200, 
+            lng: 105.779700, 
+            level: 2, 
+            parent: 'HUB-CT-01' 
+        },
+        'POST-CT-CR': { 
+            name: 'Bưu Cục Cái Răng', 
+            address: 'Số 321 Quốc Lộ 1A, Phường Lê Bình, Quận Cái Răng, Cần Thơ',
+            province: 'Cần Thơ',
+            district: 'Cái Răng',
+            lat: 10.003900, 
+            lng: 105.753300, 
+            level: 2, 
+            parent: 'HUB-CT-01' 
+        }
+    };
+
+    // Mạng lưới trạm chốt hành lang giao thông đường bộ nội địa Việt Nam (QL1A & Cao tốc Bắc - Nam CT01)
+    // Ngăn chặn triệt để hiện tượng thuật toán OSRM bẻ lái cắt qua biên giới Lào hoặc Campuchia
+    const VIETNAM_CORRIDOR_WAYPOINTS = [
+        { name: 'Ninh Bình (CT01)', lat: 20.2506, lng: 105.9745 },
+        { name: 'Thanh Hóa (QL1A)', lat: 19.8067, lng: 105.7852 },
+        { name: 'Vinh (Nghệ An)', lat: 18.6796, lng: 105.6813 },
+        { name: 'Hà Tĩnh (QL1A)', lat: 18.3560, lng: 105.9059 },
+        { name: 'Đồng Hới (Quảng Bình)', lat: 17.4740, lng: 106.6225 },
+        { name: 'Đông Hà (Quảng Trị)', lat: 16.8164, lng: 107.1005 },
+        { name: 'Huế (QL1A)', lat: 16.4637, lng: 107.5905 },
+        { name: 'Đà Nẵng (Hải Vân)', lat: 16.0544, lng: 108.2022 },
+        { name: 'Quảng Ngãi (CT01)', lat: 15.1205, lng: 108.7923 },
+        { name: 'Quy Nhơn (Bình Định)', lat: 13.7830, lng: 109.2197 },
+        { name: 'Tuy Hòa (Phú Yên)', lat: 13.0882, lng: 109.3075 },
+        { name: 'Nha Trang (Khánh Hòa)', lat: 12.2388, lng: 109.1967 },
+        { name: 'Phan Rang (Ninh Thuận)', lat: 11.5658, lng: 108.9882 },
+        { name: 'Phan Thiết (Bình Thuận)', lat: 10.9274, lng: 108.1021 },
+        { name: 'Long Khánh (Đồng Nai)', lat: 10.9431, lng: 107.2410 }
+    ];
+
+    const buildVietnamRouteWaypoints = (stopCoords) => {
+        if (!Array.isArray(stopCoords) || stopCoords.length <= 1) return stopCoords || [];
+        const result = [];
+        for (let i = 0; i < stopCoords.length - 1; i++) {
+            const current = stopCoords[i];
+            const next = stopCoords[i + 1];
+            result.push(current);
+
+            const isNorthToSouth = current.lat > next.lat;
+            const minLat = Math.min(current.lat, next.lat);
+            const maxLat = Math.max(current.lat, next.lat);
+
+            // Tìm các điểm chốt hành lang nội địa nằm giữa 2 trạm dừng liên tiếp
+            const intermediates = VIETNAM_CORRIDOR_WAYPOINTS.filter(wp => {
+                return wp.lat > minLat + 0.35 && wp.lat < maxLat - 0.35;
+            });
+
+            if (isNorthToSouth) {
+                intermediates.sort((a, b) => b.lat - a.lat);
+            } else {
+                intermediates.sort((a, b) => a.lat - b.lat);
+            }
+
+            intermediates.forEach(wp => result.push(wp));
+        }
+        result.push(stopCoords[stopCoords.length - 1]);
+        return result;
     };
 
     const TripsView = {
@@ -125,6 +396,9 @@
                 try {
                     const data = await RoutingService.getAllHubs();
                     hubsList.value = Array.isArray(data) ? data : [];
+                    if (window.MapManager && Array.isArray(data)) {
+                        window.MapManager.updateHubs(data);
+                    }
                 } catch (e) {
                     console.error('[TripsView] Không thể tải danh bạ Hubs:', e);
                 }
@@ -261,10 +535,41 @@
             };
 
             const getHubDisplayName = (code) => {
-                const hub = hubsList.value.find(h => h.hubCode === code);
+                if (!code) return '';
+                const trimmed = String(code).trim();
+                const hub = hubsList.value.find(h => h.hubCode === trimmed);
                 if (hub && hub.hubName) return hub.hubName;
-                if (HUB_COORDINATES[code]?.name) return HUB_COORDINATES[code].name;
-                return code;
+                const fallback = HUB_COORDINATES[trimmed] || HUB_COORDINATES[trimmed.toUpperCase()];
+                if (fallback && fallback.name) return fallback.name;
+                return trimmed;
+            };
+
+            const getHubAddress = (code) => {
+                if (!code) return 'Chưa có địa chỉ vận hành';
+                const trimmed = String(code).trim();
+                const hub = hubsList.value.find(h => h.hubCode === trimmed);
+                if (hub && hub.address) return hub.address;
+                const fallback = HUB_COORDINATES[trimmed] || HUB_COORDINATES[trimmed.toUpperCase()];
+                if (fallback && fallback.address) return fallback.address;
+                return 'Đang cập nhật địa chỉ';
+            };
+
+            const getHubLocation = (stop) => {
+                const hubCode = stop.hubCode || stop;
+                const trimmed = String(hubCode).trim();
+                const hub = hubsList.value.find(item => item.hubCode === trimmed);
+                const fallbackCoord = HUB_COORDINATES[trimmed] || HUB_COORDINATES[trimmed.toUpperCase()];
+                const latitude = Number(stop.latitude ?? hub?.latitude ?? fallbackCoord?.lat);
+                const longitude = Number(stop.longitude ?? hub?.longitude ?? fallbackCoord?.lng);
+                if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+                    return null;
+                }
+                return {
+                    name: stop.hubName || hub?.hubName || fallbackCoord?.name || trimmed,
+                    address: stop.hubAddress || hub?.address || fallbackCoord?.address || getHubAddress(trimmed),
+                    lat: latitude,
+                    lng: longitude
+                };
             };
 
             const addStopCode = (code) => {
@@ -496,8 +801,13 @@
                 const stops = tripData.stops || [];
                 if (stops.length === 0) return;
 
-                stops.forEach((stop, index) => {
-                    const coord = HUB_COORDINATES[stop.hubCode] || { name: stop.hubCode, lat: 16.0, lng: 108.0 };
+                const locatedStops = stops.map(stop => ({ stop, coord: getHubLocation(stop) }));
+                const missingLocations = locatedStops.filter(item => !item.coord);
+                if (missingLocations.length > 0) {
+                    console.warn('[TripsView] Missing hub coordinates:', missingLocations.map(item => item.stop.hubCode));
+                }
+
+                locatedStops.filter(item => item.coord).forEach(({ stop, coord }, index) => {
                     const point = [coord.lat, coord.lng];
 
                     let pinClass = 'hub-pin-transit';
@@ -528,10 +838,11 @@
 
                     const marker = L.marker(point, { icon: markerIcon }).addTo(leafletMap);
                     marker.bindPopup(`
-                        <div class="text-xs p-1">
-                            <p class="font-bold text-slate-800">Trạm ${stop.stopOrder}: ${coord.name}</p>
-                            <p class="text-slate-500 font-mono text-[11px]">Mã Hub: ${stop.hubCode}</p>
-                            <p class="mt-1 font-semibold text-blue-600">Trạng thái: ${stop.status}</p>
+                        <div class="text-xs p-1 min-w-[210px]">
+                            <p class="font-bold text-slate-800 text-[12px]">Trạm ${stop.stopOrder}: ${coord.name}</p>
+                            <p class="text-blue-600 font-mono text-[11px] font-bold">Mã Hub: ${stop.hubCode}</p>
+                            <p class="mt-1 text-slate-700 text-[11px] leading-relaxed"><b>Địa chỉ:</b> ${coord.address || getHubAddress(stop.hubCode)}</p>
+                            <p class="mt-1 font-semibold ${stop.status === 'ARRIVED' ? 'text-emerald-600' : 'text-slate-600'}">Trạng thái trạm: ${stop.status}</p>
                             ${stop.arrivedAt ? `<p class="text-slate-400 text-[10.5px]">Đến: ${new Date(stop.arrivedAt).toLocaleTimeString('vi-VN')}</p>` : ''}
                             ${stop.departedAt ? `<p class="text-slate-400 text-[10.5px]">Đi: ${new Date(stop.departedAt).toLocaleTimeString('vi-VN')}</p>` : ''}
                         </div>
@@ -539,14 +850,20 @@
                     stopMarkers.push(marker);
                 });
 
-                const stopCoords = stops.map(s => HUB_COORDINATES[s.hubCode] || { lat: 16.0, lng: 108.0 });
+                const stopCoords = locatedStops.filter(item => item.coord).map(item => item.coord);
+                if (stopCoords.length < 2) {
+                    Utils.showToast('Thiếu Tọa Độ Hub', 'Không đủ Hub có tọa độ xác thực để vẽ tuyến xe.', 'warning');
+                    return;
+                }
                 let routePoints = [];
 
                 try {
-                    const coordsQuery = stopCoords.map(c => `${c.lng},${c.lat}`).join(';');
+                    // Nẹp các điểm chốt hành lang nội địa dọc QL1A/CT01 giữa các trạm dừng
+                    const routingWaypoints = buildVietnamRouteWaypoints(stopCoords);
+                    const coordsQuery = routingWaypoints.map(c => `${c.lng},${c.lat}`).join(';');
                     const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordsQuery}?overview=full&geometries=geojson`;
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 6000);
+                    const timeoutId = setTimeout(() => controller.abort(), 8000);
                     const res = await fetch(osrmUrl, { signal: controller.signal });
                     clearTimeout(timeoutId);
                     if (res.ok) {
@@ -560,7 +877,8 @@
                 }
 
                 if (!routePoints || routePoints.length === 0) {
-                    routePoints = stopCoords.map(c => [c.lat, c.lng]);
+                    const routingWaypoints = buildVietnamRouteWaypoints(stopCoords);
+                    routePoints = routingWaypoints.map(c => [c.lat, c.lng]);
                 }
 
                 tripRoutePoints = routePoints;
@@ -801,8 +1119,14 @@
                     <tr>
                         <td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-size: 11px;">${idx + 1}</td>
                         <td style="border: 1px solid #cbd5e1; padding: 6px 8px; font-family: monospace; font-weight: bold; font-size: 11px;">${m.trackingCode}</td>
-                        <td style="border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px;">${m.originHub}</td>
-                        <td style="border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px;">${m.destinationHub}</td>
+                        <td style="border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px;">
+                            <strong>${m.originHub}</strong> <span style="color: #64748b;">(${getHubDisplayName(m.originHub)})</span><br/>
+                            <span style="color: #475569; font-size: 10px;">${m.originHubAddress || getHubAddress(m.originHub)}</span>
+                        </td>
+                        <td style="border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px;">
+                            <strong>${m.destinationHub}</strong> <span style="color: #64748b;">(${getHubDisplayName(m.destinationHub)})</span><br/>
+                            <span style="color: #475569; font-size: 10px;">${m.destinationHubAddress || getHubAddress(m.destinationHub)}</span>
+                        </td>
                         <td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: right; font-size: 11px; font-weight: bold;">${m.weightKg || 1} kg</td>
                         <td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-size: 11px;">
                             <span style="display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; background: ${m.serviceType === 'EXPRESS' ? '#eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;' : '#f8fafc; color: #475569; border: 1px solid #e2e8f0;'}">
@@ -942,7 +1266,7 @@
                 showDetailModal, activeTripDetail, isLoadingDetail, isConsolidating, isExecutingAction,
                 detailActiveTab, eligibleAssignments, isLoadingEligible, eligibleSearchQuery, selectedEligibleCodes,
                 filteredEligibleAssignments, selectedEligibleWeight, isConsolidatingSelected,
-                selectedStopToAdd, availableHubsToAdd, addNewStop, getHubDisplayName,
+                selectedStopToAdd, availableHubsToAdd, addNewStop, getHubDisplayName, getHubAddress,
                 applyPresetRoute, addStopCode, removeStopCode, submitCreateTrip,
                 openTripDetail, handleAutoConsolidate, handleConsolidateSelected, toggleSelectAllEligible,
                 handleRemoveItem, handleDepartTrip, handleArriveNextStop,
@@ -1267,7 +1591,9 @@
             <!-- ================================================================= -->
             <!-- MODAL 1: LẬP CHUYẾN XE MỚI (BỐ CỤC 2 CỘT GỌN GÀNG KHÔNG TRÀN)     -->
             <!-- ================================================================= -->
-            <div v-if="showCreateModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+            <teleport to="body">
+            <Transition name="modal">
+            <div v-if="showCreateModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
                 <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden">
                     <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                         <div>
@@ -1403,11 +1729,15 @@
                     </form>
                 </div>
             </div>
+            </Transition>
+            </teleport>
 
             <!-- ================================================================= -->
             <!-- MODAL 2: CHI TIẾT CHUYẾN XE (3 SUBTABS CHUYÊN BIỆT CHUẨN B2B)    -->
             <!-- ================================================================= -->
-            <div v-if="showDetailModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+            <teleport to="body">
+            <Transition name="modal">
+            <div v-if="showDetailModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
                 <div class="bg-white rounded-xl shadow-2xl max-w-5xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[88vh]">
                     
                     <!-- Header Modal -->
@@ -1530,6 +1860,7 @@
                                                 Trạm {{ s.stopOrder }}: {{ getHubDisplayName(s.hubCode) }}
                                                 <span class="text-blue-600 font-mono text-[11px]">({{ s.hubCode }})</span>
                                             </div>
+                                            <div class="text-[11px] text-slate-500 mt-0.5">{{ s.hubAddress || getHubAddress(s.hubCode) }}</div>
                                             <div class="text-[11px] text-slate-400 mt-0.5">
                                                 Đến: {{ s.arrivedAt ? new Date(s.arrivedAt).toLocaleTimeString('vi-VN') : '--:--' }} | 
                                                 Đi: {{ s.departedAt ? new Date(s.departedAt).toLocaleTimeString('vi-VN') : '--:--' }}
@@ -1589,7 +1920,8 @@
                                                 {{ m.trackingCode }}
                                             </td>
                                             <td class="px-4 py-2 text-slate-700">
-                                                <span class="font-mono text-slate-800">{{ m.originHub }}</span> đến <span class="font-mono text-slate-800">{{ m.destinationHub }}</span>
+                                                <div><span class="font-mono text-slate-800 font-bold">{{ m.originHub }}</span> <span class="text-slate-500 font-medium">({{ getHubDisplayName(m.originHub) }})</span> đến <span class="font-mono text-slate-800 font-bold">{{ m.destinationHub }}</span> <span class="text-slate-500 font-medium">({{ getHubDisplayName(m.destinationHub) }})</span></div>
+                                                <div class="text-[10.5px] text-slate-500 mt-0.5">{{ m.originHubAddress || getHubAddress(m.originHub) }} → {{ m.destinationHubAddress || getHubAddress(m.destinationHub) }}</div>
                                             </td>
                                             <td class="px-4 py-2 font-semibold text-slate-700">{{ m.weightKg }} kg</td>
                                             <td class="px-4 py-2 text-slate-500">{{ m.serviceType || 'EXPRESS' }}</td>
@@ -1725,6 +2057,8 @@
                     </div>
                 </div>
             </div>
+            </Transition>
+            </teleport>
         </div>
         `
     };

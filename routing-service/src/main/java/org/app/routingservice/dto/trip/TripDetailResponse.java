@@ -42,6 +42,10 @@ public class TripDetailResponse {
     public static class StopItemResponse {
         private Integer stopOrder;
         private String hubCode;
+        private String hubName;
+        private String hubAddress;
+        private Double latitude;
+        private Double longitude;
         private String status;
         private LocalDateTime arrivedAt;
         private LocalDateTime departedAt;
@@ -54,7 +58,11 @@ public class TripDetailResponse {
     public static class ManifestItemResponse {
         private String trackingCode;
         private String originHub;
+        private String originHubName;
+        private String originHubAddress;
         private String destinationHub;
+        private String destinationHubName;
+        private String destinationHubAddress;
         private Double weightKg;
         private String serviceType;
         private String status;

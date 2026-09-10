@@ -30,9 +30,9 @@
             const STATE_FLOW = [
                 { status: 'PENDING_ROUTING', loc: 'HUB-HN-01', note: 'Khởi tạo bưu gửi, chờ phân tuyến liên bưu cục' },
                 { status: 'ROUTE_ASSIGNED', loc: 'HUB-HN-01', note: 'Hệ thống đã tự động thiết lập tuyến luân chuyển qua các Hub' },
-                { status: 'PICKED_UP', loc: 'HUB-HN-01', note: 'Bưu cục gốc đã tiếp nhận bưu gửi vào kho chia chọn' },
+                { status: 'PICKED_UP', loc: 'HUB-HN-01', note: 'Bưu cục tiếp nhận đã hoàn tất gom bưu phẩm về kho chia chọn' },
                 { status: 'IN_TRANSIT', loc: 'TRANSIT_CORRIDOR', note: 'Đóng chuyến xe container, lưu thông trên Quốc lộ 1A' },
-                { status: 'OUT_FOR_DELIVERY', loc: 'HUB-HCM-01', note: 'Đến bưu cục đích, bàn giao bưu tá phát chặng cuối' },
+                { status: 'OUT_FOR_DELIVERY', loc: 'DELIVERY_OFFICE', note: 'Kho Tổng đích đã bàn giao bưu gửi cho Bưu cục phát con, bưu tá đang đi phát' },
                 { status: 'DELIVERED', loc: 'CUSTOMER_DEST', note: 'Bưu tá phát tận nơi thành công và thu tiền COD' }
             ];
 

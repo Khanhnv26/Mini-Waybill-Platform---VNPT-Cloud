@@ -2,6 +2,7 @@ package org.app.routingservice.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.app.routingservice.dto.event.ShipmentStatusUpdatedEvent;
 import org.app.routingservice.dto.trip.ConsolidateItemRequest;
 import org.app.routingservice.dto.trip.ConsolidateRequest;
 import org.app.routingservice.dto.trip.CreateTripRequest;
@@ -18,6 +19,7 @@ import org.app.routingservice.repository.TripManifestRepository;
 import org.app.routingservice.repository.TripRepository;
 import org.app.routingservice.repository.TripStopRepository;
 import org.app.routingservice.service.TripService;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +44,7 @@ public class TripServiceImpl implements TripService {
     private final TripStopRepository tripStopRepository;
     private final TripManifestRepository tripManifestRepository;
     private final RoutingAssignmentRepository routingAssignmentRepository;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     private String normalizeHubCode(String rawCode) {
         if (rawCode == null || rawCode.isBlank()) {
@@ -137,10 +140,17 @@ public class TripServiceImpl implements TripService {
         List<TripStop> stops = tripStopRepository.findByTripIdOrderByStopOrder(tripId);
         List<TripManifest> manifests = tripManifestRepository.findByTripId(tripId);
 
+        Map<String, Hub> hubsByCode = hubRepository.findAll().stream()
+                .collect(Collectors.toMap(Hub::getHubCode, hub -> hub, (first, ignored) -> first));
+
         List<TripDetailResponse.StopItemResponse> stopDtos = stops.stream()
                 .map(s -> TripDetailResponse.StopItemResponse.builder()
                         .stopOrder(s.getStopOrder())
                         .hubCode(s.getHubCode())
+                        .hubName(hubName(hubsByCode, s.getHubCode()))
+                        .hubAddress(hubAddress(hubsByCode, s.getHubCode()))
+                        .latitude(hubLatitude(hubsByCode, s.getHubCode()))
+                        .longitude(hubLongitude(hubsByCode, s.getHubCode()))
                         .status(s.getStatus())
                         .arrivedAt(s.getArrivedAt())
                         .departedAt(s.getDepartedAt())
@@ -151,7 +161,11 @@ public class TripServiceImpl implements TripService {
                 .map(m -> TripDetailResponse.ManifestItemResponse.builder()
                         .trackingCode(m.getTrackingCode())
                         .originHub(m.getOriginHub())
+                        .originHubName(hubName(hubsByCode, m.getOriginHub()))
+                        .originHubAddress(hubAddress(hubsByCode, m.getOriginHub()))
                         .destinationHub(m.getDestinationHub())
+                        .destinationHubName(hubName(hubsByCode, m.getDestinationHub()))
+                        .destinationHubAddress(hubAddress(hubsByCode, m.getDestinationHub()))
                         .weightKg(m.getWeightKg())
                         .serviceType(m.getServiceType())
                         .status(m.getStatus())
@@ -192,6 +206,31 @@ public class TripServiceImpl implements TripService {
                 .stops(stopDtos)
                 .manifests(manifestDtos)
                 .build();
+    }
+
+    private Hub findHub(Map<String, Hub> hubsByCode, String code) {
+        Hub direct = hubsByCode.get(code);
+        return direct != null ? direct : hubsByCode.get(normalizeHubCode(code));
+    }
+
+    private String hubName(Map<String, Hub> hubsByCode, String code) {
+        Hub hub = findHub(hubsByCode, code);
+        return hub != null ? hub.getHubName() : code;
+    }
+
+    private String hubAddress(Map<String, Hub> hubsByCode, String code) {
+        Hub hub = findHub(hubsByCode, code);
+        return hub != null ? hub.getAddress() : null;
+    }
+
+    private Double hubLatitude(Map<String, Hub> hubsByCode, String code) {
+        Hub hub = findHub(hubsByCode, code);
+        return hub != null ? hub.getLatitude() : null;
+    }
+
+    private Double hubLongitude(Map<String, Hub> hubsByCode, String code) {
+        Hub hub = findHub(hubsByCode, code);
+        return hub != null ? hub.getLongitude() : null;
     }
 
     @Override
@@ -484,8 +523,21 @@ public class TripServiceImpl implements TripService {
                 item.setUnloadedAt(LocalDateTime.now());
                 tripManifestRepository.save(item);
                 unloadedCount++;
+
+                ShipmentStatusUpdatedEvent statusEvent = ShipmentStatusUpdatedEvent.builder()
+                        .trackingCode(item.getTrackingCode())
+                        .status("ARRIVED_DEST_HUB")
+                        .locationCode(currentStop.getHubCode())
+                        .note(String.format("Chuyến xe %s đã cập bến %s. Kiện hàng đã được dỡ an toàn vào kho bãi.", trip.getTripCode(), currentStop.getHubCode()))
+                        .updateAt(LocalDateTime.now().toString())
+                        .build();
+                kafkaTemplate.send("tracking-status-events", item.getTrackingCode(), statusEvent);
             }
+
+
         }
+
+
 
         Double remainingWeight = tripManifestRepository.sumActiveWeightByTripId(tripId);
         trip.setCurrentWeight(remainingWeight != null ? remainingWeight : 0.0);

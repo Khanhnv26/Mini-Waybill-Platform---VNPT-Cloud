@@ -9,7 +9,15 @@
             const response = await Api.post('/api/shipments', payload);
             if (!response.ok) {
                 const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.error || errData.message || 'Lỗi khi khởi tạo bưu gửi');
+                let msg = errData.error || errData.message;
+                if (!msg) {
+                    const fieldErrors = Object.entries(errData)
+                        .filter(([k]) => k !== 'errorCode' && k !== 'timestamp' && k !== 'status')
+                        .map(([k, v]) => `${v}`)
+                        .join('; ');
+                    if (fieldErrors) msg = fieldErrors;
+                }
+                throw new Error(msg || 'Lỗi khi khởi tạo bưu gửi (400 Bad Request)');
             }
             return response.json();
         },

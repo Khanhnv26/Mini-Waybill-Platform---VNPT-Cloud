@@ -103,8 +103,7 @@ class TrackingServiceImplTest {
 
     @Test
     @DisplayName("Trạng thái không hợp lệ: Gửi chuỗi rác ABCXYZ -> Bị từ chối")
-    void updateStatus_InvalidStatusName_ShouldThrowException() {
-        when(valueOperations.get("shipment-status:" + TRACKING_CODE)).thenReturn("PENDING_ROUTING");
+    void updateStatus_InvalidStatusName_ShouldThrowException()  {
 
         UpdateStatusRequest request = UpdateStatusRequest.builder()
                 .status("ABCXYZ")

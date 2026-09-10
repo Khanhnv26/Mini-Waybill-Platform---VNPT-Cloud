@@ -23,8 +23,15 @@
             return response.json();
         },
 
-        async updateCustomerStatus(id, status) {
-            const response = await Api.put(`/api/customers/${id}`, { status });
+        async updateCustomerStatus(id, status, customer = null) {
+            const payload = customer ? {
+                fullName: customer.fullName,
+                address: customer.address || 'N/A',
+                email: customer.email,
+                phoneNumber: customer.phoneNumber,
+                status
+            } : { status };
+            const response = await Api.put(`/api/customers/${id}`, payload);
             if (!response.ok) {
                 const errData = await response.json().catch(() => ({}));
                 throw new Error(errData.error || errData.message || 'Cập nhật trạng thái khách hàng thất bại');

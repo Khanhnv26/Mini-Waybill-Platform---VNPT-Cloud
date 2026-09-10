@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.app.trackingservice.dto.event.CreateShipmentEvent;
 import org.app.trackingservice.dto.event.RouteAssignedEvent;
+import org.app.trackingservice.dto.event.ShipmentStatusUpdatedEvent;
 import org.app.trackingservice.entity.TrackingHistory;
 import org.app.trackingservice.repository.TrackingHistoryRepository;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -65,11 +66,18 @@ public class TrackingConsumer {
             return;
         }
 
+        String nodeText = "Đã phân tuyến vận chuyển: " + event.getRouteCode();
+        if (event.getOriginPostOffice() != null && event.getDestPostOffice() != null) {
+            nodeText += String.format(" (%s ➔ %s ➔ %s ➔ %s)",
+                    event.getOriginPostOffice(), event.getSourceHub(),
+                    event.getDestinationHub(), event.getDestPostOffice());
+        }
+
         TrackingHistory history = TrackingHistory.builder()
                 .trackingCode(event.getTrackingCode())
                 .status("ROUTE_ASSIGNED")
-                .locationCode(event.getSourceHub())
-                .node("Đã phân tuyến vận chuyển: " + event.getRouteCode())
+                .locationCode(event.getOriginPostOffice() != null ? event.getOriginPostOffice() : event.getSourceHub())
+                .node(nodeText)
                 .occurredAt(LocalDateTime.now())
                 .build();
         trackingRepository.save(history);
@@ -84,5 +92,23 @@ public class TrackingConsumer {
                           @Header(KafkaHeaders.RECEIVED_TOPIC) String topic,
                           @Header(KafkaHeaders.OFFSET) long offset){
         log.error("[TRACKING-SERVICE] Event CreateShipmentEvent với trackingCode {} đã thất bại sau 3 lần thử. Gửi vào DLT để xử lý thủ công.", event.getTrackingCode());
+    }
+
+    @KafkaListener(topics = "tracking-status-events", groupId = "tracking-status-sync-group")
+    @RetryableTopic(attempts = "3", backOff = @BackOff(delay = 1000, multiplier = 2))
+    public void handleStatusUpdatedFromRouting(ShipmentStatusUpdatedEvent event) {
+
+        if("ARRIVED_DEST_HUB".equals(event.getStatus())) {
+            TrackingHistory trackingHistory = TrackingHistory.builder()
+                    .trackingCode(event.getTrackingCode())
+                    .status("ARRIVED_DEST_HUB")
+                    .locationCode(event.getLocationCode() != null ? event.getLocationCode() : "DEST_HUB")
+                    .node(event.getNote() != null ? event.getNote() : "Đơn hàng đã đến trạm trung chuyển cuối cùng trước khi giao hàng")
+                    .occurredAt(event.getUpdatedAt() != null ? event.getUpdatedAt() : LocalDateTime.now())
+                    .build();
+            trackingRepository.save(trackingHistory);
+            String redisKey = "shipment-status:" + event.getTrackingCode();
+            redisTemplate.opsForValue().set(redisKey,"ARRIVED_DEST_HUB", Duration.ofDays(7));
+        }
     }
 }

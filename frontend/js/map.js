@@ -11,23 +11,25 @@
      * Không được thêm mã ngoài danh sách này, vì backend sẽ ném lỗi ở valueOf().
      */
     const STATUS_RATIOS = {
-        'CREATED': 0.02,
-        'PENDING_ROUTING': 0.05,
-        'ROUTE_ASSIGNED': 0.10,
-        'PICKED_UP': 0.22,
-        'IN_TRANSIT': 0.60,
-        'OUT_FOR_DELIVERY': 0.90,
+        'CREATED': 0.0,
+        'PENDING_ROUTING': 0.0,
+        'ROUTE_ASSIGNED': 0.0,
+        'PICKED_UP': 0.0,
+        'IN_TRANSIT': 0.50,
+        'ARRIVED_DEST_HUB': 1.0,
+        'OUT_FOR_DELIVERY': 1.0,
         'DELIVERED': 1.0,
-        'DELIVERY_FAILED': 0.90
+        'DELIVERY_FAILED': 1.0
     };
 
     const STATUS_NAMES = {
-        'CREATED': 'Đã Tiếp Nhận Bưu Gửi',
+        'CREATED': 'Đã Tiếp Nhận Tại Bưu Cục',
         'PENDING_ROUTING': 'Đang Chờ Phân Tuyến',
         'ROUTE_ASSIGNED': 'Đã Thiết Lập Tuyến',
-        'PICKED_UP': 'Đã Rời Bưu Cục Xuất Phát',
-        'IN_TRANSIT': 'Đang Vận Chuyển Trên Tuyến',
-        'OUT_FOR_DELIVERY': 'Bưu Tá Đang Giao Tận Nơi',
+        'PICKED_UP': 'Đã Gom Về Kho Tổng Gửi',
+        'IN_TRANSIT': 'Đang Vận Chuyển Trên Tuyến Trục',
+        'ARRIVED_DEST_HUB': 'Đã Đến Kho Tổng Đích',
+        'OUT_FOR_DELIVERY': 'Bưu Tá Đang Đi Phát',
         'DELIVERED': 'Giao Hàng Thành Công',
         'DELIVERY_FAILED': 'Phát Không Thành Công'
     };
@@ -43,11 +45,263 @@
         STATUS_RATIOS,
         STATUS_NAMES,
         hubCoordinates: {
-            'HUB-HN-01': { name: 'Kho Tổng Hà Nội', lat: 21.028511, lng: 105.782000 },
-            'HUB-HP-01': { name: 'Kho Tổng Hải Phòng', lat: 20.844912, lng: 106.688084 },
-            'HUB-DN-01': { name: 'Kho Tổng Đà Nẵng', lat: 16.054407, lng: 108.202167 },
-            'HUB-HCM-01': { name: 'Kho Tổng TP. Hồ Chí Minh', lat: 10.823099, lng: 106.629664 },
-            'HUB-CT-01': { name: 'Kho Tổng Cần Thơ', lat: 10.045162, lng: 105.746857 }
+            // 5 KHO TỔNG CẤP 1 (SUPER HUBS / CENTRAL HUBS)
+            'HUB-HN-01': { 
+                name: 'Kho Tổng Hà Nội', 
+                address: 'Lô 12-A, KCN Minh Khai, Phường Minh Khai, Quận Bắc Từ Liêm, Hà Nội',
+                province: 'Hà Nội',
+                district: 'Bắc Từ Liêm',
+                lat: 21.028511, 
+                lng: 105.782000, 
+                level: 1 
+            },
+            'HUB-HP-01': { 
+                name: 'Kho Tổng Hải Phòng', 
+                address: 'Số 5 Đường Lê Hồng Phong, Phường Đằng Lâm, Quận Hải An, Hải Phòng',
+                province: 'Hải Phòng',
+                district: 'Hải An',
+                lat: 20.844912, 
+                lng: 106.688084, 
+                level: 1 
+            },
+            'HUB-DN-01': { 
+                name: 'Kho Tổng Đà Nẵng', 
+                address: 'Đường số 3, KCN Hòa Khánh, Phường Hòa Khánh Bắc, Quận Liên Chiểu, Đà Nẵng',
+                province: 'Đà Nẵng',
+                district: 'Liên Chiểu',
+                lat: 16.054407, 
+                lng: 108.202167, 
+                level: 1 
+            },
+            'HUB-HCM-01': { 
+                name: 'Kho Tổng TP. Hồ Chí Minh', 
+                address: 'Số 270 Lý Thường Kiệt, Phường 6, Quận Tân Bình, TP. Hồ Chí Minh',
+                province: 'Hồ Chí Minh',
+                district: 'Tân Bình',
+                lat: 10.823099, 
+                lng: 106.629664, 
+                level: 1 
+            },
+            'HUB-CT-01': { 
+                name: 'Kho Tổng Cần Thơ', 
+                address: 'KCN Hưng Phú 1, Phường Hưng Phú, Quận Cái Răng, Cần Thơ',
+                province: 'Cần Thơ',
+                district: 'Cái Răng',
+                lat: 10.045162, 
+                lng: 105.746857, 
+                level: 1 
+            },
+
+            // 17 BƯU CỤC PHÁT CẤP 2/3 (SUB-HUBS / LOCAL POST OFFICES)
+            // [Hà Nội]
+            'POST-HN-CG': { 
+                name: 'Bưu Cục Cầu Giấy', 
+                address: 'Số 165 Cầu Giấy, Phường Dịch Vọng, Quận Cầu Giấy, Hà Nội',
+                province: 'Hà Nội',
+                district: 'Cầu Giấy',
+                lat: 21.036200, 
+                lng: 105.790600, 
+                level: 2, 
+                parent: 'HUB-HN-01' 
+            },
+            'POST-HN-DDA': { 
+                name: 'Bưu Cục Đống Đa', 
+                address: 'Số 36 Tây Sơn, Phường Quang Trung, Quận Đống Đa, Hà Nội',
+                province: 'Hà Nội',
+                district: 'Đống Đa',
+                lat: 21.018100, 
+                lng: 105.829900, 
+                level: 2, 
+                parent: 'HUB-HN-01' 
+            },
+            'POST-HN-HBT': { 
+                name: 'Bưu Cục Hai Bà Trưng', 
+                address: 'Số 236 Lạc Trung, Phường Vĩnh Tuy, Quận Hai Bà Trưng, Hà Nội',
+                province: 'Hà Nội',
+                district: 'Hai Bà Trưng',
+                lat: 21.006900, 
+                lng: 105.852400, 
+                level: 2, 
+                parent: 'HUB-HN-01' 
+            },
+            'POST-HN-TX': { 
+                name: 'Bưu Cục Thanh Xuân', 
+                address: 'Số 18 Nguyễn Trãi, Phường Thượng Đình, Quận Thanh Xuân, Hà Nội',
+                province: 'Hà Nội',
+                district: 'Thanh Xuân',
+                lat: 20.993700, 
+                lng: 105.807800, 
+                level: 2, 
+                parent: 'HUB-HN-01' 
+            },
+            'POST-HN-HD': { 
+                name: 'Bưu Cục Hà Đông', 
+                address: 'Số 4 Quang Trung, Phường Yết Kiêu, Quận Hà Đông, Hà Nội',
+                province: 'Hà Nội',
+                district: 'Hà Đông',
+                lat: 20.971200, 
+                lng: 105.776600, 
+                level: 2, 
+                parent: 'HUB-HN-01' 
+            },
+
+            // [TP. Hồ Chí Minh]
+            'POST-HCM-Q1': { 
+                name: 'Bưu Cục Bến Nghé (Quận 1)', 
+                address: 'Số 2 Công Xã Paris, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh',
+                province: 'Hồ Chí Minh',
+                district: 'Quận 1',
+                lat: 10.776900, 
+                lng: 106.700900, 
+                level: 2, 
+                parent: 'HUB-HCM-01' 
+            },
+            'POST-HCM-TB': { 
+                name: 'Bưu Cục Tân Bình', 
+                address: 'Số 288 Hoàng Văn Thụ, Phường 4, Quận Tân Bình, TP. Hồ Chí Minh',
+                province: 'Hồ Chí Minh',
+                district: 'Tân Bình',
+                lat: 10.799200, 
+                lng: 106.653400, 
+                level: 2, 
+                parent: 'HUB-HCM-01' 
+            },
+            'POST-HCM-BT': { 
+                name: 'Bưu Cục Bình Thạnh', 
+                address: 'Số 364 Bạch Đằng, Phường 14, Quận Bình Thạnh, TP. Hồ Chí Minh',
+                province: 'Hồ Chí Minh',
+                district: 'Bình Thạnh',
+                lat: 10.810600, 
+                lng: 106.696100, 
+                level: 2, 
+                parent: 'HUB-HCM-01' 
+            },
+            'POST-HCM-TD': { 
+                name: 'Bưu Cục TP. Thủ Đức', 
+                address: 'Số 128 Võ Văn Ngân, Phường Linh Chiểu, TP. Thủ Đức, TP. Hồ Chí Minh',
+                province: 'Hồ Chí Minh',
+                district: 'Thủ Đức',
+                lat: 10.849400, 
+                lng: 106.771700, 
+                level: 2, 
+                parent: 'HUB-HCM-01' 
+            },
+            'POST-HCM-Q7': { 
+                name: 'Bưu Cục Tân Phong (Quận 7)', 
+                address: 'Số 1441 Huỳnh Tấn Phát, Phường Phú Mỹ, Quận 7, TP. Hồ Chí Minh',
+                province: 'Hồ Chí Minh',
+                district: 'Quận 7',
+                lat: 10.732400, 
+                lng: 106.708200, 
+                level: 2, 
+                parent: 'HUB-HCM-01' 
+            },
+
+            // [Đà Nẵng]
+            'POST-DN-HC': { 
+                name: 'Bưu Cục Hải Châu', 
+                address: 'Số 4 Lê Duẩn, Phường Hải Châu 1, Quận Hải Châu, Đà Nẵng',
+                province: 'Đà Nẵng',
+                district: 'Hải Châu',
+                lat: 16.067800, 
+                lng: 108.220800, 
+                level: 2, 
+                parent: 'HUB-DN-01' 
+            },
+            'POST-DN-TK': { 
+                name: 'Bưu Cục Thanh Khê', 
+                address: 'Số 251 Điện Biên Phủ, Phường Chính Gián, Quận Thanh Khê, Đà Nẵng',
+                province: 'Đà Nẵng',
+                district: 'Thanh Khê',
+                lat: 16.061300, 
+                lng: 108.181200, 
+                level: 2, 
+                parent: 'HUB-DN-01' 
+            },
+            'POST-DN-ST': { 
+                name: 'Bưu Cục Sơn Trà', 
+                address: 'Số 1 Ngô Quyền, Phường Thọ Quang, Quận Sơn Trà, Đà Nẵng',
+                province: 'Đà Nẵng',
+                district: 'Sơn Trà',
+                lat: 16.082500, 
+                lng: 108.243100, 
+                level: 2, 
+                parent: 'HUB-DN-01' 
+            },
+
+            // [Hải Phòng]
+            'POST-HP-NQ': { 
+                name: 'Bưu Cục Ngô Quyền', 
+                address: 'Số 147 Lương Khánh Thiện, Phường Cầu Đất, Quận Ngô Quyền, Hải Phòng',
+                province: 'Hải Phòng',
+                district: 'Ngô Quyền',
+                lat: 20.856100, 
+                lng: 106.699700, 
+                level: 2, 
+                parent: 'HUB-HP-01' 
+            },
+            'POST-HP-HB': { 
+                name: 'Bưu Cục Hồng Bàng', 
+                address: 'Số 5 Nguyễn Tri Phương, Phường Minh Khai, Quận Hồng Bàng, Hải Phòng',
+                province: 'Hải Phòng',
+                district: 'Hồng Bàng',
+                lat: 20.865300, 
+                lng: 106.671200, 
+                level: 2, 
+                parent: 'HUB-HP-01' 
+            },
+
+            // [Cần Thơ]
+            'POST-CT-NK': { 
+                name: 'Bưu Cục Ninh Kiều', 
+                address: 'Số 2 Hòa Bình, Phường Tân An, Quận Ninh Kiều, Cần Thơ',
+                province: 'Cần Thơ',
+                district: 'Ninh Kiều',
+                lat: 10.034200, 
+                lng: 105.779700, 
+                level: 2, 
+                parent: 'HUB-CT-01' 
+            },
+            'POST-CT-CR': { 
+                name: 'Bưu Cục Cái Răng', 
+                address: 'Số 321 Quốc Lộ 1A, Phường Lê Bình, Quận Cái Răng, Cần Thơ',
+                province: 'Cần Thơ',
+                district: 'Cái Răng',
+                lat: 10.003900, 
+                lng: 105.753300, 
+                level: 2, 
+                parent: 'HUB-CT-01' 
+            }
+        },
+
+        // Đồng bộ danh bạ Hubs từ backend vào MapManager
+        updateHubs(list) {
+            if (!Array.isArray(list)) return;
+            list.forEach(h => {
+                if (h.hubCode) {
+                    const existing = this.hubCoordinates[h.hubCode] || {};
+                    this.hubCoordinates[h.hubCode] = {
+                        ...existing,
+                        name: h.hubName || existing.name || h.hubCode,
+                        address: h.address || existing.address || null,
+                        lat: Number(h.latitude ?? existing.lat),
+                        lng: Number(h.longitude ?? existing.lng),
+                        level: h.hubLevel || (h.hubType === 'POST_OFFICE' ? 2 : 1),
+                        parent: h.parentHubCode || existing.parent || null,
+                        district: h.district || existing.district || null,
+                        province: h.province || existing.province || null
+                    };
+                }
+            });
+        },
+
+        // Truy xuất tọa độ & thông tin Hub kèm địa chỉ chuẩn
+        getHubCoord(code) {
+            if (!code) return null;
+            const trimmed = String(code).trim();
+            const hub = this.hubCoordinates[trimmed] || this.hubCoordinates[trimmed.toUpperCase()];
+            if (hub) return { code: trimmed, ...hub };
+            return null;
         },
 
         currentContainerId: null,
@@ -57,15 +311,48 @@
         renderToken: 0,
         lastRatio: 0,
         markerAnimFrame: null,
+        feederOriginPolyline: null,
+        feederDestPolyline: null,
+        lastMilePolyline: null,
+        shipperMarker: null,
+
+        // Mạng lưới trạm chốt hành lang nội địa dọc QL1A và Cao tốc Bắc - Nam CT01
         vietnamCorridorWaypoints: [
+            { name: 'Ninh Bình (CT01)', lat: 20.2506, lng: 105.9745 },
+            { name: 'Thanh Hóa (QL1A)', lat: 19.8067, lng: 105.7852 },
             { name: 'Vinh (Nghệ An)', lat: 18.6796, lng: 105.6813 },
+            { name: 'Hà Tĩnh (QL1A)', lat: 18.3560, lng: 105.9059 },
             { name: 'Đồng Hới (Quảng Bình)', lat: 17.4740, lng: 106.6225 },
-            { name: 'Huế', lat: 16.4637, lng: 107.5905 },
-            { name: 'Đà Nẵng', lat: 16.054407, lng: 108.202167 },
+            { name: 'Đông Hà (Quảng Trị)', lat: 16.8164, lng: 107.1005 },
+            { name: 'Huế (QL1A)', lat: 16.4637, lng: 107.5905 },
+            { name: 'Đà Nẵng (Hải Vân)', lat: 16.054407, lng: 108.202167 },
+            { name: 'Quảng Ngãi (CT01)', lat: 15.1205, lng: 108.7923 },
             { name: 'Quy Nhơn (Bình Định)', lat: 13.7830, lng: 109.2197 },
+            { name: 'Tuy Hòa (Phú Yên)', lat: 13.0882, lng: 109.3075 },
             { name: 'Nha Trang (Khánh Hòa)', lat: 12.2388, lng: 109.1967 },
-            { name: 'Phan Thiết (Bình Thuận)', lat: 10.9274, lng: 108.1021 }
+            { name: 'Phan Rang (Ninh Thuận)', lat: 11.5658, lng: 108.9882 },
+            { name: 'Phan Thiết (Bình Thuận)', lat: 10.9274, lng: 108.1021 },
+            { name: 'Long Khánh (Đồng Nai)', lat: 10.9431, lng: 107.2410 }
         ],
+
+        // Tìm Bưu cục Cấp 2/3 phù hợp với địa chỉ và Hub Tổng cha
+        getPostOfficeForAddress(address, parentHubCode) {
+            if (!address) return null;
+            const addrLower = address.toLowerCase();
+            for (const [code, h] of Object.entries(this.hubCoordinates)) {
+                if (h.level === 2 && (!parentHubCode || h.parent === parentHubCode)) {
+                    if (h.district && addrLower.includes(h.district.toLowerCase())) {
+                        return { code, ...h };
+                    }
+                }
+            }
+            for (const [code, h] of Object.entries(this.hubCoordinates)) {
+                if (h.level === 2 && h.parent === parentHubCode) {
+                    return { code, ...h };
+                }
+            }
+            return null;
+        },
 
         // Xây dựng danh sách trạm mốc hành lang giao thông đường bộ Việt Nam (QL1A & Cao tốc Bắc - Nam CT01)
         buildVietnamWaypoints(sourceCoord, destCoord) {
@@ -75,7 +362,7 @@
 
             // Lọc các điểm chốt hành lang nằm giữa điểm đi và điểm đến
             const intermediates = this.vietnamCorridorWaypoints.filter(wp => {
-                return wp.lat > minLat + 0.25 && wp.lat < maxLat - 0.25;
+                return wp.lat > minLat + 0.35 && wp.lat < maxLat - 0.35;
             });
 
             if (isNorthToSouth) {
@@ -318,16 +605,22 @@
 
             const movedHubs = [];
             hubs.forEach(h => {
-                if (h.hubCode && h.latitude && h.longitude) {
+                const latitude = Number(h.latitude);
+                const longitude = Number(h.longitude);
+                if (h.hubCode && Number.isFinite(latitude) && Number.isFinite(longitude)) {
                     const old = this.hubCoordinates[h.hubCode];
-                    if (!old || old.lat !== h.latitude || old.lng !== h.longitude) {
+                    if (!old || old.lat !== latitude || old.lng !== longitude) {
                         movedHubs.push(h.hubCode);
                     }
                     this.hubCoordinates[h.hubCode] = {
                         name: h.hubName + ' (' + h.hubCode + ')',
-                        lat: h.latitude,
-                        lng: h.longitude,
-                        province: h.province
+                        address: h.address || old?.address || null,
+                        lat: latitude,
+                        lng: longitude,
+                        province: h.province,
+                        district: h.district || old?.district,
+                        parent: h.parentHubCode || old?.parent,
+                        level: h.hubLevel || old?.level || (h.hubCode.startsWith('POST-') ? 2 : 1)
                     };
                 }
             });
@@ -346,36 +639,86 @@
         },
 
         // Lấy thông tin tọa độ bưu cục
-        getHubCoord(hubCode, fallbackCode = 'HUB-HN-01') {
-            return this.hubCoordinates[hubCode] || this.hubCoordinates[fallbackCode] || { name: hubCode, lat: 21.028511, lng: 105.782000 };
+        getHubCoord(hubCode) {
+            return hubCode ? this.hubCoordinates[hubCode] || null : null;
         },
 
         // Cập nhật tiến độ bưu kiện trên từng chặng OSRM thời gian thực
         updateProgress(status, note = '') {
             if (!this.map || !this.routePoints || this.routePoints.length === 0) return null;
 
-            // Trạng thái không nằm trong enum backend: giữ nguyên vị trí hiện tại,
-            // tuyệt đối không rơi về một giá trị mặc định làm pin nhảy giật lùi.
+            // Trạng thái không nằm trong enum backend: giữ nguyên vị trí hiện tại
             const ratio = STATUS_RATIOS[status] !== undefined ? STATUS_RATIOS[status] : this.lastRatio;
             const targetIdx = Math.min(this.routePoints.length - 1, Math.max(0, Math.round(ratio * (this.routePoints.length - 1))));
-            const currentPoint = this.routePoints[targetIdx];
+            
+            let currentPoint = this.routePoints[targetIdx];
+            let percent = Math.round(ratio * 100);
+
+            // Xử lý vị trí ghim và tỷ lệ % chính xác theo chuẩn bưu chính
+            if (['CREATED', 'PENDING_ROUTING', 'ROUTE_ASSIGNED'].includes(status)) {
+                // Đơn mới tạo: Ghim nằm chính xác tại Bưu Cục Tiếp Nhận, 0% hành trình
+                if (this.originPostCoord) {
+                    currentPoint = [this.originPostCoord.lat, this.originPostCoord.lng];
+                } else if (this.sourceCoord) {
+                    currentPoint = [this.sourceCoord.lat, this.sourceCoord.lng];
+                }
+                percent = 0;
+            } else if (status === 'PICKED_UP') {
+                // Đã gom về Kho Tổng xuất phát: Ghim nằm tại Kho Tổng Gửi (Cấp 1)
+                if (this.sourceCoord) {
+                    currentPoint = [this.sourceCoord.lat, this.sourceCoord.lng];
+                }
+                percent = 0;
+            } else if (status === 'ARRIVED_DEST_HUB') {
+                // Đã cập bến Kho Tổng đích: Ghim nằm tại Kho Tổng Đích (Cấp 1)
+                if (this.destCoord) {
+                    currentPoint = [this.destCoord.lat, this.destCoord.lng];
+                }
+                percent = 100;
+            } else if (status === 'OUT_FOR_DELIVERY' || status === 'DELIVERY_FAILED') {
+                // Bưu tá đang đi phát: Ghim nằm ở Bưu Cục Phát hoặc trên đường giao khách
+                if (this.destPostCoord && this.recipientCoord) {
+                    currentPoint = [(this.destPostCoord.lat + this.recipientCoord[0]) / 2, (this.destPostCoord.lng + this.recipientCoord[1]) / 2];
+                } else if (this.destPostCoord) {
+                    currentPoint = [this.destPostCoord.lat, this.destPostCoord.lng];
+                }
+                percent = 100;
+            } else if (status === 'DELIVERED') {
+                // Đã giao thành công: Ghim nằm tại Địa chỉ người nhận
+                if (this.recipientCoord) {
+                    currentPoint = this.recipientCoord;
+                } else if (this.destPostCoord) {
+                    currentPoint = [this.destPostCoord.lat, this.destPostCoord.lng];
+                }
+                percent = 100;
+            }
 
             // 1. Cập nhật phân đoạn đã hoàn thành (Xanh dương đậm)
-            const completedCoords = this.routePoints.slice(0, targetIdx + 1);
-            if (!this.completedPolyline) {
-                this.completedPolyline = L.polyline(completedCoords, {
-                    color: '#0066cc',
-                    weight: 4.5,
-                    opacity: 0.95,
-                    lineJoin: 'round',
-                    lineCap: 'round'
-                }).addTo(this.map);
+            if (['CREATED', 'PENDING_ROUTING', 'ROUTE_ASSIGNED', 'PICKED_UP'].includes(status) || ratio === 0) {
+                // Đơn mới tạo hoặc vừa gom về kho: Tuyến xe trục chưa chạy, làm rỗng tuyến hoàn thành
+                if (this.completedPolyline) {
+                    this.completedPolyline.setLatLngs([]);
+                }
             } else {
-                this.completedPolyline.setLatLngs(completedCoords);
+                const completedCoords = this.routePoints.slice(0, targetIdx + 1);
+                if (!this.completedPolyline) {
+                    this.completedPolyline = L.polyline(completedCoords, {
+                        color: '#0066cc',
+                        weight: 4.5,
+                        opacity: 0.95,
+                        lineJoin: 'round',
+                        lineCap: 'round'
+                    }).addTo(this.map);
+                } else {
+                    this.completedPolyline.setLatLngs(completedCoords);
+                }
             }
 
             // 2. Cập nhật phân đoạn còn lại / đường định sẵn (Nét đứt Tím Indigo công nghệ thanh lịch)
-            const remainingCoords = this.routePoints.slice(targetIdx);
+            const remainingCoords = ['CREATED', 'PENDING_ROUTING', 'ROUTE_ASSIGNED', 'PICKED_UP'].includes(status) || ratio === 0
+                ? this.routePoints
+                : this.routePoints.slice(targetIdx);
+
             if (!this.remainingPolyline) {
                 this.remainingPolyline = L.polyline(remainingCoords, {
                     color: '#6366f1',
@@ -389,10 +732,57 @@
                 this.remainingPolyline.setLatLngs(remainingCoords);
             }
 
+            // 2b. Cập nhật trạng thái nét liền / nét đứt cho các chặng gom và phát đa tầng
+            if (this.feederOriginPolyline) {
+                const isOriginCompleted = ['PICKED_UP', 'IN_TRANSIT', 'ARRIVED_DEST_HUB', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(status);
+                this.feederOriginPolyline.setStyle({
+                    dashArray: isOriginCompleted ? null : '4, 4',
+                    weight: isOriginCompleted ? 4.5 : 3.5,
+                    opacity: isOriginCompleted ? 0.95 : 0.75
+                });
+            }
+
+            if (this.feederDestPolyline) {
+                const isDestCompleted = ['OUT_FOR_DELIVERY', 'DELIVERED'].includes(status);
+                this.feederDestPolyline.setStyle({
+                    dashArray: isDestCompleted ? null : '4, 4',
+                    weight: isDestCompleted ? 4.5 : 3.5,
+                    opacity: isDestCompleted ? 0.95 : 0.75
+                });
+            }
+
+            if (this.lastMilePolyline) {
+                const isDelivered = status === 'DELIVERED';
+                const isDelivering = status === 'OUT_FOR_DELIVERY';
+                this.lastMilePolyline.setStyle({
+                    dashArray: isDelivered ? null : (isDelivering ? '4, 4' : '6, 8'),
+                    weight: isDelivered ? 4.5 : (isDelivering ? 4 : 2.5),
+                    opacity: (isDelivered || isDelivering) ? 0.95 : 0.45
+                });
+            }
+
+            // Quản lý biểu tượng Shipper xe máy khi chuyển trạng thái
+            if (status === 'OUT_FOR_DELIVERY') {
+                if (!this.shipperMarker && this.destPostCoord && this.recipientCoord) {
+                    const shipperLat = (this.destPostCoord.lat + this.recipientCoord[0]) / 2;
+                    const shipperLng = (this.destPostCoord.lng + this.recipientCoord[1]) / 2;
+                    const shipperIcon = L.divIcon({
+                        className: 'shipper-motorcycle-pin',
+                        html: '<svg style="width:14px;height:14px;" fill="currentColor" viewBox="0 0 24 24"><path d="M19 7c0-1.1-.9-2-2-2h-3v2h3v2.65L13.52 14H10V9H6c-2.21 0-4 1.79-4 4v3h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4.18c.41 1.16 1.51 2 2.82 2 1.66 0 3-1.34 3-3s-1.34-3-3-3c-.41 0-.79.09-1.14.24L17.65 9H19V7zM7 17c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm12 0c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/></svg>',
+                        iconSize: [26, 26],
+                        iconAnchor: [13, 13]
+                    });
+                    this.shipperMarker = L.marker([shipperLat, shipperLng], { icon: shipperIcon, zIndexOffset: 1200 })
+                        .bindTooltip('<div style="font-size:11px;font-weight:700;color:#059669;">Bưu Tá Đang Đi Phát</div><div style="font-size:10px;color:#64748b;">Chặng cuối tới người nhận</div>', { permanent: true, direction: 'top', className: 'radar-tooltip' })
+                        .addTo(this.map);
+                }
+            } else if (this.shipperMarker && status === 'DELIVERED') {
+                this.map.removeLayer(this.shipperMarker);
+                this.shipperMarker = null;
+            }
+
             // 3. Cập nhật Pin Radar phát sóng di động
             const statusNames = STATUS_NAMES;
-
-            const percent = Math.round(ratio * 100);
             const labelText = statusNames[status] || status;
             const tooltipHtml = `
                 <div style="font-size: 11px; font-weight: 700; color: #0f172a;">${labelText}</div>
@@ -464,13 +854,12 @@
             this.markerAnimFrame = requestAnimationFrame(step);
         },
 
-        // Vẽ tuyến luân chuyển hàng giữa các Hub (Hỗ trợ OSRM vẽ đường bộ thực tế & nhiều chặng)
-        async renderRoute(history = [], currentStatus = 'ROUTE_ASSIGNED', shouldFitBounds = true) {
+        // Vẽ tuyến luân chuyển hàng đa tầng: Bưu cục gửi -> Kho Tổng gửi -> Tuyến trục -> Kho Tổng nhận -> Bưu cục phát -> Người nhận
+        async renderRoute(history = [], currentStatus = 'ROUTE_ASSIGNED', shouldFitBounds = true, extraMeta = {}) {
             if (!this.map) this.init();
             if (!this.map) return null;
 
-            // Huỷ mọi lượt vẽ đang chạy dở và lấy token cho lượt hiện tại.
-            // Sau mỗi await phải kiểm tra token, nếu đã cũ thì bỏ qua toàn bộ thao tác ghi layer.
+            // Huỷ mọi lượt vẽ đang chạy dở và lấy token cho lượt hiện tại
             const token = this.cancelPendingRenders();
             const isStale = () => token !== this.renderToken || !this.map;
 
@@ -484,20 +873,43 @@
                 this.map.removeLayer(this.remainingPolyline);
                 this.remainingPolyline = null;
             }
+            if (this.feederOriginPolyline) {
+                this.map.removeLayer(this.feederOriginPolyline);
+                this.feederOriginPolyline = null;
+            }
+            if (this.feederDestPolyline) {
+                this.map.removeLayer(this.feederDestPolyline);
+                this.feederDestPolyline = null;
+            }
+            if (this.lastMilePolyline) {
+                this.map.removeLayer(this.lastMilePolyline);
+                this.lastMilePolyline = null;
+            }
+            if (this.shipperMarker) {
+                this.map.removeLayer(this.shipperMarker);
+                this.shipperMarker = null;
+            }
             if (this.radarMarker) {
                 this.map.removeLayer(this.radarMarker);
                 this.radarMarker = null;
             }
 
-            // Reset tuyến: nếu không xoá, khi OSRM lỗi thì đơn mới sẽ dùng lại tuyến của đơn cũ
+            // Reset tuyến
             this.routePoints = [];
             this.lastRatio = 0;
+            this.originPostCoord = null;
+            this.sourceCoord = null;
+            this.destCoord = null;
+            this.destPostCoord = null;
+            this.recipientCoord = null;
 
-            let sourceHub = 'HUB-HN-01';
-            let destHub = 'HUB-HCM-01';
-            let routeCode = 'ROUTE-HUB-HN-01-TO-HUB-HCM-01';
+            let sourceHub = null;
+            let destHub = null;
+            let originPostOffice = null;
+            let destPostOffice = null;
+            let routeCode = null;
 
-            // Phân tích từ lịch sử tracking
+            // 1. Phân tích từ lịch sử tracking
             (Array.isArray(history) ? history : []).forEach(item => {
                 const text = item && (item.node || item.note);
                 if (text && text.includes('ROUTE-')) {
@@ -507,39 +919,205 @@
                         destHub = match[2];
                         routeCode = match[0];
                     }
+                    const postMatch = text.match(/(POST-[A-Z0-9-]+).*?(POST-[A-Z0-9-]+)/);
+                    if (postMatch) {
+                        originPostOffice = postMatch[1];
+                        destPostOffice = postMatch[2];
+                    }
                 }
             });
 
-            const sourceCoord = this.getHubCoord(sourceHub, 'HUB-HN-01');
-            const destCoord = this.getHubCoord(destHub, 'HUB-HCM-01');
+            // 2. Bổ sung từ metadata đơn hàng nếu lịch sử chưa có
+            if (!originPostOffice && extraMeta?.originPostOffice) originPostOffice = extraMeta.originPostOffice;
+            if (!destPostOffice && extraMeta?.destPostOffice) destPostOffice = extraMeta.destPostOffice;
 
-            // 1. Mốc điểm gửi (Source Hub)
-            const sourceIcon = L.divIcon({ className: 'hub-pin-source', iconSize: [16, 16] });
+            if (!originPostOffice && extraMeta?.senderAddress) {
+                const found = this.getPostOfficeForAddress(extraMeta.senderAddress, sourceHub);
+                if (found) originPostOffice = found.code;
+            }
+            if (!destPostOffice && extraMeta?.receiverAddress) {
+                const found = this.getPostOfficeForAddress(extraMeta.receiverAddress, destHub);
+                if (found) destPostOffice = found.code;
+            }
+
+            const sourceCoord = this.getHubCoord(sourceHub);
+            const destCoord = this.getHubCoord(destHub);
+            const originPostCoord = this.getHubCoord(originPostOffice);
+            const destPostCoord = this.getHubCoord(destPostOffice);
+
+            if (!sourceCoord || !destCoord) {
+                this.setLoading('Chưa có tuyến Hub đã xác thực để hiển thị trên bản đồ.');
+                return null;
+            }
+
+            // Tọa độ nhà người nhận
+            let recipientCoord = null;
+            if (extraMeta?.receiverLatitude && extraMeta?.receiverLongitude) {
+                recipientCoord = [extraMeta.receiverLatitude, extraMeta.receiverLongitude];
+            } else if (extraMeta?.verifiedAddress?.lat && extraMeta?.verifiedAddress?.lon) {
+                recipientCoord = [parseFloat(extraMeta.verifiedAddress.lat), parseFloat(extraMeta.verifiedAddress.lon)];
+            }
+
+            this.originPostCoord = originPostCoord;
+            this.sourceCoord = sourceCoord;
+            this.destCoord = destCoord;
+            this.destPostCoord = destPostCoord;
+            this.recipientCoord = recipientCoord;
+
+            // 3. Đặt các mốc điểm (Markers) trên bản đồ
+            // Mốc 1: Bưu Cục Gửi (Tiếp nhận Cấp 2/3)
+            if (originPostCoord && (originPostCoord.lat !== sourceCoord.lat || originPostCoord.lng !== sourceCoord.lng)) {
+                const origIcon = L.divIcon({ className: 'hub-pin-postoffice', iconSize: [14, 14], iconAnchor: [7, 7] });
+                L.marker([originPostCoord.lat, originPostCoord.lng], { icon: origIcon })
+                    .bindPopup(`
+                        <div class="text-xs p-1 min-w-[210px]">
+                            <div class="font-bold text-purple-700 text-[11.5px] uppercase tracking-wider">Bưu Cục Tiếp Nhận (Gửi)</div>
+                            <div class="font-semibold text-slate-800 text-[11.5px] mt-0.5">${originPostCoord.name} <span class="text-purple-600 font-mono text-[10.5px]">(${originPostOffice})</span></div>
+                            <div class="text-slate-600 text-[10.5px] mt-1 leading-relaxed"><b>Địa chỉ:</b> ${originPostCoord.address || 'Đang cập nhật địa chỉ'}</div>
+                            ${originPostCoord.district ? `<div class="text-slate-400 text-[10px] mt-0.5">Quận/Huyện: ${originPostCoord.district}</div>` : ''}
+                        </div>
+                    `)
+                    .addTo(this.markersGroup);
+            }
+
+            // Mốc 2: Kho Tổng Gửi (Cấp 1)
+            const sourceIcon = L.divIcon({ className: 'hub-pin-source', iconSize: [16, 16], iconAnchor: [8, 8] });
             L.marker([sourceCoord.lat, sourceCoord.lng], { icon: sourceIcon })
-                .bindPopup(`<b>Bưu Cục Gửi (Tiếp nhận):</b><br/>${sourceCoord.name}`)
+                .bindPopup(`
+                    <div class="text-xs p-1 min-w-[210px]">
+                        <div class="font-bold text-blue-700 text-[11.5px] uppercase tracking-wider">Kho Tổng Xuất Phát (Cấp 1)</div>
+                        <div class="font-semibold text-slate-800 text-[11.5px] mt-0.5">${sourceCoord.name} <span class="text-blue-600 font-mono text-[10.5px]">(${sourceHub})</span></div>
+                        <div class="text-slate-600 text-[10.5px] mt-1 leading-relaxed"><b>Địa chỉ:</b> ${sourceCoord.address || 'Đang cập nhật địa chỉ'}</div>
+                    </div>
+                `)
                 .addTo(this.markersGroup);
 
-            // 2. Mốc điểm nhận (Destination Hub)
-            const destIcon = L.divIcon({ className: 'hub-pin-dest', iconSize: [16, 16] });
+            // Mốc 3: Kho Tổng Đích (Cấp 1)
+            const destIcon = L.divIcon({ className: 'hub-pin-dest', iconSize: [16, 16], iconAnchor: [8, 8] });
             L.marker([destCoord.lat, destCoord.lng], { icon: destIcon })
-                .bindPopup(`<b>Bưu Cục Phát (Đích đến):</b><br/>${destCoord.name}`)
+                .bindPopup(`
+                    <div class="text-xs p-1 min-w-[210px]">
+                        <div class="font-bold text-amber-700 text-[11.5px] uppercase tracking-wider">Kho Tổng Đích (Cấp 1)</div>
+                        <div class="font-semibold text-slate-800 text-[11.5px] mt-0.5">${destCoord.name} <span class="text-amber-600 font-mono text-[10.5px]">(${destHub})</span></div>
+                        <div class="text-slate-600 text-[10.5px] mt-1 leading-relaxed"><b>Địa chỉ:</b> ${destCoord.address || 'Đang cập nhật địa chỉ'}</div>
+                    </div>
+                `)
                 .addTo(this.markersGroup);
 
-            // 3. Nếu tuyến Bắc - Nam đi qua Đà Nẵng, hiển thị mốc trung chuyển miền Trung
+            // Mốc 4: Bưu Cục Phát (Đích địa phương Cấp 2/3)
+            if (destPostCoord && (destPostCoord.lat !== destCoord.lat || destPostCoord.lng !== destCoord.lng)) {
+                const destPostIcon = L.divIcon({ className: 'hub-pin-delivery-post', iconSize: [14, 14], iconAnchor: [7, 7] });
+                L.marker([destPostCoord.lat, destPostCoord.lng], { icon: destPostIcon })
+                    .bindPopup(`
+                        <div class="text-xs p-1 min-w-[210px]">
+                            <div class="font-bold text-emerald-700 text-[11.5px] uppercase tracking-wider">Bưu Cục Phát Địa Phương</div>
+                            <div class="font-semibold text-slate-800 text-[11.5px] mt-0.5">${destPostCoord.name} <span class="text-emerald-600 font-mono text-[10.5px]">(${destPostOffice})</span></div>
+                            <div class="text-slate-600 text-[10.5px] mt-1 leading-relaxed"><b>Địa chỉ:</b> ${destPostCoord.address || 'Đang cập nhật địa chỉ'}</div>
+                            ${destPostCoord.district ? `<div class="text-slate-400 text-[10px] mt-0.5">Quận/Huyện: ${destPostCoord.district}</div>` : ''}
+                        </div>
+                    `)
+                    .addTo(this.markersGroup);
+            }
+
+            // Mốc 5: Địa Chỉ Người Nhận (Khách hàng)
+            if (recipientCoord) {
+                const custIcon = L.divIcon({ className: 'customer-pin', iconSize: [16, 16], iconAnchor: [8, 8] });
+                const receiverLabel = extraMeta?.receiverAddress || 'Điểm giao hàng tận tay người nhận';
+                L.marker(recipientCoord, { icon: custIcon })
+                    .bindPopup(`
+                        <div class="text-xs p-1 min-w-[210px]">
+                            <div class="font-bold text-emerald-700 text-[11.5px] uppercase tracking-wider">Điểm Giao Tận Tay Khách Hàng</div>
+                            <div class="text-slate-800 text-[11px] mt-0.5 font-semibold">${extraMeta?.receiverName ? extraMeta.receiverName + ' - ' : ''}${receiverLabel}</div>
+                        </div>
+                    `)
+                    .addTo(this.markersGroup);
+            }
+
+            // Mốc 6: Nếu tuyến Bắc - Nam đi qua Đà Nẵng, hiển thị mốc trung chuyển miền Trung
             const isNorthSouth = (sourceHub === 'HUB-HN-01' && destHub === 'HUB-HCM-01') || (sourceHub === 'HUB-HCM-01' && destHub === 'HUB-HN-01');
             if (isNorthSouth) {
                 const dnCoord = this.getHubCoord('HUB-DN-01');
-                const transitIcon = L.divIcon({ className: 'hub-pin-transit', iconSize: [12, 12], iconAnchor: [6, 6] });
-                L.marker([dnCoord.lat, dnCoord.lng], { icon: transitIcon })
-                    .bindPopup(`<b>Trạm Trung Chuyển Miền Trung:</b><br/>${dnCoord.name}`)
-                    .addTo(this.markersGroup);
+                if (dnCoord) {
+                    const transitIcon = L.divIcon({ className: 'hub-pin-transit', iconSize: [12, 12], iconAnchor: [6, 6] });
+                    L.marker([dnCoord.lat, dnCoord.lng], { icon: transitIcon })
+                        .bindPopup(`
+                            <div class="text-xs p-1 min-w-[210px]">
+                                <div class="font-bold text-slate-800 text-[11.5px] uppercase tracking-wider">Trạm Trung Chuyển Miền Trung</div>
+                                <div class="font-semibold text-slate-800 text-[11.5px] mt-0.5">${dnCoord.name} <span class="text-slate-500 font-mono text-[10.5px]">(HUB-DN-01)</span></div>
+                                <div class="text-slate-600 text-[10.5px] mt-1 leading-relaxed"><b>Địa chỉ:</b> ${dnCoord.address || 'Đang cập nhật địa chỉ'}</div>
+                            </div>
+                        `)
+                        .addTo(this.markersGroup);
+                }
+            }
+
+            // 4. Vẽ các chặng gom và chặng phát đa tầng
+            // Chặng gom: Bưu cục gửi -> Kho Tổng gửi (Nét tím)
+            if (originPostCoord && (originPostCoord.lat !== sourceCoord.lat || originPostCoord.lng !== sourceCoord.lng)) {
+                const isOriginCompleted = ['PICKED_UP', 'IN_TRANSIT', 'ARRIVED_DEST_HUB', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(currentStatus);
+                this.feederOriginPolyline = L.polyline([
+                    [originPostCoord.lat, originPostCoord.lng],
+                    [sourceCoord.lat, sourceCoord.lng]
+                ], {
+                    color: '#7c3aed',
+                    weight: isOriginCompleted ? 4.5 : 3.5,
+                    opacity: isOriginCompleted ? 0.95 : 0.75,
+                    dashArray: isOriginCompleted ? null : '4, 4',
+                    lineJoin: 'round'
+                }).addTo(this.map);
+            }
+
+            // Chặng chuyển: Kho Tổng đích -> Bưu cục phát (Nét cam)
+            if (destPostCoord && (destPostCoord.lat !== destCoord.lat || destPostCoord.lng !== destCoord.lng)) {
+                const isDestCompleted = ['OUT_FOR_DELIVERY', 'DELIVERED'].includes(currentStatus);
+                this.feederDestPolyline = L.polyline([
+                    [destCoord.lat, destCoord.lng],
+                    [destPostCoord.lat, destPostCoord.lng]
+                ], {
+                    color: '#ea580c',
+                    weight: isDestCompleted ? 4.5 : 3.5,
+                    opacity: isDestCompleted ? 0.95 : 0.75,
+                    dashArray: isDestCompleted ? null : '4, 4',
+                    lineJoin: 'round'
+                }).addTo(this.map);
+            }
+
+            // Chặng phát: Bưu cục phát -> Người nhận (Nét xanh lục)
+            if (recipientCoord && destPostCoord) {
+                const isDelivered = currentStatus === 'DELIVERED';
+                const isDelivering = currentStatus === 'OUT_FOR_DELIVERY';
+                this.lastMilePolyline = L.polyline([
+                    [destPostCoord.lat, destPostCoord.lng],
+                    recipientCoord
+                ], {
+                    color: '#059669',
+                    weight: isDelivered ? 4.5 : (isDelivering ? 4 : 2.5),
+                    opacity: (isDelivered || isDelivering) ? 0.95 : 0.45,
+                    dashArray: isDelivered ? null : (isDelivering ? '4, 4' : '6, 8'),
+                    lineJoin: 'round'
+                }).addTo(this.map);
+
+                // Nếu đang đi phát (OUT_FOR_DELIVERY): đặt biểu tượng Shipper xe máy đang chạy
+                if (currentStatus === 'OUT_FOR_DELIVERY') {
+                    const shipperLat = (destPostCoord.lat + recipientCoord[0]) / 2;
+                    const shipperLng = (destPostCoord.lng + recipientCoord[1]) / 2;
+                    const shipperIcon = L.divIcon({
+                        className: 'shipper-motorcycle-pin',
+                        html: '<svg style="width:14px;height:14px;" fill="currentColor" viewBox="0 0 24 24"><path d="M19 7c0-1.1-.9-2-2-2h-3v2h3v2.65L13.52 14H10V9H6c-2.21 0-4 1.79-4 4v3h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4.18c.41 1.16 1.51 2 2.82 2 1.66 0 3-1.34 3-3s-1.34-3-3-3c-.41 0-.79.09-1.14.24L17.65 9H19V7zM7 17c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm12 0c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/></svg>',
+                        iconSize: [26, 26],
+                        iconAnchor: [13, 13]
+                    });
+                    this.shipperMarker = L.marker([shipperLat, shipperLng], { icon: shipperIcon, zIndexOffset: 1200 })
+                        .bindTooltip('<div style="font-size:11px;font-weight:700;color:#059669;">Bưu Tá Đang Đi Phát</div><div style="font-size:10px;color:#64748b;">Chặng cuối tới người nhận</div>', { permanent: true, direction: 'top', className: 'radar-tooltip' })
+                        .addTo(this.map);
+                }
             }
 
             let distanceKm = null;
             let durationHours = null;
             let isRealRoad = false;
 
-            // 4. Kiểm tra bộ nhớ đệm: RAM trước, sau đó tới localStorage (tuyến giữa Hub gần như bất biến)
+            // 5. Tính tuyến xe trục Linehaul giữa 2 Kho Tổng (Ghim chặt trong lãnh thổ VN)
             const cacheKey = `${sourceHub}_${destHub}`;
             const cached = this.routeCache[cacheKey] || this.readPersistedRoute(cacheKey);
 
@@ -550,9 +1128,8 @@
                 durationHours = cached.durationHours;
                 isRealRoad = cached.isRealRoad;
             } else {
-                this.setLoading('Đang tính tuyến đường bộ…');
+                this.setLoading('Đang tính tuyến đường bộ nội địa…');
 
-                // Gọi API OSRM kèm theo các điểm chốt hành lang nội địa Việt Nam (QL1A & CT01)
                 let osrmPoints = null;
                 try {
                     const waypoints = this.buildVietnamWaypoints(sourceCoord, destCoord);
@@ -572,8 +1149,6 @@
                             distanceKm = Math.round(route.distance / 1000);
                             durationHours = Math.max(1, Math.round(route.duration / 3600));
                             isRealRoad = true;
-
-                            // Chuyển đổi GeoJSON [lng, lat] thành danh sách Leaflet [lat, lng]
                             osrmPoints = route.geometry.coordinates.map(pt => [pt[1], pt[0]]);
                         }
                     }
@@ -583,7 +1158,6 @@
 
                 this.setLoading(null);
 
-                // Lượt vẽ này đã bị lượt mới thay thế trong lúc chờ OSRM: dừng, không ghi đè layer
                 if (isStale()) return null;
 
                 if (osrmPoints && osrmPoints.length > 0) {
@@ -592,7 +1166,6 @@
                     this.routeCache[cacheKey] = payload;
                     this.persistRoute(cacheKey, payload);
                 } else {
-                    // Fallback nếu OSRM lỗi mạng: Nối theo chuỗi waypoints nội địa Việt Nam
                     const fallbackWps = this.buildVietnamWaypoints(sourceCoord, destCoord);
                     const points = [];
                     for (let w = 0; w < fallbackWps.length - 1; w++) {
@@ -608,7 +1181,6 @@
                     }
                     this.routePoints = points;
                     isRealRoad = false;
-                    // Không cache tuyến ước lượng, để lần sau còn thử lại OSRM
                 }
             }
 
@@ -616,10 +1188,10 @@
 
             this.currentRouteKey = cacheKey;
 
-            // 5. Cập nhật phân đoạn và vị trí Pin Radar theo trạng thái hiện tại
+            // 6. Cập nhật phân đoạn và vị trí Pin Radar theo trạng thái hiện tại
             this.updateProgress(currentStatus);
 
-            // 6. Căn góc nhìn ôm sát tuyến đường (chỉ khi có yêu cầu)
+            // 7. Căn góc nhìn ôm sát tuyến đường
             if (shouldFitBounds) {
                 try {
                     this.fitRouteView();
@@ -629,6 +1201,8 @@
             return {
                 sourceHub,
                 destHub,
+                originPostOffice,
+                destPostOffice,
                 routeCode,
                 distanceKm,
                 durationHours,

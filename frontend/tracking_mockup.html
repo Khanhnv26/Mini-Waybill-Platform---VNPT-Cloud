@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup Bố Cục: Tra Cứu Vận Đơn - VNPT Waybill Post</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; color: #1e293b; }
+    
+    .vnpt-gradient {
+      background: linear-gradient(135deg, #005baa 0%, #0072bc 50%, #004b8d 100%);
+    }
+    .b2b-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .pulse-glow {
+      animation: pulseAnim 2s infinite ease-in-out;
+    }
+    @keyframes pulseAnim {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.15); opacity: 0.75; }
+    }
+    .route-dash {
+      stroke-dasharray: 6, 6;
+      animation: dashMove 1.5s linear infinite;
+    }
+    @keyframes dashMove {
+      to { stroke-dashoffset: -12; }
+    }
+    .tab-btn.active {
+      border-color: #005baa;
+      color: #005baa;
+      background-color: #f0f7ff;
+      font-weight: 700;
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-track { background: #f8fafc; }
+  </style>
+</head>
+<body class="p-3 sm:p-5 min-h-screen text-slate-800">
+
+  <div class="max-w-[1550px] mx-auto space-y-4">
+    
+    <!-- THANH ĐIỀU KHIỂN CHUYỂN ĐỔI TRẠNG THÁI MOCKUP -->
+    <div class="b2b-card p-3 sm:p-4 shadow-sm flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 rounded-lg vnpt-gradient text-white flex items-center justify-center font-black text-xs">
+          VNPT
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="text-xs font-black uppercase text-slate-800">Kiểm Tra Trực Quan 2 Trạng Thái:</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">Layout Preview</span>
+          </div>
+          <p class="text-[11px] text-slate-500">Bấm chọn để kiểm tra bố cục khi CHƯA TRA CỨU và khi ĐÃ CÓ KẾT QUẢ</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="toggleMockupState('initial')" id="btn-state-initial" class="tab-btn px-4 py-2 rounded-lg border border-slate-200 text-xs transition flex items-center space-x-1.5 cursor-pointer">
+          <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+          <span>1. Khi Chưa Tra Cứu (Giữ Nguyên Bố Cục Ban Đầu)</span>
+        </button>
+        <button onclick="toggleMockupState('result')" id="btn-state-result" class="tab-btn active px-4 py-2 rounded-lg border border-slate-200 text-xs transition flex items-center space-x-1.5 cursor-pointer">
+          <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+          <span>2. Khi Có Kết Quả Tra Cứu (Bố Cục Mới 2 Cột + Lịch Sử Dưới)</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TRẠNG THÁI 1: KHI CHƯA TRA CỨU ĐƠN (GIỮ NGUYÊN BỐ CỤC BAN ĐẦU 100%)       -->
+    <!-- ========================================================================= -->
+    <div id="state-initial" class="space-y-4 hidden">
+      
+      <!-- HERO BANNER BAN ĐẦU TO ĐẦY ĐỦ -->
+      <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
+        <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
+                Tracking &amp; Tracing
+              </span>
+              <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
+            </div>
+            <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
+              Định Vị &amp; Theo Dõi Hành Trình Bưu Gửi Toàn Trình
+            </h1>
+            <p class="text-xs text-blue-100/90 mt-0.5 leading-normal">
+              Giám sát chuyển phát thời gian thực, trực quan hóa tuyến luân chuyển bưu cục và dòng thời gian xử lý minh bạch.
+            </p>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[90px]">
+              <div class="text-xs sm:text-sm font-bold leading-tight">Chờ Tra Cứu</div>
+              <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Trạng Thái</div>
+            </div>
+            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px]">
+              <div class="text-sm sm:text-base font-bold leading-tight">0</div>
+              <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Mốc Quét</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOOLBAR TRA CỨU TOÀN MÀN NGANG HIỆN TẠI -->
+      <div class="b2b-card p-4 space-y-2">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex items-center space-x-2 w-full sm:w-auto flex-1 max-w-lg">
+            <div class="relative w-full">
+              <input 
+                type="text" 
+                placeholder="Nhập mã số bưu gửi (VD: WB...)" 
+                class="w-full pl-8 pr-7 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+              />
+              <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <button onclick="toggleMockupState('result')" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold whitespace-nowrap shadow-sm transition cursor-pointer">
+              Tra Cứu
+            </button>
+          </div>
+          <div class="text-xs text-slate-400">
+            Bấm "Tra Cứu" để xem chuyển đổi sang giao diện mới
+          </div>
+        </div>
+        <div class="flex items-center space-x-1.5 text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+          <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <span>Quy chuẩn mã bưu gửi VNPT: Bắt đầu bằng <strong>WB</strong> (Ví dụ: <strong>WB-HN-SG-001</strong>).</span>
+        </div>
+      </div>
+
+      <!-- 4 TRỤ CỘT NĂNG LỰC MẠNG LƯỚI BAN ĐẦU -->
+      <div class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+          <div class="b2b-card p-5 space-y-1.5">
+            <div class="text-[11px] font-bold text-blue-600 uppercase">Hạ Tầng Khai Thác</div>
+            <div class="text-3xl font-black text-slate-900 font-mono">03</div>
+            <div class="text-xs font-bold text-slate-800">Siêu Hub Trọng Điểm</div>
+            <div class="text-[11px] font-semibold text-slate-500">Hà Nội • Đà Nẵng • TP.HCM</div>
+            <p class="text-[11.5px] text-slate-400 leading-relaxed pt-1 border-t border-slate-100">
+              Trang bị dây chuyền chia chọn tự động Cross-Belt Matrix.
+            </p>
+          </div>
+          <div class="b2b-card p-5 space-y-1.5">
+            <div class="text-[11px] font-bold text-emerald-600 uppercase">Công Suất Xử Lý</div>
+            <div class="text-3xl font-black text-slate-900 font-mono">500K+</div>
+            <div class="text-xs font-bold text-slate-800">Kiện Hàng / Ngày</div>
+            <div class="text-[11px] font-semibold text-slate-500">Tốc Độ Xử Lý 24/7</div>
+            <p class="text-[11.5px] text-slate-400 leading-relaxed pt-1 border-t border-slate-100">
+              Quét mã tự động và đối soát trọng lượng chính xác từng gram.
+            </p>
+          </div>
+          <div class="b2b-card p-5 space-y-1.5">
+            <div class="text-[11px] font-bold text-indigo-600 uppercase">Độ Phủ Mạng Lưới</div>
+            <div class="text-3xl font-black text-slate-900 font-mono">63</div>
+            <div class="text-xs font-bold text-slate-800">Tỉnh &amp; Thành Phố</div>
+            <div class="text-[11px] font-semibold text-slate-500">10.000+ Điểm Phục Vụ</div>
+            <p class="text-[11.5px] text-slate-400 leading-relaxed pt-1 border-t border-slate-100">
+              Mạng lưới bưu tá chuyên trách giao nhận bưu gửi toàn quốc.
+            </p>
+          </div>
+          <div class="b2b-card p-5 space-y-1.5">
+            <div class="text-[11px] font-bold text-amber-600 uppercase">Chính Sách An Toàn</div>
+            <div class="text-3xl font-black text-slate-900 font-mono">100%</div>
+            <div class="text-xs font-bold text-slate-800">Bảo Hiểm Bưu Gửi</div>
+            <div class="text-[11px] font-semibold text-slate-500">Bảo Toàn Giá Trị Hàng Hóa</div>
+            <p class="text-[11.5px] text-slate-400 leading-relaxed pt-1 border-t border-slate-100">
+              Cam kết bồi thường minh bạch theo quy chuẩn Quốc gia.
+            </p>
+          </div>
+        </div>
+
+        <!-- HÀNH LANG VẬN TẢI BẮC - NAM BAN ĐẦU -->
+        <div class="b2b-card p-5 space-y-3">
+          <div class="font-extrabold text-slate-800 uppercase tracking-wider text-xs border-l-4 border-blue-600 pl-3">
+            Hành Lang Vận Tải Trục Xương Sống Bắc - Nam (Toàn Cảnh Khám Phá Ban Đầu)
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+            <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
+              <span class="font-mono text-xs font-bold text-blue-700">HUB-HN-01</span>
+              <div class="font-bold text-slate-800 mt-1">Trung Tâm Khai Thác Hà Nội</div>
+              <p class="text-slate-500 text-[11px] mt-1">Đồng bằng Sông Hồng và miền núi phía Bắc.</p>
+            </div>
+            <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
+              <span class="font-mono text-xs font-bold text-indigo-700">HUB-DN-01</span>
+              <div class="font-bold text-slate-800 mt-1">Trung Tâm Khai Thác Đà Nẵng</div>
+              <p class="text-slate-500 text-[11px] mt-1">Duyên hải Miền Trung và Tây Nguyên.</p>
+            </div>
+            <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
+              <span class="font-mono text-xs font-bold text-emerald-700">HUB-HCM-01</span>
+              <div class="font-bold text-slate-800 mt-1">Trung Tâm Khai Thác TP.HCM</div>
+              <p class="text-slate-500 text-[11px] mt-1">Đông Nam Bộ và Đồng bằng Sông Cửu Long.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TRẠNG THÁI 2: KHI CÓ KẾT QUẢ TRA CỨU ĐƠN (BỐ CỤC MỚI THEO YÊU CẦU)       -->
+    <!-- CỘT TRÁI (4/12): Tra cứu + Thông tin bưu gửi                             -->
+    <!-- CỘT PHẢI (8/12): Sơ đồ luân chuyển (Stepper + Bản đồ)                     -->
+    <!-- HÀNG DƯỚI (100%): Lịch sử luân chuyển bưu cục to rộng thoáng            -->
+    <!-- ========================================================================= -->
+    <div id="state-result" class="space-y-3.5">
+      
+      <!-- HEADER THƯƠNG HIỆU TINH GỌN KHI CÓ ĐƠN -->
+      <div class="vnpt-gradient rounded-xl text-white px-4 py-2.5 shadow-sm flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center space-x-2.5">
+          <span class="px-2 py-0.5 rounded bg-white/20 font-mono text-xs font-bold border border-white/25">WB-HN-SG-001</span>
+          <span class="text-xs font-bold text-white">Hành Trình Bưu Gửi Toàn Trình</span>
+        </div>
+        <div class="flex items-center space-x-2 text-xs">
+          <span class="text-blue-100 text-[11px]">Trạng thái:</span>
+          <span class="px-2 py-0.5 rounded bg-blue-500/40 text-white font-bold text-[11px] border border-white/20">Đang Giao Hàng</span>
+        </div>
+      </div>
+
+      <!-- KHU VỰC NỬA TRÊN: 2 CỘT TỶ LỆ 4/12 : 8/12 -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
+        
+        <!-- CỘT TRÁI (4/12): KHỐI TRA CỨU & THÔNG TIN BƯU GỬI -->
+        <div class="lg:col-span-4 space-y-3.5">
+          
+          <!-- THẺ 1: Ô TRA CỨU VẬN ĐƠN (CHO PHÉP TRA TIẾP MÃ KHÁC) -->
+          <div class="b2b-card p-4 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <div class="flex items-center space-x-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                <span class="font-extrabold text-slate-800 uppercase tracking-wider text-xs">Tra Cứu Bưu Gửi</span>
+              </div>
+              <span class="text-[10px] text-slate-400 font-mono">Hỗ trợ mã WB...</span>
+            </div>
+
+            <div class="space-y-2.5">
+              <div class="relative">
+                <input 
+                  type="text" 
+                  value="WB-HN-SG-001" 
+                  class="w-full pl-8 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+                />
+                <svg class="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+
+              <div class="flex items-center space-x-2">
+                <button class="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center justify-center space-x-1.5 cursor-pointer">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                  <span>Tra Cứu Tiếp</span>
+                </button>
+                <button onclick="toggleMockupState('initial')" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition cursor-pointer" title="Làm mới quay lại ban đầu">
+                  Làm Mới
+                </button>
+              </div>
+
+              <div class="pt-2 border-t border-slate-100 flex items-center flex-wrap gap-1.5">
+                <span class="text-[10px] text-slate-400 font-medium">Gợi ý:</span>
+                <span class="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono text-[10.5px] font-bold cursor-pointer">WB-HN-SG-001</span>
+                <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-mono text-[10.5px] cursor-pointer">WB-HN-HP-002</span>
+                <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-mono text-[10.5px] cursor-pointer">WB-DN-HCM-003</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- THẺ 2: THÔNG TIN BƯU GỬI CHI TIẾT -->
+          <div class="b2b-card p-4 space-y-3 text-xs">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <span class="font-extrabold text-slate-800 uppercase tracking-wider text-xs flex items-center space-x-1.5">
+                <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                <span>Thông Tin Bưu Gửi</span>
+              </span>
+              <span class="font-mono text-[11px] text-slate-400">#1024</span>
+            </div>
+
+            <div class="space-y-2">
+              <div class="flex justify-between py-1 border-b border-slate-50">
+                <span class="text-slate-500 font-medium">Mã bưu gửi:</span>
+                <span class="font-mono font-extrabold text-blue-700 text-sm">WB-HN-SG-001</span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-slate-50">
+                <span class="text-slate-500 font-medium">Trạng thái:</span>
+                <span class="px-2 py-0.5 rounded-md font-bold text-[11px] bg-blue-50 text-blue-700 border border-blue-200 flex items-center space-x-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-blue-600 pulse-glow"></span>
+                  <span>Đang Giao Hàng</span>
+                </span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-slate-50">
+                <span class="text-slate-500 font-medium">Dịch vụ:</span>
+                <span class="font-bold text-slate-700">Hỏa Tốc Liên Tỉnh (EXPRESS)</span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-slate-50">
+                <span class="text-slate-500 font-medium">Khối lượng tính cước:</span>
+                <span class="font-mono font-bold text-slate-800">1.85 kg</span>
+              </div>
+              <div class="flex justify-between py-1 border-b border-slate-50">
+                <span class="text-slate-500 font-medium">Tiền thu hộ COD:</span>
+                <span class="font-mono font-bold text-emerald-700 text-sm">0 ₫ (Đã thanh toán)</span>
+              </div>
+
+              <!-- Người gửi -->
+              <div class="py-1.5 border-b border-slate-50 bg-slate-50/60 p-2.5 rounded-lg">
+                <span class="text-slate-500 block mb-0.5 font-medium text-[11px]">Người gửi:</span>
+                <div class="text-slate-800 font-semibold flex items-center justify-between">
+                  <span>Công ty CP Công Nghệ Số Hà Nội</span>
+                  <span class="font-mono text-slate-500 font-medium text-[11px]">0912.***.888</span>
+                </div>
+                <span class="text-slate-600 text-[11px] block mt-0.5 leading-relaxed">
+                  Số 236 Lạc Trung, Phường Vĩnh Tuy, Quận Hai Bà Trưng, Hà Nội
+                </span>
+              </div>
+
+              <!-- Người nhận -->
+              <div class="py-1.5 bg-blue-50/50 border border-blue-100 p-2.5 rounded-lg">
+                <span class="text-blue-700 block mb-0.5 font-medium text-[11px]">Người nhận:</span>
+                <div class="text-slate-800 font-semibold flex items-center justify-between">
+                  <span>Nguyễn Văn An</span>
+                  <span class="font-mono text-slate-500 font-medium text-[11px]">0988.***.234</span>
+                </div>
+                <span class="text-slate-600 text-[11px] block mt-0.5 leading-relaxed">
+                  Số 45 Lê Duẩn, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh
+                </span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- CỘT PHẢI (8/12): KHỐI SƠ ĐỒ LUÂN CHUYỂN -->
+        <div class="lg:col-span-8 b2b-card p-4 flex flex-col justify-between space-y-3">
+          
+          <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+              <span class="font-extrabold text-slate-800 uppercase tracking-wider text-xs">
+                Sơ Đồ Tuyến Luân Chuyển Bưu Cục
+              </span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 font-mono">
+                Tuyến Liên Tỉnh (6 Chặng)
+              </span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <button class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center space-x-1 cursor-pointer">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+                <span>Toàn Cảnh VN</span>
+              </button>
+              <button class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition flex items-center space-x-1 cursor-pointer">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <span>Tuyến Xe Chạy</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Thanh Stepper 6 mốc -->
+          <div class="bg-slate-50/70 border border-slate-200 rounded-xl p-3 sm:p-3.5">
+            <div class="flex items-center justify-between text-[11px] text-slate-500 mb-2 border-b border-slate-200/60 pb-1.5">
+              <div class="flex items-center space-x-2">
+                <span class="w-2 h-2 rounded-full bg-blue-600 pulse-glow"></span>
+                <span class="font-bold text-slate-800 uppercase tracking-tight">Vị trí bưu gửi:</span>
+                <strong class="text-blue-700">Bưu Cục Quận 1</strong>
+                <span class="text-slate-400 text-[10px]">(Bưu Cục Phát)</span>
+              </div>
+              <div class="font-mono text-[10.5px] font-bold text-blue-700">
+                Chặng 5 / 6 (Tiến độ: 85%)
+              </div>
+            </div>
+
+            <div class="flex items-start justify-between relative pt-0.5 pb-0.5">
+              <!-- 1. Tiếp nhận -->
+              <div class="flex-1 flex flex-col items-center text-center relative px-0.5">
+                <div class="absolute top-[36px] -translate-y-1/2 left-1/2 w-full h-[2.5px] bg-blue-600 z-0"></div>
+                <div class="mb-1 h-4 flex items-center justify-center relative z-10"><span class="text-[10.5px] font-semibold text-slate-700">1. Tiếp Nhận</span></div>
+                <div class="relative my-0.5 flex items-center justify-center h-7 z-10">
+                  <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>
+                </div>
+                <div class="mt-1 w-full max-w-[110px] flex flex-col items-center">
+                  <div class="text-[11px] font-semibold text-slate-700 truncate max-w-full">BC Hai Bà Trưng</div>
+                  <div class="text-[9.5px] font-mono text-slate-400 mt-0.5">POST-HN-HBT</div>
+                </div>
+              </div>
+
+              <!-- 2. Gom kho -->
+              <div class="flex-1 flex flex-col items-center text-center relative px-0.5">
+                <div class="absolute top-[36px] -translate-y-1/2 left-1/2 w-full h-[2.5px] bg-blue-600 z-0"></div>
+                <div class="mb-1 h-4 flex items-center justify-center relative z-10"><span class="text-[10.5px] font-semibold text-slate-700">2. Gom Kho Tổng</span></div>
+                <div class="relative my-0.5 flex items-center justify-center h-7 z-10">
+                  <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>
+                </div>
+                <div class="mt-1 w-full max-w-[110px] flex flex-col items-center">
+                  <div class="text-[11px] font-semibold text-slate-700 truncate max-w-full">Kho Tổng Hà Nội</div>
+                  <div class="text-[9.5px] font-mono text-slate-400 mt-0.5">HUB-HN-01</div>
+                </div>
+              </div>
+
+              <!-- 3. Tuyến trục -->
+              <div class="flex-1 flex flex-col items-center text-center relative px-0.5">
+                <div class="absolute top-[36px] -translate-y-1/2 left-1/2 w-full h-[2.5px] bg-blue-600 z-0"></div>
+                <div class="mb-1 h-4 flex items-center justify-center relative z-10"><span class="text-[10.5px] font-semibold text-slate-700">3. Tuyến Trục</span></div>
+                <div class="relative my-0.5 flex items-center justify-center h-7 z-10">
+                  <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>
+                </div>
+                <div class="mt-1 w-full max-w-[110px] flex flex-col items-center">
+                  <div class="text-[11px] font-semibold text-slate-700 truncate max-w-full">Xe Trục Bắc - Nam</div>
+                  <div class="text-[9.5px] font-mono text-slate-400 mt-0.5">QL1A/CT01</div>
+                </div>
+              </div>
+
+              <!-- 4. Kho đích -->
+              <div class="flex-1 flex flex-col items-center text-center relative px-0.5">
+                <div class="absolute top-[36px] -translate-y-1/2 left-1/2 w-full h-[2.5px] bg-blue-600 z-0"></div>
+                <div class="mb-1 h-4 flex items-center justify-center relative z-10"><span class="text-[10.5px] font-semibold text-slate-700">4. Kho Đích</span></div>
+                <div class="relative my-0.5 flex items-center justify-center h-7 z-10">
+                  <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>
+                </div>
+                <div class="mt-1 w-full max-w-[110px] flex flex-col items-center">
+                  <div class="text-[11px] font-semibold text-slate-700 truncate max-w-full">Kho Tổng TP.HCM</div>
+                  <div class="text-[9.5px] font-mono text-slate-400 mt-0.5">HUB-HCM-01</div>
+                </div>
+              </div>
+
+              <!-- 5. Bưu cục phát (ACTIVE) -->
+              <div class="flex-1 flex flex-col items-center text-center relative px-0.5">
+                <div class="absolute top-[36px] -translate-y-1/2 left-1/2 w-full h-[2.5px] bg-slate-200 z-0"></div>
+                <div class="mb-1 h-4 flex items-center justify-center relative z-10"><span class="text-[10.5px] font-bold text-blue-700">5. Bưu Cục Phát</span></div>
+                <div class="relative my-0.5 flex items-center justify-center h-7 z-10">
+                  <div class="w-7 h-7 rounded-full bg-blue-600 text-white ring-4 ring-blue-100 shadow-md flex items-center justify-center pulse-glow">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="5" cy="18" r="3"/><circle cx="19" cy="18" r="3"/><path d="M12 18V8l3 3h4"/><circle cx="12" cy="5" r="1"/></svg>
+                  </div>
+                </div>
+                <div class="mt-1 w-full max-w-[110px] flex flex-col items-center">
+                  <div class="text-[11px] font-bold text-blue-700 truncate max-w-full">Bưu Cục Quận 1</div>
+                  <div class="text-[9.5px] font-mono text-blue-600 font-medium mt-0.5">POST-HCM-Q1</div>
+                </div>
+              </div>
+
+              <!-- 6. Người nhận -->
+              <div class="flex-1 flex flex-col items-center text-center relative px-0.5">
+                <div class="mb-1 h-4 flex items-center justify-center relative z-10"><span class="text-[10.5px] font-medium text-slate-400">6. Phát Thành Công</span></div>
+                <div class="relative my-0.5 flex items-center justify-center h-7 z-10">
+                  <div class="w-6 h-6 rounded-full bg-white border-2 border-slate-300 text-slate-400 flex items-center justify-center text-[10px] font-bold font-mono">6</div>
+                </div>
+                <div class="mt-1 w-full max-w-[110px] flex flex-col items-center">
+                  <div class="text-[11px] font-normal text-slate-400 truncate max-w-full">Quận 1, TP.HCM</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Khung Bản Đồ Trực Quan SVG -->
+          <div class="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-900 min-h-[460px] flex flex-col">
+            <div class="absolute top-3 left-3 bg-slate-800/90 backdrop-blur-md border border-slate-700 text-white rounded-lg p-2.5 shadow-lg z-20 text-[11px] space-y-1">
+              <div class="flex items-center space-x-2 font-bold">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-glow"></span>
+                <span class="text-white">Bưu tá đang phát hàng tận nơi</span>
+              </div>
+              <div class="text-slate-400 font-mono text-[10px]">Tuyến: Bưu Cục Bến Nghé (Q.1) ➔ 45 Lê Duẩn</div>
+            </div>
+
+            <svg viewBox="0 0 800 460" class="w-full h-[460px] select-none" style="background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);">
+              <defs>
+                <pattern id="grid3" width="40" height="40" patternUnits="userSpaceOnUse">
+                  <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#334155" stroke-width="0.5" stroke-opacity="0.3" />
+                </pattern>
+                <linearGradient id="linehaulGrad3" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#3b82f6" /><stop offset="50%" stop-color="#60a5fa" /><stop offset="100%" stop-color="#2563eb" />
+                </linearGradient>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#grid3)" />
+              <path d="M 390 40 C 370 70, 395 100, 420 130 C 440 160, 460 200, 455 240 C 445 280, 420 320, 430 360 C 438 390, 410 420, 390 440" 
+                    fill="none" stroke="#1e3a8a" stroke-width="32" stroke-linecap="round" opacity="0.25" />
+              <line x1="395" y1="85" x2="380" y2="70" stroke="#a855f7" stroke-width="4.5" stroke-linecap="round" />
+              <polyline points="380,70 445,210 425,370" fill="none" stroke="url(#linehaulGrad3)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+              <line x1="425" y1="370" x2="435" y2="385" stroke="#f97316" stroke-width="4.5" stroke-linecap="round" />
+              <line x1="435" y1="385" x2="445" y2="400" stroke="#10b981" stroke-width="3" stroke-linecap="round" class="route-dash" />
+
+              <g transform="translate(380, 70)"><circle r="12" fill="#2563eb" opacity="0.3" class="pulse-glow" /><circle r="7" fill="#1d4ed8" stroke="#ffffff" stroke-width="2" /><text x="14" y="4" fill="#93c5fd" font-size="11" font-weight="bold" font-family="monospace">HUB-HN-01 (Kho Tổng Hà Nội)</text></g>
+              <g transform="translate(395, 85)"><circle r="5" fill="#a855f7" stroke="#ffffff" stroke-width="1.5" /><text x="-135" y="4" fill="#d8b4fe" font-size="10" font-family="monospace">POST-HN-HBT</text></g>
+              <g transform="translate(445, 210)"><circle r="7" fill="#3b82f6" stroke="#ffffff" stroke-width="2" /><text x="14" y="4" fill="#93c5fd" font-size="11" font-weight="bold" font-family="monospace">HUB-DN-01 (Kho Tổng Đà Nẵng)</text></g>
+              <g transform="translate(425, 370)"><circle r="12" fill="#2563eb" opacity="0.3" class="pulse-glow" /><circle r="7" fill="#1d4ed8" stroke="#ffffff" stroke-width="2" /><text x="-165" y="4" fill="#93c5fd" font-size="11" font-weight="bold" font-family="monospace">HUB-HCM-01 (Kho Tổng TP.HCM)</text></g>
+              <g transform="translate(435, 385)"><circle r="16" fill="#f97316" opacity="0.3" class="pulse-glow" /><circle r="7" fill="#ea580c" stroke="#ffffff" stroke-width="2" /><text x="14" y="2" fill="#fdba74" font-size="10" font-weight="bold" font-family="monospace">POST-HCM-Q1 (Bưu Cục Q.1)</text><text x="-6" y="4" font-size="9">🏍️</text></g>
+              <g transform="translate(445, 400)"><circle r="4" fill="#10b981" stroke="#ffffff" stroke-width="1.5" /><text x="10" y="4" fill="#6ee7b7" font-size="10">Nhà Người Nhận (45 Lê Duẩn, Q.1)</text></g>
+            </svg>
+
+            <div class="p-2.5 bg-slate-800/90 border-t border-slate-700 text-slate-300 text-[10.5px] flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center space-x-3">
+                <span class="flex items-center space-x-1.5"><span class="w-3 h-1 bg-purple-500 rounded"></span><span>Tuyến Gom</span></span>
+                <span class="flex items-center space-x-1.5"><span class="w-3 h-1 bg-blue-500 rounded"></span><span>Tuyến Trục QL1A</span></span>
+                <span class="flex items-center space-x-1.5"><span class="w-3 h-1 bg-orange-500 rounded"></span><span>Tuyến Phát</span></span>
+                <span class="flex items-center space-x-1.5"><span class="w-3 h-0.5 border-t border-dashed border-emerald-400"></span><span>Giao Tận Tay</span></span>
+              </div>
+              <span class="text-slate-400 font-mono">Bản đồ số phân tích lộ trình tự động</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- HÀNG DƯỚI TOÀN MÀN NGANG 100%: LỊCH SỬ LUÂN CHUYỂN BƯU CỤC -->
+      <div class="b2b-card p-5 sm:p-6 text-xs space-y-4">
+        <div class="flex flex-wrap items-center justify-between border-b border-slate-100 pb-3 gap-2">
+          <div class="flex items-center space-x-2.5">
+            <span class="w-3 h-3 rounded-full bg-blue-600"></span>
+            <span class="font-black text-slate-800 uppercase tracking-wider text-sm">
+              Lịch Sử Luân Chuyển Bưu Cục Toàn Trình
+            </span>
+            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+              6 Mốc Quét
+            </span>
+          </div>
+
+          <div class="flex items-center space-x-3 text-slate-500 text-[11px]">
+            <span class="flex items-center space-x-1 text-blue-700 font-semibold">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"/></svg>
+              <span>Mới nhất lên đầu</span>
+            </span>
+            <span class="text-slate-300">•</span>
+            <span>Mã vận đơn: <strong class="font-mono text-slate-700">WB-HN-SG-001</strong></span>
+          </div>
+        </div>
+
+        <div class="relative pl-8 sm:pl-12 space-y-3.5 before:absolute before:left-[19px] sm:before:left-[23px] before:top-4 before:bottom-4 before:w-[2px] before:bg-slate-200">
+          <!-- Mốc 1 -->
+          <div class="relative flex items-start group">
+            <div class="absolute -left-[37px] sm:-left-[45px] mt-0.5 w-10 h-10 rounded-full text-white bg-blue-600 border-4 border-white shadow-md flex items-center justify-center z-10 ring-2 ring-blue-500/30">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </div>
+            <div class="flex-1 rounded-xl p-4 bg-blue-50/50 border border-blue-200 shadow-xs">
+              <div class="flex flex-wrap items-center justify-between gap-1 mb-1.5">
+                <div class="flex items-center space-x-2">
+                  <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">Đang Giao Hàng (OUT_FOR_DELIVERY)</span>
+                  <span class="text-xs font-bold text-slate-800">Bưu Cục Bến Nghé (Quận 1) (POST-HCM-Q1)</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <span class="font-mono text-xs font-bold text-blue-700">10/09/2026 16:30:00</span>
+                  <span class="text-[11px] font-mono text-blue-600 font-semibold bg-white px-2 py-0.5 rounded border border-blue-100">vừa xong</span>
+                </div>
+              </div>
+              <p class="text-xs leading-relaxed text-slate-700">
+                Bưu gửi đã được phân công cho bưu tá <strong>Nguyễn Văn Bình (Mã NV: NV-8821)</strong> mang đi phát tận tay người nhận tại địa chỉ: <em>Số 45 Lê Duẩn, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh</em>.
+              </p>
+            </div>
+          </div>
+
+          <!-- Mốc 2 -->
+          <div class="relative flex items-start group">
+            <div class="absolute -left-[37px] sm:-left-[45px] mt-0.5 w-10 h-10 rounded-full text-white bg-indigo-600 border-4 border-white shadow-sm flex items-center justify-center z-10">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+            </div>
+            <div class="flex-1 rounded-xl p-4 bg-white border border-slate-200 shadow-xs">
+              <div class="flex flex-wrap items-center justify-between gap-1 mb-1.5">
+                <div class="flex items-center space-x-2">
+                  <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">Bàn Giao Bưu Cục Phát (ARRIVED_DEST_HUB)</span>
+                  <span class="text-xs font-bold text-slate-800">Bưu Cục Bến Nghé (Quận 1) (POST-HCM-Q1)</span>
+                </div>
+                <span class="font-mono text-xs font-medium text-slate-500">10/09/2026 15:15:00</span>
+              </div>
+              <p class="text-xs leading-relaxed text-slate-600">
+                Bưu gửi đã cập bến Kho Tổng Đích [Kho Tổng TP. Hồ Chí Minh], hoàn tất khai thác và điều xe trung chuyển bàn giao cho Bưu Cục Bến Nghé (Quận 1) (POST-HCM-Q1).
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    function toggleMockupState(state) {
+      if (state === 'initial') {
+        document.getElementById('state-initial').classList.remove('hidden');
+        document.getElementById('state-result').classList.add('hidden');
+        document.getElementById('btn-state-initial').classList.add('active');
+        document.getElementById('btn-state-result').classList.remove('active');
+      } else {
+        document.getElementById('state-initial').classList.add('hidden');
+        document.getElementById('state-result').classList.remove('hidden');
+        document.getElementById('btn-state-initial').classList.remove('active');
+        document.getElementById('btn-state-result').classList.add('active');
+      }
+    }
+  </script>
+</body>
+</html>

@@ -119,6 +119,7 @@
             case 'IN_TRANSIT':
                 return 'bg-blue-50 text-blue-700 border-blue-200';
             case 'ARRIVED_DEST_HUB':
+                return 'bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold';
             case 'OUT_FOR_DELIVERY':
                 return 'bg-indigo-50 text-indigo-700 border-indigo-200';
             case 'DELIVERED':
@@ -149,7 +150,7 @@
         if (!node || node.includes('?') || node.trim() === '') {
             return formatStatusText(status);
         }
-        if (node.includes('ROUTE-')) {
+        if (node.includes('ROUTE-') && !node.includes('➔')) {
             const match = node.match(/ROUTE-([A-Z0-9-]+)-TO-([A-Z0-9-]+)/);
             if (match) return 'Tuyến luân chuyển: ' + match[1] + ' ➔ ' + match[2];
         }

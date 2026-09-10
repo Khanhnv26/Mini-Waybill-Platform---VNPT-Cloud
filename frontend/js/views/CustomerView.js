@@ -158,7 +158,7 @@
                 const newStatus = customer.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
                 const actionText = newStatus === 'ACTIVE' ? 'Kích hoạt' : 'Tạm dừng';
                 try {
-                    await CustomerService.updateCustomerStatus(customer.id, newStatus);
+                    await CustomerService.updateCustomerStatus(customer.id, newStatus, customer);
                     customer.status = newStatus;
                     Utils.showToast('Thành Công', `Đã ${actionText.toLowerCase()} đối tác ${customer.fullName}`);
                 } catch (err) {
@@ -168,6 +168,10 @@
 
             // Tác nghiệp nhanh: Tạo vận đơn cho khách hàng này
             const handleCreateShipmentFor = (customer) => {
+                if (!customer || customer.status !== 'ACTIVE') {
+                    Utils.showToast('Không Khả Dụng', 'Khách hàng đang ở trạng thái Tạm Dừng, không thể tạo vận đơn.', 'warning');
+                    return;
+                }
                 emit('create-shipment-for', customer);
                 Utils.showToast('Điều Hướng', `Đang chuẩn bị vận đơn cho đối tác: ${customer.fullName}`);
             };
@@ -378,8 +382,9 @@
 
                                     <td class="text-right py-2.5 px-3 whitespace-nowrap">
                                         <div class="flex items-center justify-end space-x-1.5">
-                                            <!-- Nút Tạo Đơn Nhanh -->
+                                            <!-- Nút Tạo Đơn Nhanh (Chỉ hiển thị khi khách hàng đang Hoạt Động) -->
                                             <button 
+                                                v-if="c.status === 'ACTIVE'"
                                                 @click="handleCreateShipmentFor(c)"
                                                 type="button"
                                                 class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition flex items-center space-x-1 shadow-xs"
@@ -471,8 +476,10 @@
                 </div>
 
                 <!-- 5. MODAL THÊM MỚI KHÁCH HÀNG (ACRYLIC BLUR CHUẨN RBAC) -->
-                <div v-if="showModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-150">
+                <teleport to="body">
+                <Transition name="modal">
+                <div v-if="showModal" class="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden">
                         <!-- Modal Header -->
                         <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                             <div class="flex items-center space-x-2">
@@ -558,6 +565,8 @@
                         </form>
                     </div>
                 </div>
+                </Transition>
+                </teleport>
             </div>
         `
     };

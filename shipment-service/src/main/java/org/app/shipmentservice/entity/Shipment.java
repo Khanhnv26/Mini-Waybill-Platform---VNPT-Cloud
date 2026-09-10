@@ -37,6 +37,12 @@ public class Shipment {
     @Column(name = "sender_address", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String senderAddress;
 
+    @Column(name = "sender_latitude")
+    private Double senderLatitude;
+
+    @Column(name = "sender_longitude")
+    private Double senderLongitude;
+
     @Column(name = "receiver_name", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String receiverName;
 
@@ -45,6 +51,12 @@ public class Shipment {
 
     @Column(name = "receiver_address", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String receiverAddress;
+
+    @Column(name = "receiver_latitude")
+    private Double receiverLatitude;
+
+    @Column(name = "receiver_longitude")
+    private Double receiverLongitude;
 
     @Column(name = "service_type", nullable = false)
     @Enumerated(EnumType.STRING)

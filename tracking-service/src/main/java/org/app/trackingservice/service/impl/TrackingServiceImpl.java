@@ -82,9 +82,11 @@ public class TrackingServiceImpl implements TrackingService {
         }
 
         if(!isAdminOrCS) {
-            if(isHubStaff && !Set.of(ShipmentStatus.PICKED_UP, ShipmentStatus.IN_TRANSIT).contains(newStatus)) {
-                throw new ForbiddenException("Nhân viên Hub chỉ có quyền quét tiếp nhận hoặc xuất chuyến !");
+
+            if(isHubStaff && !Set.of(ShipmentStatus.PICKED_UP, ShipmentStatus.IN_TRANSIT, ShipmentStatus.ARRIVED_DEST_HUB).contains(newStatus)) {
+                throw new ForbiddenException("Nhân viên Hub chỉ có quyền quét tiếp nhận, xuất chuyến hoặc dỡ hàng vào trạm!");
             }
+
 
             if(isShipper && !Set.of(ShipmentStatus.OUT_FOR_DELIVERY,ShipmentStatus.DELIVERED, ShipmentStatus.DELIVERY_FAILED).contains(newStatus)) {
                 throw new ForbiddenException("Bưu tá chỉ có quyền cập nhật trạng thái giao hàng !");

@@ -777,8 +777,10 @@
             <!-- =================================================================== -->
             <!-- MODAL CẤP PHÁT VAI TRÒ NGHIỆP VỤ -->
             <!-- =================================================================== -->
-            <div v-if="showRoleModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-                <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-5 border border-slate-200 animate-in fade-in zoom-in duration-150">
+            <teleport to="body">
+            <Transition name="modal">
+            <div v-if="showRoleModal" class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+                <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-5 border border-slate-200">
                     <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
                         <div>
                             <h3 class="font-bold text-sm text-slate-900 uppercase tracking-wider">Cấp Phát &amp; Điều Chỉnh Vai Trò</h3>
@@ -842,6 +844,8 @@
                     </div>
                 </div>
             </div>
+            </Transition>
+            </teleport>
         </div>
         `
     };

@@ -103,6 +103,10 @@
             });
 
             // 4. Thống kê KPI bưu tá
+            const kpiAwaitingDispatch = computed(() => {
+                return shipmentsList.value.filter(s => s.currentStatus === 'ARRIVED_DEST_HUB').length;
+            });
+
             const kpiOutForDelivery = computed(() => {
                 return shipmentsList.value.filter(s => s.currentStatus === 'OUT_FOR_DELIVERY').length;
             });
@@ -278,6 +282,7 @@
                 totalPages,
                 deliveryShipments,
                 paginatedShipments,
+                kpiAwaitingDispatch,
                 kpiOutForDelivery,
                 kpiDeliveredCount,
                 kpiTotalDeliveredCod,
@@ -319,6 +324,10 @@
 
                     <!-- Thống kê nhanh KPI theo phong cách RBAC -->
                     <div class="flex items-center space-x-2 self-start sm:self-auto">
+                        <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[76px]">
+                            <div class="text-sm sm:text-base font-bold leading-tight text-amber-300">{{ kpiAwaitingDispatch }}</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Chờ Đi Phát</div>
+                        </div>
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[76px]">
                             <div class="text-sm sm:text-base font-bold leading-tight">{{ kpiOutForDelivery }}</div>
                             <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Đang Đi Phát</div>
@@ -396,10 +405,11 @@
                             class="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:border-blue-600 outline-none transition"
                         >
                             <option value="ALL">Tất cả trạng thái</option>
+                            <option value="ARRIVED_DEST_HUB">ARRIVED_DEST_HUB (Chờ Nhận Đi Phát)</option>
                             <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY (Đang Đi Phát)</option>
                             <option value="DELIVERED">DELIVERED (Phát Thành Công)</option>
                             <option value="DELIVERY_FAILED">DELIVERY_FAILED (Phát Không Thành Công)</option>
-                            <option value="IN_TRANSIT">IN_TRANSIT (Đang Đến Bưu Cục)</option>
+                            <option value="IN_TRANSIT">IN_TRANSIT (Đang Trên Xe Trục)</option>
                         </select>
 
                         <select 
@@ -498,15 +508,27 @@
                                             </button>
                                         </template>
 
-                                        <!-- Đơn IN_TRANSIT: Bưu tá bấm Nhận Phát -->
-                                        <template v-else-if="item.currentStatus === 'IN_TRANSIT'">
+                                        <!-- Đơn ARRIVED_DEST_HUB: Đã đến kho đích, bưu tá bấm Nhận Phát -->
+                                        <template v-else-if="item.currentStatus === 'ARRIVED_DEST_HUB'">
                                             <button 
                                                 @click="handleReDispatch(item)"
                                                 :disabled="isActionRunning"
-                                                class="px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 rounded-md font-bold transition"
+                                                class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold transition shadow-sm"
+                                                title="Tiếp nhận kiện hàng từ bưu cục phát để xuất phát giao tận tay khách"
                                             >
                                                 Nhận Hàng Đi Phát
                                             </button>
+                                        </template>
+
+                                        <!-- Đơn IN_TRANSIT: Hàng còn trên xe đường dài, chưa về tới bưu cục phát -->
+                                        <template v-else-if="item.currentStatus === 'IN_TRANSIT'">
+                                            <span 
+                                                class="inline-flex items-center gap-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded-md"
+                                                title="Kiện hàng đang trên xe luân chuyển đường dài, chưa về tới bưu cục phát"
+                                            >
+                                                <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+                                                Xe Trục Đang Tới
+                                            </span>
                                         </template>
 
                                         <span v-else class="text-slate-400 text-xs italic">
@@ -617,8 +639,10 @@
             </transition>
 
             <!-- MODAL BÁO PHÁT THẤT BẠI -->
-            <div v-if="showFailedModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-                <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-5 space-y-4 text-xs animate-in fade-in zoom-in duration-150">
+            <teleport to="body">
+            <Transition name="modal">
+            <div v-if="showFailedModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-5 space-y-4 text-xs">
                     <div class="border-b border-slate-100 pb-3 flex justify-between items-center">
                         <div>
                             <h3 class="font-bold text-slate-900 text-sm">Ghi Nhận Phát Không Thành Công</h3>
@@ -654,6 +678,8 @@
                     </div>
                 </div>
             </div>
+            </Transition>
+            </teleport>
         </div>
         `
     };

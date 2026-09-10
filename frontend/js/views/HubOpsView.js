@@ -34,7 +34,7 @@
 
             // Thống kê nhanh KPI
             const kpiTotalInHub = computed(() => {
-                return shipmentsList.value.filter(s => s.currentStatus === 'PICKED_UP').length;
+                return shipmentsList.value.filter(s => s.currentStatus === 'PICKED_UP' || s.currentStatus === 'ARRIVED_DEST_HUB').length;
             });
 
             const kpiAwaitingIntake = computed(() => {
@@ -389,6 +389,7 @@
                             <option value="ROUTE_ASSIGNED">Chờ Tiếp Nhận</option>
                             <option value="PICKED_UP">Đã Nhập Kho</option>
                             <option value="IN_TRANSIT">Đang Luân Chuyển</option>
+                            <option value="ARRIVED_DEST_HUB">Đã Về Bãi Đích</option>
                             <option value="OUT_FOR_DELIVERY">Đang Đi Phát</option>
                             <option value="DELIVERED">Phát Thành Công</option>
                         </select>
@@ -484,14 +485,25 @@
                                             Đóng Chuyến
                                         </button>
 
-                                        <button 
+                                        <!-- Khi IN_TRANSIT: Đang luân chuyển trên xe trục (Khóa nút giao bưu tá sớm) -->
+                                        <span 
                                             v-if="item.currentStatus === 'IN_TRANSIT'"
-                                            @click="handleUpdateStatus(item.trackingCode, 'OUT_FOR_DELIVERY', 'Bưu gửi đã đến bưu cục đích, chuyển cho bưu tá phát')"
-                                            :disabled="isActionRunning"
-                                            class="px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md font-bold hover:bg-indigo-100 transition shadow-sm"
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200"
+                                            title="Kiện hàng đang trên xe trục liên tỉnh. Chờ chuyến xe cập bến Hub đích để dỡ hàng."
                                         >
-                                            Giao Bưu Tá
-                                        </button>
+                                            <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+                                            Đang Trên Xe Trục
+                                        </span>
+
+                                        <!-- Khi ARRIVED_DEST_HUB: Đã đến kho phát đích an toàn -->
+                                        <span 
+                                            v-else-if="item.currentStatus === 'ARRIVED_DEST_HUB'"
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200"
+                                            title="Kiện hàng đã dỡ tại Hub đích an toàn, chờ bưu tá nhận đi phát."
+                                        >
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                            Đã Về Bãi Đích
+                                        </span>
                                     </td>
                                 </tr>
                             </tbody>
