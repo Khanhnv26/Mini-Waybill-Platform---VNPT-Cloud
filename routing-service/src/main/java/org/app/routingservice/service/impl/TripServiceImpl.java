@@ -145,6 +145,15 @@ public class TripServiceImpl implements TripService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<TripDetailResponse> getAllTrips() {
+        List<Trip> trips = tripRepository.findAllByOrderByCreatedAtDesc();
+        return trips.stream()
+                .map(trip -> getTripDetail(trip.getId()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
     @Transactional
     public TripDetailResponse autoConsolidate(Long tripId, ConsolidateRequest request) {
         log.info("Bắt đầu chạy thuật toán gom đơn cho chuyến xe: {}", tripId);
@@ -258,6 +267,97 @@ public class TripServiceImpl implements TripService {
         trip.setTotalShipments((int) activeCount);
         tripRepository.save(trip);
         log.info("Gỡ kiện hàng {} khỏi chuyến xe {} thành công. Tải trọng hiện tại: {}/{} kg.", trackingCode, trip.getTripCode(), trip.getCurrentWeight(), trip.getMaxWeight());
+        return getTripDetail(trip.getId());
+    }
+
+    @Override
+    @Transactional
+    public TripDetailResponse departTrip(Long tripId) {
+        Trip trip = tripRepository.findById(tripId).orElseThrow(
+                () -> new IllegalArgumentException("Không tìm thấy chuyến đi: " + tripId));
+
+        if(!"SCHEDULED".equals(trip.getStatus())) {
+            throw new IllegalStateException("Chỉ có thể khởi hành chuyến đi ở trạng thái lập lịch.");
+        }
+
+        Double activeWeight = tripManifestRepository.sumActiveWeightByTripId(tripId);
+        if(activeWeight == null || activeWeight <= 0) {
+            throw new IllegalStateException("Chuyến đi không có kiện hàng nào để khởi hành.");
+        }
+
+        trip.setStatus("IN_TRANSIT");
+        trip.setDepartureTime(LocalDateTime.now());
+        List<TripStop> stops = tripStopRepository.findByTripIdOrderByStopOrder(tripId);
+        if(stops == null || stops.isEmpty()) {
+            throw new IllegalStateException("Chuyến đi phải có ít nhất 1 điểm dừng để khởi hành.");
+        }
+
+        TripStop firstStop = stops.get(0);
+        firstStop.setStatus("DEPARTED");
+        firstStop.setDepartedAt(LocalDateTime.now());
+        tripStopRepository.save(firstStop);
+        trip.setCurrentHub(firstStop.getHubCode());
+        tripRepository.save(trip);
+
+        log.info("Chuyến xe {} đã xuất bến thành công lúc {}.", trip.getTripCode(),
+                trip.getDepartureTime());
+        return getTripDetail(trip.getId());
+    }
+
+    @Override
+    @Transactional
+    public TripDetailResponse arriveAtStop(Long tripId, String hubCode) {
+        Trip trip = tripRepository.findById(tripId).orElseThrow(
+                () -> new IllegalArgumentException("Không tìm thấy chuyến xe: " + tripId));
+
+        if(!"IN_TRANSIT".equals(trip.getStatus())) {
+            throw new IllegalStateException("Chuyến xe chưa xuất bến hoặc đã kết thúc.");
+        }
+
+        List<TripStop> stops = tripStopRepository.findByTripIdOrderByStopOrder(tripId);
+
+        if(stops == null || stops.isEmpty()) {
+            throw new IllegalStateException("Chuyến xe phải có ít nhất 1 điểm dừng.");
+        }
+
+        TripStop currentStop = stops.stream()
+                .filter(s -> hubCode.equals(s.getHubCode()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy điểm dừng: " + hubCode + " trong chuyến xe: " + tripId));
+        currentStop.setStatus("ARRIVED");
+        currentStop.setArrivedAt(LocalDateTime.now());
+        tripStopRepository.save(currentStop);
+        trip.setCurrentHub(hubCode);
+
+        // Gỡ các kiện hàng có điểm đến là hubCode
+        List<TripManifest> manifests = tripManifestRepository.findByTripId(tripId);
+        int unloadedCount = 0;
+
+        for(TripManifest item : manifests) {
+            if("LOADED".equals(item.getStatus()) && hubCode.equalsIgnoreCase(item.getDestinationHub())) {
+                item.setStatus("UNLOADED");
+                item.setUnloadedAt(LocalDateTime.now());
+                tripManifestRepository.save(item);
+                unloadedCount++;
+            }
+        }
+
+        Double remainingWeight = tripManifestRepository.sumActiveWeightByTripId(tripId);
+        trip.setCurrentWeight(remainingWeight != null ? remainingWeight : 0.0);
+
+        long activeCount = manifests.stream().filter(m -> "LOADED".equals(m.getStatus())).count();
+        trip.setTotalShipments((int) activeCount);
+
+        TripStop finalStop = stops.get(stops.size() - 1);
+        if(finalStop.getHubCode().equalsIgnoreCase(hubCode)) {
+            trip.setStatus("COMPLETED");
+            log.info("Chuyến xe {} đã hoàn tất tại điểm dừng cuối cùng: {}.", trip.getTripCode(), hubCode);
+        } else {
+            log.info("Chuyến xe {} đã đến điểm dừng: {}. Số kiện hàng đã gỡ: {}. Tải trọng hiện tại: {}/{} kg.",
+                    trip.getTripCode(), hubCode, unloadedCount, trip.getCurrentWeight(), trip.getMaxWeight());
+        }
+
+        tripRepository.save(trip);
         return getTripDetail(trip.getId());
     }
 

@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface TripManifestRepository extends JpaRepository<TripManifest, Long> {
@@ -17,4 +18,5 @@ public interface TripManifestRepository extends JpaRepository<TripManifest, Long
     long countByTripId(Long tripId);
     @Query("SELECT COALESCE(SUM(tm.weightKg), 0.0) FROM TripManifest tm WHERE tm.tripId = :tripId AND tm.status = 'LOADED'")
     Double sumActiveWeightByTripId(@Param("tripId") Long tripId);
+    Optional<TripManifest> findByTrackingCodeAndStatus(String trackingCode, String status);
 }

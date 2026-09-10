@@ -12,4 +12,5 @@ public interface TrackingHistoryRepository extends JpaRepository<TrackingHistory
     Optional<TrackingHistory> findTopByTrackingCodeOrderByOccurredAtDesc(String trackingCode);
 
     long countByTrackingCodeAndStatus(String trackingCode, String status);
+
 }
