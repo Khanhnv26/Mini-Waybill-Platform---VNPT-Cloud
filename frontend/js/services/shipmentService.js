@@ -41,13 +41,20 @@
 
         /**
          * Chi tiết bưu gửi theo mã vận đơn.
-         * Endpoint yêu cầu đăng nhập; trả về null (không ném lỗi) khi 401/403
-         * để khách vãng lai vẫn tra cứu được hành trình.
+         * Dùng fetch trực tiếp (không qua Api.get) để KHÔNG kích hoạt
+         * toast lỗi 403 toàn cục khi khách vãng lai hoặc user không có
+         * quyền shipment:read_all tra cứu đơn của người khác.
          */
         async getByCode(trackingCode) {
             if (!trackingCode) return null;
             try {
-                const response = await Api.get(`/api/shipments/${encodeURIComponent(trackingCode)}`);
+                const headers = { 'Content-Type': 'application/json' };
+                if (typeof Auth !== 'undefined') {
+                    const token = Auth.getToken();
+                    if (token) headers['Authorization'] = `Bearer ${token}`;
+                }
+                const base = window.location.port === '3000' ? '' : 'http://localhost:8080';
+                const response = await fetch(`${base}/api/shipments/${encodeURIComponent(trackingCode)}`, { headers });
                 if (!response.ok) return null;
                 return await response.json();
             } catch (e) {

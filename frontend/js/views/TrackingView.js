@@ -453,7 +453,8 @@
                     if (window.MapManager) {
                         window.MapManager.init('tracking-map');
                         if (lastRenderedCode.value === code) {
-                            window.MapManager.updateProgress(data.currentStatus);
+                            const latestMilestone = (trackingHistory.value || [])[trackingHistory.value.length - 1];
+                            window.MapManager.updateProgress(data.currentStatus, latestMilestone?.node || '', latestMilestone?.locationCode || null);
                         } else {
                             routeInfo.value = await window.MapManager.renderRoute(
                                 trackingHistory.value,
@@ -495,8 +496,12 @@
 
                     currentShipment.value = { ...currentShipment.value, status: newStatus, source: st.source };
 
+                    const fullData = await TrackingService.getFullTracking(code);
+                    trackingHistory.value = fullData.history || [];
+                    const latestMilestone = (trackingHistory.value || [])[trackingHistory.value.length - 1];
+
                     if (window.MapManager) {
-                        window.MapManager.updateProgress(newStatus);
+                        window.MapManager.updateProgress(newStatus, latestMilestone?.node || '', latestMilestone?.locationCode || null);
                     }
 
                     Utils.showToast('Cập Nhật Tự Động', `Bưu gửi vừa chuyển sang: ${Utils.formatStatusText(newStatus)}`);

@@ -97,18 +97,29 @@ public class TrackingConsumer {
     @KafkaListener(topics = "tracking-status-events", groupId = "tracking-status-sync-group")
     @RetryableTopic(attempts = "3", backOff = @BackOff(delay = 1000, multiplier = 2))
     public void handleStatusUpdatedFromRouting(ShipmentStatusUpdatedEvent event) {
+        log.info("[TRACKING-SERVICE] Nhận event cập nhật trạng thái từ Routing: trackingCode={}, status={}, locationCode={}, note={}",
+                event.getTrackingCode(), event.getStatus(), event.getLocationCode(), event.getNote());
 
-        if("ARRIVED_DEST_HUB".equals(event.getStatus())) {
-            TrackingHistory trackingHistory = TrackingHistory.builder()
-                    .trackingCode(event.getTrackingCode())
-                    .status("ARRIVED_DEST_HUB")
-                    .locationCode(event.getLocationCode() != null ? event.getLocationCode() : "DEST_HUB")
-                    .node(event.getNote() != null ? event.getNote() : "Đơn hàng đã đến trạm trung chuyển cuối cùng trước khi giao hàng")
-                    .occurredAt(event.getUpdatedAt() != null ? event.getUpdatedAt() : LocalDateTime.now())
-                    .build();
-            trackingRepository.save(trackingHistory);
-            String redisKey = "shipment-status:" + event.getTrackingCode();
-            redisTemplate.opsForValue().set(redisKey,"ARRIVED_DEST_HUB", Duration.ofDays(7));
+        if (event.getStatus() != null) {
+            String status = event.getStatus().trim();
+            if ("ARRIVED_DEST_HUB".equals(status) || "IN_TRANSIT".equals(status)) {
+                String defaultNode = "ARRIVED_DEST_HUB".equals(status)
+                        ? "Đơn hàng đã đến trạm trung chuyển cuối cùng trước khi giao hàng"
+                        : "Chuyến xe vận chuyển bưu phẩm đang lưu thông trên tuyến trục";
+
+                TrackingHistory trackingHistory = TrackingHistory.builder()
+                        .trackingCode(event.getTrackingCode())
+                        .status(status)
+                        .locationCode(event.getLocationCode() != null ? event.getLocationCode() : ("ARRIVED_DEST_HUB".equals(status) ? "DEST_HUB" : "TRANSIT_HUB"))
+                        .node(event.getNote() != null ? event.getNote() : defaultNode)
+                        .occurredAt(event.getUpdatedAt() != null ? event.getUpdatedAt() : LocalDateTime.now())
+                        .build();
+                trackingRepository.save(trackingHistory);
+
+                String redisKey = "shipment-status:" + event.getTrackingCode();
+                redisTemplate.opsForValue().set(redisKey, status, Duration.ofDays(7));
+                log.info("[TRACKING-SERVICE] Đã lưu lịch sử hành trình & cập nhật Redis cho đơn: {} -> {}", event.getTrackingCode(), status);
+            }
         }
     }
 }

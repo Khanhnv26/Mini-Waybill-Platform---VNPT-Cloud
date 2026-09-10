@@ -15,6 +15,8 @@ public interface TripManifestRepository extends JpaRepository<TripManifest, Long
     List<TripManifest> findByTripIdAndDestinationHub(Long tripId, String destinationHub);
     List<TripManifest> findByTripIdAndStatus(Long tripId, String status);
     boolean existsByTripIdAndTrackingCode(Long tripId, String trackingCode);
+    boolean existsByTripIdAndTrackingCodeAndStatus(Long tripId, String trackingCode, String status);
+    void deleteByTripIdAndTrackingCode(Long tripId, String trackingCode);
     long countByTripId(Long tripId);
     @Query("SELECT COALESCE(SUM(tm.weightKg), 0.0) FROM TripManifest tm WHERE tm.tripId = :tripId AND tm.status = 'LOADED'")
     Double sumActiveWeightByTripId(@Param("tripId") Long tripId);

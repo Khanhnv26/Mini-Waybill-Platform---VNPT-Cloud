@@ -367,6 +367,9 @@
             const isConsolidating = ref(false);
             const isExecutingAction = ref(false);
             const detailActiveTab = ref('manifests');
+            const activeManifests = computed(() => {
+                return (activeTripDetail.value?.manifests || []).filter(m => m.status !== 'REMOVED');
+            });
 
             // Quản lý Đơn hàng Chờ Khả Dụng
             const eligibleAssignments = ref([]);
@@ -1276,7 +1279,7 @@
                 getExpressCount, getStandardCount, printTripManifest,
                 isReadyForDeparture,
                 currentPage, pageSize, totalPages, paginatedTrips, startIndex, endIndex, goToPage,
-                switchDetailTab
+                switchDetailTab, activeManifests
             };
         },
         template: `
@@ -1804,7 +1807,7 @@
                                     detailActiveTab === 'manifests' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800'
                                 ]"
                             >
-                                Kiện Hàng Trên Xe ({{ activeTripDetail?.manifests?.length || 0 }})
+                                Kiện Hàng Trên Xe ({{ activeManifests?.length || 0 }})
                             </button>
                             <button 
                                 v-if="activeTripDetail?.status === 'SCHEDULED'"
@@ -1879,18 +1882,18 @@
                             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                 <div class="flex items-center space-x-2">
                                     <span class="text-slate-500 text-xs">
-                                        Tổng: <b class="text-slate-800">{{ activeTripDetail?.manifests?.length || 0 }}</b> kiện
+                                        Tổng: <b class="text-slate-800">{{ activeManifests?.length || 0 }}</b> kiện
                                     </span>
                                     <span class="px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 text-[10.5px] font-bold">
-                                        Hỏa tốc: {{ getExpressCount(activeTripDetail?.manifests) }}
+                                        Hỏa tốc: {{ getExpressCount(activeManifests) }}
                                     </span>
                                     <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10.5px] font-medium">
-                                        Tiêu chuẩn: {{ getStandardCount(activeTripDetail?.manifests) }}
+                                        Tiêu chuẩn: {{ getStandardCount(activeManifests) }}
                                     </span>
                                 </div>
                                 <div class="flex items-center space-x-2" v-if="activeTripDetail?.status === 'SCHEDULED'">
                                     <button 
-                                        @click="handleAutoConsolidate"
+                                        @click="handleAutoConsolidate" 
                                         :disabled="isConsolidating"
                                         class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition shadow-sm text-xs"
                                     >
@@ -1900,7 +1903,7 @@
                             </div>
 
                             <div class="rounded-xl border border-slate-200/80 overflow-hidden">
-                                <div v-if="!activeTripDetail?.manifests || activeTripDetail?.manifests.length === 0" class="p-8 text-center text-slate-400">
+                                <div v-if="!activeManifests || activeManifests.length === 0" class="p-8 text-center text-slate-400">
                                     Chưa có kiện hàng nào trên xe. Bạn có thể sang tab 'Đơn Hàng Chờ Xếp Xe' để tích chọn nạp đơn.
                                 </div>
                                 <table v-else class="min-w-full divide-y divide-slate-100">
@@ -1915,7 +1918,7 @@
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-100">
-                                        <tr v-for="m in activeTripDetail?.manifests" :key="m.trackingCode" class="hover:bg-slate-50/50">
+                                        <tr v-for="m in activeManifests" :key="m.trackingCode" class="hover:bg-slate-50/50">
                                             <td class="px-4 py-2 font-mono font-bold text-blue-600 cursor-pointer hover:underline" @click="viewTracking(m.trackingCode)">
                                                 {{ m.trackingCode }}
                                             </td>

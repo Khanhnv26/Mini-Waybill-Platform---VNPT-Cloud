@@ -138,7 +138,9 @@ public class TripServiceImpl implements TripService {
                 () -> new IllegalArgumentException("Không tìm thấy chuyến đi: " + tripId));
 
         List<TripStop> stops = tripStopRepository.findByTripIdOrderByStopOrder(tripId);
-        List<TripManifest> manifests = tripManifestRepository.findByTripId(tripId);
+        List<TripManifest> manifests = tripManifestRepository.findByTripId(tripId).stream()
+                .filter(m -> !"REMOVED".equalsIgnoreCase(m.getStatus()))
+                .collect(Collectors.toList());
 
         Map<String, Hub> hubsByCode = hubRepository.findAll().stream()
                 .collect(Collectors.toMap(Hub::getHubCode, hub -> hub, (first, ignored) -> first));
@@ -303,7 +305,7 @@ public class TripServiceImpl implements TripService {
                     break;
                 }
 
-                if (tripManifestRepository.existsByTripIdAndTrackingCode(tripId, trackingCode)) {
+                if (tripManifestRepository.existsByTripIdAndTrackingCodeAndStatus(tripId, trackingCode, "LOADED")) {
                     continue;
                 }
 
@@ -355,7 +357,7 @@ public class TripServiceImpl implements TripService {
                     break;
                 }
 
-                if (tripManifestRepository.existsByTripIdAndTrackingCode(tripId, trackingCode)) {
+                if (tripManifestRepository.existsByTripIdAndTrackingCodeAndStatus(tripId, trackingCode, "LOADED")) {
                     continue;
                 }
 
@@ -431,9 +433,8 @@ public class TripServiceImpl implements TripService {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy kiện hàng: " + trackingCode + " trong chuyến đi: " + tripId));
 
-        targetManifest.setStatus("REMOVED");
-        targetManifest.setUnloadedAt(LocalDateTime.now());
-        tripManifestRepository.save(targetManifest);
+        tripManifestRepository.delete(targetManifest);
+        tripManifestRepository.flush();
 
         routingAssignmentRepository.findByTrackingCode(trackingCode).ifPresent(ra -> {
             ra.setStatus("ASSIGNED");
@@ -443,11 +444,11 @@ public class TripServiceImpl implements TripService {
         Double updatedWeight = tripManifestRepository.sumActiveWeightByTripId(tripId);
         trip.setCurrentWeight(updatedWeight != null ? updatedWeight : 0.0);
 
-        long activeCount = manifests.stream().filter(m -> "LOADED".equals(m.getStatus()) && !m.getId().equals(targetManifest.getId())).count();
-
-        trip.setTotalShipments((int) activeCount);
+        List<TripManifest> remainingManifests = tripManifestRepository.findByTripIdAndStatus(tripId, "LOADED");
+        trip.setTotalShipments(remainingManifests.size());
         tripRepository.save(trip);
-        log.info("Gỡ kiện hàng {} khỏi chuyến xe {} thành công. Tải trọng hiện tại: {}/{} kg.", trackingCode, trip.getTripCode(), trip.getCurrentWeight(), trip.getMaxWeight());
+        log.info("Gỡ kiện hàng {} khỏi chuyến xe {} thành công. Tải trọng hiện tại: {}/{} kg, tổng kiện: {}.",
+                trackingCode, trip.getTripCode(), trip.getCurrentWeight(), trip.getTotalShipments());
         return getTripDetail(trip.getId());
     }
 
@@ -481,8 +482,25 @@ public class TripServiceImpl implements TripService {
         trip.setCurrentHub(firstStop.getHubCode());
         tripRepository.save(trip);
 
-        log.info("Chuyến xe {} đã xuất bến thành công lúc {}.", trip.getTripCode(),
-                trip.getDepartureTime());
+        List<TripManifest> loadedManifests = tripManifestRepository.findByTripIdAndStatus(tripId, "LOADED");
+        for (TripManifest item : loadedManifests) {
+            try {
+                ShipmentStatusUpdatedEvent statusEvent = ShipmentStatusUpdatedEvent.builder()
+                        .trackingCode(item.getTrackingCode())
+                        .status("IN_TRANSIT")
+                        .locationCode(firstStop.getHubCode())
+                        .note(String.format("Chuyến xe %s (BKS: %s, Tài xế: %s) đã xuất bến từ %s. Bưu phẩm đang trên đường vận chuyển.",
+                                trip.getTripCode(), trip.getVehiclePlate(), trip.getDriverName(), firstStop.getHubCode()))
+                        .updateAt(LocalDateTime.now().toString())
+                        .build();
+                kafkaTemplate.send("tracking-status-events", item.getTrackingCode(), statusEvent);
+            } catch (Exception e) {
+                log.error("Lỗi gửi event IN_TRANSIT khi xuất bến cho kiện {}: {}", item.getTrackingCode(), e.getMessage());
+            }
+        }
+
+        log.info("Chuyến xe {} đã xuất bến thành công lúc {}. Đã đồng bộ IN_TRANSIT cho {} kiện hàng.", trip.getTripCode(),
+                trip.getDepartureTime(), loadedManifests.size());
         return getTripDetail(trip.getId());
     }
 
@@ -512,29 +530,42 @@ public class TripServiceImpl implements TripService {
         tripStopRepository.save(currentStop);
         trip.setCurrentHub(currentStop.getHubCode());
 
-        // Gỡ các kiện hàng có điểm đến là điểm dừng hiện tại
+        Map<String, Hub> hubsByCode = hubRepository.findAll().stream()
+                .collect(Collectors.toMap(Hub::getHubCode, hub -> hub, (first, ignored) -> first));
+
+        // Gỡ các kiện hàng có điểm đến là điểm dừng hiện tại, và đồng bộ trạm trung gian cho các kiện còn lại
         List<TripManifest> manifests = tripManifestRepository.findByTripId(tripId);
         int unloadedCount = 0;
 
         for (TripManifest item : manifests) {
             String itemDest = normalizeHubCode(item.getDestinationHub());
-            if ("LOADED".equals(item.getStatus()) && currentStop.getHubCode().equalsIgnoreCase(itemDest)) {
-                item.setStatus("UNLOADED");
-                item.setUnloadedAt(LocalDateTime.now());
-                tripManifestRepository.save(item);
-                unloadedCount++;
+            if ("LOADED".equals(item.getStatus())) {
+                if (currentStop.getHubCode().equalsIgnoreCase(itemDest)) {
+                    item.setStatus("UNLOADED");
+                    item.setUnloadedAt(LocalDateTime.now());
+                    tripManifestRepository.save(item);
+                    unloadedCount++;
 
-                ShipmentStatusUpdatedEvent statusEvent = ShipmentStatusUpdatedEvent.builder()
-                        .trackingCode(item.getTrackingCode())
-                        .status("ARRIVED_DEST_HUB")
-                        .locationCode(currentStop.getHubCode())
-                        .note(String.format("Chuyến xe %s đã cập bến %s. Kiện hàng đã được dỡ an toàn vào kho bãi.", trip.getTripCode(), currentStop.getHubCode()))
-                        .updateAt(LocalDateTime.now().toString())
-                        .build();
-                kafkaTemplate.send("tracking-status-events", item.getTrackingCode(), statusEvent);
+                    ShipmentStatusUpdatedEvent statusEvent = ShipmentStatusUpdatedEvent.builder()
+                            .trackingCode(item.getTrackingCode())
+                            .status("ARRIVED_DEST_HUB")
+                            .locationCode(currentStop.getHubCode())
+                            .note(String.format("Chuyến xe %s đã cập bến Kho Tổng Đích %s. Kiện hàng đã được dỡ an toàn vào kho bãi.", trip.getTripCode(), currentStop.getHubCode()))
+                            .updateAt(LocalDateTime.now().toString())
+                            .build();
+                    kafkaTemplate.send("tracking-status-events", item.getTrackingCode(), statusEvent);
+                } else {
+                    ShipmentStatusUpdatedEvent transitEvent = ShipmentStatusUpdatedEvent.builder()
+                            .trackingCode(item.getTrackingCode())
+                            .status("IN_TRANSIT")
+                            .locationCode(currentStop.getHubCode())
+                            .note(String.format("Chuyến xe %s đã cập bến trạm trung chuyển %s (%s). Bưu phẩm đang lưu thông qua trạm.",
+                                    trip.getTripCode(), currentStop.getHubCode(), hubName(hubsByCode, currentStop.getHubCode())))
+                            .updateAt(LocalDateTime.now().toString())
+                            .build();
+                    kafkaTemplate.send("tracking-status-events", item.getTrackingCode(), transitEvent);
+                }
             }
-
-
         }
 
 
@@ -580,7 +611,7 @@ public class TripServiceImpl implements TripService {
 
         for (RoutingAssignment a : pending) {
             String trackingCode = a.getTrackingCode();
-            if (tripManifestRepository.existsByTripIdAndTrackingCode(tripId, trackingCode)) {
+            if (tripManifestRepository.existsByTripIdAndTrackingCodeAndStatus(tripId, trackingCode, "LOADED")) {
                 continue;
             }
 

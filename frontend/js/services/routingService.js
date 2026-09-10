@@ -6,11 +6,19 @@
 (function () {
     const RoutingService = {
         async getAllHubs() {
-            const response = await Api.get('/api/routing/hubs');
-            if (!response.ok) {
-                throw new Error('Không thể tải danh bạ Bưu cục / Hubs');
+            try {
+                const headers = { 'Content-Type': 'application/json' };
+                if (typeof Auth !== 'undefined') {
+                    const token = Auth.getToken();
+                    if (token) headers['Authorization'] = `Bearer ${token}`;
+                }
+                const base = window.location.port === '3000' ? '' : 'http://localhost:8080';
+                const response = await fetch(`${base}/api/routing/hubs`, { headers });
+                if (!response.ok) return [];
+                return await response.json();
+            } catch (e) {
+                return [];
             }
-            return response.json();
         },
 
         async getAllTrips() {

@@ -644,13 +644,40 @@
         },
 
         // Cập nhật tiến độ bưu kiện trên từng chặng OSRM thời gian thực
-        updateProgress(status, note = '') {
+        updateProgress(status, note = '', currentLocationCode = null) {
             if (!this.map || !this.routePoints || this.routePoints.length === 0) return null;
 
+            // Tìm tọa độ Hub nếu có mã vị trí hiện tại hoặc trong note
+            let matchedHubCoord = null;
+            if (currentLocationCode && this.hubCoordinates[currentLocationCode]) {
+                matchedHubCoord = this.hubCoordinates[currentLocationCode];
+            } else if (note && typeof note === 'string') {
+                const foundCode = Object.keys(this.hubCoordinates).find(c => note.includes(c));
+                if (foundCode) {
+                    matchedHubCoord = this.hubCoordinates[foundCode];
+                }
+            }
+
             // Trạng thái không nằm trong enum backend: giữ nguyên vị trí hiện tại
-            const ratio = STATUS_RATIOS[status] !== undefined ? STATUS_RATIOS[status] : this.lastRatio;
-            const targetIdx = Math.min(this.routePoints.length - 1, Math.max(0, Math.round(ratio * (this.routePoints.length - 1))));
-            
+            let ratio = STATUS_RATIOS[status] !== undefined ? STATUS_RATIOS[status] : this.lastRatio;
+            let targetIdx = Math.min(this.routePoints.length - 1, Math.max(0, Math.round(ratio * (this.routePoints.length - 1))));
+
+            // Nếu đang IN_TRANSIT và có vị trí Hub cụ thể (ví dụ: xe cập bến HUB-DN-01)
+            if (status === 'IN_TRANSIT' && matchedHubCoord) {
+                let bestIdx = 0;
+                let minDistance = Infinity;
+                for (let i = 0; i < this.routePoints.length; i++) {
+                    const pt = this.routePoints[i];
+                    const dist = Math.hypot(pt[0] - matchedHubCoord.lat, pt[1] - matchedHubCoord.lng);
+                    if (dist < minDistance) {
+                        minDistance = dist;
+                        bestIdx = i;
+                    }
+                }
+                targetIdx = bestIdx;
+                ratio = this.routePoints.length > 1 ? bestIdx / (this.routePoints.length - 1) : 0.5;
+            }
+
             let currentPoint = this.routePoints[targetIdx];
             let percent = Math.round(ratio * 100);
 
@@ -669,6 +696,8 @@
                     currentPoint = [this.sourceCoord.lat, this.sourceCoord.lng];
                 }
                 percent = 0;
+            } else if (status === 'IN_TRANSIT' && matchedHubCoord) {
+                currentPoint = [matchedHubCoord.lat, matchedHubCoord.lng];
             } else if (status === 'ARRIVED_DEST_HUB') {
                 // Đã cập bến Kho Tổng đích: Ghim nằm tại Kho Tổng Đích (Cấp 1)
                 if (this.destCoord) {
@@ -784,9 +813,13 @@
             // 3. Cập nhật Pin Radar phát sóng di động
             const statusNames = STATUS_NAMES;
             const labelText = statusNames[status] || status;
+            let subText = `TIẾN ĐỘ: ${percent}%`;
+            if (status === 'IN_TRANSIT' && matchedHubCoord) {
+                subText = `ĐÃ CẬP BẾN: ${matchedHubCoord.name}`;
+            }
             const tooltipHtml = `
                 <div style="font-size: 11px; font-weight: 700; color: #0f172a;">${labelText}</div>
-                <div style="font-size: 10px; color: #0066cc; font-family: monospace; font-weight: 600;">TIẾN ĐỘ: ${percent}%</div>
+                <div style="font-size: 10px; color: #0066cc; font-family: monospace; font-weight: 600;">${subText}</div>
             `;
 
             if (!this.radarMarker) {
@@ -1033,11 +1066,13 @@
                     .addTo(this.markersGroup);
             }
 
-            // Mốc 6: Nếu tuyến Bắc - Nam đi qua Đà Nẵng, hiển thị mốc trung chuyển miền Trung
+            // Mốc 6: Nếu tuyến Bắc - Nam đi qua Đà Nẵng, hoặc có trạm trung gian trong lịch sử
+            const renderedHubCodes = new Set([sourceHub, destHub]);
             const isNorthSouth = (sourceHub === 'HUB-HN-01' && destHub === 'HUB-HCM-01') || (sourceHub === 'HUB-HCM-01' && destHub === 'HUB-HN-01');
             if (isNorthSouth) {
                 const dnCoord = this.getHubCoord('HUB-DN-01');
                 if (dnCoord) {
+                    renderedHubCodes.add('HUB-DN-01');
                     const transitIcon = L.divIcon({ className: 'hub-pin-transit', iconSize: [12, 12], iconAnchor: [6, 6] });
                     L.marker([dnCoord.lat, dnCoord.lng], { icon: transitIcon })
                         .bindPopup(`
@@ -1050,6 +1085,27 @@
                         .addTo(this.markersGroup);
                 }
             }
+
+            // Quét lịch sử bổ sung bất kỳ Hub trung gian nào xe đã ghé qua
+            (Array.isArray(history) ? history : []).forEach(item => {
+                const loc = item && (item.locationCode || item.location);
+                if (loc && loc.startsWith('HUB-') && !renderedHubCodes.has(loc)) {
+                    renderedHubCodes.add(loc);
+                    const transCoord = this.getHubCoord(loc);
+                    if (transCoord) {
+                        const transitIcon = L.divIcon({ className: 'hub-pin-transit', iconSize: [12, 12], iconAnchor: [6, 6] });
+                        L.marker([transCoord.lat, transCoord.lng], { icon: transitIcon })
+                            .bindPopup(`
+                                <div class="text-xs p-1 min-w-[210px]">
+                                    <div class="font-bold text-amber-700 text-[11.5px] uppercase tracking-wider">Trạm Trung Chuyển Dọc Tuyến</div>
+                                    <div class="font-semibold text-slate-800 text-[11.5px] mt-0.5">${transCoord.name} <span class="text-amber-600 font-mono text-[10.5px]">(${loc})</span></div>
+                                    <div class="text-slate-600 text-[10.5px] mt-1 leading-relaxed"><b>Địa chỉ:</b> ${transCoord.address || 'Đang cập nhật địa chỉ'}</div>
+                                </div>
+                            `)
+                            .addTo(this.markersGroup);
+                    }
+                }
+            });
 
             // 4. Vẽ các chặng gom và chặng phát đa tầng
             // Chặng gom: Bưu cục gửi -> Kho Tổng gửi (Nét tím)
@@ -1189,7 +1245,14 @@
             this.currentRouteKey = cacheKey;
 
             // 6. Cập nhật phân đoạn và vị trí Pin Radar theo trạng thái hiện tại
-            this.updateProgress(currentStatus);
+            let latestLoc = null;
+            let latestNote = '';
+            if (Array.isArray(history) && history.length > 0) {
+                const lastItem = history[history.length - 1];
+                latestLoc = lastItem.locationCode || null;
+                latestNote = lastItem.node || lastItem.note || '';
+            }
+            this.updateProgress(currentStatus, latestNote, latestLoc);
 
             // 7. Căn góc nhìn ôm sát tuyến đường
             if (shouldFitBounds) {
