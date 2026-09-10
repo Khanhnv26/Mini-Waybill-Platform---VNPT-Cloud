@@ -52,6 +52,16 @@ public class Trip {
     @Column(name = "departure_time")
     private LocalDateTime departureTime;
 
+    @Column(name = "scheduled_departure_time")
+    private LocalDateTime scheduledDepartureTime;
+
+    @Column(name = "cutoff_time")
+    private LocalDateTime cutoffTime;
+
+    @Column(name = "ready_to_depart")
+    @Builder.Default
+    private Boolean readyToDepart = false;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

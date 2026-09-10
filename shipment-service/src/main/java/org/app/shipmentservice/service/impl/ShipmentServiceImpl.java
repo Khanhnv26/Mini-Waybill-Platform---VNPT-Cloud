@@ -280,8 +280,7 @@ public class ShipmentServiceImpl implements ShipmentService {
             throw new IllegalStateException("Đơn hàng đã bị hủy trước đó: " + trackCode);
         }
 
-        if(currentStatus != ShipmentStatus.CREATED && currentStatus != ShipmentStatus.PENDING_ROUTING) {
-
+        if (currentStatus == ShipmentStatus.DELIVERED || currentStatus == ShipmentStatus.RETURNED) {
             throw new IllegalStateException("Đơn hàng không thể hủy ở trạng thái hiện tại: " + currentStatus);
         }
 

@@ -15,9 +15,14 @@
             const currentTrackingCode = ref('');
             const previousTab = ref(null);
             const selectedCustomerForShipment = ref(null);
-            const isSidebarCollapsed = ref(false);
+            const isSidebarCollapsed = ref(true);
             const toggleSidebarCollapse = () => {
                 isSidebarCollapsed.value = !isSidebarCollapsed.value;
+                setTimeout(() => {
+                    if (window.MapManager) {
+                        window.MapManager.invalidateSize();
+                    }
+                }, 300);
             };
 
             // 1. Danh bạ toàn bộ Tabs nghiệp vụ trong hệ thống kèm mã Permission tương ứng
@@ -216,6 +221,11 @@
             const handleLogoClick = () => {
                 if (isSidebarCollapsed.value) {
                     isSidebarCollapsed.value = false;
+                    setTimeout(() => {
+                        if (window.MapManager) {
+                            window.MapManager.invalidateSize();
+                        }
+                    }, 300);
                 } else {
                     switchTab('tracking');
                 }
@@ -353,6 +363,7 @@
     if (window.TrackingView) app.component('TrackingView', window.TrackingView);
     if (window.ShipmentView) app.component('ShipmentView', window.ShipmentView);
     if (window.HubOpsView) app.component('HubOpsView', window.HubOpsView);
+    if (window.TripsView) app.component('TripsView', window.TripsView);
     if (window.ShipperView) app.component('ShipperView', window.ShipperView);
     if (window.DispatchSimulationView) app.component('DispatchSimulationView', window.DispatchSimulationView);
     if (window.CustomerView) app.component('CustomerView', window.CustomerView);

@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/routing/trips")
@@ -63,4 +64,14 @@ public class TripController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/consolidate-all")
+    public ResponseEntity<Map<String, Object>> consolidateAllTrips() {
+        int count = tripService.consolidateAllScheduledTrips();
+        return ResponseEntity.ok(Map.of("message", "Đã quét và gom tự động cho các chuyến xe", "totalItems", count));
+    }
+
+    @GetMapping("/{id}/eligible-assignments")
+    public ResponseEntity<List<org.app.routingservice.dto.trip.EligibleAssignmentResponse>> getEligibleAssignments(@PathVariable Long id) {
+        return ResponseEntity.ok(tripService.getEligibleAssignmentsForTrip(id));
+    }
 }

@@ -45,6 +45,15 @@
             } catch (e) {
                 return null;
             }
+        },
+
+        async cancelShipment(trackingCode) {
+            const response = await Api.post(`/api/shipments/${encodeURIComponent(trackingCode)}/cancel`);
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || errData.message || 'Lỗi khi hủy vận đơn');
+            }
+            return response.json();
         }
     };
 

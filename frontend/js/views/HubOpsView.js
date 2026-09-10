@@ -12,6 +12,9 @@
     const HubOpsView = {
         name: 'HubOpsView',
         emits: ['view-tracking'],
+        components: {
+            TripsView: window.TripsView
+        },
         setup(props, { emit }) {
             const currentSubtab = ref('scan'); // 'scan' | 'inventory' | 'manifest'
             const isLoading = ref(false);
@@ -300,24 +303,25 @@
                     </button>
 
                     <button 
-                        @click="currentSubtab = 'manifest'"
+                        @click="currentSubtab = 'trips'"
                         :class="[
                             'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center space-x-1.5 whitespace-nowrap',
-                            currentSubtab === 'manifest' 
+                            (currentSubtab === 'trips' || currentSubtab === 'manifest') 
                                 ? 'border-blue-600 text-blue-700' 
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         ]"
                     >
-                        <span>BẢNG KÊ CHUYẾN XE (MANIFEST)</span>
+                        <span>ĐIỀU PHỐI CHUYẾN XE TRỤC</span>
                     </button>
                 </div>
 
                 <button 
+                    v-if="currentSubtab !== 'trips' && currentSubtab !== 'manifest'"
                     @click="loadShipmentsData()" 
                     :disabled="isLoading"
                     class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center space-x-1 border border-slate-200"
                 >
-                    <span :class="{'animate-spin': isLoading}">↻</span>
+                    <span v-if="isLoading" class="w-2.5 h-2.5 border-2 border-slate-600 border-t-transparent rounded-full animate-spin"></span>
                     <span>Làm Mới</span>
                 </button>
             </div>
@@ -592,58 +596,10 @@
             </div>
 
             <!-- =============================================================== -->
-            <!-- SUBTAB 3: BẢNG KÊ CHUYẾN XE (TRIP MANIFEST) - ĐANG NÂNG CẤP -->
+            <!-- SUBTAB 3: ĐIỀU PHỐI CHUYẾN XE TRỤC (LINEHAUL TRIPS)           -->
             <!-- =============================================================== -->
-            <div v-else-if="currentSubtab === 'manifest'" key="manifest" class="space-y-4">
-                <div class="b2b-card bg-white border border-slate-200 rounded-2xl p-8 sm:p-12 shadow-sm text-center max-w-2xl mx-auto space-y-6">
-                    <!-- VÒNG XOAY QUỸ ĐẠO CÔNG NGHỆ (TECH ORBIT SPINNER) -->
-                    <div class="relative w-24 h-24 mx-auto flex items-center justify-center">
-                        <div class="absolute inset-0 rounded-full border-2 border-slate-100"></div>
-                        <div class="absolute inset-0 rounded-full border-2 border-transparent border-t-blue-600 border-r-blue-400 animate-spin" style="animation-duration: 1.2s;"></div>
-                        <div class="absolute inset-2.5 rounded-full border-2 border-transparent border-b-cyan-500 border-l-cyan-300 animate-spin" style="animation-duration: 2s; animation-direction: reverse;"></div>
-                        <div class="w-10 h-10 rounded-xl vnpt-gradient text-white font-black text-xs flex items-center justify-center shadow-md shadow-blue-500/25 z-10 select-none">
-                            VNPT
-                        </div>
-                    </div>
-
-                    <!-- THÔNG BÁO TIẾN ĐỘ -->
-                    <div class="space-y-2">
-                        <h2 class="text-base sm:text-lg font-extrabold text-slate-800">
-                            Bảng Kê Chuyến Xe Đang Được Nâng Cấp
-                        </h2>
-                        <p class="text-xs sm:text-sm text-slate-500 max-w-lg mx-auto leading-relaxed">
-                            Hệ thống đang tích hợp phân hệ Lập bảng kê điện tử (E-Manifest), tự động gom kiện theo tải trọng xe tải và kết nối giám sát GPS hành trình container theo thời gian thực.
-                        </p>
-                    </div>
-
-                    <!-- DANH SÁCH TÍNH NĂNG NỔI BẬT ĐANG TRIỂN KHAI -->
-                    <div class="p-4 bg-slate-50 rounded-xl border border-slate-200/80 text-left max-w-md mx-auto space-y-2 text-xs text-slate-600">
-                        <div class="flex items-center space-x-2">
-                            <span class="w-4 h-4 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold">✓</span>
-                            <span>Tự động tối ưu tải trọng xe luân chuyển (Weight Optimizer)</span>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <span class="w-4 h-4 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold">✓</span>
-                            <span>Ký số biên bản bàn giao niêm phong kẹp chì điện tử</span>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <span class="w-4 h-4 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold">✓</span>
-                            <span>Đồng bộ lộ trình di chuyển của xe theo GPS trực tiếp</span>
-                        </div>
-                    </div>
-
-                    <!-- NÚT CHUYỂN NHANH VỀ BÀN QUÉT MÃ -->
-                    <div class="pt-1">
-                        <button 
-                            type="button" 
-                            @click="currentSubtab = 'scan'" 
-                            class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm shadow-blue-600/20 inline-flex items-center space-x-2"
-                        >
-                            <span>←</span>
-                            <span>Quay Lại Bàn Quét Mã Tiếp Nhận</span>
-                        </button>
-                    </div>
-                </div>
+            <div v-else-if="currentSubtab === 'trips' || currentSubtab === 'manifest'" key="trips" class="space-y-4 pt-1">
+                <trips-view :embedded="true" @view-tracking="viewTrackingDetail"></trips-view>
             </div>
             </transition>
         </div>

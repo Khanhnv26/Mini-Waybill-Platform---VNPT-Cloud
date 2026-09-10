@@ -368,7 +368,7 @@
                     :disabled="isLoading"
                     class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center space-x-1 border border-slate-200"
                 >
-                    <span :class="{'animate-spin': isLoading}">↻</span>
+                    <span v-if="isLoading" class="w-2.5 h-2.5 border-2 border-slate-600 border-t-transparent rounded-full animate-spin"></span>
                     <span>Làm Mới</span>
                 </button>
             </div>

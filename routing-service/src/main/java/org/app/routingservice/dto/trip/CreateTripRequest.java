@@ -36,5 +36,9 @@ public class CreateTripRequest {
     @NotBlank(message = "Điểm xuất phát không được để trống")
     private String originHub;
 
+    private java.time.LocalDateTime scheduledDepartureTime;
+
+    private Integer cutoffBufferMinutes;
+
     List<String> stopHubCodes;
 }

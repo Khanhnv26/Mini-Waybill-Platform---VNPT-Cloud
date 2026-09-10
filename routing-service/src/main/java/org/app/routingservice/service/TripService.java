@@ -5,6 +5,8 @@ import org.app.routingservice.dto.trip.CreateTripRequest;
 import org.app.routingservice.dto.trip.TripDetailResponse;
 import org.app.routingservice.entity.Trip;
 
+import org.app.routingservice.dto.trip.EligibleAssignmentResponse;
+
 import java.util.List;
 
 public interface TripService {
@@ -15,5 +17,7 @@ public interface TripService {
     TripDetailResponse removeManifestItem(Long tripId, String trackingCode);
     TripDetailResponse departTrip(Long tripId);
     TripDetailResponse arriveAtStop(Long tripId, String hubCode);
+    int consolidateAllScheduledTrips();
+    List<EligibleAssignmentResponse> getEligibleAssignmentsForTrip(Long tripId);
 }
 

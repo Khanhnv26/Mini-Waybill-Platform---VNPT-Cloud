@@ -43,6 +43,8 @@ public class RoutingConsumer {
                 .sourceHub(sourceHub)
                 .destinationHub(destinationHub)
                 .routeCode(routeCode)
+                .weight(event.getWeight() != null ? event.getWeight() : 1.0)
+                .serviceType(event.getServiceType() != null ? event.getServiceType() : "EXPRESS")
                 .status("ASSIGNED")
                 .assignedAt(LocalDateTime.now())
                 .build();

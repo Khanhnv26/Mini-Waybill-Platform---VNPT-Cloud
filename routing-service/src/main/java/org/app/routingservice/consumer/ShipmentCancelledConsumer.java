@@ -36,7 +36,7 @@ public class ShipmentCancelledConsumer {
     public void handleCancelledShipmentEvent(ShipmentStatusUpdatedEvent event) {
 
         if (!"CANCELLED".equalsIgnoreCase(event.getStatus())) {
-            return; // Bỏ qua các sự kiện trạng thái khác (CREATED, PICKED_UP...)
+          return;
         }
 
         String deuplicateKey = "shipment-cancelled:" + event.getTrackingCode();

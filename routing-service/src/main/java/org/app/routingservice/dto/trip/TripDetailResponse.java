@@ -26,6 +26,10 @@ public class TripDetailResponse {
     private String currentHub;
     private String status;
     private LocalDateTime departureTime;
+    private LocalDateTime scheduledDepartureTime;
+    private LocalDateTime cutoffTime;
+    private Boolean readyToDepart;
+    private Boolean isOverdue;
     private LocalDateTime createdAt;
     private Double weightPercentage;
     private List<StopItemResponse> stops;
