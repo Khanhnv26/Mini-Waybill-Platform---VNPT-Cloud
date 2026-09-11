@@ -62,6 +62,13 @@
                     class: 'bg-cyan-50 text-cyan-700 border-cyan-200',
                     dotClass: 'bg-cyan-500'
                 };
+            case 'ROLE_DISPATCHER':
+                return {
+                    label: 'Điều Phối Viên Vận Tải',
+                    code: 'ĐIỀU PHỐI XE',
+                    class: 'bg-orange-50 text-orange-700 border-orange-200',
+                    dotClass: 'bg-orange-500'
+                };
             case 'ROLE_SHIPPER':
                 return {
                     label: 'Bưu Tá Phát Hàng',

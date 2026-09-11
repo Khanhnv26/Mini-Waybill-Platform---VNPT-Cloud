@@ -563,6 +563,37 @@ public class TripServiceImpl implements TripService {
                 .filter(s -> targetHubCode.equalsIgnoreCase(s.getHubCode()) || (hubCode != null && hubCode.equalsIgnoreCase(s.getHubCode())))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy điểm dừng: " + hubCode + " trong chuyến xe: " + tripId));
+
+        // 1. Chặn cập bến tại trạm xuất phát (Trạm xuất phát chỉ có quyền xuất bến)
+        if (currentStop.getStopOrder() == 1 || "DEPARTED".equalsIgnoreCase(currentStop.getStatus())) {
+            throw new IllegalStateException("Trạm xuất phát (" + currentStop.getHubCode() + ") đã xuất bến. Không thể xác nhận cập bến tại trạm xuất phát.");
+        }
+
+        // 2. Chặn xác nhận cập bến trùng lặp
+        if ("ARRIVED".equalsIgnoreCase(currentStop.getStatus())) {
+            throw new IllegalStateException("Chuyến xe đã cập bến tại trạm " + currentStop.getHubCode() + " trước đó.");
+        }
+
+        // 3. Chặn nhảy cóc trạm dừng (Bắt buộc phải đi tuần tự theo lộ trình stopOrder)
+        for (TripStop stop : stops) {
+            if (stop.getStopOrder() < currentStop.getStopOrder()
+                    && !"ARRIVED".equalsIgnoreCase(stop.getStatus())
+                    && !"DEPARTED".equalsIgnoreCase(stop.getStatus())) {
+                throw new IllegalStateException(String.format(
+                        "Chuyến xe chưa thể cập bến tại %s vì chưa hoàn tất tại trạm trung gian trước đó (%s, thứ tự dừng #%d).",
+                        currentStop.getHubCode(), stop.getHubCode(), stop.getStopOrder()));
+            }
+        }
+
+        // 4. Chuyển các trạm trung gian trước đó sang trạng thái DEPARTED (đã rời trạm để đến trạm tiếp theo)
+        for (TripStop stop : stops) {
+            if (stop.getStopOrder() < currentStop.getStopOrder() && "ARRIVED".equalsIgnoreCase(stop.getStatus())) {
+                stop.setStatus("DEPARTED");
+                stop.setDepartedAt(LocalDateTime.now());
+                tripStopRepository.save(stop);
+            }
+        }
+
         currentStop.setStatus("ARRIVED");
         currentStop.setArrivedAt(LocalDateTime.now());
         tripStopRepository.save(currentStop);

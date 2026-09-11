@@ -63,12 +63,13 @@ EXEC #UpsertPermission 'user:assign_role', N'Gán vai trò tài khoản', 'USER'
 
 -- Phân hệ ROUTING
 EXEC #UpsertPermission 'routing:manage', N'Quản lý tuyến & Hub', 'ROUTING', N'Cấu hình danh mục bưu cục, tọa độ và tuyến giao';
+EXEC #UpsertPermission 'routing:trip_manage', N'Điều phối chuyến xe', 'ROUTING', N'Lập lịch, ghép xe, xuất bến và cập bến chuyến xe vận tải';
 
 PRINT N'Khởi tạo Permissions hoàn tất!';
 GO
 
 -- -------------------------------------------------------------------------
--- 2. KHỞI TẠO 5 VAI TRÒ (ROLES)
+-- 2. KHỞI TẠO 6 VAI TRÒ (ROLES)
 -- -------------------------------------------------------------------------
 PRINT N'Đang khởi tạo Roles...';
 
@@ -79,10 +80,13 @@ IF NOT EXISTS (SELECT 1 FROM roles WHERE name = 'ROLE_SHIPPER')
     INSERT INTO roles (name, description) VALUES ('ROLE_SHIPPER', N'Bưu tá giao nhận chặng cuối');
 
 IF NOT EXISTS (SELECT 1 FROM roles WHERE name = 'ROLE_HUB_OPERATOR')
-    INSERT INTO roles (name, description) VALUES ('ROLE_HUB_OPERATOR', N'Thủ kho / Điều phối Hub trung chuyển cấp 1');
+    INSERT INTO roles (name, description) VALUES ('ROLE_HUB_OPERATOR', N'Thủ kho / Nhân viên kho bãi Hub trung chuyển cấp 1');
 
 IF NOT EXISTS (SELECT 1 FROM roles WHERE name = 'ROLE_POST_OFFICE_OPERATOR')
-    INSERT INTO roles (name, description) VALUES ('ROLE_POST_OFFICE_OPERATOR', N'Giao dịch viên / Điều phối bưu cục cấp 2/3');
+    INSERT INTO roles (name, description) VALUES ('ROLE_POST_OFFICE_OPERATOR', N'Giao dịch viên / Nhân viên bưu cục cấp 2/3');
+
+IF NOT EXISTS (SELECT 1 FROM roles WHERE name = 'ROLE_DISPATCHER')
+    INSERT INTO roles (name, description) VALUES ('ROLE_DISPATCHER', N'Điều phối viên Vận tải / Quản lý Đội xe & Chuyến đi');
 
 IF NOT EXISTS (SELECT 1 FROM roles WHERE name = 'ROLE_CS')
     INSERT INTO roles (name, description) VALUES ('ROLE_CS', N'Nhân viên Chăm sóc khách hàng');
@@ -152,6 +156,14 @@ EXEC #AddPermissionToRole 'ROLE_POST_OFFICE_OPERATOR', 'tracking:read_public';
 EXEC #AddPermissionToRole 'ROLE_POST_OFFICE_OPERATOR', 'tracking:read_full';
 EXEC #AddPermissionToRole 'ROLE_POST_OFFICE_OPERATOR', 'tracking:update_post_office';
 EXEC #AddPermissionToRole 'ROLE_POST_OFFICE_OPERATOR', 'tracking:update_hub';
+
+-- 3.3c. Gán cho ROLE_DISPATCHER
+EXEC #AddPermissionToRole 'ROLE_DISPATCHER', 'profile:read';
+EXEC #AddPermissionToRole 'ROLE_DISPATCHER', 'password:change';
+EXEC #AddPermissionToRole 'ROLE_DISPATCHER', 'shipment:read_all';
+EXEC #AddPermissionToRole 'ROLE_DISPATCHER', 'tracking:read_public';
+EXEC #AddPermissionToRole 'ROLE_DISPATCHER', 'tracking:read_full';
+EXEC #AddPermissionToRole 'ROLE_DISPATCHER', 'routing:trip_manage';
 
 -- 3.4. Gán cho ROLE_CS
 EXEC #AddPermissionToRole 'ROLE_CS', 'profile:read';

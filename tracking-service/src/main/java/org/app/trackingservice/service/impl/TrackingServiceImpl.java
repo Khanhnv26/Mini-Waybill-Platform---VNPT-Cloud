@@ -100,12 +100,24 @@ public class TrackingServiceImpl implements TrackingService {
 
         if(!isAdminOrCS) {
 
-            if(isHubStaff && !Set.of(ShipmentStatus.PICKED_UP, ShipmentStatus.IN_TRANSIT, ShipmentStatus.ARRIVED_DEST_HUB).contains(newStatus)) {
-                throw new ForbiddenException("Nhân viên Kho Tổng chỉ có quyền quét tiếp nhận, xuất chuyến hoặc dỡ hàng vào trạm trục!");
+            if(isHubStaff) {
+                if (newStatus == ShipmentStatus.IN_TRANSIT || newStatus == ShipmentStatus.ARRIVED_DEST_HUB) {
+                    throw new ForbiddenException("Nhân viên Kho Tổng không được đổi trạng thái " + newStatus + " thủ công cho từng đơn lẻ. Trạng thái xuất bến và cập bến tại Kho Tổng phải được kích hoạt thông qua module Quản lý Chuyến xe trục (Trips)!");
+                }
+                if (!Set.of(ShipmentStatus.PICKED_UP).contains(newStatus)) {
+                    throw new ForbiddenException("Nhân viên Kho Tổng chỉ có quyền quét tiếp nhận bưu phẩm vào trạm trục!");
+                }
             }
 
-            if(isPostStaff && !Set.of(ShipmentStatus.PICKED_UP, ShipmentStatus.IN_TRANSIT, ShipmentStatus.ARRIVED_DEST_HUB, ShipmentStatus.OUT_FOR_DELIVERY).contains(newStatus)) {
-                throw new ForbiddenException("Nhân viên Bưu Cục chỉ có quyền tiếp nhận quầy, xuất/nhận xe trung chuyển hoặc bàn giao bưu tá!");
+            if(isPostStaff) {
+                if (!Set.of(ShipmentStatus.PICKED_UP, ShipmentStatus.IN_TRANSIT, ShipmentStatus.ARRIVED_DEST_HUB, ShipmentStatus.OUT_FOR_DELIVERY).contains(newStatus)) {
+                    throw new ForbiddenException("Nhân viên Bưu Cục chỉ có quyền tiếp nhận quầy, xuất/nhận xe trung chuyển hoặc bàn giao bưu tá!");
+                }
+                if (newStatus == ShipmentStatus.IN_TRANSIT) {
+                    if (request.getNote() == null || (!request.getNote().toLowerCase().contains("xe") && !request.getNote().toLowerCase().contains("bks"))) {
+                        throw new IllegalArgumentException("Trạng thái xuất chuyển Feeder (IN_TRANSIT) tại bưu cục yêu cầu thông tin phương tiện (BKS xe, lái xe)!");
+                    }
+                }
             }
 
             if(isShipper && !Set.of(ShipmentStatus.OUT_FOR_DELIVERY,ShipmentStatus.DELIVERED, ShipmentStatus.DELIVERY_FAILED).contains(newStatus)) {

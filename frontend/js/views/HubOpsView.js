@@ -12,11 +12,8 @@
     const HubOpsView = {
         name: 'HubOpsView',
         emits: ['view-tracking'],
-        components: {
-            TripsView: window.TripsView
-        },
         setup(props, { emit }) {
-            const currentSubtab = ref('scan'); // 'scan' | 'inventory' | 'manifest'
+            const currentSubtab = ref('scan'); // 'scan' | 'inventory'
             const isLoading = ref(false);
             const isActionRunning = ref(false);
 
@@ -258,53 +255,28 @@
                 }
             };
 
-            // Quét mã nhanh từ ô Input
-            const handleQuickScan = (targetStatus) => {
+            // Quét mã tra cứu / nạp vào chuyến xe (Không cho phép tự ép trạng thái đơn lẻ)
+            const handleBarcodeLookupOrLoad = () => {
                 if (!scanInputCode.value.trim()) {
                     Utils.showToast('Yêu Cầu Nhập Mã', 'Vui lòng quét hoặc nhập mã vận đơn để thực hiện tác nghiệp', 'warning');
                     return;
                 }
-                let note = '';
-                if (targetStatus === 'IN_TRANSIT') {
-                    note = 'Kho Tổng đã đóng chuyến xe container xuất bến luân chuyển liên tỉnh';
-                } else if (targetStatus === 'ARRIVED_DEST_HUB') {
-                    note = 'Xe tải trục đã cập bến Kho Tổng đích, hoàn tất dỡ hàng vào bãi';
-                } else {
-                    note = `Khai thác tại trạm ${selectedHub.value !== 'ALL' ? selectedHub.value : 'Kho Tổng'}: Chuyển trạng thái ${targetStatus}`;
+                const cleanCode = scanInputCode.value.trim();
+                const item = shipmentsList.value.find(s => s.trackingCode === cleanCode);
+                if (!item) {
+                    Utils.showToast('Không Tìm Thấy', `Không tìm thấy bưu gửi ${cleanCode} trong hệ thống`, 'warning');
+                    return;
                 }
-                handleUpdateStatus(scanInputCode.value, targetStatus, note);
+                if (item.currentStatus === 'PICKED_UP') {
+                    Utils.showToast('Bưu Gửi Tại Hub', `Bưu gửi ${cleanCode} đang lưu bãi tại Hub. Chờ điều phối chuyến xe.`, 'info');
+                } else if (item.currentStatus === 'IN_TRANSIT') {
+                    Utils.showToast('Đang Vận Chuyển', `Bưu gửi ${cleanCode} đang trên chuyến xe vận chuyển liên tỉnh.`, 'info');
+                } else if (item.currentStatus === 'ARRIVED_DEST_HUB') {
+                    Utils.showToast('Đã Cập Bến Hub', `Bưu gửi ${cleanCode} đã dỡ an toàn vào bãi. Chờ xuất xe trung chuyển về bưu cục phát.`, 'success');
+                } else {
+                    viewTrackingDetail(cleanCode);
+                }
             };
-
-
-            // Bảng kê chuyến xe luân chuyển (Tổng hợp từ danh sách đơn thật)
-            const tripManifestSummary = computed(() => {
-                const inTransitItems = shipmentsList.value.filter(s => s.currentStatus === 'IN_TRANSIT');
-                const pickedUpItems = shipmentsList.value.filter(s => s.currentStatus === 'PICKED_UP');
-
-                const totalInTransitWeight = inTransitItems.reduce((acc, cur) => acc + (cur.weight || 0), 0);
-                const totalPickedUpWeight = pickedUpItems.reduce((acc, cur) => acc + (cur.weight || 0), 0);
-
-                return [
-                    {
-                        tripCode: 'TRIP-HN-HCM-01',
-                        vehiclePlate: '29C-889.12 (Container 15T)',
-                        route: 'HUB-HN-01 ➔ HUB-HCM-01 (QL1A)',
-                        itemCount: inTransitItems.length,
-                        totalWeight: totalInTransitWeight.toFixed(1),
-                        status: 'IN_TRANSIT',
-                        statusText: 'Đang Lưu Thông Tuyến Bắc - Nam'
-                    },
-                    {
-                        tripCode: 'TRIP-HN-DN-02',
-                        vehiclePlate: '29C-455.78 (Tải 8T)',
-                        route: 'HUB-HN-01 ➔ HUB-DN-01 (Cao Tốc)',
-                        itemCount: pickedUpItems.length,
-                        totalWeight: totalPickedUpWeight.toFixed(1),
-                        status: 'STAGING',
-                        statusText: 'Đang Tập Kết Chờ Xuất Bến'
-                    }
-                ];
-            });
 
             // Mở chi tiết hành trình & bản đồ tại TrackingView
             const viewTrackingDetail = (code) => {
@@ -341,8 +313,7 @@
                 isCurrentStationPostOffice,
                 loadShipmentsData,
                 handleUpdateStatus,
-                handleQuickScan,
-                tripManifestSummary,
+                handleBarcodeLookupOrLoad,
                 viewTrackingDetail,
                 Utils
             };
@@ -362,10 +333,10 @@
                             <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
                         </div>
                         <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
-                            Khai Thác Kho Tổng &amp; Luân Chuyển Tuyến Trục
+                            Khai Thác &amp; Quản Lý Tồn Bãi Kho Tổng
                         </h1>
                         <p class="text-xs text-blue-100/90 mt-0.5 leading-normal">
-                            Bàn tác nghiệp thủ kho Hub: Quản lý hàng tồn bãi, điều phối bảng kê đóng chuyến xe container liên tỉnh (Trips) và tiếp nhận xe trung chuyển.
+                            Bàn tác nghiệp thủ kho Hub: Quét tiếp nhận hàng hóa cập bến, phân loại chia chọn theo tuyến đích và quản lý tồn bãi lưu kho.
                         </p>
                     </div>
 
@@ -413,22 +384,9 @@
                     >
                         <span>QUẢN LÝ TỒN BÃI TẠI HUB</span>
                     </button>
-
-                    <button 
-                        @click="currentSubtab = 'trips'"
-                        :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center space-x-1.5 whitespace-nowrap',
-                            (currentSubtab === 'trips' || currentSubtab === 'manifest') 
-                                ? 'border-blue-600 text-blue-700' 
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
-                        ]"
-                    >
-                        <span>ĐIỀU PHỐI CHUYẾN XE TRỤC</span>
-                    </button>
                 </div>
 
                 <button 
-                    v-if="currentSubtab !== 'trips' && currentSubtab !== 'manifest'"
                     @click="loadShipmentsData()" 
                     :disabled="isLoading"
                     class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center space-x-1 border border-slate-200"
@@ -444,39 +402,37 @@
             <transition name="subtab" mode="out-in">
                 <!-- SUBTAB 1: QUÉT TIẾP NHẬN & XUẤT CHUYẾN -->
                 <div v-if="currentSubtab === 'scan'" key="scan" class="space-y-3">
-                <!-- THANH TÁC NGHIỆP QUÉT MÃ BARCODE -->
+                <!-- THANH TÁC NGHIỆP QUÉT MÃ BARCODE (ĐIỀU PHỐI VÀO XE / TRA CỨU) -->
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div class="flex items-center space-x-2">
                         <span class="w-2 h-2 rounded-full bg-blue-600"></span>
                         <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                            Đầu Đọc Mã Vạch / Quét Bưu Gửi
+                            Đầu Đọc Mã Vạch / Tra Cứu Kiện Hàng
                         </span>
-                        <span class="text-slate-400 text-xs font-normal">(Quét từ máy quét mã vạch hoặc nhập mã)</span>
+                        <span class="text-slate-400 text-xs font-normal">(Quét barcode kiểm tra vị trí &amp; điều phối vào xe)</span>
                     </div>
 
                     <div class="flex flex-wrap items-center gap-2">
                         <input 
                             v-model="scanInputCode"
-                            @keyup.enter="handleQuickScan('IN_TRANSIT')"
+                            @keyup.enter="handleBarcodeLookupOrLoad"
                             type="text" 
                             placeholder="Nhập hoặc quét mã bưu gửi..." 
                             class="pl-3 pr-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono font-bold text-blue-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none w-56 transition"
                         />
                         <button 
-                            @click="handleQuickScan('IN_TRANSIT')"
-                            :disabled="isActionRunning"
-                            class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition shadow-sm disabled:opacity-50 flex items-center space-x-1"
-                            title="Đóng chuyến xe container xuất bến luân chuyển liên tỉnh"
+                            @click="handleBarcodeLookupOrLoad"
+                            class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition shadow-sm flex items-center space-x-1"
+                            title="Quét kiểm tra hành trình & điều phối kiện hàng"
                         >
-                            <span>Đóng Chuyến Xe Trục</span>
+                            <span>Kiểm Tra / Xếp Xe</span>
                         </button>
                         <button 
-                            @click="handleQuickScan('ARRIVED_DEST_HUB')"
-                            :disabled="isActionRunning"
-                            class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs transition shadow-sm disabled:opacity-50 flex items-center space-x-1"
-                            title="Dỡ hàng xe container trục cập bến vào bãi Hub"
+                            @click="currentSubtab = 'trips'"
+                            class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition border border-slate-200 flex items-center space-x-1"
+                            title="Mở Bảng Điều Phối Chuyến Xe Đi và Đến"
                         >
-                            <span>Dỡ Hàng Xe Trục Đến</span>
+                            <span>Mở Điều Phối Chuyến Xe ➔</span>
                         </button>
                     </div>
                 </div>
@@ -612,53 +568,30 @@
                                                 :title="'Đang tại Kho Tổng ' + (item.sourceHub || 'HUB-HN-01') + '. Sẵn sàng ghép chuyến xe trục.'"
                                             >
                                                 <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                                                Tại Hub [{{ item.sourceHub || 'HUB-HN-01' }}]
+                                                Tại Hub [{{ item.sourceHub || 'HUB-HN-01' }}] - Chờ Điều Phối Xe
                                             </span>
-                                            <button 
-                                                @click="currentSubtab = 'trips'"
-                                                class="px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-bold transition shadow-sm"
-                                                title="Mở Bảng Kê / Chuyến Xe Trục để ghép đơn vào chuyến xe container"
-                                            >
-                                                Ghép Xe Trục
-                                            </button>
                                         </template>
 
                                         <!-- Khi IN_TRANSIT: Đang luân chuyển trên xe trục liên tỉnh -->
                                         <template v-else-if="item.currentStatus === 'IN_TRANSIT'">
                                             <span 
                                                 class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200"
-                                                title="Kiện hàng đang trên xe trục liên tỉnh. Chờ chuyến xe cập bến kho bãi đích để dỡ hàng."
+                                                title="Kiện hàng đang trên xe. Chờ chuyến xe cập bến kho bãi đích để dỡ hàng."
                                             >
                                                 <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
-                                                Đang Trên Xe Trục
+                                                Đang Trên Chuyến Xe
                                             </span>
-                                            <button 
-                                                @click="handleUpdateStatus(item.trackingCode, 'ARRIVED_DEST_HUB', 'Xe tải container trục đã cập bến Kho Tổng đích, dỡ hàng vào bãi')"
-                                                :disabled="isActionRunning"
-                                                class="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold transition shadow-sm"
-                                                title="Dỡ hàng từ xe tải container trục vào bãi Kho Tổng đích"
-                                            >
-                                                Dỡ Hàng Cập Bến
-                                            </button>
                                         </template>
 
                                         <!-- Khi ARRIVED_DEST_HUB: Đã đến Kho Tổng đích -->
                                         <template v-else-if="item.currentStatus === 'ARRIVED_DEST_HUB'">
                                             <span 
                                                 class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200"
-                                                :title="'Hàng đang tại Siêu Hub ' + (item.destinationHub || 'Kho Tổng') + '. Điều xe trung chuyển về bưu cục phát ' + getDestPostOfficeInfo(item).name"
+                                                :title="'Hàng đang tại Siêu Hub ' + (item.destinationHub || 'Kho Tổng') + '. Ghép xe trung chuyển về bưu cục phát ' + getDestPostOfficeInfo(item).name"
                                             >
                                                 <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
                                                 Tại Hub ➔ Chờ Xe Về {{ getDestPostOfficeInfo(item).code }}
                                             </span>
-                                            <button 
-                                                @click="handleUpdateStatus(item.trackingCode, 'IN_TRANSIT', 'Xe trung chuyển xuất phát từ Kho Tổng về bưu cục phát')"
-                                                :disabled="isActionRunning"
-                                                class="px-2 py-0.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-[11px] font-bold transition shadow-sm"
-                                                title="Điều xe trung chuyển chở bưu gửi về bưu cục phát"
-                                            >
-                                                Điều Xe Về Bưu Cục
-                                            </button>
                                         </template>
 
                                         <!-- Khi OUT_FOR_DELIVERY hoặc DELIVERED -->
@@ -758,24 +691,14 @@
                                 <td class="py-2.5 px-3 text-slate-600 max-w-xs truncate">{{ item.receiverAddress }}</td>
                                 <td class="py-2.5 px-3 font-mono">{{ item.weight || 0 }} kg</td>
                                 <td class="py-2.5 px-3 text-right">
-                                    <button 
-                                        @click="handleUpdateStatus(item.trackingCode, 'IN_TRANSIT', 'Xuất chuyến xe')"
-                                        class="px-2 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded font-bold hover:bg-blue-100"
-                                    >
-                                        Đóng Chuyến Đi
-                                    </button>
+                                    <span class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                        Lưu Bãi Kho Tổng
+                                    </span>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-            </div>
-
-            <!-- =============================================================== -->
-            <!-- SUBTAB 3: ĐIỀU PHỐI CHUYẾN XE TRỤC (LINEHAUL TRIPS)           -->
-            <!-- =============================================================== -->
-            <div v-else-if="currentSubtab === 'trips' || currentSubtab === 'manifest'" key="trips" class="space-y-4 pt-1">
-                <trips-view :embedded="true" @view-tracking="viewTrackingDetail"></trips-view>
             </div>
             </transition>
         </div>

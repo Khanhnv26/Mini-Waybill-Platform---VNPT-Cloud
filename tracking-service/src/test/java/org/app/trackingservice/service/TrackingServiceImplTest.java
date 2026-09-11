@@ -129,6 +129,30 @@ class TrackingServiceImplTest {
     }
 
     @Test
+    @DisplayName("ROLE_HUB_OPERATOR vi phạm quy tắc chuyến xe: Tự cập nhật IN_TRANSIT đơn lẻ -> Bị chặn 403")
+    void updateStatus_HubOperatorManualInTransit_ShouldThrowException() {
+        UpdateStatusRequest request = UpdateStatusRequest.builder()
+                .status("IN_TRANSIT")
+                .build();
+
+        assertThrows(ForbiddenException.class, () -> 
+            trackingService.updateStatus(TRACKING_CODE, request, "ROLE_HUB_OPERATOR", "tracking:update_hub")
+        );
+    }
+
+    @Test
+    @DisplayName("ROLE_HUB_OPERATOR vi phạm quy tắc chuyến xe: Tự cập nhật ARRIVED_DEST_HUB đơn lẻ -> Bị chặn 403")
+    void updateStatus_HubOperatorManualArrivedDestHub_ShouldThrowException() {
+        UpdateStatusRequest request = UpdateStatusRequest.builder()
+                .status("ARRIVED_DEST_HUB")
+                .build();
+
+        assertThrows(ForbiddenException.class, () -> 
+            trackingService.updateStatus(TRACKING_CODE, request, "ROLE_HUB_OPERATOR", "tracking:update_hub")
+        );
+    }
+
+    @Test
     @DisplayName("ROLE_POST_OFFICE_OPERATOR vi phạm quyền: Cập nhật DELIVERED trực tiếp -> Bị chặn 403 Forbidden")
     void updateStatus_PostOfficeOperatorForbiddenStatus_ShouldThrowException() {
         UpdateStatusRequest request = UpdateStatusRequest.builder()
@@ -136,6 +160,19 @@ class TrackingServiceImplTest {
                 .build();
 
         assertThrows(ForbiddenException.class, () -> 
+            trackingService.updateStatus(TRACKING_CODE, request, "ROLE_POST_OFFICE_OPERATOR", "tracking:update_post_office")
+        );
+    }
+
+    @Test
+    @DisplayName("ROLE_POST_OFFICE_OPERATOR xuất Feeder IN_TRANSIT thiếu thông tin xe -> Bị từ chối IllegalArgumentException")
+    void updateStatus_PostOfficeFeederMissingVehicle_ShouldThrowException() {
+        UpdateStatusRequest request = UpdateStatusRequest.builder()
+                .status("IN_TRANSIT")
+                .note("Gom hàng về kho")
+                .build();
+
+        assertThrows(IllegalArgumentException.class, () -> 
             trackingService.updateStatus(TRACKING_CODE, request, "ROLE_POST_OFFICE_OPERATOR", "tracking:update_post_office")
         );
     }
