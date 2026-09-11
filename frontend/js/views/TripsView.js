@@ -27,6 +27,24 @@
         }
     ];
 
+    const PRESET_FEEDER_ROUTES = [
+        {
+            name: 'Trung Chuyển Hà Nội (Kho Tổng - Cầu Giấy - Đống Đa)',
+            originHub: 'HUB-HN-01',
+            stops: ['HUB-HN-01', 'POST-HN-CG', 'POST-HN-DDA']
+        },
+        {
+            name: 'Trung Chuyển TP.HCM (Kho Tổng - Q.1 - Bình Thạnh)',
+            originHub: 'HUB-HCM-01',
+            stops: ['HUB-HCM-01', 'POST-HCM-Q1', 'POST-HCM-BT']
+        },
+        {
+            name: 'Trung Chuyển Đà Nẵng (Kho Tổng - Hải Châu - Sơn Trà)',
+            originHub: 'HUB-DN-01',
+            stops: ['HUB-DN-01', 'POST-DN-HC', 'POST-DN-ST']
+        }
+    ];
+
     const HUB_COORDINATES = {
         // 5 KHO TỔNG CẤP 1 (SUPER HUBS / CENTRAL HUBS)
         'HUB-HN-01': { 
@@ -349,6 +367,7 @@
             const selectedPresetIndex = ref(0);
             const selectedStopToAdd = ref('');
             const tripForm = reactive({
+                tripType: 'LINEHAUL',
                 tripCode: '',
                 routeName: PRESET_ROUTES[0].name,
                 originHub: PRESET_ROUTES[0].originHub,
@@ -516,9 +535,14 @@
                 }
             };
 
+            const currentPresets = computed(() => {
+                return tripForm.tripType === 'FEEDER' ? PRESET_FEEDER_ROUTES : PRESET_ROUTES;
+            });
+
             const applyPresetRoute = (index) => {
                 selectedPresetIndex.value = index;
-                const preset = PRESET_ROUTES[index];
+                const routes = currentPresets.value;
+                const preset = routes[index];
                 if (preset) {
                     tripForm.routeName = preset.name;
                     tripForm.originHub = preset.originHub;
@@ -526,8 +550,34 @@
                 }
             };
 
+            const setTripType = (type) => {
+                tripForm.tripType = type;
+                selectedPresetIndex.value = 0;
+                applyPresetRoute(0);
+            };
+
+            const isFeederTrip = (trip) => {
+                if (!trip) return false;
+                if (trip.stops && Array.isArray(trip.stops)) {
+                    return trip.stops.some(s => {
+                        const code = s.hubCode || s;
+                        return code && code.startsWith('POST-');
+                    });
+                }
+                return false;
+            };
+
             const availableHubsToAdd = computed(() => {
-                return hubsList.value.filter(h => !tripForm.stopHubCodes.includes(h.hubCode));
+                if (tripForm.tripType === 'LINEHAUL') {
+                    // Xe Trục Liên Tỉnh: CHỈ CHO PHÉP CHỌN 5 KHO TỔNG CẤP 1
+                    return hubsList.value.filter(h => {
+                        const isCentral = (h.hubLevel === 1) || (h.hubCode && h.hubCode.startsWith('HUB-'));
+                        return isCentral && !tripForm.stopHubCodes.includes(h.hubCode);
+                    });
+                } else {
+                    // Xe Trung Chuyển Nội Đô: Cho phép chọn Bưu Cục con và Kho Tổng
+                    return hubsList.value.filter(h => !tripForm.stopHubCodes.includes(h.hubCode));
+                }
             });
 
             const addNewStop = () => {
@@ -1279,7 +1329,8 @@
                 getExpressCount, getStandardCount, printTripManifest,
                 isReadyForDeparture,
                 currentPage, pageSize, totalPages, paginatedTrips, startIndex, endIndex, goToPage,
-                switchDetailTab, activeManifests
+                switchDetailTab, activeManifests,
+                currentPresets, setTripType, isFeederTrip
             };
         },
         template: `
@@ -1461,8 +1512,14 @@
                                     <span class="font-bold text-blue-600 hover:underline cursor-pointer" @click="openTripDetail(t.id)">
                                         {{ t.tripCode }}
                                     </span>
-                                    <div class="text-[11px] text-slate-600 font-medium mt-0.5">
-                                        {{ t.routeName }}
+                                    <div class="text-[11px] text-slate-600 font-medium mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                        <span>{{ t.routeName }}</span>
+                                        <span v-if="isFeederTrip(t)" class="px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[9.5px] font-extrabold uppercase">
+                                            Trung Chuyển Nội Đô
+                                        </span>
+                                        <span v-else class="px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[9.5px] font-extrabold uppercase">
+                                            Xe Trục Liên Tỉnh
+                                        </span>
                                     </div>
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap">
@@ -1607,7 +1664,42 @@
                     </div>
 
                     <form @submit.prevent="submitCreateTrip" class="p-5 space-y-4 text-xs">
-                        <!-- Tuyến mẫu nhanh dạng Grid Buttons -->
+                        <!-- 1. Bộ Chọn Phân Loại Chuyến Xe (Xe Trục Tuyến Chính vs Xe Trung Chuyển Nội Đô) -->
+                        <div>
+                            <label class="block font-bold text-slate-700 uppercase tracking-wider text-[10.5px] mb-1.5">
+                                Phân Loại Nghiệp Vụ Chuyến Xe
+                            </label>
+                            <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-lg">
+                                <button 
+                                    type="button"
+                                    @click="setTripType('LINEHAUL')"
+                                    :class="[
+                                        'py-1.5 px-3 rounded-md text-xs font-bold transition flex items-center justify-center gap-1.5',
+                                        tripForm.tripType === 'LINEHAUL' ? 'bg-white text-blue-700 shadow-sm border border-slate-200' : 'text-slate-600 hover:text-slate-900'
+                                    ]"
+                                >
+                                    <span>Xe Trục Liên Tỉnh (Linehaul)</span>
+                                </button>
+                                <button 
+                                    type="button"
+                                    @click="setTripType('FEEDER')"
+                                    :class="[
+                                        'py-1.5 px-3 rounded-md text-xs font-bold transition flex items-center justify-center gap-1.5',
+                                        tripForm.tripType === 'FEEDER' ? 'bg-white text-purple-700 shadow-sm border border-slate-200' : 'text-slate-600 hover:text-slate-900'
+                                    ]"
+                                >
+                                    <span>Xe Trung Chuyển Nội Đô (Feeder)</span>
+                                </button>
+                            </div>
+                            <p v-if="tripForm.tripType === 'LINEHAUL'" class="text-[10px] text-blue-600 mt-1">
+                                • <b>Xe Trục Liên Tỉnh</b>: Xe tải lớn chỉ dừng và gom đơn giữa <b>5 Kho Tổng Cấp 1</b> (Hà Nội, Hải Phòng, Đà Nẵng, TP.HCM, Cần Thơ).
+                            </p>
+                            <p v-else class="text-[10px] text-purple-600 mt-1">
+                                • <b>Xe Trung Chuyển Nội Đô</b>: Thu gom / phát trả hàng hóa giữa Kho Tổng mẹ và các <b>Bưu Cục con trực thuộc</b>.
+                            </p>
+                        </div>
+
+                        <!-- 2. Tuyến mẫu nhanh dạng Grid Buttons -->
                         <div>
                             <label class="block font-bold text-slate-700 uppercase tracking-wider text-[10.5px] mb-1.5">
                                 Chọn Tuyến Mẫu Nhanh
@@ -1615,7 +1707,7 @@
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 <button 
                                     type="button"
-                                    v-for="(p, idx) in PRESET_ROUTES" 
+                                    v-for="(p, idx) in currentPresets" 
                                     :key="p.name"
                                     @click="applyPresetRoute(idx)"
                                     :class="[
@@ -1623,7 +1715,7 @@
                                         selectedPresetIndex === idx ? 'border-2 border-blue-600 bg-blue-50/70 text-blue-800 font-bold' : 'border-slate-200 text-slate-700 hover:bg-slate-50'
                                     ]"
                                 >
-                                    <div>{{ p.name }}</div>
+                                    <div class="truncate">{{ p.name }}</div>
                                     <div class="text-[10px] text-slate-400 font-normal mt-0.5">{{ p.stops.length }} trạm dừng</div>
                                 </button>
                             </div>
@@ -1702,9 +1794,9 @@
                                     </div>
                                     <div v-if="availableHubsToAdd.length > 0" class="flex items-center space-x-1.5 pt-2">
                                         <select v-model="selectedStopToAdd" class="flex-1 rounded-lg border border-slate-200 px-2.5 py-1 bg-white text-xs outline-none">
-                                            <option value="">-- Chọn Hub thêm vào tuyến --</option>
+                                            <option value="">-- {{ tripForm.tripType === 'LINEHAUL' ? 'Chọn Kho Tổng Cấp 1 thêm vào tuyến' : 'Chọn Bưu Cục / Hub thêm vào tuyến' }} --</option>
                                             <option v-for="h in availableHubsToAdd" :key="h.hubCode" :value="h.hubCode">
-                                                {{ h.hubName || h.hubCode }} ({{ h.hubCode }})
+                                                {{ (h.hubLevel === 1 || (h.hubCode && h.hubCode.startsWith('HUB-'))) ? '[Kho Tổng] ' : '[Bưu Cục] ' }}{{ h.hubName || h.hubCode }} ({{ h.hubCode }})
                                             </option>
                                         </select>
                                         <button 

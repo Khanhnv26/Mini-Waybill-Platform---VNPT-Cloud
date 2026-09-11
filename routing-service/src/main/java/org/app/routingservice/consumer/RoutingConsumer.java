@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.app.routingservice.dto.event.CreateShipmentEvent;
 import org.app.routingservice.dto.event.RouteAssignedEvent;
+import org.app.routingservice.dto.event.ShipmentStatusUpdatedEvent;
 import org.app.routingservice.entity.Hub;
 import org.app.routingservice.entity.RoutingAssignment;
 import org.app.routingservice.repository.HubRepository;
@@ -17,8 +18,10 @@ import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Service;
 
+import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
@@ -76,6 +79,16 @@ public class RoutingConsumer {
         kafkaTemplate.send("route-assigned", event.getTrackingCode(), routeEvent);
         log.info("[ROUTING-SERVICE] Đã bắn event RouteAssignedEvent lên topic 'route-assigned'");
 
+        ShipmentStatusUpdatedEvent statusEvent = ShipmentStatusUpdatedEvent.builder()
+                .trackingCode(event.getTrackingCode())
+                .status("ROUTE_ASSIGNED")
+                .locationCode(originPostOffice != null ? originPostOffice : sourceHub)
+                .note("Đã phân tuyến vận chuyển: " + routeCode)
+                .updateAt(LocalDateTime.now().toString())
+                .build();
+        kafkaTemplate.send("tracking-status-events", event.getTrackingCode(), statusEvent);
+        log.info("[ROUTING-SERVICE] Đã bắn event ShipmentStatusUpdatedEvent (ROUTE_ASSIGNED) lên topic 'tracking-status-events'");
+
     }
 
     @DltHandler
@@ -85,6 +98,17 @@ public class RoutingConsumer {
         log.error("[ROUTING-SERVICE] Event CreateShipmentEvent với trackingCode {} đã thất bại sau 3 lần thử. Gửi vào DLT để xử lý thủ công.", event.getTrackingCode());
     }
 
+    private String unaccent(String text) {
+        if (text == null) return "";
+        String normalized = Normalizer.normalize(text, Normalizer.Form.NFD);
+        Pattern pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
+        return pattern.matcher(normalized).replaceAll("")
+                .replace('đ', 'd')
+                .replace('Đ', 'd')
+                .toLowerCase()
+                .trim();
+    }
+
     private HubRoutingResult determineRouteHierarchy(String address, String defaultCentralHub, String defaultPostOffice) {
         if (address == null || address.isBlank()) {
             return new HubRoutingResult(defaultCentralHub, defaultPostOffice);
@@ -92,14 +116,37 @@ public class RoutingConsumer {
 
         List<Hub> allHubs = hubRepository.findAll();
         String addressLower = address.toLowerCase();
+        String addressUnaccent = unaccent(address);
 
         // 1. Tìm Kho Tổng Cấp 1 (Central Hub) theo Tỉnh/Thành phố
         Hub centralHub = null;
         for (Hub h : allHubs) {
             if ((h.getHubLevel() == null || h.getHubLevel() == 1) && h.getProvince() != null) {
                 String provLower = h.getProvince().toLowerCase();
-                if (addressLower.contains(provLower) ||
-                    (provLower.contains("hồ chí minh") && (addressLower.contains("hcm") || addressLower.contains("sài gòn")))) {
+                String provUnaccent = unaccent(h.getProvince());
+
+                boolean match = addressLower.contains(provLower) || addressUnaccent.contains(provUnaccent);
+
+                if (!match) {
+                    if (provUnaccent.contains("ho chi minh") &&
+                        (addressUnaccent.contains("hcm") || addressUnaccent.contains("sai gon") || addressUnaccent.contains("tphcm"))) {
+                        match = true;
+                    } else if (provUnaccent.contains("ha noi") &&
+                        (addressUnaccent.contains("hn") || addressUnaccent.contains("tp ha noi"))) {
+                        match = true;
+                    } else if (provUnaccent.contains("da nang") &&
+                        (addressUnaccent.contains("dn") || addressUnaccent.contains("tp da nang"))) {
+                        match = true;
+                    } else if (provUnaccent.contains("hai phong") &&
+                        (addressUnaccent.contains("hp") || addressUnaccent.contains("tp hai phong"))) {
+                        match = true;
+                    } else if (provUnaccent.contains("can tho") &&
+                        (addressUnaccent.contains("ct") || addressUnaccent.contains("tp can tho"))) {
+                        match = true;
+                    }
+                }
+
+                if (match) {
                     centralHub = h;
                     break;
                 }
@@ -116,9 +163,13 @@ public class RoutingConsumer {
                 if (defaultSubHub == null) {
                     defaultSubHub = h;
                 }
-                if (h.getDistrict() != null && addressLower.contains(h.getDistrict().toLowerCase())) {
-                    postOfficeCode = h.getHubCode();
-                    break;
+                if (h.getDistrict() != null) {
+                    String distLower = h.getDistrict().toLowerCase();
+                    String distUnaccent = unaccent(h.getDistrict());
+                    if (addressLower.contains(distLower) || addressUnaccent.contains(distUnaccent)) {
+                        postOfficeCode = h.getHubCode();
+                        break;
+                    }
                 }
             }
         }

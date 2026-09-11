@@ -981,142 +981,8 @@
                 <!-- 3. KHU VỰC SƠ ĐỒ, BẢN ĐỒ & THÔNG TIN BƯU GỬI (KHI CÓ DỮ LIỆU) -->
                 <div v-show="!isNotFound && currentShipment" class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
                     
-                    <!-- CỘT TRÁI (~35% / 4 of 12 cols): Khối Tra Cứu & Khối Thông Tin Bưu Gửi Chi Tiết -->
-                    <div class="lg:col-span-4 space-y-4">
-                        <!-- 1. Thẻ Tra Cứu Vận Đơn (Cho phép tra tiếp mã khác hoặc làm mới) -->
-                        <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
-                            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                                <div class="flex items-center space-x-2">
-                                    <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
-                                    <span class="font-extrabold text-slate-800 uppercase tracking-wider text-xs">Tra Cứu Bưu Gửi</span>
-                                </div>
-                                <span class="text-[10px] text-slate-400 font-mono">Hỗ trợ mã WB...</span>
-                            </div>
-
-                            <div class="space-y-2.5">
-                                <div class="relative">
-                                    <input 
-                                        id="tracking-search-input"
-                                        v-model="searchCode" 
-                                        @keyup.enter="fetchTrackingData()"
-                                        @input="validationError = ''"
-                                        type="text" 
-                                        placeholder="Nhập mã số bưu gửi (VD: WB...)" 
-                                        class="w-full pl-8 pr-7 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
-                                    />
-                                    <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                    </svg>
-                                    <button 
-                                        v-if="searchCode" 
-                                        @click="searchCode = ''; validationError = ''; currentShipment = null; isNotFound = false; animateNumbers()" 
-                                        class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
-                                        title="Xóa mã &amp; về trang chủ"
-                                    >
-                                        ✕
-                                    </button>
-                                </div>
-
-                                <div class="flex items-center space-x-2">
-                                    <button 
-                                        @click="fetchTrackingData()"
-                                        :disabled="isLoading"
-                                        class="flex-1 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-sm shadow-blue-500/20 transition disabled:opacity-50 flex items-center justify-center space-x-1.5 cursor-pointer"
-                                    >
-                                        <span v-if="isLoading" class="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></span>
-                                        <span>{{ isLoading ? 'Đang Tra Cứu...' : 'Tra Cứu Tiếp' }}</span>
-                                    </button>
-                                    <button 
-                                        type="button"
-                                        @click="searchCode = ''; validationError = ''; currentShipment = null; isNotFound = false; animateNumbers()" 
-                                        class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition cursor-pointer"
-                                        title="Làm mới quay lại ban đầu"
-                                    >
-                                        Làm Mới
-                                    </button>
-                                </div>
-
-                                <!-- Lỗi Validation Inline -->
-                                <div v-if="validationError" class="text-rose-600 text-[11px] font-semibold flex items-center space-x-1.5 pt-1 animate-pulse">
-                                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                    </svg>
-                                    <span>{{ validationError }}</span>
-                                </div>
-
-                                <!-- Gợi ý nhanh mã -->
-                                <div class="pt-2 border-t border-slate-100 flex items-center flex-wrap gap-1.5">
-                                    <span class="text-[10px] text-slate-400 font-medium">Gợi ý:</span>
-                                    <button 
-                                        v-for="code in ['WB-HN-SG-001', 'WB-HN-HP-002', 'WB-DN-HCM-003']" 
-                                        :key="code"
-                                        @click="searchCode = code; fetchTrackingData(code)"
-                                        type="button"
-                                        class="px-2 py-0.5 rounded bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 font-mono text-[10.5px] cursor-pointer transition"
-                                    >
-                                        {{ code }}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 2. Thẻ Thông Tin Bưu Gửi Chi Tiết -->
-                        <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-3 text-xs">
-                            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                                <span class="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center space-x-1.5">
-                                    <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
-                                    <span>Thông Tin Bưu Gửi</span>
-                                </span>
-                                <span v-if="currentShipment" class="font-mono text-[11px] text-slate-400">#{{ currentShipment.id }}</span>
-                            </div>
-
-                            <div v-if="currentShipment" class="space-y-2.5">
-                                <div class="flex justify-between py-1 border-b border-slate-50">
-                                    <span class="text-slate-500 font-medium">Mã bưu gửi:</span>
-                                    <span class="font-mono font-extrabold text-blue-700 text-sm">{{ currentShipment.trackingCode }}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50">
-                                    <span class="text-slate-500 font-medium">Trạng thái:</span>
-                                    <span :class="['px-2.5 py-0.5 rounded-full font-bold text-[11px] border', Utils.getStatusBadgeClass(currentShipment.status)]">
-                                        {{ Utils.formatStatusText(currentShipment.status) }}
-                                    </span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50">
-                                    <span class="text-slate-500 font-medium">Dịch vụ:</span>
-                                    <span class="font-bold text-slate-700">{{ currentShipment.serviceType || 'EXPRESS' }}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50">
-                                    <span class="text-slate-500 font-medium">Khối lượng tính cước:</span>
-                                    <span class="font-mono font-bold text-slate-800">{{ currentShipment.weight || 0 }} kg</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50">
-                                    <span class="text-slate-500 font-medium">Tiền thu hộ COD:</span>
-                                    <span class="font-mono font-bold text-emerald-700 text-sm">{{ Utils.formatCurrency(currentShipment.codAmount) }}</span>
-                                </div>
-                                <div class="py-1 border-b border-slate-50">
-                                    <span class="text-slate-500 block mb-0.5 font-medium">Người gửi:</span>
-                                    <div class="text-slate-800 font-semibold flex items-center justify-between">
-                                        <span>{{ currentShipment.senderName || 'N/A' }}</span>
-                                        <span class="font-mono text-slate-500 font-medium text-[11px]" :title="currentShipment.senderPhone">{{ maskPhone(currentShipment.senderPhone) }}</span>
-                                    </div>
-                                    <span class="text-slate-600 text-[11px] block mt-0.5 leading-relaxed">{{ currentShipment.senderAddress || 'N/A' }}</span>
-                                </div>
-                                <div class="py-1">
-                                    <span class="text-slate-500 block mb-0.5 font-medium">Người nhận:</span>
-                                    <div class="text-slate-800 font-semibold flex items-center justify-between">
-                                        <span>{{ currentShipment.receiverName || 'N/A' }}</span>
-                                        <span class="font-mono text-slate-500 font-medium text-[11px]" :title="currentShipment.receiverPhone">{{ maskPhone(currentShipment.receiverPhone) }}</span>
-                                    </div>
-                                    <span class="text-slate-600 text-[11px] block mt-0.5 leading-relaxed">{{ currentShipment.receiverAddress || 'N/A' }}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- CỘT PHẢI (~65% / 8 of 12 cols): Sơ Đồ Tuyến Luân Chuyển (Stepper + Bản Đồ) -->
-                    <div class="lg:col-span-8 b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col justify-between space-y-3">
+                    <!-- CỘT TRÁI (~65% / 8 of 12 cols trên Desktop, order-2 trên Mobile): Sơ Đồ Tuyến Luân Chuyển (Stepper + Bản Đồ) -->
+                    <div class="order-2 lg:order-1 lg:col-span-8 b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col justify-between space-y-3">
                         <!-- Map Card Header Tối Giản -->
                         <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
                             <div class="flex items-center space-x-2">
@@ -1271,6 +1137,140 @@
                         <!-- Khung Bản Đồ Leaflet -->
                         <div class="flex-1 min-h-[460px] relative rounded-lg overflow-hidden border border-slate-200">
                             <div id="tracking-map" style="height: 460px; width: 100%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- CỘT PHẢI (~35% / 4 of 12 cols trên Desktop, order-1 trên Mobile): Khối Tra Cứu & Khối Thông Tin Bưu Gửi Chi Tiết -->
+                    <div class="order-1 lg:order-2 lg:col-span-4 space-y-4">
+                        <!-- 1. Thẻ Tra Cứu Vận Đơn (Cho phép tra tiếp mã khác hoặc làm mới) -->
+                        <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                                <div class="flex items-center space-x-2">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                    <span class="font-extrabold text-slate-800 uppercase tracking-wider text-xs">Tra Cứu Bưu Gửi</span>
+                                </div>
+                                <span class="text-[10px] text-slate-400 font-mono">Hỗ trợ mã WB...</span>
+                            </div>
+
+                            <div class="space-y-2.5">
+                                <div class="relative">
+                                    <input 
+                                        id="tracking-search-input"
+                                        v-model="searchCode" 
+                                        @keyup.enter="fetchTrackingData()"
+                                        @input="validationError = ''"
+                                        type="text" 
+                                        placeholder="Nhập mã số bưu gửi (VD: WB...)" 
+                                        class="w-full pl-8 pr-7 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+                                    />
+                                    <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                    <button 
+                                        v-if="searchCode" 
+                                        @click="searchCode = ''; validationError = ''; currentShipment = null; isNotFound = false; animateNumbers()" 
+                                        class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
+                                        title="Xóa mã &amp; về trang chủ"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+
+                                <div class="flex items-center space-x-2">
+                                    <button 
+                                        @click="fetchTrackingData()"
+                                        :disabled="isLoading"
+                                        class="flex-1 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-sm shadow-blue-500/20 transition disabled:opacity-50 flex items-center justify-center space-x-1.5 cursor-pointer"
+                                    >
+                                        <span v-if="isLoading" class="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></span>
+                                        <span>{{ isLoading ? 'Đang Tra Cứu...' : 'Tra Cứu Tiếp' }}</span>
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        @click="searchCode = ''; validationError = ''; currentShipment = null; isNotFound = false; animateNumbers()" 
+                                        class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition cursor-pointer"
+                                        title="Làm mới quay lại ban đầu"
+                                    >
+                                        Làm Mới
+                                    </button>
+                                </div>
+
+                                <!-- Lỗi Validation Inline -->
+                                <div v-if="validationError" class="text-rose-600 text-[11px] font-semibold flex items-center space-x-1.5 pt-1 animate-pulse">
+                                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span>{{ validationError }}</span>
+                                </div>
+
+                                <!-- Gợi ý nhanh mã -->
+                                <div class="pt-2 border-t border-slate-100 flex items-center flex-wrap gap-1.5">
+                                    <span class="text-[10px] text-slate-400 font-medium">Gợi ý:</span>
+                                    <button 
+                                        v-for="code in ['WB-HN-SG-001', 'WB-HN-HP-002', 'WB-DN-HCM-003']" 
+                                        :key="code"
+                                        @click="searchCode = code; fetchTrackingData(code)"
+                                        type="button"
+                                        class="px-2 py-0.5 rounded bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 font-mono text-[10.5px] cursor-pointer transition"
+                                    >
+                                        {{ code }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. Thẻ Thông Tin Bưu Gửi Chi Tiết -->
+                        <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-3 text-xs">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                                <span class="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center space-x-1.5">
+                                    <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    <span>Thông Tin Bưu Gửi</span>
+                                </span>
+                                <span v-if="currentShipment" class="font-mono text-[11px] text-slate-400">#{{ currentShipment.id }}</span>
+                            </div>
+
+                            <div v-if="currentShipment" class="space-y-2.5">
+                                <div class="flex justify-between py-1 border-b border-slate-50">
+                                    <span class="text-slate-500 font-medium">Mã bưu gửi:</span>
+                                    <span class="font-mono font-extrabold text-blue-700 text-sm">{{ currentShipment.trackingCode }}</span>
+                                </div>
+                                <div class="flex justify-between py-1 border-b border-slate-50">
+                                    <span class="text-slate-500 font-medium">Trạng thái:</span>
+                                    <span :class="['px-2.5 py-0.5 rounded-full font-bold text-[11px] border', Utils.getStatusBadgeClass(currentShipment.status)]">
+                                        {{ Utils.formatStatusText(currentShipment.status) }}
+                                    </span>
+                                </div>
+                                <div class="flex justify-between py-1 border-b border-slate-50">
+                                    <span class="text-slate-500 font-medium">Dịch vụ:</span>
+                                    <span class="font-bold text-slate-700">{{ currentShipment.serviceType || 'EXPRESS' }}</span>
+                                </div>
+                                <div class="flex justify-between py-1 border-b border-slate-50">
+                                    <span class="text-slate-500 font-medium">Khối lượng tính cước:</span>
+                                    <span class="font-mono font-bold text-slate-800">{{ currentShipment.weight || 0 }} kg</span>
+                                </div>
+                                <div class="flex justify-between py-1 border-b border-slate-50">
+                                    <span class="text-slate-500 font-medium">Tiền thu hộ COD:</span>
+                                    <span class="font-mono font-bold text-emerald-700 text-sm">{{ Utils.formatCurrency(currentShipment.codAmount) }}</span>
+                                </div>
+                                <div class="py-1 border-b border-slate-50">
+                                    <span class="text-slate-500 block mb-0.5 font-medium">Người gửi:</span>
+                                    <div class="text-slate-800 font-semibold flex items-center justify-between">
+                                        <span>{{ currentShipment.senderName || 'N/A' }}</span>
+                                        <span class="font-mono text-slate-500 font-medium text-[11px]" :title="currentShipment.senderPhone">{{ maskPhone(currentShipment.senderPhone) }}</span>
+                                    </div>
+                                    <span class="text-slate-600 text-[11px] block mt-0.5 leading-relaxed">{{ currentShipment.senderAddress || 'N/A' }}</span>
+                                </div>
+                                <div class="py-1">
+                                    <span class="text-slate-500 block mb-0.5 font-medium">Người nhận:</span>
+                                    <div class="text-slate-800 font-semibold flex items-center justify-between">
+                                        <span>{{ currentShipment.receiverName || 'N/A' }}</span>
+                                        <span class="font-mono text-slate-500 font-medium text-[11px]" :title="currentShipment.receiverPhone">{{ maskPhone(currentShipment.receiverPhone) }}</span>
+                                    </div>
+                                    <span class="text-slate-600 text-[11px] block mt-0.5 leading-relaxed">{{ currentShipment.receiverAddress || 'N/A' }}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

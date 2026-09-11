@@ -310,6 +310,17 @@ public class ShipmentServiceImpl implements ShipmentService {
         return updatedShipment;
     }
 
+    private String unaccent(String text) {
+        if (text == null) return "";
+        String normalized = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD);
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
+        return pattern.matcher(normalized).replaceAll("")
+                .replace('đ', 'd')
+                .replace('Đ', 'd')
+                .toLowerCase()
+                .trim();
+    }
+
     private boolean isSupportedAddress(String address) {
         if (address == null || address.isBlank()) {
             return false;
@@ -327,9 +338,35 @@ public class ShipmentServiceImpl implements ShipmentService {
             return false;
         }
 
+        String addressLower = address.toLowerCase();
+        String addressUnaccent = unaccent(address);
+
         return hubs.stream()
                 .map(HubResponse::getProvince)
                 .filter(Objects::nonNull)
-                .anyMatch(province -> address.toLowerCase().contains(province.toLowerCase()));
+                .anyMatch(province -> {
+                    String provLower = province.toLowerCase();
+                    String provUnaccent = unaccent(province);
+                    if (addressLower.contains(provLower) || addressUnaccent.contains(provUnaccent)) {
+                        return true;
+                    }
+                    if (provUnaccent.contains("ho chi minh") && (addressUnaccent.contains("hcm") || addressUnaccent.contains("sai gon") || addressUnaccent.contains("tphcm"))) {
+                        return true;
+                    }
+                    if (provUnaccent.contains("ha noi") && (addressUnaccent.contains("hn") || addressUnaccent.contains("tp ha noi"))) {
+                        return true;
+                    }
+                    if (provUnaccent.contains("da nang") && (addressUnaccent.contains("dn") || addressUnaccent.contains("tp da nang"))) {
+                        return true;
+                    }
+                    if (provUnaccent.contains("hai phong") && (addressUnaccent.contains("hp") || addressUnaccent.contains("tp hai phong"))) {
+                        return true;
+                    }
+                    if (provUnaccent.contains("can tho") && (addressUnaccent.contains("ct") || addressUnaccent.contains("tp can tho"))) {
+                        return true;
+                    }
+                    return false;
+                });
     }
 }
+
