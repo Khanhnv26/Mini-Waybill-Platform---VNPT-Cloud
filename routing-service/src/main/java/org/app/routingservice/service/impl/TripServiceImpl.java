@@ -330,15 +330,46 @@ public class TripServiceImpl implements TripService {
                 addedCount++;
             }
         } else {
-            List<RoutingAssignment> pendingAssignments = new ArrayList<>(routingAssignmentRepository.findByStatus("ASSIGNED"));
+            List<RoutingAssignment> pendingAssignments = new ArrayList<>();
+            pendingAssignments.addAll(routingAssignmentRepository.findByStatus("ASSIGNED_ORIGIN_PO"));
+            pendingAssignments.addAll(routingAssignmentRepository.findByStatus("ASSIGNED"));
+            pendingAssignments.addAll(routingAssignmentRepository.findByStatus("AT_SOURCE_HUB"));
+            pendingAssignments.addAll(routingAssignmentRepository.findByStatus("ARRIVED_DEST_HUB"));
+
             pendingAssignments.sort(Comparator
                     .comparing((RoutingAssignment a) -> "EXPRESS".equalsIgnoreCase(a.getServiceType()) ? 0 : 1)
                     .thenComparing(a -> a.getAssignedAt() != null ? a.getAssignedAt() : LocalDateTime.MIN));
 
             for (RoutingAssignment assignment : pendingAssignments) {
                 String trackingCode = assignment.getTrackingCode();
-                String origin = assignment.getSourceHub();
-                String destination = assignment.getDestinationHub();
+                String origin;
+                String destination;
+
+                if ("ARRIVED_DEST_HUB".equals(assignment.getStatus())) {
+                    // Chặng 4: Xe Feeder phát trả (Kho Tổng đích ➔ Bưu cục con phát)
+                    origin = assignment.getDestinationHub();
+                    destination = assignment.getDestPostOffice();
+                } else if ("AT_SOURCE_HUB".equals(assignment.getStatus())) {
+                    // Chặng 3: Xe trục liên tỉnh Linehaul (Kho Tổng gốc ➔ Kho Tổng đích)
+                    origin = assignment.getSourceHub();
+                    destination = assignment.getDestinationHub();
+                } else {
+                    // Trạng thái ASSIGNED_ORIGIN_PO hoặc ASSIGNED
+                    if (assignment.getOriginPostOffice() != null && !assignment.getOriginPostOffice().equalsIgnoreCase(assignment.getSourceHub())) {
+                        // Chặng 2: Xe Feeder gom hàng (Bưu cục gốc ➔ Kho Tổng gốc)
+                        origin = assignment.getOriginPostOffice();
+                        destination = assignment.getSourceHub();
+                    } else {
+                        // Không có bưu cục con riêng biệt: Đi thẳng từ Kho Tổng gốc
+                        origin = assignment.getSourceHub();
+                        destination = assignment.getDestinationHub();
+                    }
+                }
+
+                if (origin == null || destination == null) {
+                    continue;
+                }
+
                 Double itemWeight = assignment.getWeight() != null ? assignment.getWeight() : 1.0;
 
                 Integer originOrder = stopOrderMap.get(normalizeHubCode(origin));
@@ -378,7 +409,7 @@ public class TripServiceImpl implements TripService {
 
                 currentWeight += itemWeight;
                 addedCount++;
-                log.info("Tự động gom kiện {} lên chuyến xe {}", trackingCode, trip.getTripCode());
+                log.info("Tự động gom kiện {} lên chuyến xe {} (Từ {} đến {})", trackingCode, trip.getTripCode(), origin, destination);
             }
         }
 
@@ -485,12 +516,19 @@ public class TripServiceImpl implements TripService {
         List<TripManifest> loadedManifests = tripManifestRepository.findByTripIdAndStatus(tripId, "LOADED");
         for (TripManifest item : loadedManifests) {
             try {
+                boolean isFeeder = (firstStop.getHubCode() != null && firstStop.getHubCode().toUpperCase().startsWith("HUB-"))
+                        && (item.getDestinationHub() != null && item.getDestinationHub().toUpperCase().startsWith("POST-"));
+                String note = isFeeder
+                        ? String.format("Chuyến xe trung chuyển nội đô %s (BKS: %s, Tài xế: %s) đã xuất bến từ %s về bưu cục phát %s. Bưu phẩm đang trên đường trung chuyển.",
+                                trip.getTripCode(), trip.getVehiclePlate(), trip.getDriverName(), firstStop.getHubCode(), item.getDestinationHub())
+                        : String.format("Chuyến xe %s (BKS: %s, Tài xế: %s) đã xuất bến từ %s. Bưu phẩm đang trên đường vận chuyển.",
+                                trip.getTripCode(), trip.getVehiclePlate(), trip.getDriverName(), firstStop.getHubCode());
+
                 ShipmentStatusUpdatedEvent statusEvent = ShipmentStatusUpdatedEvent.builder()
                         .trackingCode(item.getTrackingCode())
                         .status("IN_TRANSIT")
                         .locationCode(firstStop.getHubCode())
-                        .note(String.format("Chuyến xe %s (BKS: %s, Tài xế: %s) đã xuất bến từ %s. Bưu phẩm đang trên đường vận chuyển.",
-                                trip.getTripCode(), trip.getVehiclePlate(), trip.getDriverName(), firstStop.getHubCode()))
+                        .note(note)
                         .updateAt(LocalDateTime.now().toString())
                         .build();
                 kafkaTemplate.send("tracking-status-events", item.getTrackingCode(), statusEvent);
@@ -546,14 +584,47 @@ public class TripServiceImpl implements TripService {
                     tripManifestRepository.save(item);
                     unloadedCount++;
 
+                    RoutingAssignment raOpt = routingAssignmentRepository.findByTrackingCode(item.getTrackingCode()).orElse(null);
+                    boolean isSourceHub = raOpt != null 
+                            && currentStop.getHubCode().equalsIgnoreCase(raOpt.getSourceHub())
+                            && !currentStop.getHubCode().equalsIgnoreCase(raOpt.getDestinationHub());
+                    boolean isPostOffice = currentStop.getHubCode().toUpperCase().startsWith("POST-");
+
+                    String note;
+                    String newShipmentStatus;
+                    if (isSourceHub) {
+                        note = String.format("Chuyến xe trung chuyển gom hàng %s đã cập bến Kho Tổng gốc %s. Kiện hàng đã dỡ vào kho bãi, sẵn sàng đóng chuyến xe trục liên tỉnh.", trip.getTripCode(), currentStop.getHubCode());
+                        newShipmentStatus = "PICKED_UP";
+                    } else if (isPostOffice) {
+                        note = String.format("Chuyến xe %s đã cập bến Bưu cục phát con %s. Kiện hàng đã được dỡ an toàn vào bưu cục, sẵn sàng giao bưu tá.", trip.getTripCode(), currentStop.getHubCode());
+                        newShipmentStatus = "ARRIVED_DEST_HUB";
+                    } else {
+                        note = String.format("Chuyến xe %s đã cập bến Kho Tổng Đích %s. Kiện hàng đã được dỡ an toàn vào kho bãi, chờ trung chuyển về bưu cục phát.", trip.getTripCode(), currentStop.getHubCode());
+                        newShipmentStatus = "ARRIVED_DEST_HUB";
+                    }
+
                     ShipmentStatusUpdatedEvent statusEvent = ShipmentStatusUpdatedEvent.builder()
                             .trackingCode(item.getTrackingCode())
-                            .status("ARRIVED_DEST_HUB")
+                            .status(newShipmentStatus)
                             .locationCode(currentStop.getHubCode())
-                            .note(String.format("Chuyến xe %s đã cập bến Kho Tổng Đích %s. Kiện hàng đã được dỡ an toàn vào kho bãi.", trip.getTripCode(), currentStop.getHubCode()))
+                            .note(note)
                             .updateAt(LocalDateTime.now().toString())
                             .build();
                     kafkaTemplate.send("tracking-status-events", item.getTrackingCode(), statusEvent);
+
+                    // Cập nhật trạng thái RoutingAssignment để sẵn sàng cho chặng tiếp theo
+                    if (raOpt != null) {
+                        if (isSourceHub) {
+                            raOpt.setStatus("AT_SOURCE_HUB"); // Sẵn sàng gom vào xe trục liên tỉnh
+                        } else if (isPostOffice) {
+                            raOpt.setStatus("ARRIVED_POST_OFFICE"); // Sẵn sàng cho bưu tá nhận đi phát
+                        } else if (raOpt.getDestPostOffice() != null && !raOpt.getDestPostOffice().equalsIgnoreCase(raOpt.getDestinationHub())) {
+                            raOpt.setStatus("ARRIVED_DEST_HUB"); // Sẵn sàng gom vào xe Feeder phát
+                        } else {
+                            raOpt.setStatus("ARRIVED_POST_OFFICE");
+                        }
+                        routingAssignmentRepository.save(raOpt);
+                    }
                 } else {
                     ShipmentStatusUpdatedEvent transitEvent = ShipmentStatusUpdatedEvent.builder()
                             .trackingCode(item.getTrackingCode())
@@ -606,7 +677,12 @@ public class TripServiceImpl implements TripService {
             stopOrderMap.put(normalizeHubCode(stop.getHubCode()), stop.getStopOrder());
         }
 
-        List<RoutingAssignment> pending = routingAssignmentRepository.findByStatus("ASSIGNED");
+        List<RoutingAssignment> pending = new ArrayList<>();
+        pending.addAll(routingAssignmentRepository.findByStatus("ASSIGNED_ORIGIN_PO"));
+        pending.addAll(routingAssignmentRepository.findByStatus("ASSIGNED"));
+        pending.addAll(routingAssignmentRepository.findByStatus("AT_SOURCE_HUB"));
+        pending.addAll(routingAssignmentRepository.findByStatus("ARRIVED_DEST_HUB"));
+
         List<EligibleAssignmentResponse> result = new ArrayList<>();
 
         for (RoutingAssignment a : pending) {
@@ -615,14 +691,42 @@ public class TripServiceImpl implements TripService {
                 continue;
             }
 
-            Integer originOrder = stopOrderMap.get(normalizeHubCode(a.getSourceHub()));
-            Integer destinationOrder = stopOrderMap.get(normalizeHubCode(a.getDestinationHub()));
+            String origin;
+            String destination;
+
+            if ("ARRIVED_DEST_HUB".equals(a.getStatus())) {
+                // Chặng 4: Xe Feeder phát trả (Kho Tổng đích ➔ Bưu cục con phát)
+                origin = a.getDestinationHub();
+                destination = a.getDestPostOffice();
+            } else if ("AT_SOURCE_HUB".equals(a.getStatus())) {
+                // Chặng 3: Xe trục liên tỉnh Linehaul (Kho Tổng gốc ➔ Kho Tổng đích)
+                origin = a.getSourceHub();
+                destination = a.getDestinationHub();
+            } else {
+                // Trạng thái ASSIGNED_ORIGIN_PO hoặc ASSIGNED
+                if (a.getOriginPostOffice() != null && !a.getOriginPostOffice().equalsIgnoreCase(a.getSourceHub())) {
+                    // Chặng 2: Xe Feeder gom hàng (Bưu cục gốc ➔ Kho Tổng gốc)
+                    origin = a.getOriginPostOffice();
+                    destination = a.getSourceHub();
+                } else {
+                    // Không có bưu cục con riêng biệt: Đi thẳng từ Kho Tổng gốc
+                    origin = a.getSourceHub();
+                    destination = a.getDestinationHub();
+                }
+            }
+
+            if (origin == null || destination == null) {
+                continue;
+            }
+
+            Integer originOrder = stopOrderMap.get(normalizeHubCode(origin));
+            Integer destinationOrder = stopOrderMap.get(normalizeHubCode(destination));
 
             if (originOrder != null && destinationOrder != null && originOrder < destinationOrder) {
                 result.add(EligibleAssignmentResponse.builder()
                         .trackingCode(trackingCode)
-                        .sourceHub(a.getSourceHub())
-                        .destinationHub(a.getDestinationHub())
+                        .sourceHub(origin)
+                        .destinationHub(destination)
                         .weight(a.getWeight() != null ? a.getWeight() : 1.0)
                         .serviceType(a.getServiceType() != null ? a.getServiceType() : "EXPRESS")
                         .assignedAt(a.getAssignedAt())

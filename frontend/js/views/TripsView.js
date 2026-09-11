@@ -29,17 +29,32 @@
 
     const PRESET_FEEDER_ROUTES = [
         {
-            name: 'Trung Chuyển Hà Nội (Kho Tổng - Cầu Giấy - Đống Đa)',
+            name: 'Gom Hàng Hà Nội (Cầu Giấy - Đống Đa ➔ Kho Tổng)',
+            originHub: 'POST-HN-CG',
+            stops: ['POST-HN-CG', 'POST-HN-DDA', 'HUB-HN-01']
+        },
+        {
+            name: 'Phát Trả Hà Nội (Kho Tổng ➔ Cầu Giấy - Đống Đa)',
             originHub: 'HUB-HN-01',
             stops: ['HUB-HN-01', 'POST-HN-CG', 'POST-HN-DDA']
         },
         {
-            name: 'Trung Chuyển TP.HCM (Kho Tổng - Q.1 - Bình Thạnh)',
+            name: 'Gom Hàng TP.HCM (Quận 1 - Bình Thạnh ➔ Kho Tổng)',
+            originHub: 'POST-HCM-Q1',
+            stops: ['POST-HCM-Q1', 'POST-HCM-BT', 'HUB-HCM-01']
+        },
+        {
+            name: 'Phát Trả TP.HCM (Kho Tổng ➔ Q.1 - Bình Thạnh)',
             originHub: 'HUB-HCM-01',
             stops: ['HUB-HCM-01', 'POST-HCM-Q1', 'POST-HCM-BT']
         },
         {
-            name: 'Trung Chuyển Đà Nẵng (Kho Tổng - Hải Châu - Sơn Trà)',
+            name: 'Gom Hàng Đà Nẵng (Hải Châu - Sơn Trà ➔ Kho Tổng)',
+            originHub: 'POST-DN-HC',
+            stops: ['POST-DN-HC', 'POST-DN-ST', 'HUB-DN-01']
+        },
+        {
+            name: 'Phát Trả Đà Nẵng (Kho Tổng ➔ Hải Châu - Sơn Trà)',
             originHub: 'HUB-DN-01',
             stops: ['HUB-DN-01', 'POST-DN-HC', 'POST-DN-ST']
         }
@@ -401,6 +416,7 @@
             let routeLayers = [];
             let stopMarkers = [];
             let tripRoutePoints = [];
+            let radarMarker = null;
 
             const loadTrips = async () => {
                 isLoading.value = true;
@@ -841,6 +857,7 @@
                 initTripMap();
                 if (!leafletMap) return;
 
+                // Dọn dẹp layer cũ
                 routeLayers.forEach(l => {
                     try { leafletMap.removeLayer(l); } catch (e) {}
                 });
@@ -849,6 +866,10 @@
                     try { leafletMap.removeLayer(m); } catch (e) {}
                 });
                 stopMarkers = [];
+                if (radarMarker) {
+                    try { leafletMap.removeLayer(radarMarker); } catch (e) {}
+                    radarMarker = null;
+                }
                 tripRoutePoints = [];
 
                 const stops = tripData.stops || [];
@@ -860,24 +881,25 @@
                     console.warn('[TripsView] Missing hub coordinates:', missingLocations.map(item => item.stop.hubCode));
                 }
 
-                locatedStops.filter(item => item.coord).forEach(({ stop, coord }, index) => {
+                const validStops = locatedStops.filter(item => item.coord);
+                if (validStops.length < 2) {
+                    Utils.showToast('Thiếu Tọa Độ Hub', 'Không đủ Hub có tọa độ xác thực để vẽ tuyến xe.', 'warning');
+                    return;
+                }
+
+                // 1. Đặt các mốc điểm trạm dừng (Pins) chuẩn tối giản
+                validStops.forEach(({ stop, coord }, index) => {
                     const point = [coord.lat, coord.lng];
 
                     let pinClass = 'hub-pin-transit';
                     let iconSize = [12, 12];
                     let iconAnchor = [6, 6];
 
-                    const isCurrent = tripData.currentHub && (tripData.currentHub === stop.hubCode || tripData.currentHub.includes(stop.hubCode.substring(0, 7)));
-
-                    if (isCurrent && tripData.status !== 'COMPLETED') {
-                        pinClass = 'hub-pin-current';
-                        iconSize = [18, 18];
-                        iconAnchor = [9, 9];
-                    } else if (index === 0) {
+                    if (index === 0) {
                         pinClass = 'hub-pin-source';
                         iconSize = [16, 16];
                         iconAnchor = [8, 8];
-                    } else if (index === stops.length - 1) {
+                    } else if (index === validStops.length - 1) {
                         pinClass = 'hub-pin-dest';
                         iconSize = [16, 16];
                         iconAnchor = [8, 8];
@@ -893,9 +915,9 @@
                     marker.bindPopup(`
                         <div class="text-xs p-1 min-w-[210px]">
                             <p class="font-bold text-slate-800 text-[12px]">Trạm ${stop.stopOrder}: ${coord.name}</p>
-                            <p class="text-blue-600 font-mono text-[11px] font-bold">Mã Hub: ${stop.hubCode}</p>
+                            <p class="text-blue-600 font-mono text-[11px] font-bold">Mã Trạm: ${stop.hubCode}</p>
                             <p class="mt-1 text-slate-700 text-[11px] leading-relaxed"><b>Địa chỉ:</b> ${coord.address || getHubAddress(stop.hubCode)}</p>
-                            <p class="mt-1 font-semibold ${stop.status === 'ARRIVED' ? 'text-emerald-600' : 'text-slate-600'}">Trạng thái trạm: ${stop.status}</p>
+                            <p class="mt-1 font-semibold ${stop.status === 'ARRIVED' ? 'text-emerald-600' : (stop.status === 'DEPARTED' ? 'text-blue-600' : 'text-slate-600')}">Trạng thái: ${stop.status}</p>
                             ${stop.arrivedAt ? `<p class="text-slate-400 text-[10.5px]">Đến: ${new Date(stop.arrivedAt).toLocaleTimeString('vi-VN')}</p>` : ''}
                             ${stop.departedAt ? `<p class="text-slate-400 text-[10.5px]">Đi: ${new Date(stop.departedAt).toLocaleTimeString('vi-VN')}</p>` : ''}
                         </div>
@@ -903,15 +925,11 @@
                     stopMarkers.push(marker);
                 });
 
-                const stopCoords = locatedStops.filter(item => item.coord).map(item => item.coord);
-                if (stopCoords.length < 2) {
-                    Utils.showToast('Thiếu Tọa Độ Hub', 'Không đủ Hub có tọa độ xác thực để vẽ tuyến xe.', 'warning');
-                    return;
-                }
+                // 2. Tính toán lộ trình đường bộ dọc QL1A/CT01 qua OSRM hoặc corridor fallback
+                const stopCoords = validStops.map(item => item.coord);
                 let routePoints = [];
 
                 try {
-                    // Nẹp các điểm chốt hành lang nội địa dọc QL1A/CT01 giữa các trạm dừng
                     const routingWaypoints = buildVietnamRouteWaypoints(stopCoords);
                     const coordsQuery = routingWaypoints.map(c => `${c.lng},${c.lat}`).join(';');
                     const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordsQuery}?overview=full&geometries=geojson`;
@@ -936,13 +954,117 @@
 
                 tripRoutePoints = routePoints;
 
-                const polyline = L.polyline(routePoints, {
-                    color: '#0066cc',
-                    weight: 4.5,
-                    opacity: 0.95,
-                    lineJoin: 'round'
-                }).addTo(leafletMap);
-                routeLayers.push(polyline);
+                // 3. Phân đoạn tuyến chuẩn Map Tracking:
+                // - completedPolyline: Màu xanh dương đậm #0066cc
+                // - remainingPolyline: Nét đứt Tím Indigo #6366f1
+                const findClosestPointIndex = (targetCoord, points) => {
+                    let bestIdx = 0;
+                    let minDist = Infinity;
+                    for (let i = 0; i < points.length; i++) {
+                        const pt = points[i];
+                        const dist = Math.hypot(pt[0] - targetCoord.lat, pt[1] - targetCoord.lng);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            bestIdx = i;
+                        }
+                    }
+                    return bestIdx;
+                };
+
+                const stopRouteIndices = validStops.map(s => findClosestPointIndex(s.coord, routePoints));
+
+                let currentPoint = null;
+                let targetIdx = 0;
+                let statusText = 'Chờ Khởi Hành';
+                let subText = `Tuyến: ${validStops[0].stop.hubCode} ➔ ${validStops[validStops.length - 1].stop.hubCode}`;
+
+                if (tripData.status === 'COMPLETED') {
+                    currentPoint = [validStops[validStops.length - 1].coord.lat, validStops[validStops.length - 1].coord.lng];
+                    targetIdx = routePoints.length - 1;
+                    statusText = 'Chuyến Xe Đã Hoàn Thành';
+                    subText = `TIẾN ĐỘ: 100% | Cập bến ${validStops[validStops.length - 1].coord.name}`;
+                } else if (tripData.status === 'SCHEDULED' || tripData.status === 'LOADING') {
+                    currentPoint = [validStops[0].coord.lat, validStops[0].coord.lng];
+                    targetIdx = 0;
+                    statusText = tripData.status === 'LOADING' ? 'Đang Xếp Hàng Lên Xe' : 'Chờ Khởi Hành';
+                    subText = `Đậu tại ${validStops[0].coord.name}`;
+                } else {
+                    // IN_TRANSIT hoặc DEPARTED
+                    let arrivedStopIdx = -1;
+                    validStops.forEach((s, idx) => {
+                        if (s.stop.status === 'ARRIVED' || (tripData.currentHub && tripData.currentHub === s.stop.hubCode)) {
+                            arrivedStopIdx = idx;
+                        }
+                    });
+
+                    if (arrivedStopIdx >= 0) {
+                        currentPoint = [validStops[arrivedStopIdx].coord.lat, validStops[arrivedStopIdx].coord.lng];
+                        targetIdx = stopRouteIndices[arrivedStopIdx];
+                        statusText = `Đã Cập Bến: ${validStops[arrivedStopIdx].coord.name}`;
+                        subText = `Trạm ${validStops[arrivedStopIdx].stop.stopOrder}/${validStops.length}`;
+                    } else {
+                        let lastDepartedIdx = 0;
+                        validStops.forEach((s, idx) => {
+                            if (s.stop.status === 'DEPARTED' || s.stop.departedAt) {
+                                lastDepartedIdx = idx;
+                            }
+                        });
+                        const nextStopIdx = Math.min(validStops.length - 1, lastDepartedIdx + 1);
+                        const startRouteIdx = stopRouteIndices[lastDepartedIdx];
+                        const endRouteIdx = stopRouteIndices[nextStopIdx];
+                        const midIdx = Math.min(routePoints.length - 1, Math.max(0, Math.round((startRouteIdx + endRouteIdx) / 2)));
+                        currentPoint = routePoints[midIdx];
+                        targetIdx = midIdx;
+                        const pct = Math.round((midIdx / (routePoints.length - 1)) * 100);
+                        statusText = `Đang Di Chuyển Trên Tuyến`;
+                        subText = `${validStops[lastDepartedIdx].stop.hubCode} ➔ ${validStops[nextStopIdx].stop.hubCode} (${pct}%)`;
+                    }
+                }
+
+                // 4. Vẽ phân đoạn đã hoàn thành (Xanh dương đậm #0066cc)
+                if (targetIdx > 0) {
+                    const completedCoords = routePoints.slice(0, targetIdx + 1);
+                    if (completedCoords.length >= 2) {
+                        const completedPolyline = L.polyline(completedCoords, {
+                            color: '#0066cc',
+                            weight: 4.5,
+                            opacity: 0.95,
+                            lineJoin: 'round',
+                            lineCap: 'round'
+                        }).addTo(leafletMap);
+                        routeLayers.push(completedPolyline);
+                    }
+                }
+
+                // 5. Vẽ phân đoạn còn lại (Nét đứt Tím Indigo #6366f1)
+                const remainingCoords = targetIdx === 0 ? routePoints : routePoints.slice(targetIdx);
+                if (remainingCoords.length >= 2) {
+                    const remainingPolyline = L.polyline(remainingCoords, {
+                        color: '#6366f1',
+                        weight: 4,
+                        opacity: 0.85,
+                        dashArray: '4, 6',
+                        lineJoin: 'round',
+                        lineCap: 'round'
+                    }).addTo(leafletMap);
+                    routeLayers.push(remainingPolyline);
+                }
+
+                // 6. Cập nhật Pin Radar phát sóng di động (.hub-pin-current)
+                if (currentPoint) {
+                    const radarIcon = L.divIcon({
+                        className: 'hub-pin-current',
+                        iconSize: [18, 18],
+                        iconAnchor: [9, 9]
+                    });
+                    const tooltipHtml = `
+                        <div style="font-size: 11px; font-weight: 700; color: #0f172a;">${statusText}</div>
+                        <div style="font-size: 10px; color: #0066cc; font-family: monospace; font-weight: 600;">${subText}</div>
+                    `;
+                    radarMarker = L.marker(currentPoint, { icon: radarIcon, zIndexOffset: 1000 })
+                        .bindTooltip(tooltipHtml, { permanent: true, direction: 'top', offset: [0, -10], className: 'radar-tooltip' })
+                        .addTo(leafletMap);
+                }
 
                 fitTripRouteView();
                 setTimeout(() => {
@@ -1929,7 +2051,7 @@
                                     <span>Bản Đồ Định Vị Tuyến Đường Trục</span>
                                     <span class="text-slate-400 font-normal">Google Maps hl=vi</span>
                                 </div>
-                                <div id="trip-leaflet-map" style="height: 310px;" class="rounded-xl border border-slate-200 overflow-hidden shadow-inner bg-slate-100 relative"></div>
+                                <div id="trip-leaflet-map" style="height: 380px;" class="rounded-xl border border-slate-200 overflow-hidden shadow-inner bg-slate-100 relative"></div>
                             </div>
 
                             <div>
@@ -1944,7 +2066,7 @@
                                         Cập Bến Trạm Kế Tiếp
                                     </button>
                                 </div>
-                                <div class="space-y-2 max-h-[310px] overflow-y-auto pr-1">
+                                <div class="space-y-2 max-h-[380px] overflow-y-auto pr-1">
                                     <div 
                                         v-for="s in activeTripDetail?.stops" 
                                         :key="s.stopOrder"

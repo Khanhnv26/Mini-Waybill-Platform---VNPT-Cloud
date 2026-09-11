@@ -312,7 +312,7 @@
                 <!-- ============================================================ -->
                 <!-- TRANSITION CHUYỂN BIỂU MẪU MƯỢT MÀ (FORM SLIDE-FADE)         -->
                 <!-- ============================================================ -->
-                <transition name="form-slide" mode="out-in">
+                <transition name="form-slide" mode="out-in" @enter="handleFormEnter" @after-enter="handleFormAfterEnter">
                     <!-- 1. FORM ĐĂNG NHẬP -->
                     <div v-if="authMode === 'login'" key="login" class="space-y-4">
                     <div>
@@ -370,6 +370,31 @@
                         <div id="googleBtn" class="flex justify-center w-full min-h-[44px]"></div>
                         <div v-if="googleLoading" class="text-xs font-semibold text-vnpt-500 animate-pulse">
                             Đang xác thực tài khoản Google...
+                        </div>
+                    </div>
+
+                    <!-- Quick Demo Accounts (Tài Khoản Thử Nghiệm) -->
+                    <div class="mt-4 pt-3 border-t border-slate-100">
+                        <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center justify-between">
+                            <span>Tài khoản nghiệp vụ mẫu (Mật khẩu: Admin@123456)</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-1.5 text-[11px]">
+                            <button type="button" @click="quickLogin('post.operator@waybill.vn')" class="px-2.5 py-1.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 rounded-lg text-left font-medium border border-cyan-200 transition cursor-pointer">
+                                <span class="block font-bold">🏢 Bưu Cục (Cấp 2/3)</span>
+                                <span class="text-[10px] text-cyan-600 truncate block">post.operator@waybill.vn</span>
+                            </button>
+                            <button type="button" @click="quickLogin('hub.operator@waybill.vn')" class="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 rounded-lg text-left font-medium border border-indigo-200 transition cursor-pointer">
+                                <span class="block font-bold">🏭 Kho Tổng (Super Hub)</span>
+                                <span class="text-[10px] text-indigo-600 truncate block">hub.operator@waybill.vn</span>
+                            </button>
+                            <button type="button" @click="quickLogin('shipper@waybill.vn')" class="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg text-left font-medium border border-amber-200 transition cursor-pointer">
+                                <span class="block font-bold">🛵 Bưu Tá Giao Vận</span>
+                                <span class="text-[10px] text-amber-600 truncate block">shipper@waybill.vn</span>
+                            </button>
+                            <button type="button" @click="quickLogin('admin@waybill.vn')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-800 rounded-lg text-left font-medium border border-rose-200 transition cursor-pointer">
+                                <span class="block font-bold">👑 Quản Trị Hệ Thống</span>
+                                <span class="text-[10px] text-rose-600 truncate block">admin@waybill.vn</span>
+                            </button>
                         </div>
                     </div>
 
@@ -634,14 +659,32 @@
                     clearAlert();
                     authMode.value = mode;
                     if (mode === 'login' || mode === 'register') {
-                        nextTick(() => {
+                        setTimeout(() => {
                             renderGoogleButton();
-                        });
+                        }, 250);
                     } else if (mode === 'forgot_step2') {
-                        nextTick(() => {
+                        setTimeout(() => {
                             const firstBox = document.getElementById('otp-box-0');
                             if (firstBox) firstBox.focus();
-                        });
+                        }, 250);
+                    }
+                }
+
+                function handleFormEnter(el) {
+                    if (authMode.value === 'login' || authMode.value === 'register') {
+                        renderGoogleButton();
+                    } else if (authMode.value === 'forgot_step2') {
+                        const firstBox = el ? el.querySelector('#otp-box-0') : document.getElementById('otp-box-0');
+                        if (firstBox) firstBox.focus();
+                    }
+                }
+
+                function handleFormAfterEnter(el) {
+                    if (authMode.value === 'login' || authMode.value === 'register') {
+                        renderGoogleButton();
+                    } else if (authMode.value === 'forgot_step2') {
+                        const firstBox = el ? el.querySelector('#otp-box-0') : document.getElementById('otp-box-0');
+                        if (firstBox) firstBox.focus();
                     }
                 }
 
@@ -837,7 +880,7 @@
                 }
 
                 // Hàm khởi tạo và render nút Google với cơ chế thử lại (Retry Polling)
-                function renderGoogleButton() {
+                function renderGoogleButton(force = false) {
                     if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
                         google.accounts.id.initialize({
                             client_id: GOOGLE_CLIENT_ID,
@@ -846,7 +889,7 @@
                         });
 
                         const loginContainer = document.getElementById('googleBtn');
-                        if (loginContainer) {
+                        if (loginContainer && (force || !loginContainer.hasChildNodes())) {
                             loginContainer.innerHTML = '';
                             google.accounts.id.renderButton(
                                 loginContainer,
@@ -862,7 +905,7 @@
                         }
 
                         const registerContainer = document.getElementById('googleBtnRegister');
-                        if (registerContainer) {
+                        if (registerContainer && (force || !registerContainer.hasChildNodes())) {
                             registerContainer.innerHTML = '';
                             google.accounts.id.renderButton(
                                 registerContainer,
@@ -905,6 +948,8 @@
                     resetForm,
                     otpDigits,
                     switchMode,
+                    handleFormEnter,
+                    handleFormAfterEnter,
                     handleOtpKeyUp,
                     handleOtpPaste,
                     handleEmailLogin,

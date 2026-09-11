@@ -46,8 +46,10 @@ public class RoutingConsumer {
         String originPostOffice = sourceRoute.postOfficeCode();
         String destinationHub = destRoute.centralHubCode();
         String destPostOffice = destRoute.postOfficeCode();
-
         String routeCode = "ROUTE-" + sourceHub + "-TO-" + destinationHub;
+
+        boolean hasSeparateOriginPo = originPostOffice != null && !originPostOffice.equalsIgnoreCase(sourceHub);
+        String initialStatus = hasSeparateOriginPo ? "ASSIGNED_ORIGIN_PO" : "AT_SOURCE_HUB";
 
         RoutingAssignment assignment = RoutingAssignment.builder()
                 .trackingCode(event.getTrackingCode())
@@ -58,7 +60,7 @@ public class RoutingConsumer {
                 .routeCode(routeCode)
                 .weight(event.getWeight() != null ? event.getWeight() : 1.0)
                 .serviceType(event.getServiceType() != null ? event.getServiceType() : "EXPRESS")
-                .status("ASSIGNED")
+                .status(initialStatus)
                 .assignedAt(LocalDateTime.now())
                 .build();
         routingAssignmentRepository.save(assignment);
@@ -72,18 +74,22 @@ public class RoutingConsumer {
                 .originPostOffice(originPostOffice)
                 .destPostOffice(destPostOffice)
                 .routeCode(routeCode)
-                .status("ASSIGNED")
+                .status(initialStatus)
                 .assignedAt(LocalDateTime.now())
                 .build();
 
         kafkaTemplate.send("route-assigned", event.getTrackingCode(), routeEvent);
         log.info("[ROUTING-SERVICE] Đã bắn event RouteAssignedEvent lên topic 'route-assigned'");
 
+        String initialNote = hasSeparateOriginPo
+                ? String.format("Đã phân tuyến: Bưu cục gốc [%s] tiếp nhận ➔ Chờ xe gom lên Kho Tổng [%s].", originPostOffice, sourceHub)
+                : "Đã phân tuyến vận chuyển: " + routeCode;
+
         ShipmentStatusUpdatedEvent statusEvent = ShipmentStatusUpdatedEvent.builder()
                 .trackingCode(event.getTrackingCode())
                 .status("ROUTE_ASSIGNED")
                 .locationCode(originPostOffice != null ? originPostOffice : sourceHub)
-                .note("Đã phân tuyến vận chuyển: " + routeCode)
+                .note(initialNote)
                 .updateAt(LocalDateTime.now().toString())
                 .build();
         kafkaTemplate.send("tracking-status-events", event.getTrackingCode(), statusEvent);

@@ -3,6 +3,7 @@ package org.app.trackingservice.service;
 import org.app.trackingservice.dto.request.UpdateStatusRequest;
 import org.app.trackingservice.entity.ShipmentStatus;
 import org.app.trackingservice.entity.TrackingHistory;
+import org.app.trackingservice.exception.ForbiddenException;
 import org.app.trackingservice.exception.InvalidStateTransitionException;
 import org.app.trackingservice.repository.TrackingHistoryRepository;
 import org.app.trackingservice.service.impl.TrackingServiceImpl;
@@ -76,7 +77,7 @@ class TrackingServiceImplTest {
         assertEquals("DELIVERED", result.getStatus());
 
         verify(trackingHistoryRepository, times(1)).save(any(TrackingHistory.class));
-        verify(valueOperations, times(1)).set("shipment-status:" + TRACKING_CODE, "DELIVERED");
+        verify(valueOperations, times(1)).set(eq("shipment-status:" + TRACKING_CODE), eq("DELIVERED"), any(java.time.Duration.class));
         verify(kafkaTemplate, times(1)).send(eq("tracking-status-events"), eq(TRACKING_CODE), any());
     }
 
@@ -113,5 +114,29 @@ class TrackingServiceImplTest {
 
         verify(trackingHistoryRepository, never()).save(any());
         verify(kafkaTemplate, never()).send(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("ROLE_HUB_OPERATOR vi phạm quyền: Cập nhật OUT_FOR_DELIVERY -> Bị chặn 403 Forbidden")
+    void updateStatus_HubOperatorForbiddenStatus_ShouldThrowException() {
+        UpdateStatusRequest request = UpdateStatusRequest.builder()
+                .status("OUT_FOR_DELIVERY")
+                .build();
+
+        assertThrows(ForbiddenException.class, () -> 
+            trackingService.updateStatus(TRACKING_CODE, request, "ROLE_HUB_OPERATOR", "tracking:update_hub")
+        );
+    }
+
+    @Test
+    @DisplayName("ROLE_POST_OFFICE_OPERATOR vi phạm quyền: Cập nhật DELIVERED trực tiếp -> Bị chặn 403 Forbidden")
+    void updateStatus_PostOfficeOperatorForbiddenStatus_ShouldThrowException() {
+        UpdateStatusRequest request = UpdateStatusRequest.builder()
+                .status("DELIVERED")
+                .build();
+
+        assertThrows(ForbiddenException.class, () -> 
+            trackingService.updateStatus(TRACKING_CODE, request, "ROLE_POST_OFFICE_OPERATOR", "tracking:update_post_office")
+        );
     }
 }

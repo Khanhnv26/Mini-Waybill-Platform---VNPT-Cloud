@@ -84,14 +84,16 @@ public class TrackingConsumer {
 
         String redisKey = "shipment-status:" + event.getTrackingCode();
         redisTemplate.opsForValue().set(redisKey,"ROUTE_ASSIGNED", Duration.ofDays(7));
+        String loc = event.getOriginPostOffice() != null ? event.getOriginPostOffice() : event.getSourceHub();
+        redisTemplate.opsForValue().set("shipment-location:" + event.getTrackingCode(), loc != null ? loc : "", Duration.ofDays(7));
 
     }
 
     @DltHandler
-    public void handleDlt(CreateShipmentEvent event,
+    public void handleDlt(Object payload,
                           @Header(KafkaHeaders.RECEIVED_TOPIC) String topic,
                           @Header(KafkaHeaders.OFFSET) long offset){
-        log.error("[TRACKING-SERVICE] Event CreateShipmentEvent với trackingCode {} đã thất bại sau 3 lần thử. Gửi vào DLT để xử lý thủ công.", event.getTrackingCode());
+        log.error("[TRACKING-SERVICE] Event trên topic {} offset {} đã thất bại sau các lần thử. Đã chuyển vào DLT: {}", topic, offset, payload);
     }
 
     @KafkaListener(topics = "tracking-status-events", groupId = "tracking-status-sync-group")
@@ -107,10 +109,12 @@ public class TrackingConsumer {
                         ? "Đơn hàng đã đến trạm trung chuyển cuối cùng trước khi giao hàng"
                         : "Chuyến xe vận chuyển bưu phẩm đang lưu thông trên tuyến trục";
 
+                String locCode = event.getLocationCode() != null ? event.getLocationCode() : ("ARRIVED_DEST_HUB".equals(status) ? "DEST_HUB" : "TRANSIT_HUB");
+
                 TrackingHistory trackingHistory = TrackingHistory.builder()
                         .trackingCode(event.getTrackingCode())
                         .status(status)
-                        .locationCode(event.getLocationCode() != null ? event.getLocationCode() : ("ARRIVED_DEST_HUB".equals(status) ? "DEST_HUB" : "TRANSIT_HUB"))
+                        .locationCode(locCode)
                         .node(event.getNote() != null ? event.getNote() : defaultNode)
                         .occurredAt(event.getUpdatedAt() != null ? event.getUpdatedAt() : LocalDateTime.now())
                         .build();
@@ -118,7 +122,8 @@ public class TrackingConsumer {
 
                 String redisKey = "shipment-status:" + event.getTrackingCode();
                 redisTemplate.opsForValue().set(redisKey, status, Duration.ofDays(7));
-                log.info("[TRACKING-SERVICE] Đã lưu lịch sử hành trình & cập nhật Redis cho đơn: {} -> {}", event.getTrackingCode(), status);
+                redisTemplate.opsForValue().set("shipment-location:" + event.getTrackingCode(), locCode, Duration.ofDays(7));
+                log.info("[TRACKING-SERVICE] Đã lưu lịch sử hành trình & cập nhật Redis cho đơn: {} -> {} | loc: {}", event.getTrackingCode(), status, locCode);
             }
         }
     }

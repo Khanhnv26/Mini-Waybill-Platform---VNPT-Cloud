@@ -617,6 +617,31 @@
                 }
                 return `Kho Phát Trả ${form.receiverProvince || 'Hồ Chí Minh'}`;
             });
+            // Tìm Bưu Cục Giao Dịch tương ứng theo địa chỉ người gửi (Cấp 2/3)
+            const senderPostOfficeInfo = computed(() => {
+                const fullAddr = `${form.senderDetail || ''}, ${form.senderProvince || ''}`;
+                if (window.MapManager?.getPostOfficeForAddress) {
+                    const found = window.MapManager.getPostOfficeForAddress(fullAddr);
+                    if (found) return found;
+                }
+                if (form.senderProvince === 'Hà Nội') return { code: 'POST-HN-CG', name: 'Bưu Cục Cầu Giấy' };
+                if (form.senderProvince === 'Hồ Chí Minh') return { code: 'POST-HCM-Q1', name: 'Bưu Cục Quận 1' };
+                if (form.senderProvince === 'Đà Nẵng') return { code: 'POST-DN-HC', name: 'Bưu Cục Hải Châu' };
+                return { code: 'POST-GD', name: `Bưu Cục Giao Dịch ${form.senderProvince || ''}` };
+            });
+
+            // Tìm Bưu Cục Phát tương ứng theo địa chỉ người nhận (Cấp 2/3)
+            const receiverPostOfficeInfo = computed(() => {
+                const fullAddr = `${form.receiverDetail || ''}, ${form.receiverProvince || ''}`;
+                if (window.MapManager?.getPostOfficeForAddress) {
+                    const found = window.MapManager.getPostOfficeForAddress(fullAddr);
+                    if (found) return found;
+                }
+                if (form.receiverProvince === 'Đà Nẵng') return { code: 'POST-DN-HC', name: 'Bưu Cục Hải Châu' };
+                if (form.receiverProvince === 'Hồ Chí Minh') return { code: 'POST-HCM-Q1', name: 'Bưu Cục Quận 1' };
+                if (form.receiverProvince === 'Hà Nội') return { code: 'POST-HN-CG', name: 'Bưu Cục Cầu Giấy' };
+                return { code: 'POST-PHAT', name: `Bưu Cục Phát ${form.receiverProvince || ''}` };
+            });
 
             const resetForm = () => {
                 form.serviceType = 'EXPRESS';
@@ -772,6 +797,8 @@
                 setServiceType,
                 senderHubName,
                 receiverHubName,
+                senderPostOfficeInfo,
+                receiverPostOfficeInfo,
                 currentUser,
                 hasReadAllPermission,
                 isShopOwner,
@@ -1264,7 +1291,7 @@
                                                 <div class="flex items-center space-x-2 truncate">
                                                     <span class="w-1.5 h-1.5 rounded-full bg-blue-600 flex-shrink-0"></span>
                                                     <span class="font-bold text-slate-900">{{ form.senderProvince }}</span>
-                                                    <span class="text-slate-500 text-[11px] truncate font-medium">({{ senderHubName }})</span>
+                                                    <span class="text-blue-700 text-[11px] truncate font-medium">({{ senderPostOfficeInfo.name }} - {{ senderPostOfficeInfo.code }})</span>
                                                 </div>
                                                 <span class="text-[10px] font-semibold text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200 shadow-2xs flex-shrink-0 ml-2">
                                                     Tự động nhận diện
@@ -1293,7 +1320,7 @@
                                                 placeholder="VD: Số 57 Huỳnh Thúc Kháng, Đống Đa..." 
                                                 class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                                             ></textarea>
-                                            <p class="text-[10.5px] text-slate-400 mt-1">Bưu tá (Shipper) sẽ đến tận địa chỉ kho trên để tiếp nhận bưu phẩm (hoặc khách gửi trực tiếp tại Hub).</p>
+                                            <p class="text-[10.5px] text-slate-400 mt-1">Bưu tá (Shipper) sẽ đến tận địa chỉ người gửi để nhận bưu phẩm mang về Bưu Cục giao dịch, hoặc người gửi mang trực tiếp ra Bưu Cục gần nhất (Kho Tổng không tiếp nhận gửi hàng trực tiếp).</p>
                                         </div>
                                     </div>
                                 </div>
@@ -1388,7 +1415,7 @@
                                                 <div class="flex items-center space-x-2 truncate">
                                                     <span class="w-1.5 h-1.5 rounded-full bg-blue-600 flex-shrink-0"></span>
                                                     <span class="font-bold text-slate-900">{{ form.receiverProvince }}</span>
-                                                    <span class="text-slate-500 text-[11px] truncate font-medium">({{ receiverHubName }})</span>
+                                                    <span class="text-blue-700 text-[11px] truncate font-medium">({{ receiverPostOfficeInfo.name }} - {{ receiverPostOfficeInfo.code }})</span>
                                                 </div>
                                                 <span class="text-[10px] font-semibold text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200 shadow-2xs flex-shrink-0 ml-2">
                                                     Tự động nhận diện
@@ -1417,7 +1444,7 @@
                                                 placeholder="VD: Số 121 Pasteur, Phường Võ Thị Sáu, Quận 3..." 
                                                 class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                                             ></textarea>
-                                            <p class="text-[10.5px] text-slate-400 mt-1">Bưu tá (Shipper) sẽ giao hàng tận tay người nhận theo địa chỉ chi tiết trên và thu tiền COD (nếu có).</p>
+                                            <p class="text-[10.5px] text-slate-400 mt-1">Bưu gửi sẽ được trung chuyển về {{ receiverPostOfficeInfo.name }} ({{ receiverPostOfficeInfo.code }}) trước khi bưu tá nhận đi phát tận tay người nhận.</p>
                                         </div>
                                     </div>
                                 </div>

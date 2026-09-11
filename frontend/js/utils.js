@@ -50,10 +50,17 @@
                 };
             case 'ROLE_HUB_OPERATOR':
                 return {
-                    label: 'Kiểm Soát Hub Bưu Cục',
-                    code: 'THỦ KHO',
+                    label: 'Thủ Kho / Điều Phối Kho Tổng',
+                    code: 'KHO TỔNG',
                     class: 'bg-indigo-50 text-indigo-700 border-indigo-200',
                     dotClass: 'bg-indigo-500'
+                };
+            case 'ROLE_POST_OFFICE_OPERATOR':
+                return {
+                    label: 'Giao Dịch Viên Bưu Cục',
+                    code: 'BƯU CỤC',
+                    class: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+                    dotClass: 'bg-cyan-500'
                 };
             case 'ROLE_SHIPPER':
                 return {

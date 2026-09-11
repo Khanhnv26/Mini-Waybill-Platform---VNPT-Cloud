@@ -32,6 +32,25 @@
             const failedReason = ref('KHONG_NGHE_MAY');
             const failedNote = ref('');
 
+            const getDestPostOfficeInfo = (item) => {
+                if (!item) return { code: 'POST-DN-HC', name: 'Bưu Cục Phát' };
+                if (item.destPostOffice) {
+                    const name = window.MapManager?.hubCoordinates?.[item.destPostOffice]?.name || item.destPostOffice;
+                    return { code: item.destPostOffice, name };
+                }
+                if (item.receiverAddress && window.MapManager?.getPostOfficeForAddress) {
+                    const found = window.MapManager.getPostOfficeForAddress(item.receiverAddress);
+                    if (found) return { code: found.code, name: found.name };
+                }
+                return { code: 'POST-DN-HC', name: 'Bưu Cục Hải Châu' };
+            };
+
+            const isAtPostOffice = (item) => {
+                if (!item) return false;
+                const loc = (item.locationCode || '').toUpperCase();
+                return loc.startsWith('POST-') || loc === 'DELIVERY_OFFICE';
+            };
+
             // 1. Tải dữ liệu bưu gửi thật từ backend (Hỗ trợ nạp ngầm không nháy màn hình)
             const loadShipmentsData = async (silent = false) => {
                 if (!silent) isLoading.value = true;
@@ -46,11 +65,30 @@
                                     ...newItem,
                                     currentStatus: existing.currentStatus,
                                     status: existing.status,
+                                    locationCode: existing.locationCode,
                                     _optimisticTimestamp: existing._optimisticTimestamp
                                 };
                             }
-                            return newItem;
+                            return {
+                                ...newItem,
+                                locationCode: existing?.locationCode || newItem.locationCode
+                            };
                         });
+
+                        // Nạp ngầm locationCode cho các đơn ARRIVED_DEST_HUB để phân biệt đã về Bưu Cục con hay còn ở Kho Tổng
+                        const arrivedItems = shipmentsList.value.filter(s => s.currentStatus === 'ARRIVED_DEST_HUB');
+                        if (arrivedItems.length > 0) {
+                            arrivedItems.forEach(async item => {
+                                try {
+                                    const tr = await TrackingService.getTracking(item.trackingCode);
+                                    if (tr && tr.locationCode) {
+                                        item.locationCode = tr.locationCode;
+                                    }
+                                } catch (e) {
+                                    // ignore
+                                }
+                            });
+                        }
                     } else {
                         shipmentsList.value = [];
                     }
@@ -104,7 +142,7 @@
 
             // 4. Thống kê KPI bưu tá
             const kpiAwaitingDispatch = computed(() => {
-                return shipmentsList.value.filter(s => s.currentStatus === 'ARRIVED_DEST_HUB').length;
+                return shipmentsList.value.filter(s => s.currentStatus === 'ARRIVED_DEST_HUB' && isAtPostOffice(s)).length;
             });
 
             const kpiOutForDelivery = computed(() => {
@@ -227,15 +265,16 @@
                 }
             };
 
-            // Nhận đơn đi phát lại (Chuyển từ DELIVERY_FAILED hoặc IN_TRANSIT sang OUT_FOR_DELIVERY)
+            // Nhận đơn đi phát lại (Chuyển từ DELIVERY_FAILED hoặc ARRIVED_DEST_HUB sang OUT_FOR_DELIVERY)
             const handleReDispatch = async (shipment) => {
                 isActionRunning.value = true;
+                const po = getDestPostOfficeInfo(shipment);
                 try {
                     await TrackingService.updateStatus(
                         shipment.trackingCode,
                         'OUT_FOR_DELIVERY',
-                        'DELIVERY_OFFICE',
-                        'Bưu tá tiếp nhận bưu gửi đi phát chặng cuối'
+                        po.code || 'DELIVERY_OFFICE',
+                        `Bưu tá tại ${po.name} (${po.code}) tiếp nhận bưu gửi đi phát chặng cuối`
                     );
 
                     // 1. Cập nhật lạc quan (Optimistic UI Update)
@@ -287,6 +326,8 @@
                 kpiDeliveredCount,
                 kpiTotalDeliveredCod,
                 kpiPendingCod,
+                getDestPostOfficeInfo,
+                isAtPostOffice,
                 loadShipmentsData,
                 handleDeliverSuccess,
                 openFailedModal,
@@ -310,12 +351,12 @@
                     <div>
                         <div class="flex items-center space-x-2">
                             <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
-                                Courier Delivery
+                                Bưu Tá Giao Vận
                             </span>
                             <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
                         </div>
                         <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
-                            Bàn Tác Nghiệp Bưu Tá Phát Hàng &amp; Quyết Toán COD
+                            Bàn Tác Nghiệp Bưu Tá Phát Hàng &amp; Tiền Thu Hộ COD
                         </h1>
                         <p class="text-xs text-blue-100/90 mt-0.5 leading-normal">
                             Quản lý các bưu gửi chặng cuối, xác nhận phát tận tay người nhận, thu tiền hộ COD và quyết toán nộp quỹ bưu cục.
@@ -405,11 +446,11 @@
                             class="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:border-blue-600 outline-none transition"
                         >
                             <option value="ALL">Tất cả trạng thái</option>
-                            <option value="ARRIVED_DEST_HUB">ARRIVED_DEST_HUB (Chờ Nhận Đi Phát)</option>
-                            <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY (Đang Đi Phát)</option>
-                            <option value="DELIVERED">DELIVERED (Phát Thành Công)</option>
-                            <option value="DELIVERY_FAILED">DELIVERY_FAILED (Phát Không Thành Công)</option>
-                            <option value="IN_TRANSIT">IN_TRANSIT (Đang Trên Xe Trục)</option>
+                            <option value="ARRIVED_DEST_HUB">Chờ Nhận Đi Phát</option>
+                            <option value="OUT_FOR_DELIVERY">Đang Đi Phát</option>
+                            <option value="DELIVERED">Phát Thành Công</option>
+                            <option value="DELIVERY_FAILED">Phát Không Thành Công</option>
+                            <option value="IN_TRANSIT">Đang Trên Xe Luân Chuyển</option>
                         </select>
 
                         <select 
@@ -464,7 +505,7 @@
                                         </button>
                                     </td>
                                     <td class="py-2.5 px-3">
-                                        <div class="font-bold text-slate-800">{{ item.receiverName || 'N/A' }}</div>
+                                        <div class="font-bold text-slate-800">{{ item.receiverName || 'Chưa cập nhật' }}</div>
                                         <div class="text-[10.5px] font-mono text-slate-500">{{ item.receiverPhone || 'Chưa có SĐT' }}</div>
                                     </td>
                                     <td class="py-2.5 px-3 text-slate-700 max-w-xs truncate">
@@ -508,16 +549,25 @@
                                             </button>
                                         </template>
 
-                                        <!-- Đơn ARRIVED_DEST_HUB: Đã đến kho đích, bưu tá bấm Nhận Phát -->
+                                        <!-- Đơn ARRIVED_DEST_HUB: Đã đến kho đích, kiểm tra xem đã về Bưu cục con chưa -->
                                         <template v-else-if="item.currentStatus === 'ARRIVED_DEST_HUB'">
                                             <button 
+                                                v-if="isAtPostOffice(item)"
                                                 @click="handleReDispatch(item)"
                                                 :disabled="isActionRunning"
                                                 class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold transition shadow-sm"
-                                                title="Tiếp nhận kiện hàng từ bưu cục phát để xuất phát giao tận tay khách"
+                                                :title="'Đã về bưu cục phát ' + getDestPostOfficeInfo(item).name + ' (' + (item.locationCode || getDestPostOfficeInfo(item).code) + '). Tiếp nhận kiện hàng để xuất phát giao tận tay khách.'"
                                             >
                                                 Nhận Hàng Đi Phát
                                             </button>
+                                            <span 
+                                                v-else
+                                                class="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-md"
+                                                :title="'Hàng đang tại Siêu Hub ' + (item.locationCode || 'Kho Tổng') + '. Quy định vận hành: Siêu Hub không bàn giao trực tiếp cho khách hàng. Bưu phẩm đang chờ xe trung chuyển vận chuyển về Bưu Cục ' + getDestPostOfficeInfo(item).name + ' (' + getDestPostOfficeInfo(item).code + ') trước khi bưu tá nhận đi phát.'"
+                                            >
+                                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                                Tại Siêu Hub - Chưa Về Bưu Cục
+                                            </span>
                                         </template>
 
                                         <!-- Đơn IN_TRANSIT: Hàng còn trên xe đường dài, chưa về tới bưu cục phát -->
@@ -527,7 +577,7 @@
                                                 title="Kiện hàng đang trên xe luân chuyển đường dài, chưa về tới bưu cục phát"
                                             >
                                                 <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
-                                                Xe Trục Đang Tới
+                                                Xe Luân Chuyển Đang Tới
                                             </span>
                                         </template>
 
@@ -589,7 +639,7 @@
                     </div>
 
                     <div class="flex items-center space-x-3 bg-emerald-50 p-2.5 rounded-lg border border-emerald-200">
-                        <span class="text-emerald-800 font-bold">Tổng tiền COD trong ca:</span>
+                        <span class="text-emerald-800 font-bold">Tổng tiền thu hộ COD trong ca:</span>
                         <span class="font-mono text-base font-extrabold text-emerald-700">{{ Utils.formatCurrency(kpiTotalDeliveredCod) }}</span>
                     </div>
                 </div>
@@ -601,7 +651,7 @@
                                 <th class="py-2.5 px-3">Mã Vận Đơn</th>
                                 <th class="py-2.5 px-3">Người Nhận Trả Tiền</th>
                                 <th class="py-2.5 px-3">Địa Chỉ Giao</th>
-                                <th class="py-2.5 px-3">Số Tiền COD Đã Thu</th>
+                                <th class="py-2.5 px-3">Số Tiền Thu Hộ COD Đã Thu</th>
                                 <th class="py-2.5 px-3 text-right">Tình Trạng Quyết Toán</th>
                             </tr>
                         </thead>

@@ -45,6 +45,46 @@
                 return shipmentsList.value.filter(s => s.currentStatus === 'IN_TRANSIT').length;
             });
 
+            const getDestPostOfficeInfo = (item) => {
+                if (!item) return { code: 'POST-DN-HC', name: 'Bưu Cục Phát' };
+                if (item.destPostOffice) {
+                    const name = window.MapManager?.hubCoordinates?.[item.destPostOffice]?.name || item.destPostOffice;
+                    return { code: item.destPostOffice, name };
+                }
+                if (item.receiverAddress && window.MapManager?.getPostOfficeForAddress) {
+                    const found = window.MapManager.getPostOfficeForAddress(item.receiverAddress);
+                    if (found) return { code: found.code, name: found.name };
+                }
+                return { code: 'POST-DN-HC', name: 'Bưu Cục Hải Châu' };
+            };
+
+            const isAtPostOffice = (item) => {
+                if (!item) return false;
+                const loc = (item.locationCode || '').toUpperCase();
+                return loc.startsWith('POST-') || loc === 'DELIVERY_OFFICE';
+            };
+
+            const getOriginPostOfficeInfo = (item) => {
+                if (!item) return { code: 'POST-HN-CG', name: 'Bưu Cục Gốc' };
+                if (item.originPostOffice) {
+                    const name = window.MapManager?.hubCoordinates?.[item.originPostOffice]?.name || item.originPostOffice;
+                    return { code: item.originPostOffice, name };
+                }
+                if (item.senderAddress && window.MapManager?.getPostOfficeForAddress) {
+                    const found = window.MapManager.getPostOfficeForAddress(item.senderAddress);
+                    if (found) return { code: found.code, name: found.name };
+                }
+                return { code: 'POST-HN-CG', name: 'Bưu Cục Cầu Giấy' };
+            };
+
+            const isCurrentStationCentralHub = computed(() => {
+                return selectedHub.value === 'ALL' || selectedHub.value.startsWith('HUB-');
+            });
+
+            const isCurrentStationPostOffice = computed(() => {
+                return selectedHub.value && selectedHub.value.startsWith('POST-');
+            });
+
             // 1. Tải danh sách bưu gửi thật từ backend (Hỗ trợ nạp ngầm không nháy màn hình)
             const loadShipmentsData = async (silent = false) => {
                 if (!silent) isLoading.value = true;
@@ -59,11 +99,30 @@
                                     ...newItem,
                                     currentStatus: existing.currentStatus,
                                     status: existing.status,
+                                    locationCode: existing.locationCode,
                                     _optimisticTimestamp: existing._optimisticTimestamp
                                 };
                             }
-                            return newItem;
+                            return {
+                                ...newItem,
+                                locationCode: existing?.locationCode || newItem.locationCode
+                            };
                         });
+
+                        // Nạp ngầm locationCode cho các đơn ARRIVED_DEST_HUB để phân biệt Kho Tổng vs Bưu Cục Con
+                        const arrivedItems = shipmentsList.value.filter(s => s.currentStatus === 'ARRIVED_DEST_HUB');
+                        if (arrivedItems.length > 0) {
+                            arrivedItems.forEach(async item => {
+                                try {
+                                    const tr = await TrackingService.getTracking(item.trackingCode);
+                                    if (tr && tr.locationCode) {
+                                        item.locationCode = tr.locationCode;
+                                    }
+                                } catch (e) {
+                                    // ignore
+                                }
+                            });
+                        }
                     } else {
                         shipmentsList.value = [];
                     }
@@ -80,6 +139,33 @@
             // 2. Lọc danh sách bưu gửi đa điều kiện
             const filteredShipments = computed(() => {
                 let list = shipmentsList.value;
+
+                if (selectedHub.value !== 'ALL') {
+                    const st = selectedHub.value;
+                    list = list.filter(s => {
+                        if (s.locationCode === st) return true;
+                        if (st.startsWith('POST-')) {
+                            if (s.currentStatus === 'ROUTE_ASSIGNED' || s.currentStatus === 'PENDING_ROUTING') {
+                                return getOriginPostOfficeInfo(s).code === st;
+                            }
+                            if (s.currentStatus === 'ARRIVED_DEST_HUB') {
+                                return getDestPostOfficeInfo(s).code === st;
+                            }
+                        }
+                        if (st.startsWith('HUB-')) {
+                            if (s.currentStatus === 'IN_TRANSIT') {
+                                return s.sourceHub === st || s.destinationHub === st;
+                            }
+                            if (s.currentStatus === 'ARRIVED_DEST_HUB' && !isAtPostOffice(s)) {
+                                return s.destinationHub === st;
+                            }
+                            if (s.currentStatus === 'ROUTE_ASSIGNED' || s.currentStatus === 'PENDING_ROUTING') {
+                                return s.sourceHub === st;
+                            }
+                        }
+                        return false;
+                    });
+                }
 
                 if (selectedStatusFilter.value !== 'ALL') {
                     list = list.filter(s => s.currentStatus === selectedStatusFilter.value);
@@ -111,7 +197,7 @@
                 return filteredShipments.value.slice(start, start + pageSize.value);
             });
 
-            watch([selectedStatusFilter, searchQuery, pageSize], () => {
+            watch([selectedHub, selectedStatusFilter, searchQuery, pageSize], () => {
                 currentPage.value = 1;
             });
 
@@ -122,10 +208,25 @@
                     return;
                 }
 
-                isActionRunning.value = true;
                 const cleanCode = trackingCode.trim();
-                const hubLocation = selectedHub.value !== 'ALL' ? selectedHub.value : 'HUB-HN-01';
+                const targetShipment = shipmentsList.value.find(s => s.trackingCode === cleanCode);
 
+                // Quy định nghiệp vụ: Kho Tổng không tiếp nhận tạo đơn
+                if (targetStatus === 'PICKED_UP' && isCurrentStationCentralHub.value && selectedHub.value !== 'ALL') {
+                    Utils.showToast('Quy Định Bưu Chính', 'Kho Tổng không tiếp nhận tạo đơn! Đơn mới chỉ được tiếp nhận tại Bưu Cục gốc.', 'warning');
+                    return;
+                }
+
+                let hubLocation = selectedHub.value !== 'ALL' ? selectedHub.value : null;
+                if (!hubLocation) {
+                    if (targetStatus === 'PICKED_UP' && targetShipment) {
+                        hubLocation = getOriginPostOfficeInfo(targetShipment).code;
+                    } else {
+                        hubLocation = targetShipment?.locationCode || 'HUB-HN-01';
+                    }
+                }
+
+                isActionRunning.value = true;
                 try {
                     await TrackingService.updateStatus(
                         cleanCode,
@@ -135,10 +236,10 @@
                     );
 
                     // 1. Cập nhật lạc quan (Optimistic UI Update) ngay tại bộ nhớ (0ms latency)
-                    const targetShipment = shipmentsList.value.find(s => s.trackingCode === cleanCode);
                     if (targetShipment) {
                         targetShipment.currentStatus = targetStatus;
                         targetShipment.status = targetStatus;
+                        targetShipment.locationCode = hubLocation;
                         targetShipment._optimisticTimestamp = Date.now();
                     }
 
@@ -163,11 +264,17 @@
                     Utils.showToast('Yêu Cầu Nhập Mã', 'Vui lòng quét hoặc nhập mã vận đơn để thực hiện tác nghiệp', 'warning');
                     return;
                 }
-                const note = targetStatus === 'PICKED_UP' 
-                    ? 'Bưu cục gốc đã tiếp nhận bưu gửi vào kho chia chọn'
-                    : 'Đã đóng chuyến xe container xuất bến luân chuyển liên tỉnh';
+                let note = '';
+                if (targetStatus === 'IN_TRANSIT') {
+                    note = 'Kho Tổng đã đóng chuyến xe container xuất bến luân chuyển liên tỉnh';
+                } else if (targetStatus === 'ARRIVED_DEST_HUB') {
+                    note = 'Xe tải trục đã cập bến Kho Tổng đích, hoàn tất dỡ hàng vào bãi';
+                } else {
+                    note = `Khai thác tại trạm ${selectedHub.value !== 'ALL' ? selectedHub.value : 'Kho Tổng'}: Chuyển trạng thái ${targetStatus}`;
+                }
                 handleUpdateStatus(scanInputCode.value, targetStatus, note);
             };
+
 
             // Bảng kê chuyến xe luân chuyển (Tổng hợp từ danh sách đơn thật)
             const tripManifestSummary = computed(() => {
@@ -227,6 +334,11 @@
                 kpiTotalInHub,
                 kpiAwaitingIntake,
                 kpiInTransit,
+                getDestPostOfficeInfo,
+                getOriginPostOfficeInfo,
+                isAtPostOffice,
+                isCurrentStationCentralHub,
+                isCurrentStationPostOffice,
                 loadShipmentsData,
                 handleUpdateStatus,
                 handleQuickScan,
@@ -245,15 +357,15 @@
                     <div>
                         <div class="flex items-center space-x-2">
                             <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
-                                Hub Operations
+                                Kho Tổng Cấp 1 (Super Hub)
                             </span>
                             <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
                         </div>
                         <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
-                            Khai Thác &amp; Chia Chọn Bưu Gửi Tại Hub
+                            Khai Thác Kho Tổng &amp; Luân Chuyển Tuyến Trục
                         </h1>
                         <p class="text-xs text-blue-100/90 mt-0.5 leading-normal">
-                            Bàn tác nghiệp thủ kho bãi: Quét mã vạch tiếp nhận, lập bảng kê đóng chuyến xe luân chuyển và quản lý tồn bãi.
+                            Bàn tác nghiệp thủ kho Hub: Quản lý hàng tồn bãi, điều phối bảng kê đóng chuyến xe container liên tỉnh (Trips) và tiếp nhận xe trung chuyển.
                         </p>
                     </div>
 
@@ -261,7 +373,7 @@
                     <div class="flex items-center space-x-2 self-start sm:self-auto">
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[72px]">
                             <div class="text-sm sm:text-base font-bold leading-tight">{{ kpiTotalInHub }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Tồn Tại Hub</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Tồn Kho Bãi</div>
                         </div>
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[72px]">
                             <div class="text-sm sm:text-base font-bold leading-tight">{{ kpiAwaitingIntake }}</div>
@@ -287,7 +399,7 @@
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         ]"
                     >
-                        <span>QUÉT TIẾP NHẬN &amp; XUẤT CHUYẾN</span>
+                        <span>QUÉT NHẬP &amp; XUẤT KHO TỔNG</span>
                     </button>
 
                     <button 
@@ -299,7 +411,7 @@
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         ]"
                     >
-                        <span>QUẢN LÝ TỒN BÃI TẠI TRẠM</span>
+                        <span>QUẢN LÝ TỒN BÃI TẠI HUB</span>
                     </button>
 
                     <button 
@@ -339,30 +451,32 @@
                         <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">
                             Đầu Đọc Mã Vạch / Quét Bưu Gửi
                         </span>
-                        <span class="text-slate-400 text-xs font-normal">(Quét từ máy POS hoặc nhập mã)</span>
+                        <span class="text-slate-400 text-xs font-normal">(Quét từ máy quét mã vạch hoặc nhập mã)</span>
                     </div>
 
                     <div class="flex flex-wrap items-center gap-2">
                         <input 
                             v-model="scanInputCode"
-                            @keyup.enter="handleQuickScan('PICKED_UP')"
+                            @keyup.enter="handleQuickScan('IN_TRANSIT')"
                             type="text" 
                             placeholder="Nhập hoặc quét mã bưu gửi..." 
                             class="pl-3 pr-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono font-bold text-blue-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none w-56 transition"
                         />
                         <button 
-                            @click="handleQuickScan('PICKED_UP')"
-                            :disabled="isActionRunning"
-                            class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg text-xs transition shadow-sm disabled:opacity-50"
-                        >
-                            Tiếp Nhận
-                        </button>
-                        <button 
                             @click="handleQuickScan('IN_TRANSIT')"
                             :disabled="isActionRunning"
-                            class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition shadow-sm disabled:opacity-50"
+                            class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition shadow-sm disabled:opacity-50 flex items-center space-x-1"
+                            title="Đóng chuyến xe container xuất bến luân chuyển liên tỉnh"
                         >
-                            Đóng Chuyến
+                            <span>Đóng Chuyến Xe Trục</span>
+                        </button>
+                        <button 
+                            @click="handleQuickScan('ARRIVED_DEST_HUB')"
+                            :disabled="isActionRunning"
+                            class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs transition shadow-sm disabled:opacity-50 flex items-center space-x-1"
+                            title="Dỡ hàng xe container trục cập bến vào bãi Hub"
+                        >
+                            <span>Dỡ Hàng Xe Trục Đến</span>
                         </button>
                     </div>
                 </div>
@@ -371,7 +485,7 @@
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2.5 shadow-sm text-xs">
                     <div class="flex flex-wrap items-center gap-2 flex-1">
                         <!-- Ô tìm kiếm -->
-                        <div class="relative w-56 sm:w-64">
+                        <div class="relative w-52 sm:w-56">
                             <input 
                                 v-model="searchQuery"
                                 type="text" 
@@ -379,6 +493,19 @@
                                 class="w-full pl-3 pr-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                             />
                         </div>
+
+                        <!-- Lựa chọn Kho Tổng Cấp 1 Làm Việc (Chỉ hiển thị các Hub cấp 1) -->
+                        <select 
+                            v-model="selectedHub"
+                            class="px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-xs font-bold text-blue-900 focus:bg-white focus:border-blue-600 outline-none transition"
+                        >
+                            <option value="ALL">Toàn Mạng Lưới Kho Tổng (Tất Cả Siêu Hub)</option>
+                            <option value="HUB-HN-01">HUB-HN-01 - Kho Tổng Hà Nội</option>
+                            <option value="HUB-HP-01">HUB-HP-01 - Kho Tổng Hải Phòng</option>
+                            <option value="HUB-DN-01">HUB-DN-01 - Kho Tổng Đà Nẵng</option>
+                            <option value="HUB-HCM-01">HUB-HCM-01 - Kho Tổng TP. Hồ Chí Minh</option>
+                            <option value="HUB-CT-01">HUB-CT-01 - Kho Tổng Cần Thơ</option>
+                        </select>
 
                         <!-- Lọc trạng thái -->
                         <select 
@@ -432,7 +559,7 @@
                                     <th class="py-2.5 px-3">Khối Lượng</th>
                                     <th class="py-2.5 px-3">Tiền COD</th>
                                     <th class="py-2.5 px-3">Trạng Thái Hiện Tại</th>
-                                    <th class="py-2.5 px-3 text-right">Tác Nghiệp Tại Hub</th>
+                                    <th class="py-2.5 px-3 text-right">Tác Nghiệp Kho Bãi</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 font-medium">
@@ -449,10 +576,10 @@
                                         </button>
                                     </td>
                                     <td class="py-2.5 px-3 text-slate-700">
-                                        {{ item.senderName || 'N/A' }}
+                                        {{ item.senderName || 'Chưa cập nhật' }}
                                     </td>
                                     <td class="py-2.5 px-3 text-slate-800 max-w-xs truncate">
-                                        <div class="font-bold">{{ item.receiverName || 'N/A' }}</div>
+                                        <div class="font-bold">{{ item.receiverName || 'Chưa cập nhật' }}</div>
                                         <div class="text-[10.5px] text-slate-500 truncate">{{ item.receiverAddress || 'Chưa có địa chỉ' }}</div>
                                     </td>
                                     <td class="py-2.5 px-3 font-mono text-slate-700">
@@ -467,43 +594,80 @@
                                         </span>
                                     </td>
                                     <td class="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">
-                                        <button 
-                                            v-if="item.currentStatus === 'ROUTE_ASSIGNED' || item.currentStatus === 'PENDING_ROUTING'"
-                                            @click="handleUpdateStatus(item.trackingCode, 'PICKED_UP', 'Tiếp nhận bưu gửi tại trạm khai thác')"
-                                            :disabled="isActionRunning"
-                                            class="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-md font-bold hover:bg-amber-100 transition shadow-sm"
-                                        >
-                                            Tiếp Nhận
-                                        </button>
+                                        <!-- Khi ROUTE_ASSIGNED hoặc PENDING_ROUTING: Đơn mới tạo tại bưu cục -->
+                                        <template v-if="item.currentStatus === 'ROUTE_ASSIGNED' || item.currentStatus === 'PENDING_ROUTING'">
+                                            <span 
+                                                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200"
+                                                :title="'Đơn mới tạo thuộc Bưu Cục ' + getOriginPostOfficeInfo(item).name + ' (' + getOriginPostOfficeInfo(item).code + '). Bưu cục gốc sẽ tiếp nhận và gom xe trung chuyển lên Kho Tổng.'"
+                                            >
+                                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                                Tại Bưu Cục Gốc [{{ getOriginPostOfficeInfo(item).code }}] - Chờ Xe Gom
+                                            </span>
+                                        </template>
 
-                                        <button 
-                                            v-if="item.currentStatus === 'PICKED_UP'"
-                                            @click="handleUpdateStatus(item.trackingCode, 'IN_TRANSIT', 'Đóng chuyến xe luân chuyển liên tỉnh')"
-                                            :disabled="isActionRunning"
-                                            class="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-md font-bold hover:bg-blue-100 transition shadow-sm"
-                                        >
-                                            Đóng Chuyến
-                                        </button>
+                                        <!-- Khi PICKED_UP: Đã tiếp nhận tại Hub hoặc đang gom lên Hub -->
+                                        <template v-else-if="item.currentStatus === 'PICKED_UP'">
+                                            <span 
+                                                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold text-blue-800 bg-blue-50 border border-blue-200"
+                                                :title="'Đang tại Kho Tổng ' + (item.sourceHub || 'HUB-HN-01') + '. Sẵn sàng ghép chuyến xe trục.'"
+                                            >
+                                                <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                                Tại Hub [{{ item.sourceHub || 'HUB-HN-01' }}]
+                                            </span>
+                                            <button 
+                                                @click="currentSubtab = 'trips'"
+                                                class="px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-bold transition shadow-sm"
+                                                title="Mở Bảng Kê / Chuyến Xe Trục để ghép đơn vào chuyến xe container"
+                                            >
+                                                Ghép Xe Trục
+                                            </button>
+                                        </template>
 
-                                        <!-- Khi IN_TRANSIT: Đang luân chuyển trên xe trục (Khóa nút giao bưu tá sớm) -->
-                                        <span 
-                                            v-if="item.currentStatus === 'IN_TRANSIT'"
-                                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200"
-                                            title="Kiện hàng đang trên xe trục liên tỉnh. Chờ chuyến xe cập bến Hub đích để dỡ hàng."
-                                        >
-                                            <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
-                                            Đang Trên Xe Trục
-                                        </span>
+                                        <!-- Khi IN_TRANSIT: Đang luân chuyển trên xe trục liên tỉnh -->
+                                        <template v-else-if="item.currentStatus === 'IN_TRANSIT'">
+                                            <span 
+                                                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200"
+                                                title="Kiện hàng đang trên xe trục liên tỉnh. Chờ chuyến xe cập bến kho bãi đích để dỡ hàng."
+                                            >
+                                                <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+                                                Đang Trên Xe Trục
+                                            </span>
+                                            <button 
+                                                @click="handleUpdateStatus(item.trackingCode, 'ARRIVED_DEST_HUB', 'Xe tải container trục đã cập bến Kho Tổng đích, dỡ hàng vào bãi')"
+                                                :disabled="isActionRunning"
+                                                class="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-bold transition shadow-sm"
+                                                title="Dỡ hàng từ xe tải container trục vào bãi Kho Tổng đích"
+                                            >
+                                                Dỡ Hàng Cập Bến
+                                            </button>
+                                        </template>
 
-                                        <!-- Khi ARRIVED_DEST_HUB: Đã đến kho phát đích an toàn -->
-                                        <span 
-                                            v-else-if="item.currentStatus === 'ARRIVED_DEST_HUB'"
-                                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200"
-                                            title="Kiện hàng đã dỡ tại Hub đích an toàn, chờ bưu tá nhận đi phát."
-                                        >
-                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                                            Đã Về Bãi Đích
-                                        </span>
+                                        <!-- Khi ARRIVED_DEST_HUB: Đã đến Kho Tổng đích -->
+                                        <template v-else-if="item.currentStatus === 'ARRIVED_DEST_HUB'">
+                                            <span 
+                                                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200"
+                                                :title="'Hàng đang tại Siêu Hub ' + (item.destinationHub || 'Kho Tổng') + '. Điều xe trung chuyển về bưu cục phát ' + getDestPostOfficeInfo(item).name"
+                                            >
+                                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                                Tại Hub ➔ Chờ Xe Về {{ getDestPostOfficeInfo(item).code }}
+                                            </span>
+                                            <button 
+                                                @click="handleUpdateStatus(item.trackingCode, 'IN_TRANSIT', 'Xe trung chuyển xuất phát từ Kho Tổng về bưu cục phát')"
+                                                :disabled="isActionRunning"
+                                                class="px-2 py-0.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-[11px] font-bold transition shadow-sm"
+                                                title="Điều xe trung chuyển chở bưu gửi về bưu cục phát"
+                                            >
+                                                Điều Xe Về Bưu Cục
+                                            </button>
+                                        </template>
+
+                                        <!-- Khi OUT_FOR_DELIVERY hoặc DELIVERED -->
+                                        <template v-else-if="item.currentStatus === 'OUT_FOR_DELIVERY'">
+                                            <span class="text-emerald-700 font-bold text-[11px]">Bưu Tá Đang Phát</span>
+                                        </template>
+                                        <template v-else-if="item.currentStatus === 'DELIVERED'">
+                                            <span class="text-slate-400 font-medium text-[11px]">Phát Thành Công</span>
+                                        </template>
                                     </td>
                                 </tr>
                             </tbody>
@@ -555,7 +719,7 @@
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm text-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
                     <div>
                         <h2 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Kiểm Soát Bưu Gửi Tồn Bãi</h2>
-                        <p class="text-slate-500 text-[11px] mt-0.5">Giám sát các kiện hàng đang lưu tại Hub chưa đóng chuyến luân chuyển</p>
+                        <p class="text-slate-500 text-[11px] mt-0.5">Giám sát các kiện hàng đang lưu tại kho bãi chưa đóng chuyến luân chuyển</p>
                     </div>
                     <div class="flex items-center space-x-3 bg-slate-50 p-2 rounded-lg border border-slate-200">
                         <div><span class="text-slate-500">Đang lưu kho:</span> <strong class="text-slate-800 font-bold">{{ kpiTotalInHub }} kiện</strong></div>
@@ -589,7 +753,7 @@
                                         <span class="text-[11px] text-blue-500 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all">↗</span>
                                     </button>
                                 </td>
-                                <td class="py-2.5 px-3 font-mono text-slate-500">{{ item.createdAt ? item.createdAt.substring(0, 16) : 'N/A' }}</td>
+                                <td class="py-2.5 px-3 font-mono text-slate-500">{{ item.createdAt ? item.createdAt.substring(0, 16) : 'Chưa có' }}</td>
                                 <td class="py-2.5 px-3 font-bold text-slate-800">{{ item.receiverName }}</td>
                                 <td class="py-2.5 px-3 text-slate-600 max-w-xs truncate">{{ item.receiverAddress }}</td>
                                 <td class="py-2.5 px-3 font-mono">{{ item.weight || 0 }} kg</td>
