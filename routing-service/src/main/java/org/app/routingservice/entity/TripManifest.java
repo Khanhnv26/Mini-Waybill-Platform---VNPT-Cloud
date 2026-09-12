@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.app.sharedevents.entity.TransportLeg;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -33,6 +34,16 @@ public class TripManifest {
 
     @Column(name = "destination_hub", nullable = false, length = 50)
     private String destinationHub;
+
+    @Column(name = "pickup_location_code", length = 50)
+    private String pickupLocationCode;
+
+    @Column(name = "dropoff_location_code", length = 50)
+    private String dropoffLocationCode;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "transport_leg", length = 30)
+    private TransportLeg transportLeg;
 
     @Column(name = "weight_kg", nullable = false)
     private Double weightKg;

@@ -9,6 +9,9 @@ import org.app.routingservice.entity.Hub;
 import org.app.routingservice.entity.RoutingAssignment;
 import org.app.routingservice.repository.HubRepository;
 import org.app.routingservice.repository.RoutingAssignmentRepository;
+import org.app.sharedevents.entity.OperationType;
+import org.app.sharedevents.entity.ShipmentLifecycleEvent;
+import org.app.sharedevents.entity.TransportLeg;
 import org.springframework.kafka.annotation.BackOff;
 import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -21,6 +24,7 @@ import org.springframework.stereotype.Service;
 import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Slf4j
@@ -31,8 +35,8 @@ public class RoutingConsumer {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final RoutingAssignmentRepository routingAssignmentRepository;
     private final HubRepository hubRepository;
-
     private record HubRoutingResult(String centralHubCode, String postOfficeCode) {}
+
 
     @KafkaListener(topics = "shipment-events", groupId = "routing-group")
     @RetryableTopic(attempts = "3", backOff = @BackOff(delay = 1000, multiplier = 2))
@@ -95,6 +99,30 @@ public class RoutingConsumer {
         kafkaTemplate.send("tracking-status-events", event.getTrackingCode(), statusEvent);
         log.info("[ROUTING-SERVICE] Đã bắn event ShipmentStatusUpdatedEvent (ROUTE_ASSIGNED) lên topic 'tracking-status-events'");
 
+        ShipmentLifecycleEvent lifecycleEvent = ShipmentLifecycleEvent.builder()
+                .eventId(UUID.randomUUID().toString())
+                .trackingCode(event.getTrackingCode())
+                .status("ROUTE_ASSIGNED")
+                .transportLeg(TransportLeg.ORIGIN_FEEDER)
+                .operationType(OperationType.ROUTE_ASSIGNED)
+                .locationCode(originPostOffice != null ? originPostOffice : sourceHub)
+                .tripCode(null)
+                .actorId(null)
+                .note(initialNote)
+                .occurredAt(LocalDateTime.now())
+                .build();
+
+        kafkaTemplate.send(
+                "shipment-lifecycle-events",
+                event.getTrackingCode(),
+                lifecycleEvent
+        );
+
+        log.info(
+                "[ROUTING-SERVICE] Đã bắn ShipmentLifecycleEvent " +
+                "lên topic 'shipment-lifecycle-events'"
+        );
+
     }
 
     @DltHandler
@@ -124,7 +152,6 @@ public class RoutingConsumer {
         String addressLower = address.toLowerCase();
         String addressUnaccent = unaccent(address);
 
-        // 1. Tìm Kho Tổng Cấp 1 (Central Hub) theo Tỉnh/Thành phố
         Hub centralHub = null;
         for (Hub h : allHubs) {
             if ((h.getHubLevel() == null || h.getHubLevel() == 1) && h.getProvince() != null) {
@@ -161,7 +188,6 @@ public class RoutingConsumer {
 
         String centralHubCode = centralHub != null ? centralHub.getHubCode() : defaultCentralHub;
 
-        // 2. Tìm Bưu cục Cấp 2/3 (Sub-hub / Post Office) thuộc Kho Tổng này theo Quận/Huyện
         String postOfficeCode = null;
         Hub defaultSubHub = null;
         for (Hub h : allHubs) {

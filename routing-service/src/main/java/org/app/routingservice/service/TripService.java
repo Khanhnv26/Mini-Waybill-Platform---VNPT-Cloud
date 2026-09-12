@@ -3,6 +3,7 @@ package org.app.routingservice.service;
 import org.app.routingservice.dto.trip.ConsolidateRequest;
 import org.app.routingservice.dto.trip.CreateTripRequest;
 import org.app.routingservice.dto.trip.TripDetailResponse;
+import org.app.routingservice.dto.trip.TripProgressRequest;
 import org.app.routingservice.entity.Trip;
 
 import org.app.routingservice.dto.trip.EligibleAssignmentResponse;
@@ -19,5 +20,6 @@ public interface TripService {
     TripDetailResponse arriveAtStop(Long tripId, String hubCode);
     int consolidateAllScheduledTrips();
     List<EligibleAssignmentResponse> getEligibleAssignmentsForTrip(Long tripId);
+    TripDetailResponse updateProgress(Long tripId, TripProgressRequest request, String actorId, String roles, String permissions);
 }
 

@@ -46,6 +46,22 @@ public class Trip {
     @Column(name = "current_hub", length = 50, nullable = false)
     private String currentHub;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "trip_type", length = 30)
+    private TripType tripType;
+
+    @Column(name = "current_latitude")
+    private Double currentLatitude;
+
+    @Column(name = "current_longitude")
+    private Double currentLongitude;
+
+    @Column(name = "last_progress_at")
+    private LocalDateTime lastProgressAt;
+
+    @Column(name = "progress_percent")
+    private Double progressPercent;
+
     @Column(name = "status", length = 30, nullable = false)
     private String status;
 

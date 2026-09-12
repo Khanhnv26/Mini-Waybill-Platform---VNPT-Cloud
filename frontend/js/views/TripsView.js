@@ -360,6 +360,8 @@
             const selectedStatusFilter = ref('ALL');
             const tripDirectionTab = ref('OUTBOUND'); // 'OUTBOUND' | 'INBOUND'
             const selectedStationHub = ref(props.currentStation || 'ALL');
+            // Quy trình 3 bước trực quan: 1. Gom hàng bưu cục, 2. Xe trục liên tỉnh, 3. Phát hàng bưu cục
+            const currentStep = ref(1);
 
             // Chế độ vận tải: XE TRỤC (LINEHAUL) vs XE TRUNG CHUYỂN (FEEDER)
             const transportMode = ref('LINEHAUL'); // 'LINEHAUL' | 'FEEDER'
@@ -1510,17 +1512,19 @@
                 }
             };
 
-            const getTripStatusLabel = (trip) => {
-                if (!trip) return 'Không xác định';
-                if (trip.status === 'IN_TRANSIT') return 'Đang Chạy Tuyến';
-                if (trip.status === 'COMPLETED') return 'Đã Hoàn Thành';
-                if (trip.status === 'CANCELLED') return 'Đã Hủy';
-                if (trip.status === 'SCHEDULED') {
-                    if (isTripOverdue(trip)) return 'Trễ Giờ Xuất Bến';
-                    if (trip.readyToDepart || (trip.weightPercentage || 0) >= 80) return 'Sẵn Sàng Xuất Bến';
+            const getTripStatusLabel = (tripOrStatus) => {
+                if (!tripOrStatus) return 'Không xác định';
+                const status = typeof tripOrStatus === 'string' ? tripOrStatus : tripOrStatus.status;
+                const tripObj = typeof tripOrStatus === 'object' ? tripOrStatus : null;
+                if (status === 'IN_TRANSIT') return 'Đang Chạy Tuyến';
+                if (status === 'COMPLETED') return 'Đã Hoàn Thành';
+                if (status === 'CANCELLED') return 'Đã Hủy';
+                if (status === 'SCHEDULED') {
+                    if (tripObj && isTripOverdue(tripObj)) return 'Trễ Giờ Xuất Bến';
+                    if (tripObj && (tripObj.readyToDepart || (tripObj.weightPercentage || 0) >= 80)) return 'Sẵn Sàng Xuất Bến';
                     return 'Đang Gom Hàng';
                 }
-                return trip.status;
+                return status || 'Không xác định';
             };
 
             const getTripStatusBadgeClass = (trip) => {
@@ -1725,790 +1729,489 @@
                 handleDispatchFeederItem, handleDispatchAllFeeder,
                 handleReceiveIncomingFeeder, handleReceiveAllIncomingFeeder,
                 getOriginPostOfficeInfo, getDestPostOfficeInfo,
-                openCreateTripModal, HUB_COORDINATES
+                openCreateTripModal, HUB_COORDINATES, currentStep
             };
         },
         template: `
         <div :class="embedded ? 'space-y-3.5 text-slate-800' : 'p-5 max-w-7xl mx-auto space-y-4 text-slate-800'">
-            <!-- 1. HERO BANNER VNPT GRADIENT (TỰ ĐỘNG ẨN KHI NHÚNG TRONG TRANG KHAI THÁC HUB) -->
-            <div v-if="!embedded" class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
+            <!-- 1. HERO BANNER VNPT GRADIENT -->
+            <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                 <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
 
                 <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <div class="flex items-center space-x-2">
-                            <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
-                                Transport Operations
+                            <span class="px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[11px] font-extrabold uppercase tracking-wider border border-white/20">
+                                TRUNG TÂM ĐIỀU VẬN VNPT
                             </span>
-                            <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
+                            <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông Việt Nam</span>
                         </div>
-                        <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
+                        <h1 class="text-base sm:text-xl font-extrabold tracking-tight mt-1 text-white">
                             Quản Lý &amp; Điều Phối Chuyến Xe Vận Tải
                         </h1>
                         <p class="text-xs text-blue-100/90 mt-0.5 leading-normal max-w-2xl">
-                            Điều phối chuyên trách toàn bộ mạng lưới vận tải: Xe trục container liên tỉnh (Linehaul) và Xe trung chuyển nội đô (Feeder Van).
+                            Mô hình quy trình 3 chặng khép kín: Gom hàng từ bưu cục ➔ Xe container trục liên tỉnh ➔ Phát hàng về bưu cục đích.
                         </p>
                     </div>
 
-                    <!-- Thống kê nhanh KPI -->
-                    <div class="flex items-center space-x-2 self-start sm:self-auto">
-                        <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[76px]">
-                            <div class="text-sm sm:text-base font-bold leading-tight">{{ kpiStats.total }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Tổng Chuyến</div>
+                    <!-- Thống kê nhanh KPI 3 Chặng -->
+                    <div class="flex items-center gap-2 self-start sm:self-auto">
+                        <div class="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/15 text-center min-w-[80px]">
+                            <div class="text-base font-black leading-tight">{{ pendingFeederItems.length }}</div>
+                            <div class="text-[10px] text-blue-100 uppercase font-semibold">Chờ Gom Đi</div>
                         </div>
-                        <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[76px]">
-                            <div class="text-sm sm:text-base font-bold leading-tight text-amber-300">{{ kpiStats.inTransit }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Đang Chạy</div>
+                        <div class="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/15 text-center min-w-[80px]">
+                            <div class="text-base font-black leading-tight text-amber-300">{{ linehaulTrips.filter(t => t.status === 'IN_TRANSIT').length }}</div>
+                            <div class="text-[10px] text-blue-100 uppercase font-semibold">Xe Trục Chạy</div>
                         </div>
-                        <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[76px]">
-                            <div class="text-sm sm:text-base font-bold leading-tight text-emerald-300">{{ kpiStats.scheduled }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Chờ Bốc Hàng</div>
+                        <div class="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/15 text-center min-w-[80px]">
+                            <div class="text-base font-black leading-tight text-emerald-300">{{ incomingFeederItems.length }}</div>
+                            <div class="text-[10px] text-blue-100 uppercase font-semibold">Chờ Phát Về</div>
                         </div>
-                        <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[76px]">
-                            <div class="text-sm sm:text-base font-bold leading-tight">{{ kpiStats.completed }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Đã Đến</div>
-                        </div>
+                        <button 
+                            @click="loadTrips(); loadShipmentsData()" 
+                            :disabled="isLoading || isLoadingShipments"
+                            class="px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition border border-white/20 cursor-pointer flex items-center space-x-1.5"
+                            title="Làm mới dữ liệu"
+                        >
+                            <span v-if="isLoading || isLoadingShipments" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin block"></span>
+                            <span>Làm Mới</span>
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Tiêu đề gọn gàng khi nhúng trong HubOpsView -->
-            <div v-else class="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-2 border-b border-slate-200 gap-2">
-                <div>
-                    <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wide">
-                        Điều Phối Chuyến Xe Vận Tải
-                    </h2>
-                    <p class="text-xs text-slate-500 mt-0.5">
-                        Quản lý xe trục container liên tỉnh và xe trung chuyển nội đô
-                    </p>
-                </div>
-                <div class="flex items-center space-x-2 text-xs">
-                    <span class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-medium border border-slate-200">
-                        Tổng: <b>{{ kpiStats.total }}</b> chuyến
-                    </span>
-                    <span class="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 font-medium border border-amber-200">
-                        Đang chạy: <b>{{ kpiStats.inTransit }}</b>
-                    </span>
-                    <span class="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-medium border border-blue-200">
-                        Chờ bốc: <b>{{ kpiStats.scheduled }}</b>
-                    </span>
-                </div>
-            </div>
-
-            <!-- 2. NAVIGATION SUBTABS: LINEHAUL vs FEEDER -->
-            <div class="flex items-center justify-between border-b border-slate-200">
-                <div class="flex space-x-4 sm:space-x-6 overflow-x-auto pb-px">
-                    <button 
-                        @click="transportMode = 'LINEHAUL'"
-                        :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center space-x-2 whitespace-nowrap',
-                            transportMode === 'LINEHAUL' 
-                                ? 'border-blue-600 text-blue-700' 
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
-                        ]"
-                    >
-                        <span>XE TRỤC CONTAINER LIÊN TỈNH (LINEHAUL)</span>
-                        <span class="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-100 text-blue-800">
-                            {{ linehaulTripsCount }} chuyến
-                        </span>
-                    </button>
-
-                    <button 
-                        @click="transportMode = 'FEEDER'"
-                        :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center space-x-2 whitespace-nowrap',
-                            transportMode === 'FEEDER' 
-                                ? 'border-cyan-600 text-cyan-800' 
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
-                        ]"
-                    >
-                        <span>XE TRUNG CHUYỂN NỘI ĐÔ (FEEDER)</span>
-                        <span class="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-100 text-cyan-800">
-                            {{ pendingFeederItems.length + incomingFeederItems.length }} kiện
-                        </span>
-                    </button>
-                </div>
-
+            <!-- 2. THANH TIẾN TRÌNH 3 BƯỚC TRỰC QUAN (3-STEP PIPELINE) -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <!-- BƯỚC 1 -->
                 <button 
-                    @click="loadTrips(); loadShipmentsData()" 
-                    :disabled="isLoading"
-                    class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center space-x-1 border border-slate-200"
+                    type="button"
+                    @click="currentStep = 1; transportMode = 'FEEDER'"
+                    :class="currentStep === 1 ? 'border-blue-600 bg-blue-50/70 text-blue-900 shadow-sm ring-2 ring-blue-500/20' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
+                    class="p-3.5 rounded-xl border-2 text-left transition-all duration-200 flex items-start space-x-3 group cursor-pointer"
                 >
-                    <span v-if="isLoading" class="w-2.5 h-2.5 border-2 border-slate-600 border-t-transparent rounded-full animate-spin"></span>
-                    <span>Làm Mới</span>
+                    <div 
+                        :class="currentStep === 1 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'"
+                        class="w-9 h-9 rounded-lg flex items-center justify-center font-black text-xs shrink-0 transition"
+                    >
+                        01
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between">
+                            <div class="font-bold text-[11px] uppercase tracking-wider text-slate-500">Chặng Gom Hàng</div>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                                {{ pendingFeederItems.length }} kiện
+                            </span>
+                        </div>
+                        <div class="font-extrabold text-xs sm:text-sm mt-0.5 truncate" :class="currentStep === 1 ? 'text-blue-900' : 'text-slate-800'">
+                            Bưu Cục ➔ Kho Tổng
+                        </div>
+                        <div class="text-[11px] text-slate-500 mt-0.5">Xe tải 1.5T gom hàng quầy</div>
+                    </div>
+                </button>
+
+                <!-- BƯỚC 2 -->
+                <button 
+                    type="button"
+                    @click="currentStep = 2; transportMode = 'LINEHAUL'"
+                    :class="currentStep === 2 ? 'border-blue-600 bg-blue-50/70 text-blue-900 shadow-sm ring-2 ring-blue-500/20' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
+                    class="p-3.5 rounded-xl border-2 text-left transition-all duration-200 flex items-start space-x-3 group cursor-pointer"
+                >
+                    <div 
+                        :class="currentStep === 2 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'"
+                        class="w-9 h-9 rounded-lg flex items-center justify-center font-black text-xs shrink-0 transition"
+                    >
+                        02
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between">
+                            <div class="font-bold text-[11px] uppercase tracking-wider text-slate-500">Trục Quốc Lộ 1A</div>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
+                                {{ linehaulTrips.length }} xe
+                            </span>
+                        </div>
+                        <div class="font-extrabold text-xs sm:text-sm mt-0.5 truncate" :class="currentStep === 2 ? 'text-blue-900' : 'text-slate-800'">
+                            Xe Container Liên Tỉnh
+                        </div>
+                        <div class="text-[11px] text-slate-500 mt-0.5">Đầu kéo 30T kết nối 5 Kho Tổng</div>
+                    </div>
+                </button>
+
+                <!-- BƯỚC 3 -->
+                <button 
+                    type="button"
+                    @click="currentStep = 3; transportMode = 'FEEDER'"
+                    :class="currentStep === 3 ? 'border-blue-600 bg-blue-50/70 text-blue-900 shadow-sm ring-2 ring-blue-500/20' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
+                    class="p-3.5 rounded-xl border-2 text-left transition-all duration-200 flex items-start space-x-3 group cursor-pointer"
+                >
+                    <div 
+                        :class="currentStep === 3 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200'"
+                        class="w-9 h-9 rounded-lg flex items-center justify-center font-black text-xs shrink-0 transition"
+                    >
+                        03
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between">
+                            <div class="font-bold text-[11px] uppercase tracking-wider text-slate-500">Chặng Phát Hàng</div>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                {{ incomingFeederItems.length }} kiện
+                            </span>
+                        </div>
+                        <div class="font-extrabold text-xs sm:text-sm mt-0.5 truncate" :class="currentStep === 3 ? 'text-blue-900' : 'text-slate-800'">
+                            Kho Tổng ➔ Bưu Cục Phát
+                        </div>
+                        <div class="text-[11px] text-slate-500 mt-0.5">Xe tải 1.5T dỡ hàng cho shipper</div>
+                    </div>
                 </button>
             </div>
 
-            <!-- =============================================================== -->
-            <!-- SUBTAB 1: XE TRỤC CONTAINER LIÊN TỈNH (LINEHAUL)               -->
-            <!-- =============================================================== -->
-            <div v-if="transportMode === 'LINEHAUL'" class="space-y-3.5">
-
-            <!-- PHÂN TÁCH LUỒNG NGHIỆP VỤ: CHUYẾN XE ĐI (XUẤT BẾN) vs CHUYẾN XE ĐẾN (CẬP BẾN) -->
-            <div class="b2b-card bg-white border border-slate-200 rounded-xl p-2.5 flex flex-col md:flex-row md:items-center justify-between gap-2.5 shadow-sm">
-                <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80">
-                    <button 
-                        type="button" 
-                        @click="tripDirectionTab = 'OUTBOUND'"
-                        :class="tripDirectionTab === 'OUTBOUND' ? 'bg-white font-extrabold text-blue-700 shadow-sm border border-slate-200' : 'text-slate-600 hover:text-slate-900 font-medium'"
-                        class="px-4 py-1.5 rounded-lg text-xs transition flex items-center space-x-2"
-                    >
-                        <span>CHUYẾN XE ĐI (XUẤT BẾN)</span>
-                        <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-blue-50 text-blue-700 font-bold font-mono">
-                            {{ kpiStats.outboundCount }}
-                        </span>
-                    </button>
-                    <button 
-                        type="button" 
-                        @click="tripDirectionTab = 'INBOUND'"
-                        :class="tripDirectionTab === 'INBOUND' ? 'bg-emerald-600 font-extrabold text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
-                        class="px-4 py-1.5 rounded-lg text-xs transition flex items-center space-x-2"
-                    >
-                        <span class="w-2 h-2 rounded-full bg-amber-300 animate-ping inline-block" v-if="kpiStats.inboundCount > 0"></span>
-                        <span>CHUYẾN XE ĐẾN (CẬP BẾN &amp; DỠ HÀNG)</span>
-                        <span :class="tripDirectionTab === 'INBOUND' ? 'bg-emerald-700 text-white' : 'bg-emerald-50 text-emerald-700'" class="px-1.5 py-0.2 rounded-full text-[10px] font-bold font-mono">
-                            {{ kpiStats.inboundCount }}
-                        </span>
-                    </button>
-                </div>
-
-                <!-- Bộ lọc trạm tác nghiệp -->
-                <div class="flex items-center space-x-2 text-xs">
-                    <span class="text-slate-500 font-medium whitespace-nowrap">Trạm Tác Nghiệp:</span>
-                    <select 
-                        v-model="selectedStationHub"
-                        class="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 font-bold text-slate-800 text-xs outline-none focus:bg-white focus:border-blue-600 transition"
-                    >
-                        <option value="ALL">-- Tất cả các trạm --</option>
-                        <option v-for="h in hubsList" :key="h.hubCode" :value="h.hubCode">
-                            {{ h.hubCode }} - {{ h.hubName }}
-                        </option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- 2. THANH CÔNG CỤ TOOLBAR & BỘ LẬP LỊCH CHUẨN B2B -->
-            <div class="b2b-card bg-white border border-slate-200 rounded-xl p-2.5 flex flex-col md:flex-row md:items-center justify-between gap-2.5 shadow-sm text-xs">
-                <div class="flex flex-wrap items-center gap-2 flex-1">
-                    <div class="relative w-56 sm:w-64">
-                        <input 
-                            v-model="searchQuery"
-                            type="text" 
-                            placeholder="Tìm mã chuyến, biển số, tài xế..." 
-                            class="w-full pl-3 pr-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
-                        />
-                    </div>
-
-                    <select 
-                        v-model="selectedStatusFilter"
-                        class="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-700 outline-none"
-                    >
-                        <option value="ALL">Tất cả trạng thái</option>
-                        <option value="SCHEDULED">Chờ bốc hàng (SCHEDULED)</option>
-                        <option value="IN_TRANSIT">Đang chạy (IN_TRANSIT)</option>
-                        <option value="COMPLETED">Đã hoàn thành (COMPLETED)</option>
-                    </select>
-
-                    <!-- Cụm điều khiển Scheduler gom đơn ngầm -->
-                    <div class="flex items-center space-x-1.5 pl-2 border-l border-slate-200">
-                        <span class="text-slate-400 font-medium">Gom đơn:</span>
-                        <button 
-                            type="button" 
-                            @click="toggleSchedulerMode" 
-                            :disabled="isUpdatingScheduler"
-                            :class="[
-                                'px-2 py-0.5 text-[10.5px] font-bold rounded transition',
-                                schedulerConfig.enabled ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                            ]"
-                        >
-                            {{ schedulerConfig.enabled ? 'TỰ ĐỘNG' : 'THỦ CÔNG' }}
-                        </button>
-                        <select 
-                            v-if="schedulerConfig.enabled"
-                            :value="schedulerConfig.intervalSeconds"
-                            @change="changeSchedulerInterval($event.target.value)"
-                            :disabled="isUpdatingScheduler"
-                            class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] text-slate-600 outline-none"
-                        >
-                            <option value="60">1 phút</option>
-                            <option value="180">3 phút</option>
-                            <option value="300">5 phút</option>
-                            <option value="600">10 phút</option>
+            <!-- ========================================================================= -->
+            <!-- NỘI DUNG: BƯỚC 1 - GOM HÀNG VỀ KHO TỔNG                                   -->
+            <!-- ========================================================================= -->
+            <div v-if="currentStep === 1" class="space-y-3">
+                <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="font-bold text-slate-700">Lọc Bưu Cục Gom:</span>
+                        <select v-model="selectedFeederStation" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 font-medium outline-none focus:ring-2 focus:ring-blue-500/20">
+                            <option value="ALL">Toàn Bộ Bưu Cục ({{ pendingFeederItems.length }} kiện)</option>
+                            <option value="POST-HN-CG">Bưu Cục Cầu Giấy (Hà Nội)</option>
+                            <option value="POST-HN-DDA">Bưu Cục Đống Đa (Hà Nội)</option>
+                            <option value="POST-HN-HBT">Bưu Cục Hai Bà Trưng (Hà Nội)</option>
+                            <option value="POST-HN-TX">Bưu Cục Thanh Xuân (Hà Nội)</option>
+                            <option value="POST-HN-HD">Bưu Cục Hà Đông (Hà Nội)</option>
+                            <option value="POST-HCM-Q1">Bưu Cục Bến Nghé (Quận 1 - TP.HCM)</option>
+                            <option value="POST-HCM-TB">Bưu Cục Tân Bình (TP.HCM)</option>
+                            <option value="POST-HCM-BT">Bưu Cục Bình Thạnh (TP.HCM)</option>
+                            <option value="POST-HCM-TD">Bưu Cục TP. Thủ Đức</option>
+                            <option value="POST-HCM-Q7">Bưu Cục Quận 7 (TP.HCM)</option>
+                            <option value="POST-DN-HC">Bưu Cục Hải Châu (Đà Nẵng)</option>
+                            <option value="POST-DN-TK">Bưu Cục Thanh Khê (Đà Nẵng)</option>
+                            <option value="POST-DN-ST">Bưu Cục Sơn Trà (Đà Nẵng)</option>
+                            <option value="POST-HP-NQ">Bưu Cục Ngô Quyền (Hải Phòng)</option>
+                            <option value="POST-CT-NK">Bưu Cục Ninh Kiều (Cần Thơ)</option>
                         </select>
-                        <div v-if="schedulerConfig.enabled" class="hidden xl:flex items-center space-x-1 pl-1 text-[11px] text-slate-400">
-                            <span>Khung giờ:</span>
-                            <span class="font-mono text-slate-600 font-medium">{{ schedulerConfig.fixedCronTimes || '08:00, 12:00, 18:00, 22:00' }}</span>
+
+                        <div class="h-4 w-px bg-slate-300 mx-1 hidden sm:block"></div>
+
+                        <div class="flex items-center space-x-1.5 text-slate-600">
+                            <span class="text-slate-400">Xe gom:</span>
+                            <input type="text" v-model="feederVehiclePlate" class="px-2 py-1 rounded border border-slate-200 bg-slate-50 font-mono font-bold text-slate-700 w-36 text-xs" />
+                            <span class="text-slate-400">Tài xế:</span>
+                            <input type="text" v-model="feederDriverName" class="px-2 py-1 rounded border border-slate-200 bg-slate-50 font-bold text-slate-700 w-28 text-xs" />
                         </div>
                     </div>
-                </div>
 
-                <!-- Nút tác vụ -->
-                <div class="flex items-center space-x-2">
                     <button 
-                        @click="handleConsolidateAll()" 
-                        :disabled="isConsolidatingAll"
-                        class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition border border-indigo-200"
-                        title="Quét và gom tức thì tất cả các đơn hàng khả dụng vào xe chờ"
+                        @click="handleDispatchAllFeeder"
+                        :disabled="pendingFeederItems.length === 0 || isFeederActionRunning"
+                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-sm transition disabled:opacity-40 flex items-center justify-center space-x-1.5 shrink-0 cursor-pointer"
                     >
-                        <span v-if="isConsolidatingAll" class="w-2.5 h-2.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin inline-block mr-1"></span>
-                        <span>{{ isConsolidatingAll ? 'Đang Quét...' : 'Gom Toàn Hệ Thống' }}</span>
-                    </button>
-                    <button 
-                        @click="loadTrips()" 
-                        :disabled="isLoading"
-                        class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition border border-slate-200"
-                    >
-                        <span v-if="isLoading" class="w-2.5 h-2.5 border-2 border-slate-600 border-t-transparent rounded-full animate-spin inline-block mr-1"></span>
-                        <span>Làm Mới</span>
-                    </button>
-                    <button 
-                        @click="showCreateModal = true"
-                        class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm shadow-blue-500/20 transition"
-                    >
-                        Lập Chuyến Xe Mới
+                        <span v-if="isFeederActionRunning" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        <span>Xuất Xe Gom Hàng Loạt ({{ pendingFeederItems.length }} Kiện - {{ totalFeederWeight.toFixed(1) }} kg)</span>
                     </button>
                 </div>
-            </div>
 
-            <!-- 3. BẢNG DANH SÁCH CHUYẾN XE CHUẨN RBAC/HUBOPS CÓ PHÂN TRANG -->
-            <div class="b2b-card bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                <div v-if="isLoading" class="p-12 text-center text-slate-400 text-xs font-medium">
-                    Đang đồng bộ danh sách chuyến xe trục...
-                </div>
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden text-xs">
+                    <div class="p-3 bg-slate-50/70 border-b border-slate-200 flex items-center justify-between">
+                        <span class="font-extrabold uppercase tracking-wider text-slate-700 text-[11px]">
+                            Danh Sách Bưu Phẩm Tại Quầy Đang Chờ Xe Gom Về Kho Tổng
+                        </span>
+                        <span class="text-slate-500 font-medium">Tổng khối lượng: <strong class="text-blue-700">{{ totalFeederWeight.toFixed(1) }} kg</strong></span>
+                    </div>
 
-                <div v-else-if="filteredTrips.length === 0" class="p-12 text-center text-slate-400 text-xs">
-                    Chưa có chuyến xe nào phù hợp với điều kiện tìm kiếm.
-                </div>
+                    <div v-if="pendingFeederItems.length === 0" class="p-12 text-center text-slate-400">
+                        Không có bưu phẩm nào đang chờ gom tại bưu cục đã chọn.
+                    </div>
 
-                <div v-else class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-slate-100 text-xs">
-                        <thead class="bg-slate-50/90 text-slate-600 font-bold uppercase text-[10.5px] tracking-wider border-b border-slate-200">
-                            <tr>
-                                <th class="px-4 py-3 text-left">Mã Chuyến &amp; Tuyến Đường</th>
-                                <th class="px-4 py-3 text-left">Tài Xế &amp; Phương Tiện</th>
-                                <th class="px-4 py-3 text-left">Vị Trí Hiện Tại</th>
-                                <th class="px-4 py-3 text-left">Lịch Xuất Bến &amp; Cut-off</th>
-                                <th class="px-4 py-3 text-left">Tải Trọng (% Lấp Đầy)</th>
-                                <th class="px-4 py-3 text-left">Trạng Thái</th>
-                                <th class="px-4 py-3 text-right">Thao Tác</th>
+                    <table v-else class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 text-[11px] uppercase">
+                                <th class="py-2.5 px-3">Mã Vận Đơn</th>
+                                <th class="py-2.5 px-3">Bưu Cục Nhận (Nguồn)</th>
+                                <th class="py-2.5 px-3">Kho Tổng Tiếp Nhận</th>
+                                <th class="py-2.5 px-3">Thời Gian Tiếp Nhận</th>
+                                <th class="py-2.5 px-3">Người Nhận &amp; Địa Chỉ</th>
+                                <th class="py-2.5 px-3">Khối Lượng</th>
+                                <th class="py-2.5 px-3 text-right">Tác Nghiệp</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100">
-                            <tr v-for="t in paginatedTrips" :key="t.id" class="hover:bg-blue-50/30 transition">
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    <span class="font-bold text-blue-600 hover:underline cursor-pointer" @click="openTripDetail(t.id)">
-                                        {{ t.tripCode }}
-                                    </span>
-                                    <div class="text-[11px] text-slate-600 font-medium mt-0.5 flex items-center gap-1.5 flex-wrap">
-                                        <span>{{ t.routeName }}</span>
-                                        <span v-if="isFeederTrip(t)" class="px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[9.5px] font-extrabold uppercase">
-                                            Trung Chuyển Nội Đô
-                                        </span>
-                                        <span v-else class="px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[9.5px] font-extrabold uppercase">
-                                            Xe Trục Liên Tỉnh
-                                        </span>
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    <div class="font-semibold text-slate-800">{{ t.driverName }}</div>
-                                    <div class="text-[11px] text-slate-400 font-mono">{{ t.vehiclePlate }}</div>
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[11px]">
-                                        {{ t.currentHub || 'Chưa cập bến' }}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    <div class="font-semibold text-slate-800 flex items-center gap-1.5">
-                                        <span>{{ formatDateTime(t.scheduledDepartureTime) }}</span>
-                                    </div>
-                                    <div class="flex items-center gap-1.5 mt-0.5">
-                                        <span class="text-[10px] text-slate-400">Cut-off:</span>
-                                        <span class="text-[10px] font-mono text-slate-600">{{ formatDateTime(t.cutoffTime) }}</span>
-                                        <span 
-                                            v-if="t.status === 'SCHEDULED'"
-                                            :class="[
-                                                'px-1.5 py-0.5 rounded text-[10px] tracking-tight',
-                                                getCountdownBadgeClass(t)
-                                            ]"
-                                        >
-                                            {{ getCountdownText(t) }}
-                                        </span>
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    <div class="flex items-center justify-between mb-1 text-[10.5px]">
-                                        <span class="text-slate-500">
-                                            <b class="text-slate-800">{{ t.currentWeight || 0 }}</b> / {{ t.maxWeight || 5000 }} kg
-                                        </span>
-                                        <span class="font-bold text-slate-700">{{ t.weightPercentage || 0 }}%</span>
-                                    </div>
-                                    <div class="w-28 bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                                        <div 
-                                            class="h-1.5 rounded-full transition-all duration-300"
-                                            :class="getWeightColor(t.weightPercentage || 0)"
-                                            :style="{ width: Math.min(100, t.weightPercentage || 0) + '%' }"
-                                        ></div>
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    <div class="flex flex-col gap-1 items-start">
-                                        <span :class="['px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider', getTripStatusBadgeClass(t)]">
-                                            {{ getTripStatusLabel(t) }}
-                                        </span>
-                                        <span v-if="isReadyForDeparture(t)" class="px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9.5px] font-extrabold uppercase">
-                                            Đủ tải xuất bến
-                                        </span>
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3 text-right whitespace-nowrap space-x-1.5">
-                                    <button 
-                                        @click="openTripDetail(t.id)"
-                                        class="px-2.5 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                                    >
-                                        Chi Tiết
+                        <tbody class="divide-y divide-slate-100 font-medium">
+                            <tr v-for="item in pendingFeederItems" :key="item.id || item.trackingCode" class="hover:bg-blue-50/40 transition">
+                                <td class="py-2.5 px-3 font-mono font-bold text-blue-700">
+                                    <button type="button" @click="viewTracking(item.trackingCode)" class="hover:underline cursor-pointer">
+                                        {{ item.trackingCode }}
                                     </button>
-
-                                    <!-- THAO TÁC LUỒNG XE ĐI (OUTBOUND) -->
-                                    <template v-if="tripDirectionTab === 'OUTBOUND'">
-                                        <button 
-                                            v-if="t.status === 'SCHEDULED'"
-                                            @click="handleDepartTrip(t.id)"
-                                            :class="[
-                                                'px-2.5 py-1 text-xs font-bold rounded-lg transition border',
-                                                isReadyForDeparture(t) 
-                                                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm' 
-                                                    : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200'
-                                            ]"
-                                        >
-                                            Xuất Bến
-                                        </button>
-                                        <span 
-                                            v-else-if="t.status === 'IN_TRANSIT'"
-                                            class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-blue-50 text-blue-700 border border-blue-200 inline-block"
-                                        >
-                                            Đang Hành Trình
-                                        </span>
-                                    </template>
-
-                                    <!-- THAO TÁC LUỒNG XE ĐẾN (INBOUND): ĐỘC QUYỀN CẬP BẾN & DỠ HÀNG -->
-                                    <template v-else-if="tripDirectionTab === 'INBOUND'">
-                                        <button 
-                                            v-if="t.status === 'IN_TRANSIT'"
-                                            @click="handleArriveAtStation(t, selectedStationHub)"
-                                            :disabled="isExecutingAction"
-                                            class="px-3 py-1 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 shadow-sm transition inline-flex items-center space-x-1"
-                                            title="Xác nhận xe đã tới cổng trạm và dỡ hàng vào kho bãi"
-                                        >
-                                            <span v-if="isExecutingAction" class="w-2.5 h-2.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                                            <span>Xác Nhận Cập Bến &amp; Dỡ Hàng</span>
-                                        </button>
-                                        <span 
-                                            v-else-if="t.status === 'COMPLETED'"
-                                            class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-slate-100 text-slate-600 inline-block"
-                                        >
-                                            Đã Hoàn Thành
-                                        </span>
-                                    </template>
+                                </td>
+                                <td class="py-2.5 px-3 text-slate-800 font-semibold">{{ getOriginPostOfficeInfo(item).name }} ({{ getOriginPostOfficeInfo(item).code }})</td>
+                                <td class="py-2.5 px-3 text-indigo-700 font-bold">{{ item.sourceHub || 'HUB-HN-01' }}</td>
+                                <td class="py-2.5 px-3 font-mono text-slate-600 text-[11px]">{{ formatDateTime(item.createdAt || item.updatedAt) }}</td>
+                                <td class="py-2.5 px-3 max-w-xs truncate text-slate-700"><span class="font-bold">{{ item.receiverName }}</span> - {{ item.receiverAddress }}</td>
+                                <td class="py-2.5 px-3 font-mono">{{ item.weight || 0 }} kg</td>
+                                <td class="py-2.5 px-3 text-right">
+                                    <button 
+                                        @click="handleDispatchFeederItem(item)"
+                                        :disabled="isFeederActionRunning"
+                                        class="px-3 py-1 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white border border-blue-200 rounded-md font-bold text-[11px] transition shadow-xs disabled:opacity-50 cursor-pointer"
+                                    >
+                                        Lên Xe Gom
+                                    </button>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-
-                <!-- Phân trang chuẩn RBAC / HubOps -->
-                <div class="p-3 bg-slate-50/80 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
-                    <div class="flex items-center space-x-2 text-slate-500">
-                        <span>Hiển thị <b class="text-slate-700">{{ startIndex }} - {{ endIndex }}</b> trong <b class="text-slate-700">{{ filteredTrips.length }}</b> chuyến xe</span>
-                        <span>|</span>
-                        <div class="flex items-center space-x-1">
-                            <span>Số dòng:</span>
-                            <select v-model="pageSize" class="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-xs text-slate-700 outline-none">
-                                <option :value="5">5</option>
-                                <option :value="10">10</option>
-                                <option :value="20">20</option>
-                                <option :value="50">50</option>
-                                <option :value="-1">Tất cả</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center space-x-1" v-if="totalPages > 1">
-                        <button 
-                            @click="goToPage(currentPage - 1)" 
-                            :disabled="currentPage <= 1"
-                            class="px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 font-bold transition disabled:opacity-30 disabled:cursor-not-allowed text-xs"
-                            title="Trang trước"
-                        >
-                            ◄
-                        </button>
-                        <button 
-                            v-for="p in totalPages" 
-                            :key="p"
-                            @click="goToPage(p)"
-                            :class="[
-                                'px-2.5 py-1 rounded-lg text-xs font-bold transition border min-w-[28px]',
-                                currentPage === p ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                            ]"
-                        >
-                            {{ p }}
-                        </button>
-                        <button 
-                            @click="goToPage(currentPage + 1)" 
-                            :disabled="currentPage >= totalPages"
-                            class="px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 font-bold transition disabled:opacity-30 disabled:cursor-not-allowed text-xs"
-                            title="Trang sau"
-                        >
-                            ►
-                        </button>
-                    </div>
-                </div>
             </div>
-            </div> <!-- /SUBTAB 1: LINEHAUL -->
 
-            <!-- =============================================================== -->
-            <!-- SUBTAB 2: XE TRUNG CHUYỂN NỘI ĐÔ (FEEDER TRANSPORT)            -->
-            <!-- =============================================================== -->
-            <div v-else-if="transportMode === 'FEEDER'" class="space-y-3.5">
-                <!-- 1. THANH CHỌN HƯỚNG TÁC NGHIỆP FEEDER -->
-                <div class="b2b-card bg-white border border-slate-200 rounded-xl p-2.5 flex flex-col md:flex-row md:items-center justify-between gap-2.5 shadow-sm">
-                    <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80">
+            <!-- ========================================================================= -->
+            <!-- NỘI DUNG: BƯỚC 2 - XE CONTAINER TRỤC LIÊN TỈNH                           -->
+            <!-- ========================================================================= -->
+            <div v-else-if="currentStep === 2" class="space-y-3">
+                <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <!-- HƯỚNG XE: XUẤT BẾN vs CẬP BẾN -->
+                    <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg border border-slate-200 w-fit">
                         <button 
-                            type="button" 
-                            @click="feederDirectionTab = 'OUTBOUND'"
-                            :class="feederDirectionTab === 'OUTBOUND' ? 'bg-white font-extrabold text-cyan-700 shadow-sm border border-slate-200' : 'text-slate-600 hover:text-slate-900 font-medium'"
-                            class="px-4 py-1.5 rounded-lg text-xs transition flex items-center space-x-2"
+                            type="button"
+                            @click="tripDirectionTab = 'OUTBOUND'"
+                            :class="tripDirectionTab === 'OUTBOUND' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-500 hover:text-slate-800'"
+                            class="px-3 py-1.5 rounded-md transition text-xs flex items-center space-x-1.5 cursor-pointer"
                         >
-                            <span>XE GOM ĐI (BƯU CỤC ➔ KHO TỔNG)</span>
-                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-cyan-100 text-cyan-800 font-bold font-mono">
-                                {{ pendingFeederItems.length }}
-                            </span>
+                            <span>Xe Xuất Bến (Đi)</span>
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-blue-50 text-blue-700 font-bold font-mono">{{ kpiStats.outboundCount }}</span>
                         </button>
-
                         <button 
-                            type="button" 
-                            @click="feederDirectionTab = 'INBOUND'"
-                            :class="feederDirectionTab === 'INBOUND' ? 'bg-emerald-600 font-extrabold text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
-                            class="px-4 py-1.5 rounded-lg text-xs transition flex items-center space-x-2"
+                            type="button"
+                            @click="tripDirectionTab = 'INBOUND'"
+                            :class="tripDirectionTab === 'INBOUND' ? 'bg-white text-emerald-700 font-bold shadow-xs' : 'text-slate-500 hover:text-slate-800'"
+                            class="px-3 py-1.5 rounded-md transition text-xs flex items-center space-x-1.5 cursor-pointer"
                         >
-                            <span class="w-2 h-2 rounded-full bg-amber-300 animate-ping inline-block" v-if="incomingFeederItems.length > 0"></span>
-                            <span>XE PHÁT ĐẾN (KHO TỔNG ➔ BƯU CỤC)</span>
-                            <span :class="feederDirectionTab === 'INBOUND' ? 'bg-emerald-700 text-white' : 'bg-emerald-50 text-emerald-700'" class="px-1.5 py-0.2 rounded-full text-[10px] font-bold font-mono">
-                                {{ incomingFeederItems.length }}
-                            </span>
+                            <span>Xe Cập Bến &amp; Dỡ Hàng (Đến)</span>
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-50 text-emerald-700 font-bold font-mono">{{ kpiStats.inboundCount }}</span>
                         </button>
-
-                        <button 
-                            type="button" 
-                            @click="feederDirectionTab = 'TRIPS'"
-                            :class="feederDirectionTab === 'TRIPS' ? 'bg-purple-600 font-extrabold text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 font-medium'"
-                            class="px-4 py-1.5 rounded-lg text-xs transition flex items-center space-x-2"
-                        >
-                            <span>CHUYẾN XE FEEDER HỆ THỐNG</span>
-                            <span :class="feederDirectionTab === 'TRIPS' ? 'bg-purple-700 text-white' : 'bg-purple-50 text-purple-700'" class="px-1.5 py-0.2 rounded-full text-[10px] font-bold font-mono">
-                                {{ feederTripsCount }}
-                            </span>
-                        </button>
-                    </div>
-
-                    <!-- Lọc bưu cục / trạm Feeder -->
-                    <div class="flex items-center space-x-2 text-xs">
-                        <span class="text-slate-500 font-medium whitespace-nowrap">Bưu Cục / Trạm:</span>
-                        <select 
-                            v-model="selectedFeederStation"
-                            class="px-3 py-1.5 rounded-lg bg-cyan-50 border border-cyan-200 font-bold text-cyan-900 text-xs outline-none focus:bg-white focus:border-cyan-600 transition"
-                        >
-                            <option value="ALL">Toàn Bộ Bưu Cục &amp; Kho Tổng</option>
-                            <optgroup label="Bưu Cục Giao Dịch &amp; Phát (Hà Nội)">
-                                <option value="POST-HN-CG">POST-HN-CG - Bưu Cục Cầu Giấy</option>
-                                <option value="POST-HN-DDA">POST-HN-DDA - Bưu Cục Đống Đa</option>
-                                <option value="POST-HN-HBT">POST-HN-HBT - Bưu Cục Hai Bà Trưng</option>
-                                <option value="POST-HN-TX">POST-HN-TX - Bưu Cục Thanh Xuân</option>
-                                <option value="POST-HN-HD">POST-HN-HD - Bưu Cục Hà Đông</option>
-                            </optgroup>
-                            <optgroup label="Bưu Cục Giao Dịch &amp; Phát (Đà Nẵng)">
-                                <option value="POST-DN-HC">POST-DN-HC - Bưu Cục Hải Châu</option>
-                                <option value="POST-DN-TK">POST-DN-TK - Bưu Cục Thanh Khê</option>
-                                <option value="POST-DN-ST">POST-DN-ST - Bưu Cục Sơn Trà</option>
-                            </optgroup>
-                            <optgroup label="Bưu Cục Giao Dịch &amp; Phát (TP.HCM)">
-                                <option value="POST-HCM-Q1">POST-HCM-Q1 - Bưu Cục Quận 1</option>
-                                <option value="POST-HCM-TB">POST-HCM-TB - Bưu Cục Tân Bình</option>
-                                <option value="POST-HCM-BT">POST-HCM-BT - Bưu Cục Bình Thạnh</option>
-                                <option value="POST-HCM-TD">POST-HCM-TD - Bưu Cục Thủ Đức</option>
-                                <option value="POST-HCM-Q7">POST-HCM-Q7 - Bưu Cục Quận 7</option>
-                            </optgroup>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- 2. THANH THÔNG TIN XE & TÁC VỤ XUẤT/NHẬP XE FEEDER -->
-                <div v-if="feederDirectionTab !== 'TRIPS'" class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm text-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
-                    <div class="flex items-center space-x-3 flex-wrap gap-y-2">
-                        <div class="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
-                            <span class="text-[11px] text-slate-500 font-medium">Biển số xe Feeder:</span>
-                            <input 
-                                v-model="feederVehiclePlate" 
-                                type="text" 
-                                placeholder="29C-556.12 (Tải 1.5T)" 
-                                class="text-xs font-mono font-bold bg-transparent outline-none text-slate-800 w-36 placeholder:text-slate-400"
-                            />
-                        </div>
-                        <div class="flex items-center space-x-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
-                            <span class="text-[11px] text-slate-500 font-medium">Tài xế trung chuyển:</span>
-                            <input 
-                                v-model="feederDriverName" 
-                                type="text" 
-                                placeholder="Vũ Văn Gom" 
-                                class="text-xs font-semibold bg-transparent outline-none text-slate-800 w-28 placeholder:text-slate-400"
-                            />
-                        </div>
                     </div>
 
                     <div class="flex items-center space-x-2">
-                        <!-- Nút cho hướng OUTBOUND -->
-                        <template v-if="feederDirectionTab === 'OUTBOUND'">
-                            <div class="bg-cyan-50 px-3 py-1.5 rounded-lg border border-cyan-200 text-cyan-900 font-medium">
-                                <span>Chờ xuất xe gom: </span>
-                                <strong class="font-bold text-cyan-800">{{ pendingFeederItems.length }} kiện</strong>
-                                <span> ({{ totalFeederWeight.toFixed(1) }} kg)</span>
-                            </div>
-                            <button 
-                                @click="handleDispatchAllFeeder()"
-                                :disabled="pendingFeederItems.length === 0 || isFeederActionRunning"
-                                class="px-4 py-2 bg-cyan-700 hover:bg-cyan-800 text-white font-bold rounded-lg text-xs transition shadow-sm disabled:opacity-40 flex items-center space-x-1.5"
-                            >
-                                <span v-if="isFeederActionRunning" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                                <span>Xuất Chuyến Xe Gom Toàn Bộ</span>
-                            </button>
-                        </template>
-
-                        <!-- Nút cho hướng INBOUND -->
-                        <template v-else-if="feederDirectionTab === 'INBOUND'">
-                            <div class="bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 text-emerald-900 font-medium">
-                                <span>Đang trên xe phát: </span>
-                                <strong class="font-bold text-emerald-800">{{ incomingFeederItems.length }} kiện</strong>
-                                <span> ({{ totalIncomingFeederWeight.toFixed(1) }} kg)</span>
-                            </div>
-                            <button 
-                                @click="handleReceiveAllIncomingFeeder()"
-                                :disabled="incomingFeederItems.length === 0 || isFeederActionRunning"
-                                class="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg text-xs transition shadow-sm disabled:opacity-40 flex items-center space-x-1.5"
-                            >
-                                <span v-if="isFeederActionRunning" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                                <span>Tiếp Nhận Xe Feeder Cập Bến</span>
-                            </button>
-                        </template>
-
+                        <select v-model="selectedStationHub" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 font-medium outline-none focus:ring-2 focus:ring-blue-500/20">
+                            <option value="ALL">Toàn Bộ 5 Kho Tổng</option>
+                            <option value="HUB-HN-01">Kho Tổng Hà Nội (HUB-HN-01)</option>
+                            <option value="HUB-DN-01">Kho Tổng Đà Nẵng (HUB-DN-01)</option>
+                            <option value="HUB-HCM-01">Kho Tổng TP.HCM (HUB-HCM-01)</option>
+                            <option value="HUB-HP-01">Kho Tổng Hải Phòng (HUB-HP-01)</option>
+                            <option value="HUB-CT-01">Kho Tổng Cần Thơ (HUB-CT-01)</option>
+                        </select>
                         <button 
-                            @click="openCreateTripModal('FEEDER')"
-                            class="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-lg shadow-sm transition"
+                            @click="toggleSchedulerMode()"
+                            :disabled="isUpdatingScheduler"
+                            class="px-3 py-1.5 rounded-lg font-bold transition flex items-center space-x-1.5 border text-xs cursor-pointer"
+                            :class="schedulerConfig.mode === 'AUTO' ? 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'"
+                            title="Nhấn để chuyển đổi chế độ lập lịch gom hàng tự động hoặc thủ công"
                         >
-                            Lập Chuyến Feeder
+                            <span>Lịch Chạy:</span>
+                            <span class="font-extrabold">{{ schedulerConfig.mode === 'AUTO' ? 'Tự Động (' + schedulerConfig.intervalMinutes + ' phút/chuyến)' : 'Thủ Công' }}</span>
+                        </button>
+                        <button 
+                            @click="openCreateTripModal('LINEHAUL')"
+                            class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-sm transition cursor-pointer"
+                        >
+                            + Lập Chuyến Container Mới
                         </button>
                     </div>
                 </div>
 
-                <!-- 3. BẢNG DỮ LIỆU: BƯU PHẨM GOM ĐI (OUTBOUND) -->
-                <div v-if="feederDirectionTab === 'OUTBOUND'" class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden text-xs">
-                    <div v-if="pendingFeederItems.length === 0" class="p-10 text-center text-slate-400">
-                        <span class="block font-medium">Hiện tại không có bưu phẩm nào đang lưu kho bưu cục chờ gom lên Kho Tổng.</span>
-                        <span class="text-[11px] text-slate-400">Tất cả bưu gửi đã được xuất xe hoặc chưa có đơn tiếp nhận mới tại bưu cục.</span>
-                    </div>
-
-                    <div v-else class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-slate-50/70 text-slate-600 font-bold border-b border-slate-200 text-[11px] uppercase tracking-wider">
-                                    <th class="py-2.5 px-3">Mã Bưu Gửi</th>
-                                    <th class="py-2.5 px-3">Bưu Cục Gom (Gốc)</th>
-                                    <th class="py-2.5 px-3">Kho Tổng Tiếp Nhận</th>
-                                    <th class="py-2.5 px-3">Người Nhận &amp; Địa Chỉ</th>
-                                    <th class="py-2.5 px-3">Khối Lượng</th>
-                                    <th class="py-2.5 px-3 text-right">Tác Nghiệp Điều Phối</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 font-medium">
-                                <tr v-for="item in pendingFeederItems" :key="item.id" class="hover:bg-cyan-50/30">
-                                    <td class="py-2.5 px-3 font-mono font-bold text-cyan-700">
-                                        <button 
-                                            type="button"
-                                            @click="viewTracking(item.trackingCode)"
-                                            class="hover:underline text-cyan-700"
-                                        >
-                                            {{ item.trackingCode }} ↗
-                                        </button>
-                                    </td>
-                                    <td class="py-2.5 px-3 text-slate-700 font-bold">
-                                        {{ getOriginPostOfficeInfo(item).name }} ({{ getOriginPostOfficeInfo(item).code }})
-                                    </td>
-                                    <td class="py-2.5 px-3 text-indigo-700 font-mono font-bold">
-                                        {{ item.sourceHub || 'HUB-HN-01' }}
-                                    </td>
-                                    <td class="py-2.5 px-3 text-slate-700 max-w-xs truncate">
-                                        <span class="font-bold">{{ item.receiverName }}</span> - {{ item.receiverAddress }}
-                                    </td>
-                                    <td class="py-2.5 px-3 font-mono">
-                                        {{ item.weight || 0 }} kg
-                                    </td>
-                                    <td class="py-2.5 px-3 text-right">
-                                        <button 
-                                            @click="handleDispatchFeederItem(item)"
-                                            :disabled="isFeederActionRunning"
-                                            class="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded font-bold text-[11px] transition shadow-sm"
-                                        >
-                                            Xuất Xe Ngay
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                <!-- DANH SÁCH CHUYẾN XE CONTAINER -->
+                <div v-if="filteredTrips.length === 0" class="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-400">
+                    Không có chuyến xe container nào phù hợp với bộ lọc hiện tại.
                 </div>
 
-                <!-- 4. BẢNG DỮ LIỆU: BƯU PHẨM PHÁT ĐẾN (INBOUND) -->
-                <div v-else-if="feederDirectionTab === 'INBOUND'" class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden text-xs">
-                    <div v-if="incomingFeederItems.length === 0" class="p-10 text-center text-slate-400">
-                        <span class="block font-medium">Hiện không có xe trung chuyển nào đang trên đường về các bưu cục phát.</span>
-                        <span class="text-[11px] text-slate-400">Các bưu kiện từ Kho Tổng đã cập bến hoặc Kho Tổng chưa xuất chuyến xe mới.</span>
-                    </div>
+                <div v-else class="grid grid-cols-1 gap-3 text-xs">
+                    <div 
+                        v-for="trip in filteredTrips" 
+                        :key="trip.id"
+                        class="bg-white border border-slate-200 hover:border-blue-300 rounded-xl p-4 shadow-sm transition flex flex-col md:flex-row md:items-center justify-between gap-4"
+                    >
+                        <!-- THÔNG TIN CHUYẾN -->
+                        <div class="space-y-1.5 flex-1">
+                            <div class="flex items-center space-x-2">
+                                <span class="font-mono font-black text-sm text-blue-800">{{ trip.tripCode }}</span>
+                                <span 
+                                    :class="['px-2 py-0.5 rounded text-[10px] font-bold border uppercase', getStatusBadge(trip.status)]"
+                                >
+                                    {{ getTripStatusLabel(trip) }}
+                                </span>
+                                <span class="text-xs text-slate-400">|</span>
+                                <span class="font-bold text-xs text-slate-700">{{ trip.routeName || 'Trục Bắc Nam QL1A' }}</span>
+                            </div>
 
-                    <div v-else class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-slate-50/70 text-slate-600 font-bold border-b border-slate-200 text-[11px] uppercase tracking-wider">
-                                    <th class="py-2.5 px-3">Mã Bưu Gửi</th>
-                                    <th class="py-2.5 px-3">Kho Tổng Xuất Phát</th>
-                                    <th class="py-2.5 px-3">Bưu Cục Đích (Bưu Cục Nhận)</th>
-                                    <th class="py-2.5 px-3">Người Nhận &amp; Địa Chỉ</th>
-                                    <th class="py-2.5 px-3">Khối Lượng</th>
-                                    <th class="py-2.5 px-3 text-right">Tác Nghiệp Điều Phối</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 font-medium">
-                                <tr v-for="item in incomingFeederItems" :key="item.id" class="hover:bg-emerald-50/30">
-                                    <td class="py-2.5 px-3 font-mono font-bold text-emerald-700">
-                                        <button 
-                                            type="button"
-                                            @click="viewTracking(item.trackingCode)"
-                                            class="hover:underline text-emerald-700"
-                                        >
-                                            {{ item.trackingCode }} ↗
-                                        </button>
-                                    </td>
-                                    <td class="py-2.5 px-3 text-indigo-700 font-mono font-bold">
-                                        {{ item.destinationHub || item.sourceHub || 'HUB' }}
-                                    </td>
-                                    <td class="py-2.5 px-3 text-slate-700 font-bold">
-                                        {{ getDestPostOfficeInfo(item).name }} ({{ getDestPostOfficeInfo(item).code }})
-                                    </td>
-                                    <td class="py-2.5 px-3 text-slate-700 max-w-xs truncate">
-                                        <span class="font-bold">{{ item.receiverName }}</span> - {{ item.receiverAddress }}
-                                    </td>
-                                    <td class="py-2.5 px-3 font-mono">
-                                        {{ item.weight || 0 }} kg
-                                    </td>
-                                    <td class="py-2.5 px-3 text-right">
-                                        <button 
-                                            @click="handleReceiveIncomingFeeder(item)"
-                                            :disabled="isFeederActionRunning"
-                                            class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[11px] transition shadow-sm"
-                                        >
-                                            Nhập Kho Bưu Cục
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                            <div class="text-xs text-slate-600 flex flex-wrap items-center gap-x-4 gap-y-1">
+                                <div><span class="text-slate-400">Đầu kéo:</span> <strong class="font-mono text-slate-800">{{ trip.vehiclePlate || '29H-999.88' }}</strong></div>
+                                <div><span class="text-slate-400">Tài xế:</span> <strong class="text-slate-800">{{ trip.driverName || 'Nguyễn Văn Thắng' }}</strong></div>
+                                <div><span class="text-slate-400">Tải trọng:</span> <strong class="text-blue-700">{{ (trip.currentWeight || 0).toFixed(1) }} / {{ trip.capacity || 30 }} Tấn</strong></div>
+                            </div>
 
-                <!-- 5. BẢNG DỮ LIỆU: CÁC CHUYẾN XE FEEDER HỆ THỐNG (TRIPS) -->
-                <div v-else-if="feederDirectionTab === 'TRIPS'" class="b2b-card bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm text-xs">
-                    <div class="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                        <div>
-                            <h3 class="font-bold text-slate-800 uppercase tracking-wider text-xs">Danh Sách Chuyến Xe Feeder Đã Thiết Lập</h3>
-                            <p class="text-[11px] text-slate-500 mt-0.5">Các chuyến xe tải nhỏ (1.5T - 5T) chạy tuyến gom & phát bưu cục</p>
+                            <!-- LỘ TRÌNH RÚT GỌN -->
+                            <div class="flex items-center space-x-2 text-[11px] text-slate-500 pt-0.5">
+                                <span class="font-bold text-slate-700">{{ trip.originHub }}</span>
+                                <span>➔</span>
+                                <span v-if="trip.stops && trip.stops.length > 2" class="text-slate-400">
+                                    {{ trip.stops.slice(1, -1).map(s => s.hubCode).join(' ➔ ') }} ➔
+                                </span>
+                                <span class="font-bold text-slate-700">{{ trip.destinationHub }}</span>
+                            </div>
+
+                            <!-- THỜI GIAN LẬP LỊCH & ĐIỀU ĐỘ -->
+                            <div class="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-[11px] text-slate-600 pt-1.5 border-t border-slate-100 mt-1.5">
+                                <div class="flex items-center space-x-1">
+                                    <span class="text-slate-400 font-medium">Lịch chạy:</span>
+                                    <span class="font-mono font-bold text-slate-800">{{ formatDateTime(trip.scheduledDepartureTime) }}</span>
+                                </div>
+                                <div class="flex items-center space-x-1" v-if="trip.cutoffTime || trip.scheduledDepartureTime">
+                                    <span class="text-slate-400 font-medium">Đóng sổ (Cut-off):</span>
+                                    <span class="font-mono font-medium text-slate-700">{{ formatDateTime(trip.cutoffTime || trip.scheduledDepartureTime) }}</span>
+                                </div>
+                                <span 
+                                    v-if="trip.scheduledDepartureTime"
+                                    :class="['px-2 py-0.5 rounded text-[10.5px]', getCountdownBadgeClass(trip)]"
+                                >
+                                    {{ getCountdownText(trip) }}
+                                </span>
+                                <div v-if="trip.departureTime" class="flex items-center space-x-1 text-blue-700">
+                                    <span class="text-slate-400 font-medium">Xuất bến lúc:</span>
+                                    <span class="font-mono font-bold">{{ formatDateTime(trip.departureTime) }}</span>
+                                </div>
+                                <div v-if="trip.arrivalTime" class="flex items-center space-x-1 text-emerald-700">
+                                    <span class="text-slate-400 font-medium">Cập bến lúc:</span>
+                                    <span class="font-mono font-bold">{{ formatDateTime(trip.arrivalTime) }}</span>
+                                </div>
+                            </div>
                         </div>
-                        <button 
-                            @click="openCreateTripModal('FEEDER')"
-                            class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-lg shadow-sm transition"
-                        >
-                            + Lập Chuyến Feeder Mới
-                        </button>
+
+                        <!-- NÚT TÁC NGHIỆP 1 CHẠM -->
+                        <div class="flex items-center space-x-2 self-end md:self-center shrink-0">
+                            <button 
+                                @click="openTripDetail(trip.id)"
+                                class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition border border-slate-200 cursor-pointer"
+                            >
+                                Chi Tiết &amp; Bản Đồ
+                            </button>
+
+                            <!-- NÚT XUẤT BẾN (OUTBOUND) -->
+                            <button 
+                                v-if="tripDirectionTab === 'OUTBOUND' && trip.status === 'SCHEDULED'"
+                                @click="handleDepartTrip(trip.id)"
+                                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm transition cursor-pointer"
+                            >
+                                Xuất Bến Ngay
+                            </button>
+
+                            <span 
+                                v-else-if="tripDirectionTab === 'OUTBOUND' && trip.status === 'IN_TRANSIT'"
+                                class="px-3 py-2 bg-blue-50 text-blue-700 border border-blue-200 font-bold text-xs rounded-lg inline-flex items-center space-x-1.5"
+                            >
+                                <span class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                                <span>Đang Lưu Thông QL1A</span>
+                            </span>
+
+                            <!-- NÚT CẬP BẾN & DỠ HÀNG (INBOUND) -->
+                            <button 
+                                v-if="tripDirectionTab === 'INBOUND' && trip.status === 'IN_TRANSIT'"
+                                @click="handleArriveAtStation(trip, selectedStationHub)"
+                                class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition cursor-pointer"
+                            >
+                                Xác Nhận Cập Bến &amp; Dỡ Hàng
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- NỘI DUNG: BƯỚC 3 - PHÁT HÀNG VỀ BƯU CỤC                                   -->
+            <!-- ========================================================================= -->
+            <div v-else-if="currentStep === 3" class="space-y-3">
+                <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                    <div class="flex items-center space-x-2">
+                        <span class="font-bold text-slate-700">Bưu Cục Phát Đích:</span>
+                        <select v-model="selectedFeederStation" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20">
+                            <option value="ALL">Toàn Bộ Bưu Cục Phát ({{ incomingFeederItems.length }} kiện)</option>
+                            <option value="POST-HN-CG">Bưu Cục Cầu Giấy (Hà Nội)</option>
+                            <option value="POST-HN-DDA">Bưu Cục Đống Đa (Hà Nội)</option>
+                            <option value="POST-HN-HBT">Bưu Cục Hai Bà Trưng (Hà Nội)</option>
+                            <option value="POST-HN-TX">Bưu Cục Thanh Xuân (Hà Nội)</option>
+                            <option value="POST-HN-HD">Bưu Cục Hà Đông (Hà Nội)</option>
+                            <option value="POST-HCM-Q1">Bưu Cục Bến Nghé (Quận 1 - TP.HCM)</option>
+                            <option value="POST-HCM-TB">Bưu Cục Tân Bình (TP.HCM)</option>
+                            <option value="POST-HCM-BT">Bưu Cục Bình Thạnh (TP.HCM)</option>
+                            <option value="POST-HCM-TD">Bưu Cục TP. Thủ Đức</option>
+                            <option value="POST-HCM-Q7">Bưu Cục Quận 7 (TP.HCM)</option>
+                            <option value="POST-DN-HC">Bưu Cục Hải Châu (Đà Nẵng)</option>
+                            <option value="POST-DN-TK">Bưu Cục Thanh Khê (Đà Nẵng)</option>
+                            <option value="POST-DN-ST">Bưu Cục Sơn Trà (Đà Nẵng)</option>
+                            <option value="POST-HP-NQ">Bưu Cục Ngô Quyền (Hải Phòng)</option>
+                            <option value="POST-CT-NK">Bưu Cục Ninh Kiều (Cần Thơ)</option>
+                        </select>
                     </div>
 
-                    <div v-if="feederTrips.length === 0" class="p-10 text-center text-slate-400">
-                        Chưa có chuyến xe feeder nào được thiết lập trong hệ thống.
+                    <button 
+                        @click="handleReceiveAllIncomingFeeder"
+                        :disabled="incomingFeederItems.length === 0 || isFeederActionRunning"
+                        class="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg shadow-sm transition disabled:opacity-40 flex items-center justify-center space-x-1.5 shrink-0 cursor-pointer"
+                    >
+                        <span v-if="isFeederActionRunning" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        <span>Dỡ Hàng Toàn Bộ Vào Bưu Cục Phát ({{ incomingFeederItems.length }} Kiện)</span>
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden text-xs">
+                    <div class="p-3 bg-slate-50/70 border-b border-slate-200 flex items-center justify-between">
+                        <div class="space-y-0.5">
+                            <span class="font-extrabold uppercase tracking-wider text-slate-700 text-[11px] block">
+                                Bưu Phẩm Đã Dỡ Xe Trục Tại Kho Tổng Đích ➔ Chờ Xe Chuyển Về Bưu Cục Phát
+                            </span>
+                            <span class="text-[11px] text-emerald-700 font-semibold">
+                                ✓ Đã đồng bộ: Chỉ hiển thị các đơn mà xe container liên tỉnh đã cập bến Kho Tổng đích thành công
+                            </span>
+                        </div>
                     </div>
 
-                    <div v-else class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-slate-100 text-xs">
-                            <thead class="bg-slate-50/90 text-slate-600 font-bold uppercase text-[10.5px] tracking-wider border-b border-slate-200">
-                                <tr>
-                                    <th class="px-4 py-3 text-left">Mã Chuyến &amp; Tuyến Đường</th>
-                                    <th class="px-4 py-3 text-left">Tài Xế &amp; Phương Tiện</th>
-                                    <th class="px-4 py-3 text-left">Vị Trí Hiện Tại</th>
-                                    <th class="px-4 py-3 text-left">Lịch Khởi Hành</th>
-                                    <th class="px-4 py-3 text-left">Tải Trọng</th>
-                                    <th class="px-4 py-3 text-left">Trạng Thái</th>
-                                    <th class="px-4 py-3 text-right">Thao Tác</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100">
-                                <tr v-for="t in feederTrips" :key="t.id" class="hover:bg-purple-50/30 transition">
-                                    <td class="px-4 py-3 whitespace-nowrap">
-                                        <span class="font-bold text-purple-700 hover:underline cursor-pointer" @click="openTripDetail(t.id)">
-                                            {{ t.tripCode }}
-                                        </span>
-                                        <div class="text-[11px] text-slate-600 font-medium mt-0.5">
-                                            {{ t.routeName }}
-                                        </div>
-                                    </td>
-                                    <td class="px-4 py-3 whitespace-nowrap">
-                                        <div class="font-semibold text-slate-800">{{ t.driverName }}</div>
-                                        <div class="text-[11px] text-slate-400 font-mono">{{ t.vehiclePlate }}</div>
-                                    </td>
-                                    <td class="px-4 py-3 whitespace-nowrap font-mono text-[11px] text-slate-700">
-                                        {{ t.currentHub || 'Chưa cập bến' }}
-                                    </td>
-                                    <td class="px-4 py-3 whitespace-nowrap text-slate-600">
-                                        {{ formatDateTime(t.scheduledDepartureTime) }}
-                                    </td>
-                                    <td class="px-4 py-3 whitespace-nowrap font-mono font-bold">
-                                        {{ t.currentWeight || 0 }} / {{ t.maxWeight || 1500 }} kg
-                                    </td>
-                                    <td class="px-4 py-3 whitespace-nowrap">
-                                        <span :class="['px-2 py-0.5 rounded text-[10.5px] font-bold border inline-block', getStatusBadge(t.status)]">
-                                            {{ getTripStatusLabel(t.status) }}
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-3 text-right space-x-1 whitespace-nowrap">
-                                        <button 
-                                            @click="openTripDetail(t.id)"
-                                            class="px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
-                                        >
-                                            Bản Đồ / Bảng Kê
-                                        </button>
-                                        <button 
-                                            v-if="t.status === 'SCHEDULED'"
-                                            @click="handleDepartTrip(t.id)"
-                                            class="px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-                                        >
-                                            Xuất Bến
-                                        </button>
-                                        <button 
-                                            v-else-if="t.status === 'IN_TRANSIT'"
-                                            @click="handleArriveNextStop(t.id)"
-                                            class="px-2.5 py-1 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-                                        >
-                                            Cập Bến Trạm Kế
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div v-if="incomingFeederItems.length === 0" class="p-12 text-center text-slate-400">
+                        Hiện không có kiện hàng nào chờ phát về bưu cục đã chọn.
                     </div>
+
+                    <table v-else class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 text-[11px] uppercase">
+                                <th class="py-2.5 px-3">Mã Vận Đơn</th>
+                                <th class="py-2.5 px-3">Kho Tổng Đích Đã Cập Bến</th>
+                                <th class="py-2.5 px-3">Bưu Cục Phát Cuối</th>
+                                <th class="py-2.5 px-3">Thời Gian Tiếp Nhận</th>
+                                <th class="py-2.5 px-3">Người Nhận &amp; Địa Chỉ</th>
+                                <th class="py-2.5 px-3">Khối Lượng</th>
+                                <th class="py-2.5 px-3 text-right">Tác Nghiệp</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 font-medium">
+                            <tr v-for="item in incomingFeederItems" :key="item.id || item.trackingCode" class="hover:bg-emerald-50/40 transition">
+                                <td class="py-2.5 px-3 font-mono font-bold text-emerald-700">
+                                    <button type="button" @click="viewTracking(item.trackingCode)" class="hover:underline cursor-pointer">
+                                        {{ item.trackingCode }}
+                                    </button>
+                                </td>
+                                <td class="py-2.5 px-3 text-indigo-700 font-bold">{{ item.destinationHub || item.sourceHub || 'HUB' }}</td>
+                                <td class="py-2.5 px-3 text-slate-800 font-semibold">{{ getDestPostOfficeInfo(item).name }} ({{ getDestPostOfficeInfo(item).code }})</td>
+                                <td class="py-2.5 px-3 font-mono text-slate-600 text-[11px]">{{ formatDateTime(item.updatedAt || item.createdAt) }}</td>
+                                <td class="py-2.5 px-3 max-w-xs truncate text-slate-700"><span class="font-bold">{{ item.receiverName }}</span> - {{ item.receiverAddress }}</td>
+                                <td class="py-2.5 px-3 font-mono">{{ item.weight || 0 }} kg</td>
+                                <td class="py-2.5 px-3 text-right">
+                                    <button 
+                                        @click="handleReceiveIncomingFeeder(item)"
+                                        :disabled="isFeederActionRunning"
+                                        class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold text-[11px] transition shadow-xs disabled:opacity-50 cursor-pointer"
+                                    >
+                                        Dỡ Vào Bưu Cục
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

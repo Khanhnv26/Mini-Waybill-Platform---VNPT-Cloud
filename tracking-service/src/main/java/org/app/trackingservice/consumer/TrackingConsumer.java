@@ -7,6 +7,8 @@ import org.app.trackingservice.dto.event.RouteAssignedEvent;
 import org.app.trackingservice.dto.event.ShipmentStatusUpdatedEvent;
 import org.app.trackingservice.entity.TrackingHistory;
 import org.app.trackingservice.repository.TrackingHistoryRepository;
+import org.app.sharedevents.entity.OperationType;
+import org.app.sharedevents.entity.ShipmentLifecycleEvent;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.annotation.BackOff;
 import org.springframework.kafka.annotation.DltHandler;
@@ -73,20 +75,95 @@ public class TrackingConsumer {
                     event.getDestinationHub(), event.getDestPostOffice());
         }
 
-        TrackingHistory history = TrackingHistory.builder()
-                .trackingCode(event.getTrackingCode())
-                .status("ROUTE_ASSIGNED")
-                .locationCode(event.getOriginPostOffice() != null ? event.getOriginPostOffice() : event.getSourceHub())
-                .node(nodeText)
-                .occurredAt(LocalDateTime.now())
-                .build();
-        trackingRepository.save(history);
+        TrackingHistory existingLifecycle = trackingRepository
+                .findTopByTrackingCodeAndStatusOrderByOccurredAtDesc(event.getTrackingCode(), "ROUTE_ASSIGNED")
+                .orElse(null);
+        if (existingLifecycle != null && (existingLifecycle.getEventId() != null
+                || existingLifecycle.getOperationType() == OperationType.ROUTE_ASSIGNED)) {
+            log.info("[TRACKING-SERVICE] Lifecycle ROUTE_ASSIGNED đã được lưu trước đó cho {}, bỏ qua legacy row",
+                    event.getTrackingCode());
+        } else {
+            TrackingHistory history = TrackingHistory.builder()
+                    .trackingCode(event.getTrackingCode())
+                    .status("ROUTE_ASSIGNED")
+                    .locationCode(event.getOriginPostOffice() != null ? event.getOriginPostOffice() : event.getSourceHub())
+                    .node(nodeText)
+                    .occurredAt(LocalDateTime.now())
+                    .build();
+            trackingRepository.save(history);
+        }
 
         String redisKey = "shipment-status:" + event.getTrackingCode();
         redisTemplate.opsForValue().set(redisKey,"ROUTE_ASSIGNED", Duration.ofDays(7));
         String loc = event.getOriginPostOffice() != null ? event.getOriginPostOffice() : event.getSourceHub();
         redisTemplate.opsForValue().set("shipment-location:" + event.getTrackingCode(), loc != null ? loc : "", Duration.ofDays(7));
 
+    }
+
+    @KafkaListener(topics = "shipment-lifecycle-events", groupId = "tracking-lifecycle-group")
+    @RetryableTopic(attempts = "3", backOff = @BackOff(delay = 1000, multiplier = 2))
+    public void handleShipmentLifecycleEvent(ShipmentLifecycleEvent event) {
+        if (event == null || event.getTrackingCode() == null || event.getTrackingCode().isBlank()) {
+            log.warn("[TRACKING-SERVICE] Bỏ qua lifecycle event không hợp lệ: {}", event);
+            return;
+        }
+
+        if (event.getEventId() != null && trackingRepository.existsByEventId(event.getEventId())) {
+            log.info("[TRACKING-SERVICE] Bỏ qua lifecycle event trùng eventId={} cho {}",
+                    event.getEventId(), event.getTrackingCode());
+            return;
+        }
+
+        String trackingCode = event.getTrackingCode();
+        String status = event.getStatus() != null ? event.getStatus().trim().toUpperCase() : "IN_TRANSIT";
+        String locationCode = event.getLocationCode() != null ? event.getLocationCode() : "TRANSIT_HUB";
+        LocalDateTime occurredAt = event.getOccurredAt() != null ? event.getOccurredAt() : LocalDateTime.now();
+        OperationType operationType = event.getOperationType();
+
+        // route-assigned được phát đồng thời qua topic legacy. Làm giàu bản ghi cũ
+        // thay vì tạo thêm một mốc ROUTE_ASSIGNED trùng trong giai đoạn migration.
+        TrackingHistory history = operationType == OperationType.ROUTE_ASSIGNED
+                ? trackingRepository.findTopByTrackingCodeAndStatusOrderByOccurredAtDesc(trackingCode, status)
+                .orElse(null)
+                : null;
+
+        if (history == null) {
+            history = TrackingHistory.builder()
+                    .trackingCode(trackingCode)
+                    .status(status)
+                    .locationCode(locationCode)
+                    .node(event.getNote() != null ? event.getNote() : operationType != null ? operationType.name() : status)
+                    .occurredAt(occurredAt)
+                    .build();
+        } else {
+            history.setLocationCode(locationCode);
+            if (event.getNote() != null && !event.getNote().isBlank()) {
+                history.setNode(event.getNote());
+            }
+            history.setOccurredAt(occurredAt);
+        }
+
+        history.setEventId(event.getEventId());
+        history.setOperationType(operationType);
+        history.setTransportLeg(event.getTransportLeg());
+        history.setTripCode(event.getTripCode());
+        history.setActorId(event.getActorId());
+        trackingRepository.save(history);
+
+        updateRedisProjection(trackingCode, status, locationCode, occurredAt);
+        log.info("[TRACKING-SERVICE] Đã lưu lifecycle {} cho {} tại {}",
+                operationType != null ? operationType : status, trackingCode, locationCode);
+    }
+
+    private void updateRedisProjection(String trackingCode, String status, String locationCode, LocalDateTime occurredAt) {
+        TrackingHistory latest = trackingRepository.findTopByTrackingCodeOrderByOccurredAtDesc(trackingCode).orElse(null);
+        if (latest != null && latest.getOccurredAt() != null && latest.getOccurredAt().isAfter(occurredAt)) {
+            return;
+        }
+        Duration ttl = Duration.ofDays(7);
+        redisTemplate.opsForValue().set("shipment-status:" + trackingCode, status, ttl);
+        redisTemplate.opsForValue().set("shipment-location:" + trackingCode,
+                locationCode != null ? locationCode : "", ttl);
     }
 
     @DltHandler

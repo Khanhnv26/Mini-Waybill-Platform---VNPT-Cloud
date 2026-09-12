@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
+import org.app.routingservice.entity.TripType;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -35,6 +36,8 @@ public class CreateTripRequest {
 
     @NotBlank(message = "Điểm xuất phát không được để trống")
     private String originHub;
+
+    private TripType tripType;
 
     private java.time.LocalDateTime scheduledDepartureTime;
 

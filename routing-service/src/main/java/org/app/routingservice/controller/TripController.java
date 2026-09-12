@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.app.routingservice.dto.trip.ConsolidateRequest;
 import org.app.routingservice.dto.trip.CreateTripRequest;
 import org.app.routingservice.dto.trip.TripDetailResponse;
+import org.app.routingservice.dto.trip.TripProgressRequest;
 import org.app.routingservice.service.TripService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -73,5 +74,15 @@ public class TripController {
     @GetMapping("/{id}/eligible-assignments")
     public ResponseEntity<List<org.app.routingservice.dto.trip.EligibleAssignmentResponse>> getEligibleAssignments(@PathVariable Long id) {
         return ResponseEntity.ok(tripService.getEligibleAssignmentsForTrip(id));
+    }
+
+    @PatchMapping("/{id}/progress")
+    public ResponseEntity<TripDetailResponse> updateProgress(
+            @PathVariable Long id,
+            @Valid @RequestBody TripProgressRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) String actorId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles,
+            @RequestHeader(value = "X-User-Permissions", required = false) String permissions) {
+        return ResponseEntity.ok(tripService.updateProgress(id, request, actorId, roles, permissions));
     }
 }

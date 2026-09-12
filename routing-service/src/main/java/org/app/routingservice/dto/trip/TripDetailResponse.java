@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.app.routingservice.entity.Trip;
+import org.app.routingservice.entity.TripType;
+import org.app.sharedevents.entity.TransportLeg;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -24,7 +26,12 @@ public class TripDetailResponse {
     private Double currentWeight;
     private Integer totalShipments;
     private String currentHub;
+    private TripType tripType;
     private String status;
+    private Double currentLatitude;
+    private Double currentLongitude;
+    private LocalDateTime lastProgressAt;
+    private Double progressPercent;
     private LocalDateTime departureTime;
     private LocalDateTime scheduledDepartureTime;
     private LocalDateTime cutoffTime;
@@ -63,6 +70,9 @@ public class TripDetailResponse {
         private String destinationHub;
         private String destinationHubName;
         private String destinationHubAddress;
+        private String pickupLocationCode;
+        private String dropoffLocationCode;
+        private TransportLeg transportLeg;
         private Double weightKg;
         private String serviceType;
         private String status;

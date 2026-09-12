@@ -8,20 +8,29 @@ import org.app.routingservice.dto.trip.ConsolidateRequest;
 import org.app.routingservice.dto.trip.CreateTripRequest;
 import org.app.routingservice.dto.trip.EligibleAssignmentResponse;
 import org.app.routingservice.dto.trip.TripDetailResponse;
+import org.app.routingservice.dto.trip.TripProgressRequest;
 import org.app.routingservice.entity.Hub;
 import org.app.routingservice.entity.RoutingAssignment;
 import org.app.routingservice.entity.Trip;
 import org.app.routingservice.entity.TripManifest;
 import org.app.routingservice.entity.TripStop;
+import org.app.routingservice.entity.TripType;
+import org.app.routingservice.entity.WarehouseInventory;
 import org.app.routingservice.repository.HubRepository;
 import org.app.routingservice.repository.RoutingAssignmentRepository;
 import org.app.routingservice.repository.TripManifestRepository;
 import org.app.routingservice.repository.TripRepository;
 import org.app.routingservice.repository.TripStopRepository;
+import org.app.routingservice.repository.WarehouseInventoryRepository;
+import org.app.routingservice.repository.HandlingEventRepository;
 import org.app.routingservice.service.TripService;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.app.sharedevents.entity.OperationType;
+import org.app.sharedevents.entity.ShipmentLifecycleEvent;
+import org.app.sharedevents.entity.TripProgressEvent;
+import org.app.sharedevents.entity.TransportLeg;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -44,6 +53,8 @@ public class TripServiceImpl implements TripService {
     private final TripStopRepository tripStopRepository;
     private final TripManifestRepository tripManifestRepository;
     private final RoutingAssignmentRepository routingAssignmentRepository;
+    private final WarehouseInventoryRepository warehouseInventoryRepository;
+    private final HandlingEventRepository handlingEventRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     private String normalizeHubCode(String rawCode) {
@@ -59,6 +70,34 @@ public class TripServiceImpl implements TripService {
             case "HUB_CT", "HUB_CTH", "HUB-CT", "HUB-CTH" -> "HUB-CT-01";
             default -> trimmed;
         };
+    }
+
+    private TripType inferTripType(String origin, String destination) {
+        String normalizedOrigin = normalizeHubCode(origin);
+        String normalizedDestination = normalizeHubCode(destination);
+        boolean originPostOffice = normalizedOrigin != null && normalizedOrigin.startsWith("POST-");
+        boolean destinationPostOffice = normalizedDestination != null && normalizedDestination.startsWith("POST-");
+        if (originPostOffice && !destinationPostOffice) return TripType.ORIGIN_FEEDER;
+        if (!originPostOffice && destinationPostOffice) return TripType.DESTINATION_FEEDER;
+        return TripType.LINEHAUL;
+    }
+
+    private TransportLeg inferTransportLeg(String origin, String destination) {
+        TripType tripType = inferTripType(origin, destination);
+        return switch (tripType) {
+            case ORIGIN_FEEDER -> TransportLeg.ORIGIN_FEEDER;
+            case LINEHAUL -> TransportLeg.LINEHAUL;
+            case DESTINATION_FEEDER -> TransportLeg.DESTINATION_FEEDER;
+        };
+    }
+
+    private void validateTripType(TripType tripType, String origin, String destination) {
+        TripType inferred = inferTripType(origin, destination);
+        if (tripType != inferred) {
+            throw new IllegalArgumentException(String.format(
+                    "Loại chuyến %s không phù hợp với tuyến %s -> %s (cần %s)",
+                    tripType, origin, destination, inferred));
+        }
     }
 
     @Override
@@ -87,6 +126,10 @@ public class TripServiceImpl implements TripService {
         int bufferMin = (request.getCutoffBufferMinutes() != null && request.getCutoffBufferMinutes() > 0)
                 ? request.getCutoffBufferMinutes() : 30;
         LocalDateTime cutoff = scheduledTime.minusMinutes(bufferMin);
+        TripType tripType = request.getTripType() != null
+                ? request.getTripType()
+                : inferTripType(originHub, request.getStopHubCodes().get(request.getStopHubCodes().size() - 1));
+        validateTripType(tripType, originHub, request.getStopHubCodes().get(request.getStopHubCodes().size() - 1));
 
         Trip trip = Trip.builder()
                 .tripCode(tripCode)
@@ -97,6 +140,7 @@ public class TripServiceImpl implements TripService {
                 .currentWeight(0.0)
                 .totalShipments(0)
                 .currentHub(originHub)
+                .tripType(tripType)
                 .status("SCHEDULED")
                 .scheduledDepartureTime(scheduledTime)
                 .cutoffTime(cutoff)
@@ -168,6 +212,9 @@ public class TripServiceImpl implements TripService {
                         .destinationHub(m.getDestinationHub())
                         .destinationHubName(hubName(hubsByCode, m.getDestinationHub()))
                         .destinationHubAddress(hubAddress(hubsByCode, m.getDestinationHub()))
+                        .pickupLocationCode(m.getPickupLocationCode())
+                        .dropoffLocationCode(m.getDropoffLocationCode())
+                        .transportLeg(m.getTransportLeg())
                         .weightKg(m.getWeightKg())
                         .serviceType(m.getServiceType())
                         .status(m.getStatus())
@@ -197,7 +244,12 @@ public class TripServiceImpl implements TripService {
                 .currentWeight(currentWeight)
                 .totalShipments(manifests.size())
                 .currentHub(trip.getCurrentHub())
+                .tripType(trip.getTripType())
                 .status(trip.getStatus())
+                .currentLatitude(trip.getCurrentLatitude())
+                .currentLongitude(trip.getCurrentLongitude())
+                .lastProgressAt(trip.getLastProgressAt())
+                .progressPercent(trip.getProgressPercent())
                 .departureTime(trip.getDepartureTime())
                 .scheduledDepartureTime(trip.getScheduledDepartureTime())
                 .cutoffTime(trip.getCutoffTime())
@@ -290,6 +342,10 @@ public class TripServiceImpl implements TripService {
                 String destination = item.getDestinationHub();
                 Double itemWeight = item.getWeight() != null ? item.getWeight() : 1.0;
 
+                if (!isTripTypeCompatible(trip.getTripType(), origin, destination)) {
+                    continue;
+                }
+
                 Integer originOrder = stopOrderMap.get(normalizeHubCode(origin));
                 Integer destinationOrder = stopOrderMap.get(normalizeHubCode(destination));
 
@@ -314,6 +370,9 @@ public class TripServiceImpl implements TripService {
                         .trackingCode(trackingCode)
                         .originHub(origin)
                         .destinationHub(destination)
+                        .pickupLocationCode(origin)
+                        .dropoffLocationCode(destination)
+                        .transportLeg(inferTransportLeg(origin, destination))
                         .weightKg(itemWeight)
                         .serviceType(item.getServiceType() != null ? item.getServiceType() : "EXPRESS")
                         .status("LOADED")
@@ -321,6 +380,7 @@ public class TripServiceImpl implements TripService {
                         .build();
 
                 tripManifestRepository.save(manifest);
+                reserveInventoryForTrip(trip, trackingCode, origin, inferTransportLeg(origin, destination));
                 routingAssignmentRepository.findByTrackingCode(trackingCode).ifPresent(ra -> {
                     ra.setStatus("CONSOLIDATED");
                     routingAssignmentRepository.save(ra);
@@ -369,6 +429,14 @@ public class TripServiceImpl implements TripService {
                 if (origin == null || destination == null) {
                     continue;
                 }
+                if (!isTripTypeCompatible(trip.getTripType(), origin, destination)) {
+                    continue;
+                }
+
+                WarehouseInventory availableInventory = ensureLegacyInventory(assignment, origin);
+                if (availableInventory == null) {
+                    continue;
+                }
 
                 Double itemWeight = assignment.getWeight() != null ? assignment.getWeight() : 1.0;
 
@@ -397,6 +465,9 @@ public class TripServiceImpl implements TripService {
                         .trackingCode(trackingCode)
                         .originHub(origin)
                         .destinationHub(destination)
+                        .pickupLocationCode(origin)
+                        .dropoffLocationCode(destination)
+                        .transportLeg(inferTransportLeg(origin, destination))
                         .weightKg(itemWeight)
                         .serviceType(assignment.getServiceType() != null ? assignment.getServiceType() : "EXPRESS")
                         .status("LOADED")
@@ -404,6 +475,7 @@ public class TripServiceImpl implements TripService {
                         .build();
 
                 tripManifestRepository.save(manifest);
+                reserveInventoryForTrip(trip, trackingCode, origin, inferTransportLeg(origin, destination));
                 assignment.setStatus("CONSOLIDATED");
                 routingAssignmentRepository.save(assignment);
 
@@ -514,8 +586,26 @@ public class TripServiceImpl implements TripService {
         tripRepository.save(trip);
 
         List<TripManifest> loadedManifests = tripManifestRepository.findByTripIdAndStatus(tripId, "LOADED");
+        LocalDateTime departureAt = trip.getDepartureTime();
+        trip.setProgressPercent(0.0);
+        trip.setLastProgressAt(departureAt);
+        Map<String, Hub> departureHubs = hubRepository.findAll().stream()
+                .collect(Collectors.toMap(Hub::getHubCode, hub -> hub, (first, ignored) -> first));
+        Hub departureHub = findHub(departureHubs, firstStop.getHubCode());
+        if (departureHub != null) {
+            trip.setCurrentLatitude(departureHub.getLatitude());
+            trip.setCurrentLongitude(departureHub.getLongitude());
+        }
+        tripRepository.save(trip);
         for (TripManifest item : loadedManifests) {
             try {
+                WarehouseInventory inventory = warehouseInventoryRepository.findByTrackingCode(item.getTrackingCode())
+                        .orElseGet(() -> createLegacyInventory(item));
+                inventory.setInventoryStatus("LOADED");
+                inventory.setActiveTripId(trip.getId());
+                inventory.setLoadedAt(departureAt);
+                inventory.setUpdatedAt(departureAt);
+                warehouseInventoryRepository.save(inventory);
                 boolean isFeeder = (firstStop.getHubCode() != null && firstStop.getHubCode().toUpperCase().startsWith("HUB-"))
                         && (item.getDestinationHub() != null && item.getDestinationHub().toUpperCase().startsWith("POST-"));
                 String note = isFeeder
@@ -532,6 +622,10 @@ public class TripServiceImpl implements TripService {
                         .updateAt(LocalDateTime.now().toString())
                         .build();
                 kafkaTemplate.send("tracking-status-events", item.getTrackingCode(), statusEvent);
+                recordLifecycle(item.getTrackingCode(), "IN_TRANSIT", OperationType.DEPARTED,
+                        inferTransportLeg(item.getPickupLocationCode(), item.getDropoffLocationCode()),
+                        firstStop.getHubCode(), trip.getTripCode(), null, note, departureAt,
+                        "DEPART:" + trip.getTripCode() + ":" + item.getTrackingCode());
             } catch (Exception e) {
                 log.error("Lỗi gửi event IN_TRANSIT khi xuất bến cho kiện {}: {}", item.getTrackingCode(), e.getMessage());
             }
@@ -594,14 +688,22 @@ public class TripServiceImpl implements TripService {
             }
         }
 
+        LocalDateTime arrivalAt = LocalDateTime.now();
         currentStop.setStatus("ARRIVED");
-        currentStop.setArrivedAt(LocalDateTime.now());
+        currentStop.setArrivedAt(arrivalAt);
         tripStopRepository.save(currentStop);
         trip.setCurrentHub(currentStop.getHubCode());
-
+        double progressPercent = stops.size() <= 1 ? 100.0
+                : ((double) (currentStop.getStopOrder() - 1) / (double) (stops.size() - 1)) * 100.0;
+        trip.setProgressPercent(Math.max(0.0, Math.min(100.0, progressPercent)));
+        trip.setLastProgressAt(arrivalAt);
         Map<String, Hub> hubsByCode = hubRepository.findAll().stream()
                 .collect(Collectors.toMap(Hub::getHubCode, hub -> hub, (first, ignored) -> first));
-
+        Hub arrivalHub = findHub(hubsByCode, currentStop.getHubCode());
+        if (arrivalHub != null) {
+            trip.setCurrentLatitude(arrivalHub.getLatitude());
+            trip.setCurrentLongitude(arrivalHub.getLongitude());
+        }
         // Gỡ các kiện hàng có điểm đến là điểm dừng hiện tại, và đồng bộ trạm trung gian cho các kiện còn lại
         List<TripManifest> manifests = tripManifestRepository.findByTripId(tripId);
         int unloadedCount = 0;
@@ -611,8 +713,16 @@ public class TripServiceImpl implements TripService {
             if ("LOADED".equals(item.getStatus())) {
                 if (currentStop.getHubCode().equalsIgnoreCase(itemDest)) {
                     item.setStatus("UNLOADED");
-                    item.setUnloadedAt(LocalDateTime.now());
+                    item.setUnloadedAt(arrivalAt);
                     tripManifestRepository.save(item);
+                    WarehouseInventory inventory = warehouseInventoryRepository.findByTrackingCode(item.getTrackingCode())
+                            .orElseGet(() -> createLegacyInventory(item));
+                    inventory.setLocationCode(currentStop.getHubCode());
+                    inventory.setInventoryStatus("STORED");
+                    inventory.setActiveTripId(null);
+                    inventory.setStoredAt(arrivalAt);
+                    inventory.setUpdatedAt(arrivalAt);
+                    warehouseInventoryRepository.save(inventory);
                     unloadedCount++;
 
                     RoutingAssignment raOpt = routingAssignmentRepository.findByTrackingCode(item.getTrackingCode()).orElse(null);
@@ -623,9 +733,12 @@ public class TripServiceImpl implements TripService {
 
                     String note;
                     String newShipmentStatus;
+                    OperationType operationType = OperationType.UNLOADED;
                     if (isSourceHub) {
                         note = String.format("Chuyến xe trung chuyển gom hàng %s đã cập bến Kho Tổng gốc %s. Kiện hàng đã dỡ vào kho bãi, sẵn sàng đóng chuyến xe trục liên tỉnh.", trip.getTripCode(), currentStop.getHubCode());
-                        newShipmentStatus = "PICKED_UP";
+                        // IN_TRANSIT -> PICKED_UP là chuyển ngược state machine; chỉ ghi
+                        // operational event UNLOADED và giữ nguyên trạng thái rộng.
+                        newShipmentStatus = "IN_TRANSIT";
                     } else if (isPostOffice) {
                         note = String.format("Chuyến xe %s đã cập bến Bưu cục phát con %s. Kiện hàng đã được dỡ an toàn vào bưu cục, sẵn sàng giao bưu tá.", trip.getTripCode(), currentStop.getHubCode());
                         newShipmentStatus = "ARRIVED_DEST_HUB";
@@ -642,6 +755,10 @@ public class TripServiceImpl implements TripService {
                             .updateAt(LocalDateTime.now().toString())
                             .build();
                     kafkaTemplate.send("tracking-status-events", item.getTrackingCode(), statusEvent);
+                    recordLifecycle(item.getTrackingCode(), newShipmentStatus, operationType,
+                            item.getTransportLeg() != null ? item.getTransportLeg() : inferTransportLeg(item.getPickupLocationCode(), item.getDropoffLocationCode()),
+                            currentStop.getHubCode(), trip.getTripCode(), null, note, arrivalAt,
+                            "UNLOAD:" + trip.getTripCode() + ":" + item.getTrackingCode() + ":" + currentStop.getHubCode());
 
                     // Cập nhật trạng thái RoutingAssignment để sẵn sàng cho chặng tiếp theo
                     if (raOpt != null) {
@@ -666,6 +783,10 @@ public class TripServiceImpl implements TripService {
                             .updateAt(LocalDateTime.now().toString())
                             .build();
                     kafkaTemplate.send("tracking-status-events", item.getTrackingCode(), transitEvent);
+                    recordLifecycle(item.getTrackingCode(), "IN_TRANSIT", OperationType.ARRIVED,
+                            item.getTransportLeg() != null ? item.getTransportLeg() : inferTransportLeg(item.getPickupLocationCode(), item.getDropoffLocationCode()),
+                            currentStop.getHubCode(), trip.getTripCode(), null, transitEvent.getNote(), arrivalAt,
+                            "ARRIVE:" + trip.getTripCode() + ":" + item.getTrackingCode() + ":" + currentStop.getHubCode());
                 }
             }
         }
@@ -749,6 +870,14 @@ public class TripServiceImpl implements TripService {
             if (origin == null || destination == null) {
                 continue;
             }
+            if (!isTripTypeCompatible(trip.getTripType(), origin, destination)) {
+                continue;
+            }
+            WarehouseInventory inventory = warehouseInventoryRepository.findByTrackingCode(trackingCode).orElse(null);
+            if (inventory != null && (!normalizeHubCode(origin).equalsIgnoreCase(inventory.getLocationCode())
+                    || !List.of("RECEIVED", "STORED").contains(inventory.getInventoryStatus()))) {
+                continue;
+            }
 
             Integer originOrder = stopOrderMap.get(normalizeHubCode(origin));
             Integer destinationOrder = stopOrderMap.get(normalizeHubCode(destination));
@@ -770,5 +899,170 @@ public class TripServiceImpl implements TripService {
                 .thenComparing(r -> r.getAssignedAt() != null ? r.getAssignedAt() : LocalDateTime.MIN));
 
         return result;
+    }
+
+    private boolean isTripTypeCompatible(TripType tripType, String origin, String destination) {
+        TripType expected = inferTripType(origin, destination);
+        return tripType == null || tripType == expected;
+    }
+
+    private WarehouseInventory ensureLegacyInventory(RoutingAssignment assignment, String origin) {
+        String trackingCode = assignment.getTrackingCode();
+        WarehouseInventory inventory = warehouseInventoryRepository.findByTrackingCode(trackingCode).orElse(null);
+        if (inventory == null) {
+            inventory = WarehouseInventory.builder()
+                    .trackingCode(trackingCode)
+                    .locationCode(origin)
+                    .inventoryStatus("STORED")
+                    .transportLeg(inferTransportLeg(origin, assignment.getDestinationHub()))
+                    .storedAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
+                    .build();
+            return warehouseInventoryRepository.save(inventory);
+        }
+        if (!origin.equalsIgnoreCase(inventory.getLocationCode())
+                || !List.of("RECEIVED", "STORED").contains(inventory.getInventoryStatus())) {
+            return null;
+        }
+        if ("RECEIVED".equals(inventory.getInventoryStatus())) {
+            inventory.setInventoryStatus("STORED");
+            inventory.setStoredAt(LocalDateTime.now());
+            inventory.setUpdatedAt(LocalDateTime.now());
+            warehouseInventoryRepository.save(inventory);
+        }
+        return inventory;
+    }
+
+    private WarehouseInventory createLegacyInventory(TripManifest manifest) {
+        LocalDateTime now = LocalDateTime.now();
+        return warehouseInventoryRepository.save(WarehouseInventory.builder()
+                .trackingCode(manifest.getTrackingCode())
+                .locationCode(manifest.getPickupLocationCode() != null ? manifest.getPickupLocationCode() : manifest.getOriginHub())
+                .inventoryStatus("STORED")
+                .transportLeg(manifest.getTransportLeg() != null ? manifest.getTransportLeg()
+                        : inferTransportLeg(manifest.getOriginHub(), manifest.getDestinationHub()))
+                .storedAt(now)
+                .updatedAt(now)
+                .build());
+    }
+
+    private void reserveInventoryForTrip(Trip trip, String trackingCode, String pickupLocation, TransportLeg transportLeg) {
+        WarehouseInventory inventory = warehouseInventoryRepository.findByTrackingCode(trackingCode).orElse(null);
+        if (inventory == null) {
+            inventory = WarehouseInventory.builder()
+                    .trackingCode(trackingCode)
+                    .locationCode(pickupLocation)
+                    .inventoryStatus("STORED")
+                    .build();
+        }
+        if (!pickupLocation.equalsIgnoreCase(inventory.getLocationCode())) {
+            throw new IllegalStateException(String.format("Bưu gửi %s đang ở %s, không thể gom tại %s",
+                    trackingCode, inventory.getLocationCode(), pickupLocation));
+        }
+        if (!List.of("RECEIVED", "STORED").contains(inventory.getInventoryStatus())) {
+            throw new IllegalStateException("Bưu gửi " + trackingCode + " chưa ở trạng thái sẵn sàng gom");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        inventory.setInventoryStatus("RESERVED");
+        inventory.setActiveTripId(trip.getId());
+        inventory.setTransportLeg(transportLeg);
+        inventory.setReservedAt(now);
+        inventory.setUpdatedAt(now);
+        warehouseInventoryRepository.save(inventory);
+        recordLifecycle(trackingCode, "IN_TRANSIT", OperationType.RESERVED_FOR_TRIP, transportLeg,
+                pickupLocation, trip.getTripCode(), null,
+                "Đã giữ chỗ bưu gửi cho chuyến xe " + trip.getTripCode(), now,
+                "RESERVE:" + trip.getTripCode() + ":" + trackingCode);
+    }
+
+    private void recordLifecycle(String trackingCode, String status, OperationType operationType,
+                                 TransportLeg transportLeg, String locationCode, String tripCode,
+                                 String actorId, String note, LocalDateTime occurredAt, String eventId) {
+        if (handlingEventRepository.existsByOperationId(eventId)) return;
+        handlingEventRepository.save(HandlingEvent.builder()
+                .operationId(eventId)
+                .trackingCode(trackingCode)
+                .operationType(operationType)
+                .transportLeg(transportLeg)
+                .locationCode(locationCode)
+                .tripCode(tripCode)
+                .actorId(actorId)
+                .note(note)
+                .occurredAt(occurredAt)
+                .build());
+        kafkaTemplate.send("shipment-lifecycle-events", trackingCode, ShipmentLifecycleEvent.builder()
+                .eventId(eventId)
+                .trackingCode(trackingCode)
+                .status(status)
+                .transportLeg(transportLeg)
+                .operationType(operationType)
+                .locationCode(locationCode)
+                .tripCode(tripCode)
+                .actorId(actorId)
+                .note(note)
+                .occurredAt(occurredAt)
+                .build());
+    }
+
+    @Override
+    @Transactional
+    public TripDetailResponse updateProgress(Long tripId, TripProgressRequest request, String actorId,
+                                             String roles, String permissions) {
+        if (request == null) {
+            throw new IllegalArgumentException("Dữ liệu cập nhật chuyến không được để trống");
+        }
+        String normalizedRoles = roles == null ? "" : roles.toUpperCase();
+        String normalizedPermissions = permissions == null ? "" : permissions.toLowerCase();
+        boolean allowed = normalizedRoles.contains("ADMIN")
+                || normalizedRoles.contains("DISPATCHER")
+                || normalizedRoles.contains("ROLE_HUB_OPERATOR")
+                || normalizedPermissions.contains("routing:trip_manage");
+        if (!allowed) {
+            throw new SecurityException("Không có quyền cập nhật tiến độ chuyến xe");
+        }
+
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy chuyến đi: " + tripId));
+        if ("COMPLETED".equalsIgnoreCase(trip.getStatus())) {
+            throw new IllegalStateException("Chuyến xe đã hoàn tất, không thể cập nhật tiến độ");
+        }
+
+        String locationCode = request.getLocationCode() != null && !request.getLocationCode().isBlank()
+                ? normalizeHubCode(request.getLocationCode()) : trip.getCurrentHub();
+        if (locationCode != null && !locationCode.isBlank()) {
+            boolean isStop = tripStopRepository.findByTripIdOrderByStopOrder(tripId).stream()
+                    .anyMatch(stop -> normalizeHubCode(stop.getHubCode()).equalsIgnoreCase(locationCode));
+            if (!isStop && (request.getLatitude() == null || request.getLongitude() == null)) {
+                throw new IllegalArgumentException("Vị trí cập nhật không thuộc lộ trình chuyến xe");
+            }
+        }
+
+        Double progress = request.getProgressPercent();
+        if (progress != null && trip.getProgressPercent() != null && progress < trip.getProgressPercent()) {
+            throw new IllegalArgumentException("Tiến độ chuyến xe không được giảm");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        trip.setCurrentHub(locationCode);
+        if (request.getLatitude() != null) trip.setCurrentLatitude(request.getLatitude());
+        if (request.getLongitude() != null) trip.setCurrentLongitude(request.getLongitude());
+        if (progress != null) trip.setProgressPercent(progress);
+        trip.setLastProgressAt(now);
+        tripRepository.save(trip);
+
+        String eventId = request.getOperationId() != null && !request.getOperationId().isBlank()
+                ? request.getOperationId().trim() : UUID.randomUUID().toString();
+        kafkaTemplate.send("trip-progress-events", trip.getTripCode(), TripProgressEvent.builder()
+                .eventId(eventId)
+                .tripCode(trip.getTripCode())
+                .locationCode(locationCode)
+                .currentLatitude(trip.getCurrentLatitude())
+                .currentLongitude(trip.getCurrentLongitude())
+                .progressPercent(trip.getProgressPercent())
+                .vehiclePlate(trip.getVehiclePlate())
+                .actorId(actorId)
+                .note(request.getNote())
+                .occurredAt(now)
+                .build());
+        return getTripDetail(tripId);
     }
 }
