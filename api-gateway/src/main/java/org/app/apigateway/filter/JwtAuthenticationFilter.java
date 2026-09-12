@@ -63,6 +63,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String email = claims.getSubject();
             Object userIdClaim = claims.get("userId");
             String userId = (userIdClaim != null && !"null".equalsIgnoreCase(String.valueOf(userIdClaim))) ? String.valueOf(userIdClaim) : "";
+            Object locationClaim = claims.get("locationCode");
+            String locationCode = locationClaim != null && !"null".equalsIgnoreCase(String.valueOf(locationClaim))
+                    ? String.valueOf(locationClaim).trim()
+                    : "";
 
             //kiem tra blacklist trong redis
             if(!userId.isBlank()) {
@@ -103,6 +107,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             wrapperRequest.addHeader("X-User-Email", email != null ? email : "");
             wrapperRequest.addHeader("X-User-Roles", roles != null ? String.join(",", roles) : "");
             wrapperRequest.addHeader("X-User-Permissions", permissions != null ? String.join(",", permissions) : "");
+            // Always overwrite the inbound value. Downstream services must
+            // trust only the station assignment from the signed JWT, never a
+            // client-supplied X-User-Location-Code header.
+            wrapperRequest.addHeader("X-User-Location-Code", locationCode);
 
             filterChain.doFilter(wrapperRequest, response);
 

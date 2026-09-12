@@ -16,6 +16,7 @@ import org.springframework.kafka.annotation.BackOff;
 import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
@@ -35,13 +36,32 @@ public class RoutingConsumer {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final RoutingAssignmentRepository routingAssignmentRepository;
     private final HubRepository hubRepository;
+    private final StringRedisTemplate redisTemplate;
     private record HubRoutingResult(String centralHubCode, String postOfficeCode) {}
 
 
     @KafkaListener(topics = "shipment-events", groupId = "routing-group")
     @RetryableTopic(attempts = "3", backOff = @BackOff(delay = 1000, multiplier = 2))
     public void handleShipmentCreatedEvent(CreateShipmentEvent event) {
-        log.info("[ROUTING-SERVICE] Nhận được event tạo đơn mới: trackingCode = {}", event.getTrackingCode());
+        if (event == null || event.getTrackingCode() == null || event.getTrackingCode().isBlank()) {
+            log.warn("[ROUTING-SERVICE] Bỏ qua event tạo đơn không có trackingCode");
+            return;
+        }
+
+        String trackingCode = event.getTrackingCode().trim().toUpperCase();
+        log.info("[ROUTING-SERVICE] Nhận được event tạo đơn mới: trackingCode = {}", trackingCode);
+
+        if (Boolean.TRUE.equals(redisTemplate.hasKey("shipment-cancelled:" + trackingCode))) {
+            log.info("[ROUTING-SERVICE] Bỏ qua phân tuyến cho đơn đã hủy: {}", trackingCode);
+            return;
+        }
+
+        RoutingAssignment existing = routingAssignmentRepository.findByTrackingCode(trackingCode).orElse(null);
+        if (existing != null) {
+            log.info("[ROUTING-SERVICE] Assignment của đơn {} đã tồn tại ở trạng thái {}, bỏ qua event retry.",
+                    trackingCode, existing.getStatus());
+            return;
+        }
 
         HubRoutingResult sourceRoute = determineRouteHierarchy(event.getSenderAddress(), "HUB-HN-01", "POST-HN-CG");
         HubRoutingResult destRoute = determineRouteHierarchy(event.getReceiverAddress(), "HUB-HCM-01", "POST-HCM-Q1");
@@ -56,7 +76,7 @@ public class RoutingConsumer {
         String initialStatus = hasSeparateOriginPo ? "ASSIGNED_ORIGIN_PO" : "AT_SOURCE_HUB";
 
         RoutingAssignment assignment = RoutingAssignment.builder()
-                .trackingCode(event.getTrackingCode())
+                .trackingCode(trackingCode)
                 .sourceHub(sourceHub)
                 .destinationHub(destinationHub)
                 .originPostOffice(originPostOffice)
@@ -72,7 +92,7 @@ public class RoutingConsumer {
                 event.getTrackingCode(), routeCode, originPostOffice, sourceHub, destinationHub, destPostOffice);
 
         RouteAssignedEvent routeEvent = RouteAssignedEvent.builder()
-                .trackingCode(event.getTrackingCode())
+                .trackingCode(trackingCode)
                 .sourceHub(sourceHub)
                 .destinationHub(destinationHub)
                 .originPostOffice(originPostOffice)
@@ -90,7 +110,7 @@ public class RoutingConsumer {
                 : "Đã phân tuyến vận chuyển: " + routeCode;
 
         ShipmentStatusUpdatedEvent statusEvent = ShipmentStatusUpdatedEvent.builder()
-                .trackingCode(event.getTrackingCode())
+                .trackingCode(trackingCode)
                 .status("ROUTE_ASSIGNED")
                 .locationCode(originPostOffice != null ? originPostOffice : sourceHub)
                 .note(initialNote)
@@ -101,7 +121,7 @@ public class RoutingConsumer {
 
         ShipmentLifecycleEvent lifecycleEvent = ShipmentLifecycleEvent.builder()
                 .eventId(UUID.randomUUID().toString())
-                .trackingCode(event.getTrackingCode())
+                .trackingCode(trackingCode)
                 .status("ROUTE_ASSIGNED")
                 .transportLeg(TransportLeg.ORIGIN_FEEDER)
                 .operationType(OperationType.ROUTE_ASSIGNED)

@@ -774,9 +774,19 @@
                 try {
                     const st = await Promise.resolve(TrackingService.getTracking(code));
                     const newStatus = st.currentStatus;
-                    if (!newStatus || newStatus === currentShipment.value.status) return;
+                    if (!newStatus) return;
+                    const previousStatus = currentShipment.value.status;
+                    const statusChanged = newStatus !== previousStatus;
 
-                    currentShipment.value = { ...currentShipment.value, status: newStatus, source: st.source };
+                    // A trip can progress physically while its public status stays
+                    // unchanged. Always refresh the two histories during polling so
+                    // those unload/store milestones are not missed.
+                    currentShipment.value = {
+                        ...currentShipment.value,
+                        status: newStatus,
+                        locationCode: st.locationCode || currentShipment.value.locationCode,
+                        source: st.source
+                    };
                     if (isFinalState.value) {
                         // Stop immediately; history refresh failure must not restart terminal polling.
                         stopLivePolling();
@@ -790,13 +800,15 @@
                         fullData.history || fullData.lifecycleHistory || fullData.trackingHistory || fullData.events || [],
                         routingHistory
                     );
-                    const latestMilestone = (trackingHistory.value || [])[trackingHistory.value.length - 1];
+                    const latestMilestone = sortedHistory.value[0];
 
                     if (window.MapManager) {
                         window.MapManager.updateProgress(newStatus, latestMilestone?.node || '', latestMilestone?.locationCode || null);
                     }
 
-                    showToast('Cập Nhật Tự Động', `Bưu gửi vừa chuyển sang: ${safeFormatStatusText(newStatus)}`);
+                    if (statusChanged) {
+                        showToast('Cập Nhật Tự Động', `Bưu gửi vừa chuyển sang: ${safeFormatStatusText(newStatus)}`);
+                    }
                     if (isFinalState.value) {
                         // DELIVERED/CANCELLED/RETURNED are terminal; DELIVERY_FAILED intentionally is not.
                         stopLivePolling();

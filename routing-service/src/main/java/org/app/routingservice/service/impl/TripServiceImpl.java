@@ -308,11 +308,18 @@ public class TripServiceImpl implements TripService {
             throw new IllegalStateException("Chỉ có thể gom đơn cho chuyến đi ở trạng thái SCHEDULED.");
         }
 
-        if (request == null && trip.getCutoffTime() != null && LocalDateTime.now().isAfter(trip.getCutoffTime())) {
-            log.info("Chuyến xe {} đã qua thời điểm Cut-off ({}), khóa sổ nạp hàng.", trip.getTripCode(), trip.getCutoffTime());
-            trip.setReadyToDepart(true);
-            tripRepository.save(trip);
-            return getTripDetail(trip.getId());
+        LocalDateTime now = LocalDateTime.now();
+        boolean automaticConsolidation = request == null
+                || request.getItems() == null
+                || request.getItems().isEmpty();
+        if (trip.getCutoffTime() != null && now.isAfter(trip.getCutoffTime())) {
+            if (automaticConsolidation) {
+                log.info("Chuyến xe {} đã qua thời điểm Cut-off ({}), khóa sổ nạp hàng.", trip.getTripCode(), trip.getCutoffTime());
+                trip.setReadyToDepart(true);
+                tripRepository.save(trip);
+                return getTripDetail(trip.getId());
+            }
+            throw new IllegalStateException("Chuyến xe đã quá thời điểm Cut-off, không thể nạp thêm kiện hàng.");
         }
 
         List<TripStop> stops = tripStopRepository.findByTripIdOrderByStopOrder(tripId);
@@ -540,8 +547,20 @@ public class TripServiceImpl implements TripService {
         tripManifestRepository.delete(targetManifest);
         tripManifestRepository.flush();
 
+        warehouseInventoryRepository.findByTrackingCode(trackingCode).ifPresent(inventory -> {
+            // Consolidation reserves the physical row before the manifest is saved.
+            // Removing a scheduled manifest must release that reservation atomically.
+            if (tripId.equals(inventory.getActiveTripId())) {
+                inventory.setInventoryStatus("STORED");
+                inventory.setActiveTripId(null);
+                inventory.setReservedAt(null);
+                inventory.setUpdatedAt(LocalDateTime.now());
+                warehouseInventoryRepository.save(inventory);
+            }
+        });
+
         routingAssignmentRepository.findByTrackingCode(trackingCode).ifPresent(ra -> {
-            ra.setStatus("ASSIGNED");
+            ra.setStatus(statusBeforeConsolidation(trip, ra));
             routingAssignmentRepository.save(ra);
         });
 
@@ -615,15 +634,17 @@ public class TripServiceImpl implements TripService {
                         : String.format("Chuyến xe %s (BKS: %s, Tài xế: %s) đã xuất bến từ %s. Bưu phẩm đang trên đường vận chuyển.",
                                 trip.getTripCode(), trip.getVehiclePlate(), trip.getDriverName(), firstStop.getHubCode());
 
+                String publicStatus = item.getTransportLeg() == TransportLeg.DESTINATION_FEEDER
+                        ? "ARRIVED_DEST_HUB" : "IN_TRANSIT";
                 ShipmentStatusUpdatedEvent statusEvent = ShipmentStatusUpdatedEvent.builder()
                         .trackingCode(item.getTrackingCode())
-                        .status("IN_TRANSIT")
+                        .status(publicStatus)
                         .locationCode(firstStop.getHubCode())
                         .note(note)
                         .updateAt(LocalDateTime.now().toString())
                         .build();
                 kafkaTemplate.send("tracking-status-events", item.getTrackingCode(), statusEvent);
-                recordLifecycle(item.getTrackingCode(), "IN_TRANSIT", OperationType.DEPARTED,
+                recordLifecycle(item.getTrackingCode(), publicStatus, OperationType.DEPARTED,
                         inferTransportLeg(item.getPickupLocationCode(), item.getDropoffLocationCode()),
                         firstStop.getHubCode(), trip.getTripCode(), null, note, departureAt,
                         "DEPART:" + trip.getTripCode() + ":" + item.getTrackingCode());
@@ -711,6 +732,40 @@ public class TripServiceImpl implements TripService {
 
         for (TripManifest item : manifests) {
             String itemDest = normalizeHubCode(item.getDestinationHub());
+            if ("HOLD_FOR_RETURN".equalsIgnoreCase(item.getStatus())) {
+                // A cancellation received while the vehicle is moving keeps the
+                // manifest on the trip, but it must be unloaded at the next stop.
+                item.setStatus("UNLOADED");
+                item.setUnloadedAt(arrivalAt);
+                tripManifestRepository.save(item);
+
+                warehouseInventoryRepository.findByTrackingCode(item.getTrackingCode()).ifPresent(inventory -> {
+                    inventory.setLocationCode(currentStop.getHubCode());
+                    inventory.setInventoryStatus("CANCELLED");
+                    inventory.setActiveTripId(null);
+                    inventory.setStoredAt(arrivalAt);
+                    inventory.setReservedAt(null);
+                    inventory.setUpdatedAt(arrivalAt);
+                    warehouseInventoryRepository.save(inventory);
+                });
+                routingAssignmentRepository.findByTrackingCode(item.getTrackingCode()).ifPresent(assignment -> {
+                    assignment.setStatus("CANCELLED");
+                    routingAssignmentRepository.save(assignment);
+                });
+
+                String returnNote = String.format(
+                        "Bưu gửi đã hủy được dỡ tại trạm kế tiếp %s từ chuyến xe %s để xử lý hoàn.",
+                        currentStop.getHubCode(), trip.getTripCode());
+                TransportLeg itemLeg = item.getTransportLeg() != null
+                        ? item.getTransportLeg()
+                        : inferTransportLeg(item.getPickupLocationCode(), item.getDropoffLocationCode());
+                recordLifecycle(item.getTrackingCode(), "CANCELLED", OperationType.UNLOADED, itemLeg,
+                        currentStop.getHubCode(), trip.getTripCode(), null, returnNote, arrivalAt,
+                        "UNLOAD-CANCELLED:" + trip.getTripCode() + ":" + item.getTrackingCode()
+                                + ":" + currentStop.getHubCode());
+                unloadedCount++;
+                continue;
+            }
             if ("LOADED".equals(item.getStatus())) {
                 if (currentStop.getHubCode().equalsIgnoreCase(itemDest)) {
                     item.setStatus("UNLOADED");
@@ -801,9 +856,15 @@ public class TripServiceImpl implements TripService {
         trip.setTotalShipments((int) activeCount);
 
         TripStop finalStop = stops.get(stops.size() - 1);
-        if (finalStop.getHubCode().equalsIgnoreCase(currentStop.getHubCode())) {
+        boolean unresolvedManifests = manifests.stream().anyMatch(manifest ->
+                "LOADED".equalsIgnoreCase(manifest.getStatus())
+                        || "HOLD_FOR_RETURN".equalsIgnoreCase(manifest.getStatus()));
+        if (finalStop.getHubCode().equalsIgnoreCase(currentStop.getHubCode()) && !unresolvedManifests) {
             trip.setStatus("COMPLETED");
             log.info("Chuyến xe {} đã hoàn tất tại điểm dừng cuối cùng: {}.", trip.getTripCode(), currentStop.getHubCode());
+        } else if (finalStop.getHubCode().equalsIgnoreCase(currentStop.getHubCode())) {
+            log.warn("Chuyến xe {} chưa thể hoàn tất tại điểm cuối {}; còn manifest chưa xử lý.",
+                    trip.getTripCode(), currentStop.getHubCode());
         } else {
             log.info("Chuyến xe {} đã đến điểm dừng: {}. Số kiện hàng đã gỡ: {}. Tải trọng hiện tại: {}/{} kg.",
                     trip.getTripCode(), currentStop.getHubCode(), unloadedCount, trip.getCurrentWeight(), trip.getMaxWeight());
@@ -875,8 +936,9 @@ public class TripServiceImpl implements TripService {
                 continue;
             }
             WarehouseInventory inventory = warehouseInventoryRepository.findByTrackingCode(trackingCode).orElse(null);
-            if (inventory != null && (!normalizeHubCode(origin).equalsIgnoreCase(inventory.getLocationCode())
-                    || !List.of("RECEIVED", "STORED").contains(inventory.getInventoryStatus()))) {
+            if (inventory == null
+                    || !normalizeHubCode(origin).equalsIgnoreCase(inventory.getLocationCode())
+                    || !"STORED".equalsIgnoreCase(inventory.getInventoryStatus())) {
                 continue;
             }
 
@@ -907,29 +969,32 @@ public class TripServiceImpl implements TripService {
         return tripType == null || tripType == expected;
     }
 
+    private String statusBeforeConsolidation(Trip trip, RoutingAssignment assignment) {
+        if (trip.getTripType() != null) {
+            return switch (trip.getTripType()) {
+                case ORIGIN_FEEDER -> "ASSIGNED_ORIGIN_PO";
+                case LINEHAUL -> "AT_SOURCE_HUB";
+                case DESTINATION_FEEDER -> "ARRIVED_DEST_HUB";
+            };
+        }
+        if (assignment.getOriginPostOffice() != null
+                && !assignment.getOriginPostOffice().equalsIgnoreCase(assignment.getSourceHub())) {
+            return "ASSIGNED_ORIGIN_PO";
+        }
+        return "ASSIGNED";
+    }
+
     private WarehouseInventory ensureLegacyInventory(RoutingAssignment assignment, String origin) {
         String trackingCode = assignment.getTrackingCode();
         WarehouseInventory inventory = warehouseInventoryRepository.findByTrackingCode(trackingCode).orElse(null);
+        // A routing assignment without a physical inventory record must not be
+        // promoted to STORED implicitly during trip consolidation.
         if (inventory == null) {
-            inventory = WarehouseInventory.builder()
-                    .trackingCode(trackingCode)
-                    .locationCode(origin)
-                    .inventoryStatus("STORED")
-                    .transportLeg(inferTransportLeg(origin, assignment.getDestinationHub()))
-                    .storedAt(LocalDateTime.now())
-                    .updatedAt(LocalDateTime.now())
-                    .build();
-            return warehouseInventoryRepository.save(inventory);
-        }
-        if (!origin.equalsIgnoreCase(inventory.getLocationCode())
-                || !List.of("RECEIVED", "STORED").contains(inventory.getInventoryStatus())) {
             return null;
         }
-        if ("RECEIVED".equals(inventory.getInventoryStatus())) {
-            inventory.setInventoryStatus("STORED");
-            inventory.setStoredAt(LocalDateTime.now());
-            inventory.setUpdatedAt(LocalDateTime.now());
-            warehouseInventoryRepository.save(inventory);
+        if (!origin.equalsIgnoreCase(inventory.getLocationCode())
+                || !"STORED".equalsIgnoreCase(inventory.getInventoryStatus())) {
+            return null;
         }
         return inventory;
     }
@@ -948,20 +1013,15 @@ public class TripServiceImpl implements TripService {
     }
 
     private void reserveInventoryForTrip(Trip trip, String trackingCode, String pickupLocation, TransportLeg transportLeg) {
-        WarehouseInventory inventory = warehouseInventoryRepository.findByTrackingCode(trackingCode).orElse(null);
-        if (inventory == null) {
-            inventory = WarehouseInventory.builder()
-                    .trackingCode(trackingCode)
-                    .locationCode(pickupLocation)
-                    .inventoryStatus("STORED")
-                    .build();
-        }
+        WarehouseInventory inventory = warehouseInventoryRepository.findByTrackingCode(trackingCode)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Bưu gửi " + trackingCode + " chưa có tồn kho vật lý tại " + pickupLocation));
         if (!pickupLocation.equalsIgnoreCase(inventory.getLocationCode())) {
             throw new IllegalStateException(String.format("Bưu gửi %s đang ở %s, không thể gom tại %s",
                     trackingCode, inventory.getLocationCode(), pickupLocation));
         }
-        if (!List.of("RECEIVED", "STORED").contains(inventory.getInventoryStatus())) {
-            throw new IllegalStateException("Bưu gửi " + trackingCode + " chưa ở trạng thái sẵn sàng gom");
+        if (!"STORED".equalsIgnoreCase(inventory.getInventoryStatus())) {
+            throw new IllegalStateException("Bưu gửi " + trackingCode + " chưa được lưu kho, không thể gom lên chuyến");
         }
         LocalDateTime now = LocalDateTime.now();
         inventory.setInventoryStatus("RESERVED");
@@ -970,7 +1030,11 @@ public class TripServiceImpl implements TripService {
         inventory.setReservedAt(now);
         inventory.setUpdatedAt(now);
         warehouseInventoryRepository.save(inventory);
-        recordLifecycle(trackingCode, "IN_TRANSIT", OperationType.RESERVED_FOR_TRIP, transportLeg,
+        // Reserving cargo is an internal warehouse operation. A destination feeder
+        // must not regress the public ARRIVED_DEST_HUB status before departure.
+        String publicStatus = transportLeg == TransportLeg.DESTINATION_FEEDER
+                ? "ARRIVED_DEST_HUB" : "IN_TRANSIT";
+        recordLifecycle(trackingCode, publicStatus, OperationType.RESERVED_FOR_TRIP, transportLeg,
                 pickupLocation, trip.getTripCode(), null,
                 "Đã giữ chỗ bưu gửi cho chuyến xe " + trip.getTripCode(), now,
                 "RESERVE:" + trip.getTripCode() + ":" + trackingCode);

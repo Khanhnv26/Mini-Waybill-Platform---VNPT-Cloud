@@ -43,11 +43,19 @@ public class ShipmentStatusConsumer {
         }
 
         ShipmentStatus oldStatus = shipment.getCurrentStatus();
+        if (oldStatus != null && !oldStatus.canTransitionTo(newStatus)) {
+            // Kafka retries and the legacy/lifecycle topics can arrive out of order.
+            // Never let an older milestone regress the canonical shipment projection.
+            log.warn("[SHIPMENT] Bỏ qua chuyển trạng thái không hợp lệ hoặc đến trễ: {} | {} → {}",
+                    event.getTrackingCode(), oldStatus, newStatus);
+            return;
+        }
+
         shipment.setCurrentStatus(newStatus);
         shipmentRepository.save(shipment);
         log.info("[SHIPMENT] Đồng bộ thành công: {} | {} → {}",
                 event.getTrackingCode(), oldStatus, newStatus);
-        }
+    }
 
 
 }

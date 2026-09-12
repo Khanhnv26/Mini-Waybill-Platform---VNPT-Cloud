@@ -125,7 +125,20 @@ const Auth = {
         return [];
     },
 
-    // 10. Kiểm tra quyền chi tiết (Permission-Based Access Control)
+    // 10. Lấy station assignment từ JWT trước khi dùng dữ liệu giao diện
+    getLocationCode() {
+        const payload = this.decodeJwtPayload();
+        if (payload) {
+            const value = payload.locationCode;
+            return value === null || value === undefined ? '' : String(value).trim();
+        }
+
+        // If the token cannot be decoded, do not trust localStorage for a
+        // station scope. Backend authorization also fails closed in this case.
+        return '';
+    },
+
+    // 11. Kiểm tra quyền chi tiết (Permission-Based Access Control)
     // Ví dụ: Auth.hasPermission('shipment:create')
     // NOTE: ROLE_ADMIN luôn có toàn quyền tối thượng
     hasPermission(permissionCode) {

@@ -17,7 +17,8 @@ public interface InventoryOperationService {
     WarehouseInventory handoff(String locationCode, HandoffRequest request,
                                String actorId, String roles, String permissions, String actorLocationCode);
 
-    List<WarehouseInventory> getInventory(String locationCode, String inventoryStatus);
+    List<WarehouseInventory> getInventory(String locationCode, String inventoryStatus,
+                                          String roles, String permissions, String actorLocationCode);
 
     List<HandlingEvent> getOperationHistory(String trackingCode);
 }

@@ -26,7 +26,9 @@
                 address: ''
             });
             const stationFieldNames = ['locationCode', 'postOfficeCode', 'hubCode'];
-            const profileStorageFields = ['fullName', 'phoneNumber', 'address', ...stationFieldNames];
+            // Customer profile data is not an authorization source. Station
+            // assignment comes from the authenticated user's JWT/response.
+            const profileStorageFields = ['fullName', 'phoneNumber', 'address'];
 
             const normalizeStationCode = (value) => {
                 if (typeof value !== 'string' && typeof value !== 'number') return '';
@@ -118,8 +120,20 @@
             };
 
             const stationContext = computed(() => {
-                const context = getStationFields(currentUser.value, userProfile.value);
-                const primaryCode = context.locationCode || context.postOfficeCode || context.hubCode;
+                const context = getStationFields(currentUser.value);
+                const trustedLocation = typeof Auth !== 'undefined'
+                    && typeof Auth.getLocationCode === 'function'
+                    ? normalizeStationCode(Auth.getLocationCode())
+                    : '';
+
+                // Never let a customer profile or a client-edited station field
+                // widen an operator's scope. The signed assignment is primary;
+                // the local user object is only a compatibility fallback.
+                context.locationCode = trustedLocation;
+                context.postOfficeCode = trustedLocation.startsWith('POST-') ? trustedLocation : '';
+                context.hubCode = trustedLocation.startsWith('HUB-') ? trustedLocation : '';
+
+                const primaryCode = trustedLocation;
                 return {
                     ...context,
                     primaryCode,
@@ -148,8 +162,6 @@
                 }
                 currentTab.value = tabId;
             };
-
-
             const toggleSidebarCollapse = () => {
                 isSidebarCollapsed.value = !isSidebarCollapsed.value;
                 setTimeout(() => {
@@ -336,7 +348,7 @@
                 if (tabId !== 'shipment') {
                     selectedCustomerForShipment.value = null;
                 }
-                activateTab(tabId)
+                activateTab(tabId);
             };
 
             // Khi click xem chi tiết vận đơn từ bất kỳ màn hình nào (Kho, Bưu tá, Khởi tạo, Điều phối)

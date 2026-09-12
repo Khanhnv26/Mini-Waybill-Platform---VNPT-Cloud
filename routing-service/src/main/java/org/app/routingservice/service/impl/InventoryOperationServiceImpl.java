@@ -8,6 +8,7 @@ import org.app.routingservice.dto.operation.InventoryOperationRequest;
 import org.app.routingservice.entity.HandlingEvent;
 import org.app.routingservice.entity.WarehouseInventory;
 import org.app.routingservice.repository.HandlingEventRepository;
+import org.app.routingservice.repository.RoutingAssignmentRepository;
 import org.app.routingservice.repository.WarehouseInventoryRepository;
 import org.app.routingservice.service.InventoryOperationService;
 import org.app.sharedevents.entity.OperationType;
@@ -30,6 +31,7 @@ public class InventoryOperationServiceImpl implements InventoryOperationService 
 
     private final WarehouseInventoryRepository inventoryRepository;
     private final HandlingEventRepository handlingEventRepository;
+    private final RoutingAssignmentRepository routingAssignmentRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Override
@@ -56,12 +58,31 @@ public class InventoryOperationServiceImpl implements InventoryOperationService 
             if (inventory != null && inventory.getActiveTripId() != null) {
                 throw new IllegalStateException("Bưu gửi " + trackingCode + " đang nằm trên chuyến xe " + inventory.getActiveTripId());
             }
+            if (inventory != null && "CANCELLED".equalsIgnoreCase(inventory.getInventoryStatus())) {
+                throw new IllegalStateException("Bưu gửi " + trackingCode + " đã bị hủy, không thể tiếp nhận lại");
+            }
+            if (inventory != null && location.equalsIgnoreCase(previousLocation)) {
+                if ("STORED".equalsIgnoreCase(inventory.getInventoryStatus())) {
+                    throw new IllegalStateException("Bưu gửi " + trackingCode + " đã được lưu kho tại " + location);
+                }
+                if ("RECEIVED".equalsIgnoreCase(inventory.getInventoryStatus())) {
+                    // A repeated receive with a different operation ID must not
+                    // regress an already received row or emit duplicate lifecycle events.
+                    result.add(inventory);
+                    continue;
+                }
+            }
 
             LocalDateTime now = LocalDateTime.now();
             String status = request.getShipmentStatus() != null && !request.getShipmentStatus().isBlank()
-                    ? normalizeStatus(request.getShipmentStatus())
+                    ? normalizeOperationalStatus(request.getShipmentStatus())
                     : deriveReceiveStatus(previousLocation, location, inventory != null ? inventory.getInventoryStatus() : null);
             if (inventory == null) {
+                // A receive request must belong to a known routed shipment. Do not
+                // manufacture an inventory row for an arbitrary barcode.
+                if (routingAssignmentRepository.findByTrackingCode(trackingCode).isEmpty()) {
+                    throw new IllegalStateException("Không tìm thấy phân tuyến cho bưu gửi " + trackingCode);
+                }
                 inventory = WarehouseInventory.builder()
                         .trackingCode(trackingCode)
                         .build();
@@ -81,6 +102,9 @@ public class InventoryOperationServiceImpl implements InventoryOperationService 
                     request.getNote(), now);
             publishLifecycle(trackingCode, status, operationType, saved.getTransportLeg(), location,
                     request.getTripCode(), actorId, request.getNote(), now, operationId);
+            // Keep the shipment-service projection in sync during migration. The
+            // lifecycle event remains the authoritative physical-operation record.
+            publishLegacyStatus(trackingCode, status, location, request.getNote(), now);
             result.add(saved);
             log.info("[ROUTING] Receive {} tại {} với operationId={}", trackingCode, location, handlingEvent.getOperationId());
         }
@@ -123,8 +147,12 @@ public class InventoryOperationServiceImpl implements InventoryOperationService 
             OperationType operationType = location.startsWith("HUB-") ? OperationType.STORED_AT_HUB : OperationType.STORED;
             saveHandlingEvent(operationId, trackingCode, operationType, saved.getTransportLeg(), location,
                     request.getTripCode(), actorId, request.getNote(), now);
-            publishLifecycle(trackingCode, currentShipmentStatus(request.getShipmentStatus(), saved), operationType,
+            String publicStatus = currentShipmentStatus(request.getShipmentStatus(), saved);
+            publishLifecycle(trackingCode, publicStatus, operationType,
                     saved.getTransportLeg(), location, request.getTripCode(), actorId, request.getNote(), now, operationId);
+            // ShipmentService still consumes the legacy status topic. Publish the
+            // unchanged public status so a physical store action is visible after refresh.
+            publishLegacyStatus(trackingCode, publicStatus, location, request.getNote(), now);
             result.add(saved);
         }
         return result;
@@ -147,8 +175,8 @@ public class InventoryOperationServiceImpl implements InventoryOperationService 
         if (!location.equalsIgnoreCase(inventory.getLocationCode())) {
             throw new IllegalStateException("Bưu gửi " + trackingCode + " không nằm tại bưu cục " + location);
         }
-        if (!List.of("RECEIVED", "STORED").contains(inventory.getInventoryStatus())) {
-            throw new IllegalStateException("Bưu gửi " + trackingCode + " chưa sẵn sàng bàn giao bưu tá");
+        if (!"STORED".equalsIgnoreCase(inventory.getInventoryStatus())) {
+            throw new IllegalStateException("Bưu gửi " + trackingCode + " chưa được nhập kho, không thể bàn giao bưu tá");
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -168,8 +196,10 @@ public class InventoryOperationServiceImpl implements InventoryOperationService 
 
     @Override
     @Transactional(readOnly = true)
-    public List<WarehouseInventory> getInventory(String locationCode, String inventoryStatus) {
+    public List<WarehouseInventory> getInventory(String locationCode, String inventoryStatus,
+                                                 String roles, String permissions, String actorLocationCode) {
         String location = normalizeLocation(locationCode);
+        requireLocationPermission(location, roles, permissions, actorLocationCode, false);
         if (inventoryStatus == null || inventoryStatus.isBlank()) {
             return inventoryRepository.findByLocationCodeOrderByUpdatedAtDesc(location);
         }
@@ -246,9 +276,13 @@ public class InventoryOperationServiceImpl implements InventoryOperationService 
         if (handoff && !admin && !postStaff) {
             throw new SecurityException("Chỉ nhân viên bưu cục được bàn giao cho bưu tá");
         }
-        if (actorLocationCode != null && !actorLocationCode.isBlank()
-                && !locationCode.equalsIgnoreCase(actorLocationCode.trim())) {
-            throw new SecurityException("Tài khoản không được phân công tại " + locationCode);
+        if (!admin && !dispatcher) {
+            if (actorLocationCode == null || actorLocationCode.isBlank()) {
+                throw new SecurityException("Tài khoản chưa được gán locationCode nên không thể tác nghiệp tại " + locationCode);
+            }
+            if (!locationCode.equalsIgnoreCase(actorLocationCode.trim())) {
+                throw new SecurityException("Tài khoản không được phân công tại " + locationCode);
+            }
         }
     }
 
@@ -267,11 +301,25 @@ public class InventoryOperationServiceImpl implements InventoryOperationService 
     }
 
     private String currentShipmentStatus(String requested, WarehouseInventory inventory) {
-        if (requested != null && !requested.isBlank()) return normalizeStatus(requested);
+        if (requested != null && !requested.isBlank()) return normalizeOperationalStatus(requested);
+        if (inventory.getTransportLeg() == TransportLeg.DESTINATION_FEEDER) {
+            // The destination feeder changes physical location only; the public
+            // milestone remains ARRIVED_DEST_HUB until courier handoff.
+            return "ARRIVED_DEST_HUB";
+        }
         if (inventory.getLocationCode() != null && inventory.getLocationCode().startsWith("POST-")) {
             return "PICKED_UP";
         }
         return "IN_TRANSIT";
+    }
+
+    private String normalizeOperationalStatus(String status) {
+        String normalized = normalizeStatus(status);
+        if (!List.of("PICKED_UP", "IN_TRANSIT", "ARRIVED_DEST_HUB").contains(normalized)) {
+            throw new IllegalArgumentException(
+                    "Không thể dùng trạng thái " + normalized + " cho thao tác tiếp nhận/lưu kho");
+        }
+        return normalized;
     }
 
     private String normalizeStatus(String status) {

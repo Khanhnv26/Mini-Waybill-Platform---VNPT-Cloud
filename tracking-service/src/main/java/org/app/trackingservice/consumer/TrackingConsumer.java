@@ -18,8 +18,12 @@ import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Locale;
+import java.util.Set;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -176,32 +180,73 @@ public class TrackingConsumer {
     @KafkaListener(topics = "tracking-status-events", groupId = "tracking-status-sync-group")
     @RetryableTopic(attempts = "3", backOff = @BackOff(delay = 1000, multiplier = 2))
     public void handleStatusUpdatedFromRouting(ShipmentStatusUpdatedEvent event) {
-        log.info("[TRACKING-SERVICE] Nhận event cập nhật trạng thái từ Routing: trackingCode={}, status={}, locationCode={}, note={}",
-                event.getTrackingCode(), event.getStatus(), event.getLocationCode(), event.getNote());
+        if (event == null || event.getTrackingCode() == null || event.getTrackingCode().isBlank()) {
+            log.warn("[TRACKING-SERVICE] Bỏ qua legacy status event không có trackingCode: {}", event);
+            return;
+        }
 
-        if (event.getStatus() != null) {
-            String status = event.getStatus().trim();
-            if ("ARRIVED_DEST_HUB".equals(status) || "IN_TRANSIT".equals(status)) {
-                String defaultNode = "ARRIVED_DEST_HUB".equals(status)
-                        ? "Đơn hàng đã đến trạm trung chuyển cuối cùng trước khi giao hàng"
-                        : "Chuyến xe vận chuyển bưu phẩm đang lưu thông trên tuyến trục";
+        String trackingCode = event.getTrackingCode().trim().toUpperCase(Locale.ROOT);
+        String status = event.getStatus() != null
+                ? event.getStatus().trim().toUpperCase(Locale.ROOT) : "";
+        if (!Set.of("ARRIVED_DEST_HUB", "IN_TRANSIT").contains(status)) {
+            return;
+        }
 
-                String locCode = event.getLocationCode() != null ? event.getLocationCode() : ("ARRIVED_DEST_HUB".equals(status) ? "DEST_HUB" : "TRANSIT_HUB");
+        String defaultNode = "ARRIVED_DEST_HUB".equals(status)
+                ? "Đơn hàng đã đến trạm trung chuyển cuối cùng trước khi giao hàng"
+                : "Chuyến xe vận chuyển bưu phẩm đang lưu thông trên tuyến trục";
+        String locCode = event.getLocationCode() != null && !event.getLocationCode().isBlank()
+                ? event.getLocationCode().trim().toUpperCase(Locale.ROOT)
+                : ("ARRIVED_DEST_HUB".equals(status) ? "DEST_HUB" : "TRANSIT_HUB");
+        String node = event.getNote() != null && !event.getNote().isBlank() ? event.getNote() : defaultNode;
+        LocalDateTime occurredAt = event.getUpdatedAt() != null ? event.getUpdatedAt() : LocalDateTime.now();
 
-                TrackingHistory trackingHistory = TrackingHistory.builder()
-                        .trackingCode(event.getTrackingCode())
-                        .status(status)
-                        .locationCode(locCode)
-                        .node(event.getNote() != null ? event.getNote() : defaultNode)
-                        .occurredAt(event.getUpdatedAt() != null ? event.getUpdatedAt() : LocalDateTime.now())
-                        .build();
-                trackingRepository.save(trackingHistory);
+        // Legacy events do not carry an event id. Derive one from their immutable
+        // payload so Kafka redelivery does not create duplicate history rows.
+        String legacyEventId = "legacy-status:" + UUID.nameUUIDFromBytes(
+                (trackingCode + "|" + status + "|" + locCode + "|" + node + "|" + occurredAt)
+                        .getBytes(StandardCharsets.UTF_8));
+        if (trackingRepository.existsByEventId(legacyEventId)) {
+            log.info("[TRACKING-SERVICE] Bỏ qua legacy event trùng: {}", legacyEventId);
+            return;
+        }
 
-                String redisKey = "shipment-status:" + event.getTrackingCode();
-                redisTemplate.opsForValue().set(redisKey, status, Duration.ofDays(7));
-                redisTemplate.opsForValue().set("shipment-location:" + event.getTrackingCode(), locCode, Duration.ofDays(7));
-                log.info("[TRACKING-SERVICE] Đã lưu lịch sử hành trình & cập nhật Redis cho đơn: {} -> {} | loc: {}", event.getTrackingCode(), status, locCode);
+        TrackingHistory latest = trackingRepository.findTopByTrackingCodeOrderByOccurredAtDesc(trackingCode)
+                .orElse(null);
+        if (latest != null) {
+            String latestStatus = latest.getStatus() != null
+                    ? latest.getStatus().trim().toUpperCase(Locale.ROOT) : "";
+            if (Set.of("DELIVERED", "RETURNED", "CANCELLED").contains(latestStatus)) {
+                log.info("[TRACKING-SERVICE] Bỏ qua legacy event sau trạng thái kết thúc {} cho {}",
+                        latestStatus, trackingCode);
+                return;
+            }
+            if (latest.getOccurredAt() != null && latest.getOccurredAt().isAfter(occurredAt)) {
+                log.info("[TRACKING-SERVICE] Bỏ qua legacy event đến trễ cho {}: {} < {}",
+                        trackingCode, occurredAt, latest.getOccurredAt());
+                return;
+            }
+            if (latest.getOccurredAt() != null && latest.getOccurredAt().equals(occurredAt)
+                    && status.equalsIgnoreCase(latest.getStatus())
+                    && locCode.equalsIgnoreCase(latest.getLocationCode())) {
+                return;
             }
         }
+
+        TrackingHistory trackingHistory = TrackingHistory.builder()
+                .trackingCode(trackingCode)
+                .status(status)
+                .locationCode(locCode)
+                .node(node)
+                .occurredAt(occurredAt)
+                .eventId(legacyEventId)
+                .build();
+        trackingRepository.save(trackingHistory);
+
+        // updateRedisProjection rechecks SQL ordering, so an older legacy event
+        // cannot overwrite a newer lifecycle projection.
+        updateRedisProjection(trackingCode, status, locCode, occurredAt);
+        log.info("[TRACKING-SERVICE] Đã lưu legacy hành trình cho đơn: {} -> {} | loc: {}",
+                trackingCode, status, locCode);
     }
 }

@@ -44,6 +44,7 @@ public class JwtServiceImpl implements JwtService {
                 .claim("userId", user.getId())
                 .claim("roles", rolesName)
                 .claim("fullname", user.getFullName())
+                .claim("locationCode", user.getLocationCode())
                 .claim("permissions", permissions)
                 .issuedAt(now)
                 .expiration(expiryDate)

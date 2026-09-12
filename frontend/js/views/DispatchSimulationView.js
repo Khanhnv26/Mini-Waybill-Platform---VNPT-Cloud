@@ -33,6 +33,7 @@
             const routeInfo = ref(null);
             const routingOperations = ref([]);
             const routingInventory = ref([]);
+            const routingAssignment = ref(null);
             const activeRoutingTrip = ref(null);
 
             // Màn hình này được giữ lại cho vai trò admin legacy; routing operations luôn được ưu tiên.
@@ -119,34 +120,38 @@
             };
 
             const getSourceLocation = (shipment) => {
-                if (!shipment) return 'HUB-HN-01';
-                return shipment.originPostOffice
-                    || shipment.sourcePostOffice
-                    || shipment.pickupLocationCode
-                    || shipment.sourceHub
-                    || shipment.originHub
-                    || (String(shipment.locationCode || '').startsWith('POST-') ? shipment.locationCode : null)
-                    || 'HUB-HN-01';
+                const assignment = shipment?.routingAssignment || routingAssignment.value;
+                return shipment?.originPostOffice
+                    || shipment?.sourcePostOffice
+                    || shipment?.pickupLocationCode
+                    || assignment?.originPostOffice
+                    || shipment?.sourceHub
+                    || shipment?.originHub
+                    || assignment?.sourceHub
+                    || (String(shipment?.locationCode || '').startsWith('POST-') ? shipment.locationCode : null)
+                    || null;
             };
 
             const getDestinationHub = (shipment) => {
-                if (!shipment) return 'HUB-HCM-01';
-                return shipment.destinationHub
-                    || shipment.destHub
-                    || shipment.destinationHubCode
-                    || shipment.destHubCode
-                    || 'HUB-HCM-01';
+                const assignment = shipment?.routingAssignment || routingAssignment.value;
+                return shipment?.destinationHub
+                    || shipment?.destHub
+                    || shipment?.destinationHubCode
+                    || shipment?.destHubCode
+                    || assignment?.destinationHub
+                    || null;
             };
 
             const getDestinationPostOffice = (shipment) => {
-                if (!shipment) return 'DELIVERY_OFFICE';
-                return shipment.destPostOffice
-                    || shipment.destinationPostOffice
-                    || shipment.dropoffLocationCode
-                    || shipment.postOfficeCode
-                    || shipment.deliveryOffice
-                    || (String(shipment.locationCode || '').startsWith('POST-') ? shipment.locationCode : null)
-                    || getDestinationHub(shipment);
+                const assignment = shipment?.routingAssignment || routingAssignment.value;
+                return shipment?.destPostOffice
+                    || shipment?.destinationPostOffice
+                    || shipment?.dropoffLocationCode
+                    || shipment?.postOfficeCode
+                    || shipment?.deliveryOffice
+                    || assignment?.destPostOffice
+                    || (String(shipment?.locationCode || '').startsWith('POST-') ? shipment.locationCode : null)
+                    || null;
             };
 
             const getTripManifestForShipment = (trip, trackingCode) => {
@@ -193,7 +198,28 @@
                 routingErrorMessage.value = '';
                 routingOperations.value = [];
                 routingInventory.value = [];
+                routingAssignment.value = null;
                 activeRoutingTrip.value = null;
+
+                if (typeof service.getAssignment === 'function') {
+                    try {
+                        const assignment = await service.getAssignment(code);
+                        routingAssignment.value = assignment || null;
+                        if (shipment && assignment) {
+                            shipment.sourceHub = shipment.sourceHub || assignment.sourceHub;
+                            shipment.destinationHub = shipment.destinationHub || assignment.destinationHub;
+                            shipment.originPostOffice = shipment.originPostOffice || assignment.originPostOffice;
+                            shipment.destPostOffice = shipment.destPostOffice || assignment.destPostOffice;
+                            shipment.transportLeg = shipment.transportLeg || assignment.transportLeg;
+                        }
+                    } catch (err) {
+                        // A shipment can exist before the asynchronous routing
+                        // assignment event is consumed; keep the simulator
+                        // usable without manufacturing a station.
+                        if (err?.status !== 404) failures.push('phân tuyến routing');
+                        console.error('[DispatchSimulationView] Lỗi tải phân tuyến routing:', err);
+                    }
+                }
 
                 if (typeof service.getOperationHistory === 'function') {
                     try {
@@ -372,6 +398,106 @@
                     locationCode,
                     nextStep.note
                 );
+            };
+
+            const ensureDestinationFeederDelivered = async (shipment, service, destinationHub, destinationPostOffice) => {
+                if (!destinationHub || !destinationPostOffice) {
+                    throw new Error('Chưa xác định được HUB đích và bưu cục phát từ phân tuyến routing.');
+                }
+
+                const code = shipment.trackingCode;
+                const hasStoredDestinationInventory = (inventory) => {
+                    const item = (Array.isArray(inventory) ? inventory : []).find(row =>
+                        String(row?.trackingCode || '').trim().toUpperCase() === String(code).trim().toUpperCase()
+                    );
+                    return item && String(item.locationCode || '').trim().toUpperCase() === destinationPostOffice
+                        && ['STORED', 'HANDED_TO_COURIER'].includes(String(item.inventoryStatus || '').trim().toUpperCase());
+                };
+
+                try {
+                    const destinationInventory = await service.getInventory(destinationPostOffice);
+                    routingInventory.value = Array.isArray(destinationInventory) ? destinationInventory : [];
+                    if (hasStoredDestinationInventory(routingInventory.value)) return;
+                } catch (err) {
+                    if (err?.status !== 404) throw err;
+                }
+
+                if (typeof service.getAllTrips !== 'function'
+                    || typeof service.autoConsolidate !== 'function'
+                    || typeof service.departTrip !== 'function'
+                    || typeof service.arriveAtStop !== 'function') {
+                    throw new Error('Trip lifecycle cho chặng DESTINATION_FEEDER chưa khả dụng; không thể bỏ qua bước trung chuyển.');
+                }
+
+                const trips = await service.getAllTrips();
+                const sameCode = value => String(value || '').trim().toUpperCase() === code.toUpperCase();
+                const endpointCode = value => String(value || '').trim().toUpperCase();
+                let feederTrip = (Array.isArray(trips) ? trips : []).find(trip => {
+                    const type = String(trip?.tripType || '').trim().toUpperCase();
+                    const stops = Array.isArray(trip?.stops) ? trip.stops : [];
+                    const origin = endpointCode(stops[0]?.hubCode);
+                    const destination = endpointCode(stops[stops.length - 1]?.hubCode);
+                    const hasManifest = Array.isArray(trip?.manifests)
+                        && trip.manifests.some(manifest => sameCode(manifest?.trackingCode)
+                            && String(manifest?.transportLeg || '').trim().toUpperCase() === 'DESTINATION_FEEDER');
+                    return type === 'DESTINATION_FEEDER'
+                        && origin === destinationHub
+                        && destination === destinationPostOffice
+                        && (hasManifest || trip?.status === 'SCHEDULED');
+                });
+
+                if (!feederTrip) {
+                    if (typeof service.createTrip !== 'function') {
+                        throw new Error('Không thể lập chuyến DESTINATION_FEEDER tự động.');
+                    }
+                    feederTrip = await service.createTrip({
+                        routeName: `Phát cuối nguồn ${destinationHub} → ${destinationPostOffice}`,
+                        originHub: destinationHub,
+                        vehiclePlate: shipment.vehiclePlate || 'CHƯA GÁN',
+                        driverName: shipment.driverName || 'Điều phối viên',
+                        tripType: 'DESTINATION_FEEDER',
+                        maxWeight: 5000,
+                        scheduledDepartureTime: undefined,
+                        cutoffBufferMinutes: 30,
+                        stopHubCodes: [destinationHub, destinationPostOffice]
+                    });
+                }
+
+                if (!feederTrip?.id) throw new Error('Không nhận được ID chuyến DESTINATION_FEEDER.');
+                const tripId = feederTrip.id;
+                const tripManifests = Array.isArray(feederTrip.manifests) ? feederTrip.manifests : [];
+                const hasManifest = tripManifests.some(manifest => sameCode(manifest?.trackingCode));
+
+                if (String(feederTrip.status || '').toUpperCase() === 'SCHEDULED') {
+                    if (!hasManifest) {
+                        await service.autoConsolidate(tripId, {
+                            items: [{
+                                trackingCode: code,
+                                originHub: destinationHub,
+                                destinationHub: destinationPostOffice,
+                                weight: shipment.weight || 1,
+                                serviceType: shipment.serviceType || 'EXPRESS'
+                            }]
+                        });
+                    }
+                    feederTrip = await service.departTrip(tripId);
+                }
+
+                const currentStatus = String(feederTrip?.status || '').toUpperCase();
+                if (currentStatus === 'IN_TRANSIT') {
+                    feederTrip = await service.arriveAtStop(tripId, destinationPostOffice);
+                } else if (currentStatus !== 'COMPLETED') {
+                    throw new Error(`Chuyến DESTINATION_FEEDER đang ở trạng thái ${currentStatus || 'không xác định'}, chưa thể dỡ hàng.`);
+                }
+
+                const refreshedInventory = await service.getInventory(destinationPostOffice);
+                routingInventory.value = Array.isArray(refreshedInventory) ? refreshedInventory : [];
+                if (!hasStoredDestinationInventory(routingInventory.value)) {
+                    throw new Error(`Chưa dỡ và nhập kho được ${code} tại ${destinationPostOffice}.`);
+                }
+                shipment.locationCode = destinationPostOffice;
+                shipment.currentLocationCode = destinationPostOffice;
+                shipment.tripCode = feederTrip?.tripCode || shipment.tripCode;
             };
 
             const executeRoutingTransition = async (shipment, nextStep) => {

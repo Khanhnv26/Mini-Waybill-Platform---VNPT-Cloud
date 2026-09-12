@@ -55,8 +55,12 @@ public class InventoryOperationController {
     @GetMapping("/locations/{locationCode}/inventory")
     public ResponseEntity<List<WarehouseInventory>> inventory(
             @PathVariable String locationCode,
-            @RequestParam(required = false) String status) {
-        return ResponseEntity.ok(operationService.getInventory(locationCode, status));
+            @RequestParam(required = false) String status,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles,
+            @RequestHeader(value = "X-User-Permissions", required = false) String permissions,
+            @RequestHeader(value = "X-User-Location-Code", required = false) String actorLocationCode) {
+        return ResponseEntity.ok(operationService.getInventory(
+                locationCode, status, roles, permissions, actorLocationCode));
     }
 
     @GetMapping("/shipments/{trackingCode}/operations")

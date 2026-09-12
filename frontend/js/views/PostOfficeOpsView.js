@@ -148,6 +148,10 @@
                 return { code: '', name: 'Chưa xác định' };
             };
 
+            const getInventoryStatus = (item) => normalizeCode(
+                item?.inventoryStatus || item?.inventory_status || item?.inventoryState
+            ).toUpperCase();
+
             const isAtPostOffice = (item) => {
                 if (!item) return false;
                 const loc = (item.locationCode || '').toUpperCase();
@@ -176,50 +180,68 @@
             };
 
             const courierId = computed(getCourierId);
-            const operationStorageKey = 'post-office-ops.operation-id';
-            let sessionOperationId = null;
+            const operationStoragePrefix = 'post-office-ops.operation-id';
+            const operationIdCache = new Map();
 
-            const getSessionOperationId = async () => {
-                if (sessionOperationId) return sessionOperationId;
+            const getSessionOperationId = async (trackingCode, operationName, context = {}) => {
+                const cleanTrackingCode = normalizeCode(trackingCode);
+                const cleanOperationName = normalizeCode(operationName).toLowerCase() || 'operation';
+                // Scope an id to one physical handling context. Reusing a global
+                // tracking-code key can suppress a later return/re-entry operation.
+                const contextParts = [
+                    context.locationCode,
+                    context.transportLeg,
+                    context.tripCode,
+                    context.currentStatus,
+                    context.inventoryStatus
+                ].map(value => normalizeCode(value).toUpperCase() || 'UNKNOWN');
+                const cacheKey = [cleanOperationName, cleanTrackingCode, ...contextParts].join(':');
+                if (operationIdCache.has(cacheKey)) return operationIdCache.get(cacheKey);
 
+                const storageKey = `${operationStoragePrefix}.${cacheKey}`;
+                let operationId = '';
                 try {
-                    sessionOperationId = sessionStorage.getItem(operationStorageKey);
+                    operationId = sessionStorage.getItem(storageKey) || '';
                 } catch (err) {
-                    sessionOperationId = null;
+                    operationId = '';
                 }
-                if (sessionOperationId) return sessionOperationId;
 
-                const routingService = window.RoutingService;
-                const helperName = ['getOrCreateOperationId', 'createOperationId', 'generateOperationId', 'getOperationId']
-                    .find(name => routingService && typeof routingService[name] === 'function');
-                if (helperName) {
-                    try {
-                        const generatedId = await routingService[helperName]();
-                        sessionOperationId = typeof generatedId === 'object'
-                            ? (generatedId?.operationId || generatedId?.id || '')
-                            : generatedId;
-                    } catch (err) {
-                        console.warn('[PostOfficeOpsView] Không tạo được operationId từ RoutingService:', err);
+                if (!normalizeCode(operationId)) {
+                    const routingService = window.RoutingService;
+                    if (routingService && typeof routingService.createOperationId === 'function') {
+                        try {
+                            operationId = routingService.createOperationId(`post-office-${cleanOperationName}`);
+                        } catch (err) {
+                            console.warn('[PostOfficeOpsView] Không tạo được operationId từ RoutingService:', err);
+                        }
                     }
                 }
 
-                if (!normalizeCode(sessionOperationId)) {
+                if (!normalizeCode(operationId)) {
                     const randomPart = window.crypto?.randomUUID
                         ? window.crypto.randomUUID()
                         : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-                    sessionOperationId = `post-office-${randomPart}`;
+                    operationId = `post-office-${cleanOperationName}-${randomPart}`;
                 }
-                sessionOperationId = normalizeCode(sessionOperationId);
+                operationId = normalizeCode(operationId);
+                operationIdCache.set(cacheKey, operationId);
                 try {
-                    sessionStorage.setItem(operationStorageKey, sessionOperationId);
+                    sessionStorage.setItem(storageKey, operationId);
                 } catch (err) {
                     // Private browsing can disable sessionStorage; the in-memory ID is still stable.
                 }
-                return sessionOperationId;
+                return operationId;
             };
 
             const getRoutingService = () => window.RoutingService || null;
             const getShipmentService = () => window.ShipmentService || null;
+
+            const KNOWN_POST_OFFICE_CODES = Object.freeze([
+                'POST-HN-CG', 'POST-HN-DDA', 'POST-HN-HBT', 'POST-HN-TX', 'POST-HN-HD',
+                'POST-HCM-Q1', 'POST-HCM-TB', 'POST-HCM-BT', 'POST-HCM-TD', 'POST-HCM-Q7',
+                'POST-DN-HC', 'POST-DN-TK', 'POST-DN-ST', 'POST-HP-NQ', 'POST-HP-HB',
+                'POST-CT-NK', 'POST-CT-CR'
+            ]);
 
             const unwrapCollection = (value) => {
                 if (Array.isArray(value)) return value;
@@ -227,8 +249,16 @@
                 for (const key of ['items', 'inventory', 'shipments', 'content', 'data', 'results']) {
                     if (Array.isArray(value[key])) return value[key];
                 }
-                return [];
+                return value.trackingCode || value.code ? [value] : [];
             };
+
+            const getErrorStatus = (error) => {
+                const status = error?.status ?? error?.response?.status ?? error?.details?.status;
+                const parsed = Number(status);
+                return Number.isFinite(parsed) ? parsed : null;
+            };
+
+            const isMigrationUnavailable = (error) => [404, 405, 501].includes(getErrorStatus(error));
 
             const normalizeInventoryItem = (item) => {
                 if (!item || typeof item !== 'object') return null;
@@ -242,24 +272,112 @@
                 return normalized.trackingCode ? normalized : null;
             };
 
+            const mergeInventoryWithShipmentProjection = (inventoryItems, shipmentItems) => {
+                const projections = new Map(
+                    shipmentItems
+                        .map(normalizeInventoryItem)
+                        .filter(Boolean)
+                        .map(item => [item.trackingCode.toUpperCase(), item])
+                );
+                return inventoryItems.map(inventory => {
+                    const projection = projections.get(inventory.trackingCode.toUpperCase()) || {};
+                    // Shipment projection supplies customer-facing fields; routing inventory
+                    // remains authoritative for location, inventory state and transport data.
+                    return {
+                        ...projection,
+                        ...inventory,
+                        trackingCode: inventory.trackingCode || projection.trackingCode,
+                        currentStatus: inventory.currentStatus || projection.currentStatus,
+                        status: inventory.status || projection.status
+                    };
+                });
+            };
+
+            const loadShipmentProjections = async () => {
+                const shipmentService = getShipmentService();
+                if (!shipmentService || typeof shipmentService.getAll !== 'function') return [];
+                try {
+                    return unwrapCollection(await shipmentService.getAll())
+                        .map(normalizeInventoryItem)
+                        .filter(Boolean);
+                } catch (error) {
+                    // Projection enrichment is optional; never replace authoritative routing
+                    // inventory with an unscoped shipment list when this request fails.
+                    console.warn('[PostOfficeOpsView] Không thể tải projection vận đơn để bổ sung thông tin:', error);
+                    return [];
+                }
+            };
+
+            const loadPostOfficeLocations = async (routingService) => {
+                const discovered = [];
+                if (routingService && typeof routingService.getAllHubs === 'function') {
+                    try {
+                        const hubs = unwrapCollection(await routingService.getAllHubs());
+                        hubs.forEach(hub => {
+                            const code = normalizeCode(hub?.hubCode || hub?.locationCode || hub?.code);
+                            const type = String(hub?.hubType || hub?.type || '').toUpperCase();
+                            if (code.startsWith('POST-') || type === 'POST_OFFICE') discovered.push(code);
+                        });
+                    } catch (error) {
+                        console.warn('[PostOfficeOpsView] Không thể đọc danh mục bưu cục để tổng hợp tồn kho:', error);
+                    }
+                }
+                return [...new Set([...discovered, ...KNOWN_POST_OFFICE_CODES])];
+            };
+
+            const loadRoutingInventory = async (routingService, location) => {
+                const locations = location
+                    ? [location]
+                    : await loadPostOfficeLocations(routingService);
+                if (locations.length === 0) {
+                    const error = new Error('Chưa có danh sách bưu cục để tải tồn kho');
+                    error.status = 501;
+                    throw error;
+                }
+                const responses = await Promise.all(locations.map(async code => {
+                    try {
+                        return { available: true, data: await routingService.getInventory(code) };
+                    } catch (error) {
+                        if (isMigrationUnavailable(error)) return { available: false, data: [] };
+                        throw error;
+                    }
+                }));
+                // Do not turn a completely unavailable routing API into a successful
+                // empty result; this keeps the legacy migration fallback reachable.
+                if (responses.every(response => !response.available)) {
+                    const error = new Error('Routing inventory API chưa khả dụng');
+                    error.status = 501;
+                    throw error;
+                }
+                return responses.flatMap(response => unwrapCollection(response.data))
+                    .map(normalizeInventoryItem)
+                    .filter(Boolean);
+            };
+
             const loadAuthoritativeInventory = async () => {
                 const routingService = getRoutingService();
                 const location = isAdmin.value
                     ? (selectedPostOffice.value !== 'ALL' ? normalizeCode(selectedPostOffice.value) : '')
                     : stationCode.value;
 
+                if (!isAdmin.value && !location) {
+                    const error = new Error('Tài khoản chưa được gán bưu cục nên không thể tải tồn kho.');
+                    error.status = 403;
+                    throw error;
+                }
+
                 if (routingService && typeof routingService.getInventory === 'function') {
                     try {
-                        const rawInventory = await routingService.getInventory(location || undefined);
-                        return unwrapCollection(rawInventory).map(normalizeInventoryItem).filter(Boolean);
+                        const inventory = await loadRoutingInventory(routingService, location);
+                        return mergeInventoryWithShipmentProjection(inventory, await loadShipmentProjections());
                     } catch (err) {
-                        console.warn('[PostOfficeOpsView] RoutingService.getInventory chưa khả dụng, dùng fallback migration:', err);
+                        // ShipmentService is a migration fallback only for deployments where
+                        // the routing inventory endpoint is not available at all.
+                        if (!isMigrationUnavailable(err)) throw err;
+                        console.warn('[PostOfficeOpsView] Routing inventory API chưa khả dụng, dùng nguồn di trú:', err);
                     }
                 }
 
-                // ShipmentService is deliberately retained only as a migration fallback
-                // for deployments whose RoutingService has not exposed inventory yet or
-                // temporarily cannot serve the inventory request.
                 const shipmentService = getShipmentService();
                 if (!shipmentService || typeof shipmentService.getAll !== 'function') {
                     throw new Error('Chưa có nguồn dữ liệu tồn kho bưu cục');
@@ -315,21 +433,23 @@
                     throw new Error(`RoutingService chưa hỗ trợ thao tác ${operationName}. Vui lòng cập nhật dịch vụ định tuyến.`);
                 }
 
+                if (operationName === 'handoffToCourier') {
+                    const payload = {
+                        trackingCode,
+                        operationId,
+                        note: extra.note,
+                        courierId: extra.courierId
+                    };
+                    return operation.call(routingService, locationCode, payload, extra.courierId);
+                }
+
                 const payload = {
-                    trackingCode,
-                    locationCode,
+                    trackingCodes: [trackingCode],
                     operationId,
+                    note: extra.note,
                     ...extra
                 };
-                const positionalArgs = operationName === 'handoffToCourier'
-                    ? [trackingCode, locationCode, extra.courierId, operationId, extra.note]
-                    : [trackingCode, locationCode, operationId, extra.note];
-
-                // Support both the positional helper contract and a single-payload
-                // helper while the routing client is being rolled out.
-                return operation.length === 1
-                    ? operation.call(routingService, payload)
-                    : operation.call(routingService, ...positionalArgs);
+                return operation.call(routingService, locationCode, payload);
             };
 
             // Thống kê nhanh KPI Bưu Cục
@@ -445,16 +565,40 @@
 
             // 5. Thao tác nghiệp vụ Bưu Cục
             const executePhysicalOperation = async ({ cleanCode, targetStatus, locationCode, targetShipment, note }) => {
-                const operationId = await getSessionOperationId();
                 let hadConflict = false;
                 const run = async (operationName, extra = {}) => {
+                    const operationId = await getSessionOperationId(cleanCode, operationName, {
+                        locationCode,
+                        transportLeg: targetShipment?.transportLeg,
+                        tripCode: targetShipment?.tripCode || targetShipment?.activeTripCode,
+                        currentStatus: targetShipment?.currentStatus,
+                        inventoryStatus: getInventoryStatus(targetShipment)
+                    });
                     try {
+                        const publicStatuses = new Set([
+                            'CREATED', 'PENDING_ROUTING', 'ROUTE_ASSIGNED', 'PICKED_UP', 'IN_TRANSIT',
+                            'ARRIVED_DEST_HUB', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DELIVERY_FAILED',
+                            'CANCELLED', 'RETURNING', 'RETURNED'
+                        ]);
+                        const currentStatus = normalizeCode(targetShipment?.currentStatus).toUpperCase();
+                        const operationExtra = { ...extra, note };
+                        if (operationName !== 'handoffToCourier') {
+                            // Receiving at the origin counter is the public transition
+                            // from ROUTE_ASSIGNED/PENDING_ROUTING to PICKED_UP.
+                            const receiveStatus = operationName === 'receiveAtLocation'
+                                && ['ROUTE_ASSIGNED', 'PENDING_ROUTING'].includes(currentStatus)
+                                ? 'PICKED_UP'
+                                : currentStatus;
+                            operationExtra.shipmentStatus = publicStatuses.has(receiveStatus)
+                                ? receiveStatus
+                                : 'PICKED_UP';
+                        }
                         return await callRoutingOperation(
                             operationName,
                             cleanCode,
                             locationCode,
                             operationId,
-                            { ...extra, note }
+                            operationExtra
                         );
                     } catch (err) {
                         if (!isConflictError(err)) throw err;
@@ -464,24 +608,15 @@
                 };
 
                 if (targetStatus === 'PICKED_UP') {
+                    // Receiving and storing are deliberately separate physical steps.
                     await run('receiveAtLocation');
-                    // Receiving and storing are separate routing operations. If the
-                    // store helper is available, complete both physical steps from
-                    // the existing "Tiếp Nhận Quầy" action.
-                    if (typeof getRoutingService()?.storeAtLocation === 'function') {
-                        await run('storeAtLocation');
-                    }
                 } else if (targetStatus === 'OUT_FOR_DELIVERY') {
                     const currentCourierId = courierId.value || getCourierId();
                     if (!currentCourierId) {
                         throw new Error('Chưa có courierId của bưu tá trong tài khoản/profile. Vui lòng bổ sung mã bưu tá trước khi bàn giao.');
                     }
-                    // A parcel arriving from a hub must be stored at the delivery
-                    // office before it can be handed to a courier.
-                    if (targetShipment?.currentStatus === 'ARRIVED_DEST_HUB' &&
-                        typeof getRoutingService()?.storeAtLocation === 'function') {
-                        await run('storeAtLocation');
-                    }
+                    // The backend requires STORED inventory for handoff. The UI
+                    // exposes a separate "Lưu Kho" action before this operation.
                     await run('handoffToCourier', { courierId: currentCourierId });
                 } else if (targetStatus === 'STORED' || targetStatus === 'IN_STORAGE') {
                     await run('storeAtLocation');
@@ -493,6 +628,7 @@
             };
 
             const handleUpdateStatus = async (trackingCode, targetStatus, customLocation, customNote) => {
+                if (isActionRunning.value) return;
                 if (!trackingCode || !trackingCode.trim()) {
                     Utils.showToast('Thông Báo', 'Vui lòng nhập mã bưu gửi cần xử lý', 'warning');
                     return;
@@ -500,6 +636,10 @@
 
                 const cleanCode = trackingCode.trim();
                 const targetShipment = shipmentsList.value.find(s => s.trackingCode === cleanCode);
+                if (!targetShipment) {
+                    Utils.showToast('Không Tìm Thấy', `Không tìm thấy bưu gửi ${cleanCode} trong tồn kho hoặc projection hiện tại. Vui lòng làm mới dữ liệu trước khi tác nghiệp.`, 'warning');
+                    return;
+                }
                 let locationCode;
                 try {
                     locationCode = getActionLocation(targetStatus, customLocation, targetShipment);
@@ -512,6 +652,10 @@
                     const currentLoc = (targetShipment.locationCode || '').toUpperCase();
                     if (!currentLoc.startsWith('POST-')) {
                         Utils.showToast('Chưa Thể Bàn Giao', `Bưu gửi ${cleanCode} chưa được xe Feeder dỡ vào kho bưu cục. Hiện tại bưu gửi vẫn đang tại [${currentLoc || 'Kho Tổng / Trên Tuyến'}].`, 'warning');
+                        return;
+                    }
+                    if (getInventoryStatus(targetShipment) !== 'STORED') {
+                        Utils.showToast('Chưa Thể Bàn Giao', `Bưu gửi ${cleanCode} chưa được xác nhận nhập kho tại ${currentLoc}. Hãy thực hiện Lưu Kho trước khi bàn giao bưu tá.`, 'warning');
                         return;
                     }
                 }
@@ -610,6 +754,7 @@
                 kpiOutForDelivery,
                 getOriginPostOfficeInfo,
                 getDestPostOfficeInfo,
+                getInventoryStatus,
                 isAtPostOffice,
                 loadShipmentsData,
                 handleUpdateStatus,
@@ -895,7 +1040,17 @@
                                             </button>
                                         </template>
 
-                                        <!-- 2. Khi đã tiếp nhận tại bưu cục: Đang lưu kho chờ xe gom -->
+                                        <!-- 2. Khi đã tiếp nhận tại bưu cục: phải xác nhận lưu kho riêng -->
+                                        <template v-else-if="item.currentStatus === 'PICKED_UP' && getInventoryStatus(item) !== 'STORED'">
+                                            <button
+                                                @click="handleStoreAtLocation(item.trackingCode, item.locationCode || selectedPostOffice, 'Bưu cục đã xác nhận lưu kho sau khi tiếp nhận tại quầy')"
+                                                :disabled="isActionRunning"
+                                                class="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold transition shadow-sm text-[11px] disabled:opacity-50"
+                                                title="Xác nhận bưu gửi đã được nhập kho bưu cục"
+                                            >
+                                                Lưu Kho
+                                            </button>
+                                        </template>
                                         <template v-else-if="item.currentStatus === 'PICKED_UP'">
                                             <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200">
                                                 <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
@@ -913,15 +1068,27 @@
 
                                         <!-- 4. Khi hàng đã đến Kho Tổng / Bưu cục phát (ARRIVED_DEST_HUB) -->
                                         <template v-else-if="item.currentStatus === 'ARRIVED_DEST_HUB'">
-                                            <button 
-                                                v-if="(item.locationCode || '').toUpperCase().startsWith('POST-')"
-                                                @click="handleUpdateStatus(item.trackingCode, 'OUT_FOR_DELIVERY', getDestPostOfficeInfo(item).code, 'Bưu cục đã bàn giao bưu gửi cho bưu tá đi phát')"
-                                                :disabled="isActionRunning"
-                                                class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold transition shadow-sm text-[11px]"
-                                                title="Bàn giao bưu phẩm cho bưu tá phát chặng cuối"
-                                            >
-                                                Bàn Giao Bưu Tá
-                                            </button>
+                                            <template v-if="(item.locationCode || '').toUpperCase().startsWith('POST-')">
+                                                <button
+                                                    v-if="getInventoryStatus(item) === 'RECEIVED'"
+                                                    @click="handleStoreAtLocation(item.trackingCode, item.locationCode, 'Bưu cục phát xác nhận nhập kho sau khi nhận từ xe trung chuyển')"
+                                                    :disabled="isActionRunning"
+                                                    class="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold transition shadow-sm text-[11px] disabled:opacity-50"
+                                                    title="Xác nhận nhập kho bưu cục phát trước khi bàn giao"
+                                                >
+                                                    Lưu Kho
+                                                </button>
+                                                <button
+                                                    v-else-if="getInventoryStatus(item) === 'STORED'"
+                                                    @click="handleUpdateStatus(item.trackingCode, 'OUT_FOR_DELIVERY', item.locationCode, 'Bưu cục đã bàn giao bưu gửi cho bưu tá đi phát')"
+                                                    :disabled="isActionRunning"
+                                                    class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold transition shadow-sm text-[11px] disabled:opacity-50"
+                                                    title="Bàn giao bưu phẩm cho bưu tá phát chặng cuối"
+                                                >
+                                                    Bàn Giao Bưu Tá
+                                                </button>
+                                                <span v-else class="text-slate-400 text-[11px]">Đang đồng bộ tồn kho</span>
+                                            </template>
                                             <span v-else class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200" title="Bưu phẩm đã dỡ tại Kho Tổng đích, chờ xe Feeder chuyển về bưu cục">
                                                 <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
                                                 Tại Kho Tổng (Chờ Feeder Về)
@@ -1019,7 +1186,7 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 font-medium">
-                            <tr v-for="item in shipmentsList.filter(s => s.currentStatus === 'PICKED_UP' || s.currentStatus === 'ARRIVED_DEST_HUB')" :key="item.id" class="hover:bg-cyan-50/30">
+                            <tr v-for="item in filteredShipments.filter(s => s.currentStatus === 'PICKED_UP' || s.currentStatus === 'ARRIVED_DEST_HUB')" :key="item.id" class="hover:bg-cyan-50/30">
                                 <td class="py-2.5 px-3">
                                     <button 
                                         type="button"
@@ -1056,10 +1223,11 @@
                                     >
                                         Chờ Điều Phối Xe
                                     </span>
-                                    <button 
+                                    <button
                                         v-else-if="(item.locationCode || '').toUpperCase().startsWith('POST-')"
                                         @click="handleUpdateStatus(item.trackingCode, 'OUT_FOR_DELIVERY', getDestPostOfficeInfo(item).code, 'Bàn giao bưu phẩm cho bưu tá đi phát')"
-                                        class="px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded font-bold hover:bg-emerald-100"
+                                        :disabled="isActionRunning"
+                                        class="px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded font-bold hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Giao Bưu Tá
                                     </button>

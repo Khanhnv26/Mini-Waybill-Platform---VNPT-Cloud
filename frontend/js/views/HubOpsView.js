@@ -117,13 +117,17 @@
         return String(value);
     };
 
+    const KNOWN_HUB_CODES = Object.freeze([
+        'HUB-HN-01', 'HUB-DN-01', 'HUB-HCM-01', 'HUB-HP-01', 'HUB-CT-01'
+    ]);
+
     const unwrapCollection = (value) => {
         if (Array.isArray(value)) return value;
         if (!value || typeof value !== 'object') return [];
         for (const key of ['items', 'content', 'inventory', 'shipments', 'results', 'data']) {
             if (value[key] !== undefined) return unwrapCollection(value[key]);
         }
-        return value.trackingCode || value.code ? [value] : [];
+        return value.trackingCode || value.code || value.hubCode ? [value] : [];
     };
 
     const errorStatus = (error) => {
@@ -156,7 +160,27 @@
             const hubsList = ref([]);
             const scanInputCode = ref('');
             const stationContext = ref(resolveStationContext());
-            const selectedHub = ref(stationContext.value.code || 'ALL');
+            const isAdmin = computed(() => {
+                try {
+                    if (typeof Auth !== 'undefined' && typeof Auth.hasRole === 'function'
+                        && (Auth.hasRole('ROLE_ADMIN') || Auth.hasRole('ADMIN'))) return true;
+                    const user = typeof Auth !== 'undefined' && typeof Auth.getUser === 'function'
+                        ? (Auth.getUser() || {}) : {};
+                    const claims = typeof Auth !== 'undefined' && typeof Auth.decodeJwtPayload === 'function'
+                        ? (Auth.decodeJwtPayload() || {}) : {};
+                    const roles = [
+                        user.roles, user.role, user.authorities,
+                        claims.roles, claims.role, claims.authorities
+                    ].flatMap(value => Array.isArray(value) ? value : (value ? [value] : []));
+                    return roles.some(role => {
+                        const normalized = String(role?.authority || role?.name || role).toUpperCase();
+                        return normalized === 'ROLE_ADMIN' || normalized === 'ADMIN';
+                    });
+                } catch (error) {
+                    return false;
+                }
+            });
+            const selectedHub = ref(stationContext.value.code || (isAdmin.value ? 'ALL' : ''));
             const selectedStatusFilter = ref('ALL');
             const searchQuery = ref('');
 
@@ -183,7 +207,7 @@
                 const stations = new Map();
                 const addStation = (code, name) => {
                     const normalizedCode = asCode(code);
-                    if (!normalizedCode) return;
+                    if (!normalizedCode || !normalizedCode.startsWith('HUB-')) return;
                     stations.set(normalizedCode, asNonBlankString(name) || getStationName(normalizedCode) || normalizedCode);
                 };
 
@@ -202,7 +226,8 @@
 
             const currentActionLocation = computed(() => {
                 if (selectedHub.value !== 'ALL') return asCode(selectedHub.value);
-                return asCode(stationContext.value.code);
+                // ALL is an aggregation scope, never an implicit mutation location.
+                return isAdmin.value ? '' : asCode(stationContext.value.code);
             });
 
             const operationalStatus = (item) => asCode(
@@ -269,6 +294,79 @@
                 .map(item => normalizeInventoryItem(item, source))
                 .filter(item => asNonBlankString(item.trackingCode));
 
+            const mergeInventoryWithShipmentProjection = (inventoryItems, shipmentItems) => {
+                const projections = new Map(
+                    shipmentItems
+                        .map(item => normalizeInventoryItem(item, 'shipment-projection'))
+                        .filter(Boolean)
+                        .map(item => [asCode(item.trackingCode), item])
+                );
+                return inventoryItems.map(inventory => {
+                    const projection = projections.get(asCode(inventory.trackingCode)) || {};
+                    return {
+                        ...projection,
+                        ...inventory,
+                        trackingCode: inventory.trackingCode || projection.trackingCode,
+                        currentStatus: inventory.currentStatus || projection.currentStatus,
+                        status: inventory.status || projection.status
+                    };
+                });
+            };
+
+            const loadShipmentProjections = async () => {
+                if (typeof ShipmentService === 'undefined' || typeof ShipmentService.getAll !== 'function') return [];
+                try {
+                    return normalizeCollection(await ShipmentService.getAll(), 'shipment-projection');
+                } catch (error) {
+                    console.warn('[HubOpsView] Không thể tải projection vận đơn để bổ sung thông tin:', error);
+                    return [];
+                }
+            };
+
+            const loadHubLocations = async () => {
+                let knownHubs = hubsList.value;
+                if (knownHubs.length === 0 && typeof RoutingService !== 'undefined'
+                    && typeof RoutingService.getAllHubs === 'function') {
+                    try {
+                        const data = await RoutingService.getAllHubs();
+                        knownHubs = unwrapCollection(data);
+                        hubsList.value = knownHubs;
+                    } catch (error) {
+                        console.warn('[HubOpsView] Không thể đọc danh mục hub khi tổng hợp tồn kho:', error);
+                    }
+                }
+                const discovered = knownHubs
+                    .map(hub => asCode(readFirstField(hub, ['hubCode', 'locationCode', 'code'])))
+                    .filter(code => code.startsWith('HUB-'));
+                if (discovered.length > 0) return [...new Set(discovered)];
+                return [...KNOWN_HUB_CODES];
+            };
+
+            const loadRoutingInventory = async (routingService, location) => {
+                const locations = location ? [location] : await loadHubLocations();
+                if (locations.length === 0) return [];
+                const responses = await Promise.all(locations.map(async code => {
+                    try {
+                        return { available: true, data: await routingService.getInventory(code) };
+                    } catch (error) {
+                        if (errorStatus(error) === 404 || errorStatus(error) === 405 || errorStatus(error) === 501) {
+                            return { available: false, data: [] };
+                        }
+                        throw error;
+                    }
+                }));
+                // Keep the migration fallback reachable when every routing endpoint
+                // is absent instead of treating an unavailable API as empty stock.
+                if (responses.every(response => !response.available)) {
+                    const error = new Error('Routing inventory API chưa khả dụng');
+                    error.status = 501;
+                    throw error;
+                }
+                return responses.flatMap(response => unwrapCollection(response.data))
+                    .map(item => normalizeInventoryItem(item, 'routing'))
+                    .filter(item => asNonBlankString(item.trackingCode));
+            };
+
             const mergeOptimisticItems = (nextItems) => {
                 const now = Date.now();
                 return nextItems.map(item => {
@@ -332,15 +430,19 @@
             const loadShipmentsData = async (silent = false) => {
                 if (!silent) isLoading.value = true;
                 try {
-                    const canReadInventory = typeof RoutingService !== 'undefined'
-                        && typeof RoutingService.getInventory === 'function'
-                        && currentActionLocation.value;
-
-                    if (canReadInventory) {
+                    if (!isAdmin.value && !currentActionLocation.value) {
+                        throw new Error('Tài khoản chưa được gán hub nên không thể tải tồn kho.');
+                    }
+                    const routingService = typeof RoutingService !== 'undefined' ? RoutingService : null;
+                    if (routingService && typeof routingService.getInventory === 'function') {
                         try {
-                            const data = await RoutingService.getInventory(selectedHub.value);
+                            const location = selectedHub.value !== 'ALL' ? asCode(selectedHub.value) : '';
+                            const inventory = await loadRoutingInventory(routingService, location);
+                            const projections = await loadShipmentProjections();
                             inventorySource.value = 'routing';
-                            shipmentsList.value = mergeOptimisticItems(normalizeCollection(data, 'routing'));
+                            shipmentsList.value = mergeOptimisticItems(
+                                mergeInventoryWithShipmentProjection(inventory, projections)
+                            );
                             return;
                         } catch (error) {
                             // Không che lỗi phân quyền/xung đột bằng dữ liệu cũ. Chỉ fallback khi endpoint chưa có.
@@ -435,13 +537,17 @@
                 return filteredShipments.value.slice(start, start + pageSize.value);
             });
 
-            watch([selectedHub, selectedStatusFilter, searchQuery, pageSize], () => {
+            watch([selectedStatusFilter, searchQuery, pageSize], () => {
                 currentPage.value = 1;
-                if (selectedHub.value !== 'ALL') loadShipmentsData();
+            });
+
+            watch(selectedHub, () => {
+                currentPage.value = 1;
+                loadShipmentsData();
             });
 
             watch(() => stationContext.value.code, (newCode) => {
-                if (newCode && selectedHub.value === 'ALL') selectedHub.value = newCode;
+                if (!isAdmin.value && newCode) selectedHub.value = newCode;
             });
 
             const canReceive = (item) => ['ROUTE_ASSIGNED', 'PENDING_ROUTING'].includes(operationalStatus(item))
@@ -451,9 +557,17 @@
                 || asCode(getInventoryStatus(item)) === 'RECEIVED';
 
             const makeOperationPayload = (item, operation, note) => {
+                const publicStatuses = new Set([
+                    'CREATED', 'PENDING_ROUTING', 'ROUTE_ASSIGNED', 'PICKED_UP', 'IN_TRANSIT',
+                    'ARRIVED_DEST_HUB', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DELIVERY_FAILED',
+                    'CANCELLED', 'RETURNING', 'RETURNED'
+                ]);
+                const currentStatus = asCode(item?.currentStatus);
                 const payload = {
                     trackingCodes: [asNonBlankString(item?.trackingCode)],
-                    shipmentStatus: operation === 'receive' ? 'PICKED_UP' : 'IN_TRANSIT',
+                    // Hub handling changes physical inventory only. Keep the public
+                    // shipment status from the projection instead of forcing IN_TRANSIT.
+                    shipmentStatus: publicStatuses.has(currentStatus) ? currentStatus : 'IN_TRANSIT',
                     note
                 };
                 const transportLeg = getTransportLeg(item);
@@ -496,6 +610,7 @@
 
             // 4. Tác nghiệp kho phải đi qua RoutingService, không giả lập bằng tracking status.
             const handleInventoryOperation = async (item, operation) => {
+                if (isActionRunning.value) return;
                 const cleanCode = asNonBlankString(item?.trackingCode);
                 if (!cleanCode) {
                     showToast('Thông Báo', 'Vui lòng nhập mã bưu gửi cần xử lý', 'warning');
@@ -529,8 +644,11 @@
                         targetItem.locationCode = locationCode;
                         targetItem.inventoryStatus = operation === 'receive' ? 'RECEIVED' : 'STORED';
                         targetItem.rawInventoryStatus = targetItem.inventoryStatus;
-                        targetItem.currentStatus = operation === 'receive' ? 'PICKED_UP' : 'IN_TRANSIT';
-                        targetItem.status = targetItem.currentStatus;
+                        const existingStatus = operationalStatus(targetItem);
+                        if (existingStatus && !['RECEIVED', 'STORED'].includes(existingStatus)) {
+                            targetItem.currentStatus = existingStatus;
+                            targetItem.status = existingStatus;
+                        }
                         targetItem._optimisticTimestamp = Date.now();
                     }
 
@@ -557,8 +675,11 @@
                     showToast('Yêu Cầu Nhập Mã', 'Vui lòng quét hoặc nhập mã vận đơn để thực hiện tác nghiệp', 'warning');
                     return;
                 }
-                const item = shipmentsList.value.find(current => current.trackingCode === cleanCode)
-                    || { trackingCode: cleanCode };
+                const item = shipmentsList.value.find(current => current.trackingCode === cleanCode);
+                if (!item) {
+                    showToast('Không Tìm Thấy', `Không tìm thấy bưu gửi ${cleanCode} trong tồn kho hoặc projection hiện tại. Vui lòng làm mới dữ liệu trước khi tác nghiệp.`, 'warning');
+                    return;
+                }
                 return handleInventoryOperation(item, operation);
             };
 
@@ -580,7 +701,7 @@
 
             onMounted(async () => {
                 stationContext.value = resolveStationContext();
-                if (stationContext.value.code && selectedHub.value === 'ALL') {
+                if (!isAdmin.value && stationContext.value.code) {
                     selectedHub.value = stationContext.value.code;
                 }
                 await Promise.all([
@@ -598,6 +719,7 @@
                 shipmentsList,
                 scanInputCode,
                 stationContext,
+                isAdmin,
                 selectedHub,
                 selectedStatusFilter,
                 searchQuery,
@@ -744,16 +866,16 @@
                     <button
                         type="button"
                         @click="handleQuickScan('receive')"
-                        :disabled="isActionRunning"
-                        class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg text-xs transition shadow-sm disabled:opacity-50"
+                        :disabled="isActionRunning || !currentActionLocation"
+                        class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg text-xs transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Tiếp Nhận
                     </button>
                     <button
                         type="button"
                         @click="handleQuickScan('store')"
-                        :disabled="isActionRunning"
-                        class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition shadow-sm disabled:opacity-50"
+                        :disabled="isActionRunning || !currentActionLocation"
+                        class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Lưu Kho
                     </button>
@@ -770,9 +892,10 @@
                     />
                     <select
                         v-model="selectedHub"
-                        class="px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-xs font-bold text-blue-900 focus:bg-white focus:border-blue-600 outline-none transition"
+                        :disabled="!isAdmin"
+                        class="px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-xs font-bold text-blue-900 focus:bg-white focus:border-blue-600 outline-none transition disabled:opacity-80 disabled:cursor-not-allowed"
                     >
-                        <option value="ALL">Tất cả trạm</option>
+                        <option v-if="isAdmin" value="ALL">Tất cả trạm</option>
                         <option v-for="station in availableStations" :key="station.code" :value="station.code">
                             {{ station.code }} - {{ station.name }}
                         </option>

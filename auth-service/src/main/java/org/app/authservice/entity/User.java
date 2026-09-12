@@ -43,6 +43,14 @@ public class User {
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
+    /**
+     * Trusted operational station assignment. This value is managed by an
+     * administrator and is copied into the signed JWT used by downstream
+     * services for station-level authorization.
+     */
+    @Column(name = "location_code", length = 50)
+    private String locationCode;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

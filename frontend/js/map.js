@@ -1847,9 +1847,20 @@
             let latestLoc = null;
             let latestNote = '';
             if (Array.isArray(history) && history.length > 0) {
-                const lastItem = history[history.length - 1];
-                latestLoc = lastItem.locationCode || null;
-                latestNote = lastItem.node || lastItem.note || '';
+                const historyTime = (item) => {
+                    const raw = item?.occurredAt || item?.timestamp || item?.createdAt;
+                    const parsed = raw ? new Date(raw).getTime() : NaN;
+                    return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
+                };
+                const latestItem = history.reduce((latest, item) => {
+                    const latestTime = historyTime(latest);
+                    const itemTime = historyTime(item);
+                    if (itemTime > latestTime) return item;
+                    if (itemTime === latestTime && Number(item?.id || 0) > Number(latest?.id || 0)) return item;
+                    return latest;
+                }, history[0]);
+                latestLoc = latestItem.locationCode || null;
+                latestNote = latestItem.node || latestItem.note || '';
             }
             this.updateProgress(currentStatus, latestNote, latestLoc);
 

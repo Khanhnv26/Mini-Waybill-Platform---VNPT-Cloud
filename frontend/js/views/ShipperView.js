@@ -249,7 +249,7 @@
                     const inventoryStatus = String(
                         inventory.inventoryStatus || inventory.status || inventory.state || ''
                     ).trim().toUpperCase();
-                    if (inventoryStatus && !['RECEIVED', 'STORED'].includes(inventoryStatus)) return false;
+                    if (inventoryStatus && inventoryStatus !== 'STORED') return false;
                 }
                 const latestOperation = getLatestOperation(projection?.operations || []);
                 return getOperationType(latestOperation) !== 'HANDED_TO_COURIER';
@@ -275,13 +275,14 @@
 
             const getCourierIdentifier = () => {
                 const user = typeof Auth !== 'undefined' ? Auth.getUser?.() : null;
-                return String(firstNonBlank(
+                const identifier = firstNonBlank(
+                    user?.courierId,
+                    user?.employeeCode,
+                    user?.staffCode,
                     user?.id,
-                    user?.userId,
-                    user?.username,
-                    user?.email,
-                    'SHIPPER'
-                ));
+                    user?.userId
+                );
+                return identifier ? String(identifier).trim() : '';
             };
 
             const formatShipmentStatus = (status) => {
@@ -465,8 +466,13 @@
 
             // 2. Lọc danh sách bưu gửi của bưu tá
             const deliveryShipments = computed(() => {
-                // Bưu tá quan tâm các đơn: Đang đi phát, Phát thất bại, Đã giao thành công, hoặc Đang luân chuyển đến
-                let list = shipmentsList.value;
+                // A shipper view is final-mile only; do not expose pre-routing and
+                // origin/linehaul cargo merely because ShipmentService returns all rows.
+                const finalMileStatuses = new Set([
+                    'ARRIVED_DEST_HUB', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED',
+                    'DELIVERED', 'RETURNING', 'RETURNED'
+                ]);
+                let list = shipmentsList.value.filter(item => finalMileStatuses.has(getShipmentStatus(item)));
 
                 if (selectedStatusFilter.value !== 'ALL') {
                     list = list.filter(s => getShipmentStatus(s) === selectedStatusFilter.value);
@@ -693,7 +699,7 @@
                     }
 
                     const locationCode = getPhysicalLocationCode(shipment);
-                    if (!isPostOfficeLocation(locationCode) || typeof Api === 'undefined' || !Api.post) {
+                    if (!isPostOfficeLocation(locationCode)) {
                         Utils.showToast('Thiếu Dữ Liệu Bàn Giao', 'Không xác định được bưu cục phát hoặc dịch vụ tồn kho chưa sẵn sàng. Không thể tự ý bàn giao.', 'error');
                         return;
                     }
@@ -703,23 +709,29 @@
                         getProjection(shipment)?.operations,
                         false
                     );
+                    const courierIdentifier = getCourierIdentifier();
+                    if (!courierIdentifier) {
+                        Utils.showToast('Thiếu Mã Bưu Tá', 'Tài khoản hiện tại chưa có mã bưu tá/nhân viên hợp lệ để bàn giao.', 'warning');
+                        return;
+                    }
                     const note = `Bưu cục ${destination.name} (${locationCode}) bàn giao bưu gửi cho bưu tá đi phát chặng cuối`;
                     const operationId = `SHIPPER_HANDOFF:${shipment.trackingCode}:${locationCode}`;
+                    const routing = window.RoutingService;
+                    if (!routing || typeof routing.handoffToCourier !== 'function') {
+                        Utils.showToast('Thiếu Dịch Vụ Định Tuyến', 'Không thể bàn giao khi routing inventory API chưa sẵn sàng.', 'error');
+                        return;
+                    }
                     isActionRunning.value = true;
                     try {
-                        const response = await Api.post(
-                            `/api/routing/locations/${encodeURIComponent(locationCode)}/handoff`,
+                        const result = await routing.handoffToCourier(
+                            locationCode,
                             {
                                 trackingCode: shipment.trackingCode,
-                                courierId: getCourierIdentifier(),
                                 operationId,
                                 note
-                            }
+                            },
+                            courierIdentifier
                         );
-                        if (!response.ok) {
-                            throw new Error(await parseApiError(response, 'Không thể bàn giao tồn kho cho bưu tá'));
-                        }
-                        const result = await response.json().catch(() => null);
                         updateOptimisticShipment(shipment.trackingCode, 'OUT_FOR_DELIVERY', locationCode);
                         recordLocalOperation(shipment.trackingCode, 'HANDED_TO_COURIER', locationCode, note);
                         const currentProjection = routingProjections.value[shipment.trackingCode] || {};
@@ -812,6 +824,7 @@
                 canShowDeliveryActions,
                 isReadyForCourierHandoff,
                 canRetryDelivery,
+                getShipmentStatus,
                 formatShipmentStatus,
                 getShipmentStatusBadgeClass,
                 refreshServerProjections,

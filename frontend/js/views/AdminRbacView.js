@@ -38,10 +38,32 @@
             const userCurrentPage = ref(1);
             const userPageSize = ref(5);
 
-            // Modal Cấp phát vai trò
+            const stationOptions = [
+                { code: 'POST-HN-CG', label: 'Bưu cục Cầu Giấy (Hà Nội)' },
+                { code: 'POST-HN-DDA', label: 'Bưu cục Đống Đa (Hà Nội)' },
+                { code: 'POST-HN-HBT', label: 'Bưu cục Hai Bà Trưng (Hà Nội)' },
+                { code: 'POST-HN-TX', label: 'Bưu cục Thanh Xuân (Hà Nội)' },
+                { code: 'POST-HN-HD', label: 'Bưu cục Hà Đông (Hà Nội)' },
+                { code: 'POST-DN-HC', label: 'Bưu cục Hải Châu (Đà Nẵng)' },
+                { code: 'POST-DN-TK', label: 'Bưu cục Thanh Khê (Đà Nẵng)' },
+                { code: 'POST-DN-ST', label: 'Bưu cục Sơn Trà (Đà Nẵng)' },
+                { code: 'POST-HCM-Q1', label: 'Bưu cục Quận 1 (TP.HCM)' },
+                { code: 'POST-HCM-TB', label: 'Bưu cục Tân Bình (TP.HCM)' },
+                { code: 'POST-HCM-BT', label: 'Bưu cục Bình Thạnh (TP.HCM)' },
+                { code: 'HUB-HN-01', label: 'Siêu HUB Hà Nội' },
+                { code: 'HUB-HP-01', label: 'HUB Hải Phòng' },
+                { code: 'HUB-DN-01', label: 'Siêu HUB Đà Nẵng' },
+                { code: 'HUB-HCM-01', label: 'Siêu HUB TP.HCM' },
+                { code: 'HUB-CT-01', label: 'HUB Cần Thơ' }
+            ];
+
+            // Modal Cấp phát vai trò và trạm tác nghiệp
             const editingUser = ref(null);
             const userRolesForm = reactive({
                 roles: []
+            });
+            const userLocationForm = reactive({
+                locationCode: ''
             });
             const showRoleModal = ref(false);
 
@@ -204,9 +226,10 @@
 
                 const q = userSearchQuery.value.trim().toLowerCase();
                 if (q) {
-                    list = list.filter(u => 
+                    list = list.filter(u =>
                         (u.fullName && u.fullName.toLowerCase().includes(q)) ||
                         (u.email && u.email.toLowerCase().includes(q)) ||
+                        (u.locationCode && u.locationCode.toLowerCase().includes(q)) ||
                         (u.roles && u.roles.some(r => r.toLowerCase().includes(q)))
                     );
                 }
@@ -244,6 +267,7 @@
             const openEditRolesModal = (user) => {
                 editingUser.value = user;
                 userRolesForm.roles = [...(user.roles || [])];
+                userLocationForm.locationCode = user.locationCode || '';
                 showRoleModal.value = true;
             };
 
@@ -272,9 +296,21 @@
 
                 isSaving.value = true;
                 try {
-                    await AdminService.updateUserRoles(editingUser.value.id, userRolesForm.roles);
-                    editingUser.value.roles = [...userRolesForm.roles];
-                    Utils.showToast('Thành Công', `Đã cấp phát vai trò cho tài khoản ${editingUser.value.email}`);
+                    const requestedLocation = String(userLocationForm.locationCode || '').trim().toUpperCase();
+                    const currentLocation = String(editingUser.value.locationCode || '').trim().toUpperCase();
+                    let updatedUser = editingUser.value;
+
+                    if (requestedLocation !== currentLocation) {
+                        updatedUser = await AdminService.updateUserLocation(
+                            editingUser.value.id,
+                            requestedLocation || null
+                        );
+                    }
+
+                    updatedUser = await AdminService.updateUserRoles(editingUser.value.id, userRolesForm.roles);
+                    editingUser.value.roles = [...(updatedUser.roles || userRolesForm.roles)];
+                    editingUser.value.locationCode = updatedUser.locationCode ?? requestedLocation ?? null;
+                    Utils.showToast('Thành Công', `Đã cập nhật vai trò và trạm tác nghiệp cho tài khoản ${editingUser.value.email}`);
                     showRoleModal.value = false;
                 } catch (err) {
                     Utils.showToast('Lỗi Cập Nhật', err.message, 'error');
@@ -342,11 +378,13 @@
                 userTotalPages,
                 userStartIndex,
                 userEndIndex,
+                stationOptions,
                 filteredUsers,
                 paginatedUsers,
                 goToUserPage,
                 editingUser,
                 userRolesForm,
+                userLocationForm,
                 showRoleModal,
                 openEditRolesModal,
                 toggleUserRole,
@@ -634,6 +672,7 @@
                                     <th class="w-12 py-2.5 px-3 text-xs font-bold tracking-wider text-slate-600">ID</th>
                                     <th class="py-2.5 px-3 text-xs font-bold tracking-wider text-slate-600">THÔNG TIN TÀI KHOẢN</th>
                                     <th class="py-2.5 px-3 text-xs font-bold tracking-wider text-slate-600">TRẠNG THÁI</th>
+                                    <th class="py-2.5 px-3 text-xs font-bold tracking-wider text-slate-600">TRẠM TÁC NGHIỆP</th>
                                     <th class="py-2.5 px-3 text-xs font-bold tracking-wider text-slate-600">VAI TRÒ NGHIỆP VỤ</th>
                                     <th class="text-right py-2.5 px-3 text-xs font-bold tracking-wider text-slate-600">THAO TÁC</th>
                                 </tr>
@@ -666,10 +705,21 @@
                                         </span>
                                     </td>
 
+                                    <td class="py-2.5 px-3 whitespace-nowrap">
+                                        <span
+                                            :class="[
+                                                'px-2 py-0.5 rounded-md text-[10px] font-mono font-bold border inline-flex items-center',
+                                                user.locationCode ? 'bg-cyan-50 text-cyan-700 border-cyan-200' : 'bg-slate-50 text-slate-400 border-slate-200'
+                                            ]"
+                                        >
+                                            {{ user.locationCode || 'Chưa phân công' }}
+                                        </span>
+                                    </td>
+
                                     <td class="py-2.5 px-3">
                                         <div class="flex flex-wrap gap-1">
-                                            <span 
-                                                v-for="role in (user.roles || [])" 
+                                            <span
+                                                v-for="role in (user.roles || [])"
                                                 :key="role"
                                                 :class="[
                                                     'px-2 py-0.5 rounded-md text-[10px] font-semibold border tracking-tight',
@@ -710,7 +760,7 @@
                                 </tr>
 
                                 <tr v-if="filteredUsers.length === 0">
-                                    <td colspan="5" class="text-center py-10 text-slate-400 text-xs">
+                                    <td colspan="6" class="text-center py-10 text-slate-400 text-xs">
                                         Không tìm thấy tài khoản người dùng nào phù hợp.
                                     </td>
                                 </tr>
@@ -791,11 +841,27 @@
 
                     <div class="py-3 space-y-2 max-h-[55vh] overflow-y-auto">
                         <div class="text-xs font-semibold text-slate-700 mb-1">
+                            Chọn trạm tác nghiệp tin cậy cho tài khoản:
+                        </div>
+                        <select
+                            v-model="userLocationForm.locationCode"
+                            class="w-full px-3 py-2 rounded-lg border border-cyan-200 bg-cyan-50/50 text-xs font-semibold text-slate-700 focus:bg-white focus:border-cyan-600 outline-none transition"
+                        >
+                            <option value="">Chưa phân công trạm (không được tác nghiệp tại trạm)</option>
+                            <option v-for="station in stationOptions" :key="station.code" :value="station.code">
+                                {{ station.code }} - {{ station.label }}
+                            </option>
+                        </select>
+                        <p class="text-[10px] text-slate-500 leading-normal mb-3">
+                            Mã này được ký trong JWT sau lần đăng nhập kế tiếp và là căn cứ backend để khóa tác nghiệp sai trạm.
+                        </p>
+
+                        <div class="text-xs font-semibold text-slate-700 mb-1">
                             Chọn các vai trò áp dụng cho tài khoản này:
                         </div>
-                        
-                        <div 
-                            v-for="role in rolesList" 
+
+                        <div
+                            v-for="role in rolesList"
                             :key="role.id"
                             @click="toggleUserRole(role.name)"
                             :title="editingUser?.roles?.includes('ROLE_ADMIN') && role.name === 'ROLE_ADMIN' ? 'Vai trò Quản trị hệ thống không thể gỡ bỏ khỏi tài khoản này' : ''"

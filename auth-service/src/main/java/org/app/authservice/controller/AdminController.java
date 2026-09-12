@@ -1,4 +1,5 @@
 package org.app.authservice.controller;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.app.authservice.dto.admin.*;
 import org.app.authservice.service.AdminService;
@@ -42,5 +43,12 @@ public class AdminController {
             @PathVariable Long userId,
             @RequestBody UpdateUserStatusRequest request) {
         return ResponseEntity.ok(adminService.updateUserStatus(userId, request));
+    }
+
+    @PutMapping("/users/{userId}/location")
+    public ResponseEntity<UserAdminResponse> updateUserLocation(
+            @PathVariable Long userId,
+            @Valid @RequestBody UpdateUserLocationRequest request) {
+        return ResponseEntity.ok(adminService.updateUserLocation(userId, request));
     }
 }
