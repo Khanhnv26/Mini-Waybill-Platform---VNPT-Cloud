@@ -127,4 +127,36 @@ class TripServiceImplTest {
         );
         assertTrue(ex.getMessage().contains("đã cập bến tại trạm"));
     }
+
+    @Test
+    @DisplayName("Cập nhật tiến độ bằng mã trạm tự động tính % và tọa độ không cần nhập số")
+    void updateProgress_WithLocationCodeOnly_ShouldAutoCalculate() {
+        Trip trip = createMockTrip("IN_TRANSIT");
+        trip.setProgressPercent(0.0);
+        List<TripStop> stops = createMockStops(trip);
+        org.app.routingservice.entity.Hub mockHub = org.app.routingservice.entity.Hub.builder()
+                .hubCode("HUB-DN-01")
+                .hubName("Kho Tổng Đà Nẵng")
+                .latitude(16.0544)
+                .longitude(108.2021)
+                .build();
+
+        when(tripRepository.findById(1L)).thenReturn(Optional.of(trip));
+        when(tripStopRepository.findByTripIdOrderByStopOrder(1L)).thenReturn(stops);
+        when(hubRepository.findByHubCode("HUB-DN-01")).thenReturn(Optional.of(mockHub));
+        when(tripRepository.save(any(Trip.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        org.app.routingservice.dto.trip.TripProgressRequest request = org.app.routingservice.dto.trip.TripProgressRequest.builder()
+                .locationCode("HUB-DN-01")
+                .note("Đang di chuyển tới trạm Đà Nẵng")
+                .build();
+
+        TripDetailResponse response = tripService.updateProgress(1L, request, "admin-1", "ROLE_ADMIN", "routing:trip_manage");
+
+        assertNotNull(response);
+        assertEquals("HUB-DN-01", trip.getCurrentHub());
+        assertEquals(50.0, trip.getProgressPercent()); // stop 2 of 3 -> (2-1)/(3-1) = 50%
+        assertEquals(16.0544, trip.getCurrentLatitude());
+        assertEquals(108.2021, trip.getCurrentLongitude());
+    }
 }

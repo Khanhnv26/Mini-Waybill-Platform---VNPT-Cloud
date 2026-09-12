@@ -7,7 +7,7 @@
  */
 
 (function () {
-    const { ref, computed, watch, onMounted } = Vue;
+    const { ref, reactive, computed, watch, onMounted } = Vue;
 
     const PostOfficeOpsView = {
         name: 'PostOfficeOpsView',
@@ -120,30 +120,59 @@
             };
             syncStationSelection();
 
+            const inferDefaultPostOfficeFromAddress = (address) => {
+                if (!address || typeof address !== 'string') return null;
+                const lower = address.toLowerCase();
+                if (lower.includes('hà nội') || lower.includes('ha noi')) {
+                    return { code: 'POST-HN-CG', name: 'Bưu Cục Cầu Giấy (Hà Nội)' };
+                }
+                if (lower.includes('hồ chí minh') || lower.includes('ho chi minh') || lower.includes('hcm') || lower.includes('sài gòn') || lower.includes('sai gon')) {
+                    return { code: 'POST-HCM-Q1', name: 'Bưu Cục Bến Nghé - Quận 1 (TP.HCM)' };
+                }
+                if (lower.includes('đà nẵng') || lower.includes('da nang')) {
+                    return { code: 'POST-DN-HC', name: 'Bưu Cục Hải Châu (Đà Nẵng)' };
+                }
+                if (lower.includes('hải phòng') || lower.includes('hai phong')) {
+                    return { code: 'POST-HP-NQ', name: 'Bưu Cục Ngô Quyền (Hải Phòng)' };
+                }
+                if (lower.includes('cần thơ') || lower.includes('can tho')) {
+                    return { code: 'POST-CT-NK', name: 'Bưu Cục Ninh Kiều (Cần Thơ)' };
+                }
+                return null;
+            };
+
             const getOriginPostOfficeInfo = (item) => {
                 if (!item) return { code: '', name: 'Chưa xác định' };
-                if (item.originPostOffice) {
-                    const code = normalizeCode(item.originPostOffice);
-                    const name = window.MapManager?.hubCoordinates?.[code]?.name || code || 'Chưa xác định';
-                    return { code, name };
+                const directCode = normalizeCode(item.originPostOffice || item.origin_post_office || item.sourcePostOffice);
+                if (directCode) {
+                    const name = window.MapManager?.hubCoordinates?.[directCode]?.name || directCode || 'Chưa xác định';
+                    return { code: directCode, name };
                 }
-                if (item.senderAddress && window.MapManager?.getPostOfficeForAddress) {
-                    const found = window.MapManager.getPostOfficeForAddress(item.senderAddress);
-                    if (found) return { code: normalizeCode(found.code), name: found.name || found.code || 'Chưa xác định' };
+                if (item.senderAddress) {
+                    if (window.MapManager?.getPostOfficeForAddress) {
+                        const found = window.MapManager.getPostOfficeForAddress(item.senderAddress);
+                        if (found) return { code: normalizeCode(found.code), name: found.name || found.code || 'Chưa xác định' };
+                    }
+                    const fallback = inferDefaultPostOfficeFromAddress(item.senderAddress);
+                    if (fallback) return fallback;
                 }
                 return { code: '', name: 'Chưa xác định' };
             };
 
             const getDestPostOfficeInfo = (item) => {
                 if (!item) return { code: '', name: 'Chưa xác định' };
-                if (item.destPostOffice) {
-                    const code = normalizeCode(item.destPostOffice);
-                    const name = window.MapManager?.hubCoordinates?.[code]?.name || code || 'Chưa xác định';
-                    return { code, name };
+                const directCode = normalizeCode(item.destPostOffice || item.dest_post_office || item.destinationPostOffice);
+                if (directCode) {
+                    const name = window.MapManager?.hubCoordinates?.[directCode]?.name || directCode || 'Chưa xác định';
+                    return { code: directCode, name };
                 }
-                if (item.receiverAddress && window.MapManager?.getPostOfficeForAddress) {
-                    const found = window.MapManager.getPostOfficeForAddress(item.receiverAddress);
-                    if (found) return { code: normalizeCode(found.code), name: found.name || found.code || 'Chưa xác định' };
+                if (item.receiverAddress) {
+                    if (window.MapManager?.getPostOfficeForAddress) {
+                        const found = window.MapManager.getPostOfficeForAddress(item.receiverAddress);
+                        if (found) return { code: normalizeCode(found.code), name: found.name || found.code || 'Chưa xác định' };
+                    }
+                    const fallback = inferDefaultPostOfficeFromAddress(item.receiverAddress);
+                    if (fallback) return fallback;
                 }
                 return { code: '', name: 'Chưa xác định' };
             };
@@ -273,14 +302,17 @@
             };
 
             const mergeInventoryWithShipmentProjection = (inventoryItems, shipmentItems) => {
+                const normalizedShipments = shipmentItems
+                    .map(normalizeInventoryItem)
+                    .filter(Boolean);
                 const projections = new Map(
-                    shipmentItems
-                        .map(normalizeInventoryItem)
-                        .filter(Boolean)
-                        .map(item => [item.trackingCode.toUpperCase(), item])
+                    normalizedShipments.map(item => [item.trackingCode.toUpperCase(), item])
                 );
-                return inventoryItems.map(inventory => {
-                    const projection = projections.get(inventory.trackingCode.toUpperCase()) || {};
+                const processedTrackingCodes = new Set();
+                const merged = inventoryItems.map(inventory => {
+                    const trackingCode = (inventory.trackingCode || '').toUpperCase();
+                    if (trackingCode) processedTrackingCodes.add(trackingCode);
+                    const projection = projections.get(trackingCode) || {};
                     // Shipment projection supplies customer-facing fields; routing inventory
                     // remains authoritative for location, inventory state and transport data.
                     return {
@@ -291,6 +323,31 @@
                         status: inventory.status || projection.status
                     };
                 });
+
+                // Bổ sung các vận đơn mới tạo từ ShipmentService chưa có bản ghi tồn kho vật lý
+                // để giao dịch viên có thể thấy ở mục "Chờ Tiếp Nhận Quầy" và thực hiện tiếp nhận
+                normalizedShipments.forEach(shipment => {
+                    const code = (shipment.trackingCode || '').toUpperCase();
+                    if (code && !processedTrackingCodes.has(code)) {
+                        const originPo = getOriginPostOfficeInfo(shipment).code;
+                        const destPo = getDestPostOfficeInfo(shipment).code;
+                        const locationCode = shipment.locationCode || (
+                            ['ROUTE_ASSIGNED', 'PENDING_ROUTING', 'PICKED_UP'].includes(shipment.currentStatus)
+                                ? originPo
+                                : destPo
+                        );
+                        merged.push({
+                            ...shipment,
+                            locationCode,
+                            originPostOffice: originPo,
+                            destPostOffice: destPo,
+                            inventoryStatus: shipment.inventoryStatus || 'AWAITING_INTAKE'
+                        });
+                        processedTrackingCodes.add(code);
+                    }
+                });
+
+                return merged;
             };
 
             const loadShipmentProjections = async () => {
@@ -415,7 +472,7 @@
                 let derivedLocation = '';
                 if (targetStatus === 'PICKED_UP') {
                     derivedLocation = getOriginPostOfficeInfo(targetShipment).code;
-                } else if (targetStatus === 'OUT_FOR_DELIVERY') {
+                } else if (targetStatus === 'OUT_FOR_DELIVERY' || targetStatus === 'ARRIVED_DEST_HUB') {
                     derivedLocation = getDestPostOfficeInfo(targetShipment).code;
                 } else {
                     derivedLocation = normalizeCode(targetShipment?.locationCode);
@@ -557,14 +614,19 @@
                 return filteredShipments.value.slice(start, start + pageSize.value);
             });
 
-            watch([selectedPostOffice, selectedStatusFilter, searchQuery, pageSize], () => {
+            watch(selectedPostOffice, () => {
+                currentPage.value = 1;
+                loadShipmentsData(true);
+            });
+
+            watch([selectedStatusFilter, searchQuery, pageSize], () => {
                 currentPage.value = 1;
             });
 
 
 
             // 5. Thao tác nghiệp vụ Bưu Cục
-            const executePhysicalOperation = async ({ cleanCode, targetStatus, locationCode, targetShipment, note }) => {
+            const executePhysicalOperation = async ({ cleanCode, targetStatus, locationCode, targetShipment, note, courierId: customCourierId }) => {
                 let hadConflict = false;
                 const run = async (operationName, extra = {}) => {
                     const operationId = await getSessionOperationId(cleanCode, operationName, {
@@ -607,13 +669,13 @@
                     }
                 };
 
-                if (targetStatus === 'PICKED_UP') {
+                if (targetStatus === 'PICKED_UP' || targetStatus === 'ARRIVED_DEST_HUB') {
                     // Receiving and storing are deliberately separate physical steps.
                     await run('receiveAtLocation');
                 } else if (targetStatus === 'OUT_FOR_DELIVERY') {
-                    const currentCourierId = courierId.value || getCourierId();
+                    const currentCourierId = customCourierId || courierId.value || getCourierId();
                     if (!currentCourierId) {
-                        throw new Error('Chưa có courierId của bưu tá trong tài khoản/profile. Vui lòng bổ sung mã bưu tá trước khi bàn giao.');
+                        throw new Error('Chưa có mã bưu tá nhận hàng. Vui lòng chọn hoặc nhập mã bưu tá.');
                     }
                     // The backend requires STORED inventory for handoff. The UI
                     // exposes a separate "Lưu Kho" action before this operation.
@@ -627,7 +689,7 @@
                 return { hadConflict };
             };
 
-            const handleUpdateStatus = async (trackingCode, targetStatus, customLocation, customNote) => {
+            const handleUpdateStatus = async (trackingCode, targetStatus, customLocation, customNote, customCourierId) => {
                 if (isActionRunning.value) return;
                 if (!trackingCode || !trackingCode.trim()) {
                     Utils.showToast('Thông Báo', 'Vui lòng nhập mã bưu gửi cần xử lý', 'warning');
@@ -667,7 +729,8 @@
                         targetStatus,
                         locationCode,
                         targetShipment,
-                        note: customNote || `Khai thác tại bưu cục ${locationCode}: ${Utils.formatStatusText(targetStatus)}`
+                        note: customNote || `Khai thác tại bưu cục ${locationCode}: ${Utils.formatStatusText(targetStatus, locationCode)}`,
+                        courierId: customCourierId
                     });
 
                     // Always reconcile with the backend. Do not leave a local
@@ -703,6 +766,93 @@
                 );
             };
 
+            // Danh mục bưu tá giao hàng mẫu phân theo bưu cục
+            const COURIER_PRESETS = [
+                // Hà Nội
+                { code: 'BT-HN-CG-01', name: 'Nguyễn Văn Nam', phone: '0912.345.678', station: 'POST-HN-CG', area: 'Cầu Giấy' },
+                { code: 'BT-HN-CG-02', name: 'Đỗ Văn Hùng', phone: '0912.345.679', station: 'POST-HN-CG', area: 'Dịch Vọng' },
+                { code: 'BT-HN-DDA-01', name: 'Lê Văn Cường', phone: '0912.345.680', station: 'POST-HN-DDA', area: 'Đống Đa' },
+                { code: 'BT-HN-HBT-01', name: 'Trần Văn Mạnh', phone: '0912.345.681', station: 'POST-HN-HBT', area: 'Hai Bà Trưng' },
+                { code: 'BT-HN-TX-01', name: 'Vũ Văn Long', phone: '0912.345.682', station: 'POST-HN-TX', area: 'Thanh Xuân' },
+                { code: 'BT-HN-HD-01', name: 'Bùi Văn Tuấn', phone: '0912.345.683', station: 'POST-HN-HD', area: 'Hà Đông' },
+
+                // Đà Nẵng
+                { code: 'BT-DN-HC-01', name: 'Phan Văn Sơn', phone: '0913.456.789', station: 'POST-DN-HC', area: 'Hải Châu' },
+                { code: 'BT-DN-TK-01', name: 'Ngô Văn Đức', phone: '0913.456.790', station: 'POST-DN-TK', area: 'Thanh Khê' },
+                { code: 'BT-DN-ST-01', name: 'Hoàng Văn Thái', phone: '0913.456.791', station: 'POST-DN-ST', area: 'Sơn Trà' },
+
+                // TP.HCM
+                { code: 'BT-HCM-Q1-01', name: 'Nguyễn Văn Phát', phone: '0918.765.432', station: 'POST-HCM-Q1', area: 'Bến Nghé - Bến Thành (Quận 1)' },
+                { code: 'BT-HCM-Q1-02', name: 'Trần Thanh Bình', phone: '0918.765.433', station: 'POST-HCM-Q1', area: 'Đa Kao - Tân Định (Quận 1)' },
+                { code: 'BT-HCM-TB-01', name: 'Phạm Văn Minh', phone: '0918.765.434', station: 'POST-HCM-TB', area: 'Tân Bình' },
+                { code: 'BT-HCM-BT-01', name: 'Đặng Văn Khoa', phone: '0918.765.435', station: 'POST-HCM-BT', area: 'Bình Thạnh' },
+                { code: 'BT-HCM-TD-01', name: 'Trịnh Văn Sang', phone: '0918.765.436', station: 'POST-HCM-TD', area: 'Thủ Đức' },
+                { code: 'BT-HCM-Q7-01', name: 'Lý Văn Hải', phone: '0918.765.437', station: 'POST-HCM-Q7', area: 'Quận 7' },
+
+                // Toàn quốc / Tài khoản mẫu hệ thống
+                { code: 'shipper@waybill.vn', name: 'Bưu Tá Hệ Thống (Mẫu RBAC)', phone: '0909.000.999', station: 'ALL', area: 'Toàn Mạng Lưới' }
+            ];
+
+            const showHandoffModal = ref(false);
+            const handoffForm = reactive({
+                trackingCode: '',
+                postOfficeCode: '',
+                postOfficeName: '',
+                receiverAddress: '',
+                codAmount: 0,
+                weight: 0,
+                selectedCourier: '',
+                customCourierId: '',
+                note: ''
+            });
+
+            const availableCouriers = computed(() => {
+                const po = (handoffForm.postOfficeCode || selectedPostOffice.value || '').toUpperCase();
+                const matched = COURIER_PRESETS.filter(c => c.station === po);
+                const others = COURIER_PRESETS.filter(c => c.station !== po);
+                return [...matched, ...others];
+            });
+
+            const openHandoffModal = (item) => {
+                if (!item) return;
+                const poInfo = getDestPostOfficeInfo(item);
+                const poCode = item.locationCode || poInfo.code || selectedPostOffice.value;
+                handoffForm.trackingCode = item.trackingCode;
+                handoffForm.postOfficeCode = poCode;
+                handoffForm.postOfficeName = poInfo.name || poCode;
+                handoffForm.receiverAddress = item.receiverAddress || '';
+                handoffForm.codAmount = item.codAmount || 0;
+                handoffForm.weight = item.weight || 0;
+
+                const matched = COURIER_PRESETS.find(c => c.station === poCode);
+                handoffForm.selectedCourier = matched ? matched.code : (COURIER_PRESETS[0]?.code || 'shipper@waybill.vn');
+                handoffForm.customCourierId = '';
+                handoffForm.note = `Bưu cục [${poInfo.name || poCode}] bàn giao bưu gửi cho bưu tá đi phát chặng cuối`;
+                showHandoffModal.value = true;
+            };
+
+            const confirmHandoff = async () => {
+                const courierCode = handoffForm.selectedCourier === 'CUSTOM'
+                    ? handoffForm.customCourierId.trim()
+                    : handoffForm.selectedCourier.trim();
+                if (!courierCode) {
+                    Utils.showToast('Thiếu Thông Tin', 'Vui lòng chọn hoặc nhập mã bưu tá nhận đơn', 'warning');
+                    return;
+                }
+                try {
+                    await handleUpdateStatus(
+                        handoffForm.trackingCode,
+                        'OUT_FOR_DELIVERY',
+                        handoffForm.postOfficeCode,
+                        handoffForm.note || `Bưu cục [${handoffForm.postOfficeCode}] bàn giao bưu gửi cho bưu tá [${courierCode}]`,
+                        courierCode
+                    );
+                    showHandoffModal.value = false;
+                } catch (err) {
+                    // handleUpdateStatus already shows error toast
+                }
+            };
+
             // Quét mã nhanh từ ô Input
             const handleQuickScan = (targetStatus) => {
                 if (!scanInputCode.value.trim()) {
@@ -713,7 +863,15 @@
                 let note = '';
                 if (targetStatus === 'PICKED_UP') {
                     note = `Bưu cục [${poCode}] đã tiếp nhận bưu phẩm tại quầy từ người gửi`;
+                } else if (targetStatus === 'ARRIVED_DEST_HUB') {
+                    note = `Bưu cục [${poCode}] đã tiếp nhận bưu phẩm đến từ xe trung chuyển / Kho Tổng`;
                 } else if (targetStatus === 'OUT_FOR_DELIVERY') {
+                    const clean = scanInputCode.value.trim();
+                    const target = shipmentsList.value.find(s => s.trackingCode === clean);
+                    if (target) {
+                        openHandoffModal(target);
+                        return;
+                    }
                     note = `Bưu cục [${poCode}] đã bàn giao bưu phẩm cho bưu tá đi phát chặng cuối`;
                 }
                 handleUpdateStatus(scanInputCode.value, targetStatus, selectedPostOffice.value !== 'ALL' ? selectedPostOffice.value : null, note);
@@ -761,6 +919,11 @@
                 handleStoreAtLocation,
                 handleQuickScan,
                 viewTrackingDetail,
+                showHandoffModal,
+                handoffForm,
+                availableCouriers,
+                openHandoffModal,
+                confirmHandoff,
                 Utils
             };
         },
@@ -885,6 +1048,14 @@
                             title="Tiếp nhận bưu gửi mới gửi tại quầy"
                         >
                             <span>Tiếp Nhận Quầy</span>
+                        </button>
+                        <button 
+                            @click="handleQuickScan('ARRIVED_DEST_HUB')"
+                            :disabled="isActionRunning"
+                            class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg text-xs transition shadow-sm disabled:opacity-50 flex items-center space-x-1"
+                            title="Tiếp nhận bưu gửi từ xe trung chuyển đến bưu cục phát"
+                        >
+                            <span>Tiếp Nhận Đến</span>
                         </button>
                         <button 
                             @click="handleQuickScan('OUT_FOR_DELIVERY')"
@@ -1024,7 +1195,7 @@
                                     </td>
                                     <td class="py-2.5 px-3">
                                         <span :class="['px-2.5 py-0.5 rounded-md text-[10.5px] font-bold border inline-block', Utils.getStatusBadgeClass(item.currentStatus)]">
-                                            {{ Utils.formatStatusText(item.currentStatus) }}
+                                            {{ Utils.formatStatusText(item.currentStatus, item.locationCode) }}
                                         </span>
                                     </td>
                                     <td class="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">
@@ -1070,7 +1241,16 @@
                                         <template v-else-if="item.currentStatus === 'ARRIVED_DEST_HUB'">
                                             <template v-if="(item.locationCode || '').toUpperCase().startsWith('POST-')">
                                                 <button
-                                                    v-if="getInventoryStatus(item) === 'RECEIVED'"
+                                                    v-if="getInventoryStatus(item) === 'STORED'"
+                                                    @click="openHandoffModal(item)"
+                                                    :disabled="isActionRunning"
+                                                    class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold transition shadow-sm text-[11px] disabled:opacity-50"
+                                                    title="Bàn giao bưu phẩm cho bưu tá phát chặng cuối"
+                                                >
+                                                    Bàn Giao Bưu Tá
+                                                </button>
+                                                <button
+                                                    v-else-if="getInventoryStatus(item) === 'RECEIVED'"
                                                     @click="handleStoreAtLocation(item.trackingCode, item.locationCode, 'Bưu cục phát xác nhận nhập kho sau khi nhận từ xe trung chuyển')"
                                                     :disabled="isActionRunning"
                                                     class="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold transition shadow-sm text-[11px] disabled:opacity-50"
@@ -1079,20 +1259,26 @@
                                                     Lưu Kho
                                                 </button>
                                                 <button
-                                                    v-else-if="getInventoryStatus(item) === 'STORED'"
-                                                    @click="handleUpdateStatus(item.trackingCode, 'OUT_FOR_DELIVERY', item.locationCode, 'Bưu cục đã bàn giao bưu gửi cho bưu tá đi phát')"
+                                                    v-else
+                                                    @click="handleUpdateStatus(item.trackingCode, 'ARRIVED_DEST_HUB', item.locationCode || getDestPostOfficeInfo(item).code, 'Bưu cục phát [' + getDestPostOfficeInfo(item).name + '] tiếp nhận bưu phẩm đến')"
                                                     :disabled="isActionRunning"
-                                                    class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold transition shadow-sm text-[11px] disabled:opacity-50"
-                                                    title="Bàn giao bưu phẩm cho bưu tá phát chặng cuối"
+                                                    class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-bold transition shadow-sm text-[11px] disabled:opacity-50"
+                                                    :title="'Tiếp nhận bưu gửi vào bưu cục ' + getDestPostOfficeInfo(item).name"
                                                 >
-                                                    Bàn Giao Bưu Tá
+                                                    Tiếp Nhận Đến
                                                 </button>
-                                                <span v-else class="text-slate-400 text-[11px]">Đang đồng bộ tồn kho</span>
                                             </template>
-                                            <span v-else class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200" title="Bưu phẩm đã dỡ tại Kho Tổng đích, chờ xe Feeder chuyển về bưu cục">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
-                                                Tại Kho Tổng (Chờ Feeder Về)
-                                            </span>
+                                            <div v-else class="inline-flex flex-col items-end gap-0.5">
+                                                <button
+                                                    @click="handleUpdateStatus(item.trackingCode, 'ARRIVED_DEST_HUB', getDestPostOfficeInfo(item).code, 'Bưu cục phát [' + getDestPostOfficeInfo(item).name + '] tiếp nhận bưu gửi từ chuyến xe trung chuyển / Kho Tổng')"
+                                                    :disabled="isActionRunning"
+                                                    class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-bold transition shadow-sm text-[11px] disabled:opacity-50"
+                                                    :title="'Tiếp nhận bưu gửi từ xe trung chuyển vào bưu cục ' + getDestPostOfficeInfo(item).name"
+                                                >
+                                                    Tiếp Nhận Đến
+                                                </button>
+                                                <span class="text-[9.5px] text-slate-400">Từ Kho Tổng</span>
+                                            </div>
                                         </template>
 
                                         <!-- 5. Khi đang đi phát -->
@@ -1225,7 +1411,7 @@
                                     </span>
                                     <button
                                         v-else-if="(item.locationCode || '').toUpperCase().startsWith('POST-')"
-                                        @click="handleUpdateStatus(item.trackingCode, 'OUT_FOR_DELIVERY', getDestPostOfficeInfo(item).code, 'Bàn giao bưu phẩm cho bưu tá đi phát')"
+                                        @click="openHandoffModal(item)"
                                         :disabled="isActionRunning"
                                         class="px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded font-bold hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
@@ -1240,6 +1426,101 @@
                     </table>
                 </div>
             </div>
+
+            <!-- =============================================================== -->
+            <!-- MODAL: BÀN GIAO BƯU PHẨM CHO BƯU TÁ ĐI PHÁT (OUT_FOR_DELIVERY)   -->
+            <!-- =============================================================== -->
+            <teleport to="body">
+                <div v-if="showHandoffModal" class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-5 border border-slate-200">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                            <div>
+                                <h3 class="font-bold text-sm text-slate-900 uppercase tracking-wider">
+                                    Bàn Giao Bưu Phẩm Cho Bưu Tá
+                                </h3>
+                                <p class="text-xs text-slate-500 mt-0.5">Mã bưu gửi: <span class="font-mono font-bold text-cyan-700">{{ handoffForm.trackingCode }}</span></p>
+                            </div>
+                            <button @click="showHandoffModal = false" class="text-slate-400 hover:text-slate-600 font-bold text-sm p-1">✕</button>
+                        </div>
+
+                        <div class="py-3 space-y-3">
+                            <!-- Thông tin bưu gửi tóm tắt -->
+                            <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1">
+                                <div class="flex justify-between">
+                                    <span class="text-slate-500">Bưu cục phát:</span>
+                                    <span class="font-semibold text-slate-800">{{ handoffForm.postOfficeName }} ({{ handoffForm.postOfficeCode }})</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-500">Địa chỉ phát:</span>
+                                    <span class="font-medium text-slate-700 truncate max-w-[220px]" :title="handoffForm.receiverAddress">{{ handoffForm.receiverAddress || 'N/A' }}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-500">Khối lượng / COD:</span>
+                                    <span class="font-mono font-bold text-slate-700">
+                                        {{ handoffForm.weight ? handoffForm.weight + ' kg' : '0 kg' }} &bull; 
+                                        <span class="text-emerald-700">{{ Utils.formatCurrency(handoffForm.codAmount) }}</span>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Chọn Bưu Tá -->
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">
+                                    Chọn Bưu Tá Tiếp Nhận Đi Phát:
+                                </label>
+                                <select 
+                                    v-model="handoffForm.selectedCourier"
+                                    class="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-800 focus:border-cyan-600 outline-none transition"
+                                >
+                                    <option v-for="c in availableCouriers" :key="c.code" :value="c.code">
+                                        {{ c.code }} - {{ c.name }} ({{ c.area }})
+                                    </option>
+                                    <option value="CUSTOM">Khác (Nhập mã bưu tá tùy ý)...</option>
+                                </select>
+                            </div>
+
+                            <!-- Ô nhập mã tùy chọn nếu chọn CUSTOM -->
+                            <div v-if="handoffForm.selectedCourier === 'CUSTOM'">
+                                <label class="block text-xs font-medium text-slate-600 mb-1">Nhập mã bưu tá / SĐT:</label>
+                                <input 
+                                    v-model="handoffForm.customCourierId"
+                                    type="text" 
+                                    placeholder="Ví dụ: SHIPPER_01, 0912345678..."
+                                    class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs font-mono font-bold text-cyan-800 focus:border-cyan-600 outline-none"
+                                />
+                            </div>
+
+                            <!-- Ghi chú bàn giao -->
+                            <div>
+                                <label class="block text-xs font-medium text-slate-600 mb-1">Ghi chú bàn giao:</label>
+                                <input 
+                                    v-model="handoffForm.note"
+                                    type="text" 
+                                    placeholder="Ghi chú tác nghiệp..."
+                                    class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:border-cyan-600 outline-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-end space-x-2 border-t border-slate-100 pt-3">
+                            <button 
+                                @click="showHandoffModal = false"
+                                class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
+                            >
+                                Hủy Bỏ
+                            </button>
+                            <button 
+                                @click="confirmHandoff"
+                                :disabled="isActionRunning"
+                                class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm disabled:opacity-50 flex items-center space-x-1"
+                            >
+                                <span v-if="isActionRunning">Đang xử lý...</span>
+                                <span v-else>Xác Nhận Bàn Giao</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </teleport>
         </div>
         `
     };

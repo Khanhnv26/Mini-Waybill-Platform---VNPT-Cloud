@@ -105,15 +105,20 @@
         }
     };
 
-    // Chuẩn hóa trạng thái bưu gửi theo quy chuẩn Bưu chính Quốc gia
-    const formatStatusText = (status) => {
+    const formatStatusText = (status, locationCode) => {
         switch (status) {
             case 'CREATED': return 'Tiếp nhận đơn hàng';
             case 'PENDING_ROUTING': return 'Chờ định tuyến bưu cục';
             case 'ROUTE_ASSIGNED': return 'Đã định tuyến luân chuyển';
             case 'PICKED_UP': return 'Đã lấy hàng từ người gửi';
             case 'IN_TRANSIT': return 'Đang vận chuyển liên tỉnh';
-            case 'ARRIVED_DEST_HUB': return 'Đã nhập bưu cục phát';
+            case 'ARRIVED_DEST_HUB': {
+                const loc = String(locationCode || '').toUpperCase();
+                if (loc.startsWith('POST-')) {
+                    return 'Đã đến bưu cục phát';
+                }
+                return 'Đã đến Kho Tổng đích';
+            }
             case 'OUT_FOR_DELIVERY': return 'Đang chuyển phát';
             case 'DELIVERED': return 'Phát thành công';
             case 'FAILED':

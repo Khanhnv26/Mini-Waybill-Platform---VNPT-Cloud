@@ -147,13 +147,12 @@
 
     const HubOpsView = {
         name: 'HubOpsView',
-        emits: ['view-tracking', 'request-trips'],
+        emits: ['view-tracking'],
         setup(props, { emit }) {
             const currentSubtab = ref('scan'); // 'scan' | 'inventory'
             const isLoading = ref(false);
             const isActionRunning = ref(false);
             const inventorySource = ref('shipment-fallback');
-            const tripsNotice = ref('');
 
             // Dữ liệu vận hành. Khi có RoutingService, các bản ghi tồn kho là nguồn chính.
             const shipmentsList = ref([]);
@@ -689,16 +688,6 @@
                 if (cleanCode) emit('view-tracking', cleanCode, 'hub-ops');
             };
 
-            // TripsView không được nhúng tại đây. Event cho phép host xử lý nếu có, còn view này luôn có fallback an toàn.
-            const requestTrips = () => {
-                tripsNotice.value = 'Phân hệ điều phối chuyến xe chưa được nhúng trong màn hình này. Bạn vẫn có thể xem trip code và transport leg từ tồn kho.';
-                emit('request-trips');
-            };
-
-            const dismissTripsNotice = () => {
-                tripsNotice.value = '';
-            };
-
             onMounted(async () => {
                 stationContext.value = resolveStationContext();
                 if (!isAdmin.value && stationContext.value.code) {
@@ -715,7 +704,6 @@
                 isLoading,
                 isActionRunning,
                 inventorySource,
-                tripsNotice,
                 shipmentsList,
                 scanInputCode,
                 stationContext,
@@ -746,8 +734,6 @@
                 handleReceive,
                 handleStore,
                 viewTrackingDetail,
-                requestTrips,
-                dismissTripsNotice,
                 Utils
             };
         },
@@ -798,11 +784,6 @@
                 </div>
             </div>
 
-            <div v-if="tripsNotice" class="flex items-start justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
-                <span>{{ tripsNotice }}</span>
-                <button type="button" @click="dismissTripsNotice" class="font-bold text-blue-600 hover:text-blue-900">Đóng</button>
-            </div>
-
             <div class="flex items-center justify-between border-b border-slate-200">
                 <div class="flex space-x-4 sm:space-x-6 overflow-x-auto pb-px">
                     <button
@@ -824,13 +805,6 @@
                         ]"
                     >
                         QUẢN LÝ TỒN BÃI
-                    </button>
-                    <button
-                        type="button"
-                        @click="requestTrips"
-                        class="pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap"
-                    >
-                        ĐIỀU PHỐI CHUYẾN XE
                     </button>
                 </div>
                 <button

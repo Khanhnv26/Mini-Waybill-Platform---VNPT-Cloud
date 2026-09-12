@@ -1094,22 +1094,41 @@ public class TripServiceImpl implements TripService {
 
         String locationCode = request.getLocationCode() != null && !request.getLocationCode().isBlank()
                 ? normalizeHubCode(request.getLocationCode()) : trip.getCurrentHub();
+        List<TripStop> allStops = tripStopRepository.findByTripIdOrderByStopOrder(tripId);
+        TripStop matchedStop = null;
         if (locationCode != null && !locationCode.isBlank()) {
-            boolean isStop = tripStopRepository.findByTripIdOrderByStopOrder(tripId).stream()
-                    .anyMatch(stop -> normalizeHubCode(stop.getHubCode()).equalsIgnoreCase(locationCode));
-            if (!isStop && (request.getLatitude() == null || request.getLongitude() == null)) {
+            matchedStop = allStops.stream()
+                    .filter(stop -> normalizeHubCode(stop.getHubCode()).equalsIgnoreCase(locationCode))
+                    .findFirst().orElse(null);
+            if (matchedStop == null && (request.getLatitude() == null || request.getLongitude() == null)) {
                 throw new IllegalArgumentException("Vị trí cập nhật không thuộc lộ trình chuyến xe");
             }
         }
 
         Double progress = request.getProgressPercent();
+        if (progress == null && matchedStop != null && allStops.size() > 1) {
+            double calculated = ((double) (matchedStop.getStopOrder() - 1) / (double) (allStops.size() - 1)) * 100.0;
+            progress = Math.max(0.0, Math.min(100.0, calculated));
+        }
+
         if (progress != null && trip.getProgressPercent() != null && progress < trip.getProgressPercent()) {
             throw new IllegalArgumentException("Tiến độ chuyến xe không được giảm");
         }
+
         LocalDateTime now = LocalDateTime.now();
         trip.setCurrentHub(locationCode);
-        if (request.getLatitude() != null) trip.setCurrentLatitude(request.getLatitude());
-        if (request.getLongitude() != null) trip.setCurrentLongitude(request.getLongitude());
+
+        Double lat = request.getLatitude();
+        Double lng = request.getLongitude();
+        if ((lat == null || lng == null) && locationCode != null) {
+            Hub hub = hubRepository.findByHubCode(locationCode).orElse(null);
+            if (hub != null) {
+                if (lat == null) lat = hub.getLatitude();
+                if (lng == null) lng = hub.getLongitude();
+            }
+        }
+        if (lat != null) trip.setCurrentLatitude(lat);
+        if (lng != null) trip.setCurrentLongitude(lng);
         if (progress != null) trip.setProgressPercent(progress);
         trip.setLastProgressAt(now);
         tripRepository.save(trip);

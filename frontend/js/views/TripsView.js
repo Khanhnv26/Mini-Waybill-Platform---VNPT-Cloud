@@ -1062,6 +1062,57 @@
                 return tripsList.value.filter(t => isFeederTrip(t));
             });
 
+            const originFeederTrips = computed(() => {
+                return tripsList.value.filter(t => {
+                    const type = normalizeTripType(t.tripType, null);
+                    if (type === 'ORIGIN_FEEDER') return true;
+                    if (type === 'DESTINATION_FEEDER' || type === 'LINEHAUL') return false;
+                    const stops = t.stops || [];
+                    const origin = stops[0]?.hubCode || t.originHub || '';
+                    const dest = stops[stops.length - 1]?.hubCode || t.destinationHub || '';
+                    return origin.startsWith('POST-') && dest.startsWith('HUB-');
+                });
+            });
+
+            const destinationFeederTrips = computed(() => {
+                return tripsList.value.filter(t => {
+                    const type = normalizeTripType(t.tripType, null);
+                    if (type === 'DESTINATION_FEEDER') return true;
+                    if (type === 'ORIGIN_FEEDER' || type === 'LINEHAUL') return false;
+                    const stops = t.stops || [];
+                    const origin = stops[0]?.hubCode || t.originHub || '';
+                    const dest = stops[stops.length - 1]?.hubCode || t.destinationHub || '';
+                    return origin.startsWith('HUB-') && dest.startsWith('POST-');
+                });
+            });
+
+            const filteredOriginFeederTrips = computed(() => {
+                let list = originFeederTrips.value;
+                if (selectedFeederStation.value && selectedFeederStation.value !== 'ALL') {
+                    list = list.filter(t => {
+                        const origin = t.stops?.[0]?.hubCode || t.originHub || '';
+                        return origin === selectedFeederStation.value;
+                    });
+                }
+                return list;
+            });
+
+            const filteredDestinationFeederTrips = computed(() => {
+                let list = destinationFeederTrips.value;
+                if (selectedFeederStation.value && selectedFeederStation.value !== 'ALL') {
+                    list = list.filter(t => {
+                        const dest = t.stops?.[t.stops.length - 1]?.hubCode || t.destinationHub || '';
+                        return dest === selectedFeederStation.value;
+                    });
+                }
+                return list;
+            });
+
+            const getNextPendingStop = (trip) => {
+                if (!trip || !Array.isArray(trip.stops)) return null;
+                return trip.stops.find(s => s.status === 'PENDING') || null;
+            };
+
             const linehaulTripsCount = computed(() => linehaulTrips.value.length);
             const feederTripsCount = computed(() => feederTrips.value.length);
 
@@ -1938,6 +1989,118 @@
                 }
             };
 
+            const isSimulatingTrip = ref(false);
+            let tripSimTimer = null;
+
+            const runTripSimulation = () => {
+                if (!leafletMap || !tripRoutePoints || tripRoutePoints.length === 0) {
+                    Utils.showToast('Thông Báo', 'Chưa tải được tuyến đường trên bản đồ để mô phỏng', 'warning');
+                    return;
+                }
+                if (isSimulatingTrip.value) {
+                    if (tripSimTimer) clearInterval(tripSimTimer);
+                    tripSimTimer = null;
+                    isSimulatingTrip.value = false;
+                    Utils.showToast('Mô Phỏng', 'Đã tạm dừng mô phỏng tuyến xe', 'info');
+                    return;
+                }
+
+                isSimulatingTrip.value = true;
+                const points = tripRoutePoints;
+                let curStep = 0;
+                const totalSteps = points.length;
+                const interval = Math.max(25, Math.min(100, Math.round(5000 / totalSteps)));
+                tripSimTimer = setInterval(() => {
+                    curStep++;
+                    if (curStep >= totalSteps) {
+                        clearInterval(tripSimTimer);
+                        tripSimTimer = null;
+                        isSimulatingTrip.value = false;
+                        Utils.showToast('Mô Phỏng', 'Chuyến xe đã hoàn thành chặng mô phỏng', 'success');
+                    } else {
+                        const pt = points[curStep];
+                        if (pt && radarMarker) {
+                            radarMarker.setLatLng(pt);
+                        }
+                    }
+                }, interval);
+            };
+
+            const animateTruckToStop = (stopCode) => {
+                if (!leafletMap || !tripRoutePoints || tripRoutePoints.length === 0 || !radarMarker) return;
+                const targetStop = (activeTripDetail.value?.stops || []).find(s => s.hubCode === stopCode);
+                const stopLoc = getHubLocation(targetStop || stopCode);
+                if (!stopLoc) return;
+
+                const findClosest = (target) => {
+                    let best = 0;
+                    let minDist = Infinity;
+                    for (let i = 0; i < tripRoutePoints.length; i++) {
+                        const pt = tripRoutePoints[i];
+                        const dist = Math.hypot(pt[0] - target.lat, pt[1] - target.lng);
+                        if (dist < minDist) { minDist = dist; best = i; }
+                    }
+                    return best;
+                };
+
+                const currentLatLng = radarMarker.getLatLng();
+                const startIdx = findClosest({ lat: currentLatLng.lat, lng: currentLatLng.lng });
+                const targetIdx = findClosest(stopLoc);
+                if (startIdx === targetIdx) return;
+
+                const durationMs = 1000;
+                const frames = 25;
+                let step = 0;
+                const stepTime = durationMs / frames;
+                if (tripSimTimer) clearInterval(tripSimTimer);
+                tripSimTimer = setInterval(() => {
+                    step++;
+                    const progress = step / frames;
+                    const idx = Math.round(startIdx + (targetIdx - startIdx) * progress);
+                    const pt = tripRoutePoints[Math.min(tripRoutePoints.length - 1, Math.max(0, idx))];
+                    if (pt && radarMarker) {
+                        radarMarker.setLatLng(pt);
+                    }
+                    if (step >= frames) {
+                        clearInterval(tripSimTimer);
+                        tripSimTimer = null;
+                    }
+                }, stepTime);
+            };
+
+            const handleMoveToStop = async (tripOrId, stopCode, customNote) => {
+                const trip = (tripOrId && typeof tripOrId === 'object') ? tripOrId : activeTripDetail.value;
+                if (!trip) return;
+                const targetCode = String(stopCode || '').trim();
+                if (!targetCode) {
+                    Utils.showToast('Lỗi', 'Không xác định được trạm dừng cần di chuyển tới', 'warning');
+                    return;
+                }
+                const stopName = getHubDisplayName(targetCode);
+                isUpdatingProgress.value = true;
+                try {
+                    const payload = {
+                        locationCode: targetCode,
+                        note: customNote || (progressForm.note ? progressForm.note.trim() : `Chuyến xe ${trip.tripCode} đang di chuyển tới trạm ${stopName} (${targetCode})`)
+                    };
+                    payload.operationId = getProgressOperationId(trip, payload);
+                    const updated = await requestTripProgressUpdate(trip.id, payload);
+                    if (activeTripDetail.value && activeTripDetail.value.id === trip.id) {
+                        activeTripDetail.value = updated || trip;
+                        syncProgressForm(activeTripDetail.value);
+                        await nextTick();
+                        renderLeafletMap(activeTripDetail.value);
+                        animateTruckToStop(targetCode);
+                    }
+                    Utils.showToast('Đã Cập Nhật', `Chuyến xe ${trip.tripCode} đang di chuyển tới ${stopName}.`, 'success');
+                    await loadTrips();
+                } catch (err) {
+                    Utils.showToast('Cập Nhật Thất Bại', err.message, 'error');
+                } finally {
+                    isUpdatingProgress.value = false;
+                }
+            };
+
             const formatDateTime = (dt) => {
                 if (!dt) return 'Chưa thiết lập';
                 try {
@@ -2213,7 +2376,11 @@
                 handleDispatchFeederItem, handleDispatchAllFeeder,
                 handleReceiveIncomingFeeder, handleReceiveAllIncomingFeeder,
                 getOriginPostOfficeInfo, getDestPostOfficeInfo,
-                openCreateTripModal, HUB_COORDINATES, currentStep
+                openCreateTripModal, HUB_COORDINATES, currentStep,
+                originFeederTrips, filteredOriginFeederTrips,
+                destinationFeederTrips, filteredDestinationFeederTrips,
+                getNextPendingStop, handleMoveToStop,
+                runTripSimulation, isSimulatingTrip
             };
         },
         template: `
@@ -2444,6 +2611,103 @@
                         </tbody>
                     </table>
                 </div>
+
+                <!-- DANH SÁCH CHUYẾN XE GOM HÀNG BƯU CỤC ➔ KHO TỔNG (ORIGIN FEEDER TRIPS) -->
+                <div class="space-y-2 pt-2">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="font-extrabold uppercase tracking-wider text-slate-700 text-xs">
+                                Danh Sách Chuyến Xe Gom Bưu Cục ➔ Kho Tổng ({{ filteredOriginFeederTrips.length }} Chuyến)
+                            </span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
+                                Feeder Thu Gom
+                            </span>
+                        </div>
+                        <button 
+                            @click="openCreateTripModal('ORIGIN_FEEDER')"
+                            class="px-3 py-1 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg text-xs transition cursor-pointer"
+                        >
+                            + Lập Chuyến Xe Gom Thủ Công
+                        </button>
+                    </div>
+
+                    <div v-if="filteredOriginFeederTrips.length === 0" class="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400">
+                        Chưa có chuyến xe gom nào được khởi tạo cho bưu cục đang chọn. Nhấn "Xuất Xe Gom Hàng Loạt" hoặc nút trên để tạo chuyến.
+                    </div>
+
+                    <div v-else class="grid grid-cols-1 gap-3 text-xs">
+                        <div 
+                            v-for="trip in filteredOriginFeederTrips" 
+                            :key="trip.id"
+                            class="bg-white border border-slate-200 hover:border-blue-300 rounded-xl p-3.5 shadow-sm transition flex flex-col md:flex-row md:items-center justify-between gap-3"
+                        >
+                            <div class="space-y-1.5 flex-1 min-w-0">
+                                <div class="flex items-center space-x-2">
+                                    <span class="font-mono font-black text-sm text-blue-800">{{ trip.tripCode }}</span>
+                                    <span :class="['px-2 py-0.5 rounded text-[10px] font-bold border uppercase', getStatusBadge(trip.status)]">
+                                        {{ getTripStatusLabel(trip) }}
+                                    </span>
+                                    <span class="text-xs text-slate-400">|</span>
+                                    <span class="font-bold text-xs text-slate-700">{{ trip.routeName || 'Tuyến gom bưu cục' }}</span>
+                                </div>
+
+                                <div class="text-xs text-slate-600 flex flex-wrap items-center gap-x-4 gap-y-1">
+                                    <div><span class="text-slate-400">Xe gom:</span> <strong class="font-mono text-slate-800">{{ trip.vehiclePlate || '29C-556.12' }}</strong></div>
+                                    <div><span class="text-slate-400">Tài xế:</span> <strong class="text-slate-800">{{ trip.driverName || 'Vũ Văn Gom' }}</strong></div>
+                                    <div><span class="text-slate-400">Tải trọng:</span> <strong class="text-blue-700">{{ (trip.currentWeight || 0).toFixed(1) }} / {{ trip.maxWeight || 1500 }} kg</strong></div>
+                                </div>
+
+                                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-600">
+                                    <span class="px-2 py-0.5 rounded border border-purple-200 bg-purple-50 text-purple-700 font-bold">
+                                        Gom Bưu Cục
+                                    </span>
+                                    <span><span class="text-slate-400">Lộ trình:</span> <strong>{{ getTripEndpoint(trip, 'origin') }} ➔ {{ getTripEndpoint(trip, 'destination') }}</strong></span>
+                                    <span><span class="text-slate-400">Vị trí:</span> <strong class="font-mono text-slate-700">{{ getTripLocationLabel(trip) }}</strong></span>
+                                    <span><span class="text-slate-400">Tiến độ:</span> <strong class="text-blue-700">{{ formatProgress(trip.progressPercent) }}</strong></span>
+                                </div>
+                            </div>
+
+                            <!-- CÁC NÚT THAO TÁC 1-CHẠM -->
+                            <div class="flex flex-wrap items-center gap-2 self-end md:self-center shrink-0">
+                                <button 
+                                    @click="openTripDetail(trip.id)"
+                                    class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition border border-slate-200 cursor-pointer"
+                                >
+                                    Chi Tiết &amp; Bản Đồ
+                                </button>
+
+                                <button 
+                                    v-if="trip.status === 'SCHEDULED'"
+                                    @click="handleDepartTrip(trip.id)"
+                                    :disabled="isExecutingAction"
+                                    class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-xs transition cursor-pointer"
+                                >
+                                    Xuất Bến Xe Gom
+                                </button>
+
+                                <template v-else-if="trip.status === 'IN_TRANSIT'">
+                                    <button 
+                                        v-if="getNextPendingStop(trip)"
+                                        @click="handleMoveToStop(trip, getNextPendingStop(trip).hubCode)"
+                                        :disabled="isUpdatingProgress"
+                                        class="px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white border border-blue-200 rounded-lg font-bold text-xs transition cursor-pointer"
+                                    >
+                                        Di Chuyển Tới: {{ getHubDisplayName(getNextPendingStop(trip).hubCode) }}
+                                    </button>
+
+                                    <button 
+                                        v-if="getNextPendingStop(trip)"
+                                        @click="handleArriveAtStation(trip, getNextPendingStop(trip).hubCode)"
+                                        :disabled="isExecutingAction"
+                                        class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs transition cursor-pointer"
+                                    >
+                                        Cập Bến &amp; Dỡ Hàng
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- ========================================================================= -->
@@ -2597,13 +2861,21 @@
                                 Xuất Bến Ngay
                             </button>
 
-                            <span 
-                                v-else-if="tripDirectionTab === 'OUTBOUND' && trip.status === 'IN_TRANSIT'"
-                                class="px-3 py-2 bg-blue-50 text-blue-700 border border-blue-200 font-bold text-xs rounded-lg inline-flex items-center space-x-1.5"
-                            >
-                                <span class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
-                                <span>Đang Lưu Thông QL1A</span>
-                            </span>
+                            <template v-else-if="tripDirectionTab === 'OUTBOUND' && trip.status === 'IN_TRANSIT'">
+                                <span class="px-3 py-2 bg-blue-50 text-blue-700 border border-blue-200 font-bold text-xs rounded-lg inline-flex items-center space-x-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                                    <span>Đang Lưu Thông QL1A</span>
+                                </span>
+                                <button 
+                                    v-if="getNextPendingStop(trip)"
+                                    @click="handleMoveToStop(trip, getNextPendingStop(trip).hubCode)"
+                                    :disabled="isUpdatingProgress"
+                                    class="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-lg shadow-sm transition cursor-pointer"
+                                    title="Cập nhật xe container đang di chuyển tới mốc tiếp theo"
+                                >
+                                    Di Chuyển Tới: {{ getHubDisplayName(getNextPendingStop(trip).hubCode) }}
+                                </button>
+                            </template>
 
                             <!-- NÚT CẬP BẾN & DỠ HÀNG (INBOUND) -->
                             <button 
@@ -2707,6 +2979,103 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                <!-- DANH SÁCH CHUYẾN XE PHÁT KHO TỔNG ➔ BƯU CỤC (DESTINATION FEEDER TRIPS) -->
+                <div class="space-y-2 pt-2">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="font-extrabold uppercase tracking-wider text-slate-700 text-xs">
+                                Danh Sách Chuyến Xe Phát Kho Tổng ➔ Bưu Cục ({{ filteredDestinationFeederTrips.length }} Chuyến)
+                            </span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                Feeder Phát Hàng
+                            </span>
+                        </div>
+                        <button 
+                            @click="openCreateTripModal('DESTINATION_FEEDER')"
+                            class="px-3 py-1 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg text-xs transition cursor-pointer"
+                        >
+                            + Lập Chuyến Xe Phát Thủ Công
+                        </button>
+                    </div>
+
+                    <div v-if="filteredDestinationFeederTrips.length === 0" class="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400">
+                        Chưa có chuyến xe phát nào được khởi tạo cho bưu cục đang chọn. Nhấn "Lập &amp; Xuất Xe Phát" hoặc nút trên để tạo chuyến.
+                    </div>
+
+                    <div v-else class="grid grid-cols-1 gap-3 text-xs">
+                        <div 
+                            v-for="trip in filteredDestinationFeederTrips" 
+                            :key="trip.id"
+                            class="bg-white border border-slate-200 hover:border-emerald-300 rounded-xl p-3.5 shadow-sm transition flex flex-col md:flex-row md:items-center justify-between gap-3"
+                        >
+                            <div class="space-y-1.5 flex-1 min-w-0">
+                                <div class="flex items-center space-x-2">
+                                    <span class="font-mono font-black text-sm text-emerald-800">{{ trip.tripCode }}</span>
+                                    <span :class="['px-2 py-0.5 rounded text-[10px] font-bold border uppercase', getStatusBadge(trip.status)]">
+                                        {{ getTripStatusLabel(trip) }}
+                                    </span>
+                                    <span class="text-xs text-slate-400">|</span>
+                                    <span class="font-bold text-xs text-slate-700">{{ trip.routeName || 'Tuyến phát về bưu cục' }}</span>
+                                </div>
+
+                                <div class="text-xs text-slate-600 flex flex-wrap items-center gap-x-4 gap-y-1">
+                                    <div><span class="text-slate-400">Xe phát:</span> <strong class="font-mono text-slate-800">{{ trip.vehiclePlate || '29C-556.12' }}</strong></div>
+                                    <div><span class="text-slate-400">Tài xế:</span> <strong class="text-slate-800">{{ trip.driverName || 'Vũ Văn Phát' }}</strong></div>
+                                    <div><span class="text-slate-400">Tải trọng:</span> <strong class="text-emerald-700">{{ (trip.currentWeight || 0).toFixed(1) }} / {{ trip.maxWeight || 1500 }} kg</strong></div>
+                                </div>
+
+                                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-600">
+                                    <span class="px-2 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-700 font-bold">
+                                        Phát Bưu Cục
+                                    </span>
+                                    <span><span class="text-slate-400">Lộ trình:</span> <strong>{{ getTripEndpoint(trip, 'origin') }} ➔ {{ getTripEndpoint(trip, 'destination') }}</strong></span>
+                                    <span><span class="text-slate-400">Vị trí:</span> <strong class="font-mono text-slate-700">{{ getTripLocationLabel(trip) }}</strong></span>
+                                    <span><span class="text-slate-400">Tiến độ:</span> <strong class="text-emerald-700">{{ formatProgress(trip.progressPercent) }}</strong></span>
+                                </div>
+                            </div>
+
+                            <!-- CÁC NÚT THAO TÁC 1-CHẠM -->
+                            <div class="flex flex-wrap items-center gap-2 self-end md:self-center shrink-0">
+                                <button 
+                                    @click="openTripDetail(trip.id)"
+                                    class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition border border-slate-200 cursor-pointer"
+                                >
+                                    Chi Tiết &amp; Bản Đồ
+                                </button>
+
+                                <button 
+                                    v-if="trip.status === 'SCHEDULED'"
+                                    @click="handleDepartTrip(trip.id)"
+                                    :disabled="isExecutingAction"
+                                    class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs transition cursor-pointer"
+                                >
+                                    Xuất Bến Xe Phát
+                                </button>
+
+                                <template v-else-if="trip.status === 'IN_TRANSIT'">
+                                    <button 
+                                        v-if="getNextPendingStop(trip)"
+                                        @click="handleMoveToStop(trip, getNextPendingStop(trip).hubCode)"
+                                        :disabled="isUpdatingProgress"
+                                        class="px-3 py-1.5 bg-emerald-50 text-emerald-800 hover:bg-emerald-600 hover:text-white border border-emerald-200 rounded-lg font-bold text-xs transition cursor-pointer"
+                                    >
+                                        Di Chuyển Tới: {{ getHubDisplayName(getNextPendingStop(trip).hubCode) }}
+                                    </button>
+
+                                    <button 
+                                        v-if="getNextPendingStop(trip)"
+                                        @click="handleArriveAtStation(trip, getNextPendingStop(trip).hubCode)"
+                                        :disabled="isExecutingAction"
+                                        class="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-lg shadow-xs transition cursor-pointer"
+                                    >
+                                        Cập Bến &amp; Dỡ Hàng Phát
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -3009,27 +3378,85 @@
                         
                         <!-- TAB 1: LỘ TRÌNH & BẢN ĐỒ -->
                         <div v-show="detailActiveTab === 'route'" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            <div class="lg:col-span-2 rounded-xl border border-blue-200 bg-blue-50/40 p-3">
-                                <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3">
+                            <!-- BANNER ĐIỀU HÀNH VỊ TRÍ & TIẾN ĐỘ BẰNG MỐC ĐIỂM DỪNG (KHÔNG CẦN NHẬP TỌA ĐỘ) -->
+                            <div class="lg:col-span-2 rounded-xl border border-blue-200 bg-blue-50/50 p-3.5 space-y-2.5">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-100 pb-2">
                                     <div>
-                                        <div class="font-bold text-blue-900 uppercase tracking-wider text-[10.5px]">Cập nhật tiến độ chuyến xe</div>
-                                        <div class="text-[11px] text-blue-700 mt-0.5">Thao tác được ghi nhận bằng operationId ổn định và đồng bộ vào routing inventory/lifecycle.</div>
+                                        <div class="font-bold text-blue-900 uppercase tracking-wider text-[11px] flex items-center space-x-2">
+                                            <span>Điều Hành Tuyến Xe Theo Mốc Điểm Dừng</span>
+                                            <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-mono font-bold">
+                                                Tọa độ &amp; tiến độ tự động
+                                            </span>
+                                        </div>
+                                        <div class="text-[11px] text-blue-700 mt-0.5">
+                                            Vị trí hiện tại: <strong class="font-mono text-slate-800">{{ getTripLocationLabel(activeTripDetail) }}</strong> · Tiến độ: <strong class="text-blue-800">{{ formatProgress(activeTripDetail?.progressPercent) }}</strong>
+                                        </div>
                                     </div>
-                                    <form @submit.prevent="submitTripProgress" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 flex-1 lg:max-w-4xl">
-                                        <select v-model="progressForm.locationCode" :disabled="!canUpdateTripProgress || isUpdatingProgress" class="rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs outline-none">
-                                            <option value="">-- Vị trí hiện tại --</option>
+
+                                    <!-- NÚT CHẠY MÔ PHỎNG OSRM -->
+                                    <button 
+                                        type="button" 
+                                        @click="runTripSimulation" 
+                                        :disabled="activeTripDetail?.status === 'COMPLETED'"
+                                        :class="isSimulatingTrip ? 'bg-amber-600 hover:bg-amber-700' : 'bg-slate-800 hover:bg-slate-900'"
+                                        class="px-3.5 py-1.5 text-white font-bold rounded-lg text-xs transition shrink-0 cursor-pointer disabled:opacity-40"
+                                    >
+                                        {{ isSimulatingTrip ? 'Tạm Dừng Mô Phỏng' : 'Chạy Mô Phỏng Tuyến Xe (OSRM)' }}
+                                    </button>
+                                </div>
+
+                                <!-- CÁC HÀNH ĐỘNG MỐC NHANH -->
+                                <div class="flex flex-wrap items-center gap-2 pt-0.5">
+                                    <!-- Nút 1-chạm: Di chuyển tới trạm kế tiếp -->
+                                    <template v-if="getNextPendingStop(activeTripDetail) && activeTripDetail?.status === 'IN_TRANSIT'">
+                                        <button 
+                                            type="button"
+                                            @click="handleMoveToStop(activeTripDetail, getNextPendingStop(activeTripDetail).hubCode)"
+                                            :disabled="isUpdatingProgress"
+                                            class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs transition shadow-xs disabled:opacity-50 cursor-pointer flex items-center space-x-1.5"
+                                        >
+                                            <span v-if="isUpdatingProgress" class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                            <span>Di Chuyển Tới: {{ getHubDisplayName(getNextPendingStop(activeTripDetail).hubCode) }}</span>
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            @click="handleArriveAtStation(activeTripDetail, getNextPendingStop(activeTripDetail).hubCode)"
+                                            :disabled="isExecutingAction"
+                                            class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition shadow-xs disabled:opacity-50 cursor-pointer flex items-center space-x-1.5"
+                                        >
+                                            <span v-if="isExecutingAction" class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                            <span>Xác Nhận Cập Bến: {{ getHubDisplayName(getNextPendingStop(activeTripDetail).hubCode) }}</span>
+                                        </button>
+                                    </template>
+
+                                    <!-- Hoặc chọn trạm bất kỳ trong danh sách lộ trình -->
+                                    <div class="flex items-center space-x-1.5 flex-1 min-w-[280px]">
+                                        <select 
+                                            v-model="progressForm.locationCode" 
+                                            :disabled="isUpdatingProgress || activeTripDetail?.status === 'COMPLETED'" 
+                                            class="flex-1 rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 text-xs outline-none"
+                                        >
+                                            <option value="">-- Chọn mốc trạm di chuyển tới --</option>
                                             <option v-for="s in (activeTripDetail?.stops || [])" :key="s.stopOrder" :value="s.hubCode">
-                                                {{ s.hubCode }} - {{ getHubDisplayName(s.hubCode) }}
+                                                Trạm {{ s.stopOrder }}: {{ s.hubCode }} - {{ getHubDisplayName(s.hubCode) }} ({{ s.status }})
                                             </option>
                                         </select>
-                                        <input v-model="progressForm.progressPercent" type="number" min="0" max="100" step="0.1" required placeholder="Tiến độ (%)" :disabled="!canUpdateTripProgress || isUpdatingProgress" class="rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs outline-none" />
-                                        <input v-model="progressForm.latitude" type="number" step="any" min="-90" max="90" placeholder="Vĩ độ (tùy chọn)" :disabled="!canUpdateTripProgress || isUpdatingProgress" class="rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs outline-none" />
-                                        <input v-model="progressForm.longitude" type="number" step="any" min="-180" max="180" placeholder="Kinh độ (tùy chọn)" :disabled="!canUpdateTripProgress || isUpdatingProgress" class="rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs outline-none" />
-                                        <input v-model="progressForm.note" type="text" placeholder="Ghi chú tác nghiệp" :disabled="!canUpdateTripProgress || isUpdatingProgress" class="rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs outline-none" />
-                                        <button type="submit" :disabled="!canUpdateTripProgress || isUpdatingProgress || activeTripDetail?.status === 'COMPLETED'" class="sm:col-span-2 lg:col-span-5 justify-self-end px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs disabled:opacity-40">
-                                            {{ isUpdatingProgress ? 'Đang ghi nhận...' : (canUpdateTripProgress ? 'Ghi Nhận Tiến Độ' : 'API chưa sẵn sàng') }}
+                                        <input 
+                                            v-model="progressForm.note" 
+                                            type="text" 
+                                            placeholder="Ghi chú (tùy chọn)" 
+                                            :disabled="isUpdatingProgress || activeTripDetail?.status === 'COMPLETED'" 
+                                            class="w-44 rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 text-xs outline-none"
+                                        />
+                                        <button 
+                                            type="button"
+                                            @click="handleMoveToStop(activeTripDetail, progressForm.locationCode)"
+                                            :disabled="!progressForm.locationCode || isUpdatingProgress || activeTripDetail?.status === 'COMPLETED'"
+                                            class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs disabled:opacity-40 transition cursor-pointer"
+                                        >
+                                            Chuyển Vị Trí
                                         </button>
-                                    </form>
+                                    </div>
                                 </div>
                             </div>
                             <div>
@@ -3055,23 +3482,45 @@
                                 <div class="space-y-2 max-h-[380px] overflow-y-auto pr-1">
                                     <div 
                                         v-for="s in activeTripDetail?.stops" 
-                                        :key="s.stopOrder"
-                                        class="p-3 rounded-lg border border-slate-200/80 bg-slate-50 flex items-center justify-between"
+                                        :key="s.stopOrder" 
+                                        class="p-3 rounded-lg border border-slate-200/80 bg-slate-50 flex items-center justify-between gap-2"
                                     >
-                                        <div>
-                                            <div class="font-bold text-slate-800">
+                                        <div class="min-w-0">
+                                            <div class="font-bold text-slate-800 truncate">
                                                 Trạm {{ s.stopOrder }}: {{ getHubDisplayName(s.hubCode) }}
                                                 <span class="text-blue-600 font-mono text-[11px]">({{ s.hubCode }})</span>
                                             </div>
-                                            <div class="text-[11px] text-slate-500 mt-0.5">{{ s.hubAddress || getHubAddress(s.hubCode) }}</div>
+                                            <div class="text-[11px] text-slate-500 mt-0.5 truncate">{{ s.hubAddress || getHubAddress(s.hubCode) }}</div>
                                             <div class="text-[11px] text-slate-400 mt-0.5">
                                                 Đến: {{ s.arrivedAt ? new Date(s.arrivedAt).toLocaleTimeString('vi-VN') : '--:--' }} | 
                                                 Đi: {{ s.departedAt ? new Date(s.departedAt).toLocaleTimeString('vi-VN') : '--:--' }}
                                             </div>
                                         </div>
-                                        <span :class="['px-2 py-0.5 rounded-md font-bold text-[10px]', s.status === 'ARRIVED' ? 'bg-emerald-100 text-emerald-800' : (s.status === 'DEPARTED' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200 text-slate-600')]">
-                                            {{ s.status }}
-                                        </span>
+                                        <div class="flex items-center space-x-1.5 shrink-0">
+                                            <span :class="['px-2 py-0.5 rounded-md font-bold text-[10px]', s.status === 'ARRIVED' ? 'bg-emerald-100 text-emerald-800' : (s.status === 'DEPARTED' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200 text-slate-600')]">
+                                                {{ s.status }}
+                                            </span>
+                                            <template v-if="s.status === 'PENDING' && activeTripDetail?.status === 'IN_TRANSIT'">
+                                                <button 
+                                                    type="button"
+                                                    @click="handleMoveToStop(activeTripDetail, s.hubCode)"
+                                                    :disabled="isUpdatingProgress"
+                                                    class="px-2 py-0.5 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white border border-blue-200 rounded font-bold text-[10px] transition cursor-pointer"
+                                                    title="Cập nhật vị trí xe đang di chuyển tới trạm này"
+                                                >
+                                                    Tới
+                                                </button>
+                                                <button 
+                                                    type="button"
+                                                    @click="handleArriveAtStation(activeTripDetail, s.hubCode)"
+                                                    :disabled="isExecutingAction"
+                                                    class="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[10px] transition cursor-pointer"
+                                                    title="Xác nhận xe đã cập bến trạm và dỡ hàng"
+                                                >
+                                                    Cập Bến
+                                                </button>
+                                            </template>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
