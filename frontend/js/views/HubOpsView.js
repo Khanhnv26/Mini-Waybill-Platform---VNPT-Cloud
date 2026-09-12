@@ -9,174 +9,415 @@
 (function () {
     const { ref, computed, watch, onMounted } = Vue;
 
+    const asNonBlankString = (value) => {
+        if (value === undefined || value === null) return '';
+        const text = String(value).trim();
+        return text;
+    };
+
+    const asCode = (value) => asNonBlankString(value).toUpperCase();
+
+    const readFirstField = (source, keys) => {
+        if (!source || typeof source !== 'object') return '';
+        for (const key of keys) {
+            const value = source[key];
+            if (value !== undefined && value !== null && asNonBlankString(value) !== '') {
+                return value;
+            }
+        }
+        return '';
+    };
+
+    const readLocationCode = (source) => {
+        if (!source || typeof source !== 'object') return '';
+
+        const direct = readFirstField(source, [
+            'locationCode',
+            'stationCode',
+            'hubCode',
+            'assignedLocationCode',
+            'assignedStationCode',
+            'assignedHubCode',
+            'workLocationCode',
+            'operationalLocationCode',
+            'postOfficeCode'
+        ]);
+        if (direct && typeof direct !== 'object') return asCode(direct);
+
+        const nested = [source.location, source.station, source.hub, source.workLocation];
+        for (const value of nested) {
+            if (typeof value === 'string' && asNonBlankString(value)) return asCode(value);
+            if (value && typeof value === 'object') {
+                const nestedCode = readFirstField(value, ['code', 'locationCode', 'stationCode', 'hubCode']);
+                if (nestedCode) return asCode(nestedCode);
+            }
+        }
+        return '';
+    };
+
+    const resolveStationContext = () => {
+        let user = null;
+        let claims = null;
+
+        try {
+            if (typeof Auth !== 'undefined' && typeof Auth.getUser === 'function') {
+                user = Auth.getUser();
+            }
+            if (typeof Auth !== 'undefined' && typeof Auth.decodeJwtPayload === 'function') {
+                claims = Auth.decodeJwtPayload();
+            }
+        } catch (error) {
+            console.warn('[HubOpsView] Không thể đọc ngữ cảnh trạm từ Auth:', error);
+        }
+
+        const sources = [
+            user,
+            user?.profile,
+            user?.station,
+            user?.hub,
+            claims,
+            claims?.user,
+            claims?.profile,
+            claims?.station,
+            claims?.hub
+        ];
+
+        for (const source of sources) {
+            const code = readLocationCode(source);
+            if (code) {
+                const label = readFirstField(source, [
+                    'locationName',
+                    'stationName',
+                    'hubName',
+                    'assignedLocationName',
+                    'workLocationName',
+                    'name'
+                ]);
+                return {
+                    code,
+                    label: asNonBlankString(label) || code
+                };
+            }
+        }
+
+        return { code: '', label: '' };
+    };
+
+    const rawValueText = (value) => {
+        if (value === undefined || value === null || value === '') return '';
+        if (typeof value === 'object') {
+            const code = readFirstField(value, ['code', 'name', 'value', 'tripCode', 'id']);
+            if (code !== '') return String(code);
+            try {
+                return JSON.stringify(value);
+            } catch (error) {
+                return String(value);
+            }
+        }
+        return String(value);
+    };
+
+    const unwrapCollection = (value) => {
+        if (Array.isArray(value)) return value;
+        if (!value || typeof value !== 'object') return [];
+        for (const key of ['items', 'content', 'inventory', 'shipments', 'results', 'data']) {
+            if (value[key] !== undefined) return unwrapCollection(value[key]);
+        }
+        return value.trackingCode || value.code ? [value] : [];
+    };
+
+    const errorStatus = (error) => {
+        const status = error?.status
+            ?? error?.response?.status
+            ?? error?.details?.status
+            ?? error?.details?.statusCode;
+        const parsed = Number(status);
+        return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const errorMessage = (error, fallback) => {
+        if (error?.message) return error.message;
+        if (typeof error === 'string') return error;
+        return fallback;
+    };
+
     const HubOpsView = {
         name: 'HubOpsView',
-        emits: ['view-tracking'],
+        emits: ['view-tracking', 'request-trips'],
         setup(props, { emit }) {
             const currentSubtab = ref('scan'); // 'scan' | 'inventory'
             const isLoading = ref(false);
             const isActionRunning = ref(false);
+            const inventorySource = ref('shipment-fallback');
+            const tripsNotice = ref('');
 
-            // Dữ liệu bưu gửi thật từ backend
+            // Dữ liệu vận hành. Khi có RoutingService, các bản ghi tồn kho là nguồn chính.
             const shipmentsList = ref([]);
+            const hubsList = ref([]);
             const scanInputCode = ref('');
-            const selectedHub = ref('ALL');
+            const stationContext = ref(resolveStationContext());
+            const selectedHub = ref(stationContext.value.code || 'ALL');
             const selectedStatusFilter = ref('ALL');
             const searchQuery = ref('');
-
 
             // Phân trang
             const currentPage = ref(1);
             const pageSize = ref(10);
 
-            // Thống kê nhanh KPI
-            const kpiTotalInHub = computed(() => {
-                return shipmentsList.value.filter(s => s.currentStatus === 'PICKED_UP' || s.currentStatus === 'ARRIVED_DEST_HUB').length;
-            });
-
-            const kpiAwaitingIntake = computed(() => {
-                return shipmentsList.value.filter(s => s.currentStatus === 'ROUTE_ASSIGNED' || s.currentStatus === 'PENDING_ROUTING').length;
-            });
-
-            const kpiInTransit = computed(() => {
-                return shipmentsList.value.filter(s => s.currentStatus === 'IN_TRANSIT').length;
-            });
-
-            const getDestPostOfficeInfo = (item) => {
-                if (!item) return { code: 'POST-DN-HC', name: 'Bưu Cục Phát' };
-                if (item.destPostOffice) {
-                    const name = window.MapManager?.hubCoordinates?.[item.destPostOffice]?.name || item.destPostOffice;
-                    return { code: item.destPostOffice, name };
+            const showToast = (title, message, type = 'success') => {
+                if (typeof Utils !== 'undefined' && typeof Utils.showToast === 'function') {
+                    Utils.showToast(title, message, type);
                 }
-                if (item.receiverAddress && window.MapManager?.getPostOfficeForAddress) {
-                    const found = window.MapManager.getPostOfficeForAddress(item.receiverAddress);
-                    if (found) return { code: found.code, name: found.name };
-                }
-                return { code: 'POST-DN-HC', name: 'Bưu Cục Hải Châu' };
             };
 
-            const isAtPostOffice = (item) => {
-                if (!item) return false;
-                const loc = (item.locationCode || '').toUpperCase();
-                return loc.startsWith('POST-') || loc === 'DELIVERY_OFFICE';
+            const getStationName = (code) => {
+                const normalizedCode = asCode(code);
+                if (!normalizedCode) return '';
+                const found = hubsList.value.find(hub => asCode(
+                    readFirstField(hub, ['hubCode', 'stationCode', 'locationCode', 'code'])
+                ) === normalizedCode);
+                return asNonBlankString(readFirstField(found, ['hubName', 'stationName', 'locationName', 'name'])) || normalizedCode;
             };
 
-            const getOriginPostOfficeInfo = (item) => {
-                if (!item) return { code: 'POST-HN-CG', name: 'Bưu Cục Gốc' };
-                if (item.originPostOffice) {
-                    const name = window.MapManager?.hubCoordinates?.[item.originPostOffice]?.name || item.originPostOffice;
-                    return { code: item.originPostOffice, name };
-                }
-                if (item.senderAddress && window.MapManager?.getPostOfficeForAddress) {
-                    const found = window.MapManager.getPostOfficeForAddress(item.senderAddress);
-                    if (found) return { code: found.code, name: found.name };
-                }
-                return { code: 'POST-HN-CG', name: 'Bưu Cục Cầu Giấy' };
+            const availableStations = computed(() => {
+                const stations = new Map();
+                const addStation = (code, name) => {
+                    const normalizedCode = asCode(code);
+                    if (!normalizedCode) return;
+                    stations.set(normalizedCode, asNonBlankString(name) || getStationName(normalizedCode) || normalizedCode);
+                };
+
+                addStation(stationContext.value.code, stationContext.value.label);
+                hubsList.value.forEach(hub => {
+                    addStation(
+                        readFirstField(hub, ['hubCode', 'stationCode', 'locationCode', 'code']),
+                        readFirstField(hub, ['hubName', 'stationName', 'locationName', 'name'])
+                    );
+                });
+                shipmentsList.value.forEach(item => addStation(item.locationCode, item.locationCode));
+
+                return Array.from(stations, ([code, name]) => ({ code, name }))
+                    .sort((left, right) => left.code.localeCompare(right.code));
+            });
+
+            const currentActionLocation = computed(() => {
+                if (selectedHub.value !== 'ALL') return asCode(selectedHub.value);
+                return asCode(stationContext.value.code);
+            });
+
+            const operationalStatus = (item) => asCode(
+                item?.currentStatus || item?.status || item?.shipmentStatus || item?.inventoryStatus
+            );
+
+            const locationForDisplay = (item) => asCode(
+                item?.locationCode || item?.location || item?.currentLocationCode
+            );
+
+            const getInventoryStatus = (item) => rawValueText(
+                item?.rawInventoryStatus ?? item?.inventoryStatus ?? item?.inventory_status
+            );
+
+            const getTransportLeg = (item) => rawValueText(item?.transportLeg ?? item?.transport_leg ?? item?.leg);
+            const getTripCode = (item) => rawValueText(item?.tripCode ?? item?.trip_code ?? item?.activeTripCode);
+
+            const normalizeInventoryItem = (rawItem, source) => {
+                const item = rawItem && typeof rawItem === 'object' ? rawItem : {};
+                const shipment = item.shipment && typeof item.shipment === 'object' ? item.shipment : {};
+                const trip = item.trip && typeof item.trip === 'object' ? item.trip : {};
+                const activeTrip = item.activeTrip && typeof item.activeTrip === 'object' ? item.activeTrip : {};
+                const inventoryStatus = readFirstField(item, [
+                    'inventoryStatus',
+                    'inventory_status',
+                    'inventoryState',
+                    'warehouseStatus'
+                ]) || readFirstField(shipment, ['inventoryStatus', 'inventory_status']);
+                const currentStatus = readFirstField(item, [
+                    'currentStatus',
+                    'shipmentStatus',
+                    'lifecycleStatus'
+                ]) || readFirstField(shipment, ['currentStatus', 'shipmentStatus', 'lifecycleStatus']);
+                const transportLeg = readFirstField(item, ['transportLeg', 'transport_leg', 'leg'])
+                    || readFirstField(trip, ['transportLeg', 'leg']);
+                const tripCode = readFirstField(item, ['tripCode', 'trip_code', 'activeTripCode'])
+                    || readFirstField(trip, ['tripCode', 'code'])
+                    || readFirstField(activeTrip, ['tripCode', 'code']);
+                const locationCode = readFirstField(item, [
+                    'locationCode',
+                    'location_code',
+                    'currentLocationCode',
+                    'location'
+                ]) || readFirstField(shipment, ['locationCode', 'location_code']);
+
+                return {
+                    ...shipment,
+                    ...item,
+                    trackingCode: readFirstField(item, ['trackingCode', 'tracking_code', 'code'])
+                        || readFirstField(shipment, ['trackingCode', 'tracking_code', 'code']),
+                    currentStatus: currentStatus || readFirstField(item, ['status']) || readFirstField(shipment, ['status']),
+                    inventoryStatus: inventoryStatus || '',
+                    rawInventoryStatus: inventoryStatus || '',
+                    transportLeg,
+                    tripCode,
+                    locationCode,
+                    sourceHub: item.sourceHub || shipment.sourceHub,
+                    destinationHub: item.destinationHub || shipment.destinationHub,
+                    _inventorySource: source
+                };
             };
 
-            const isCurrentStationCentralHub = computed(() => {
-                return selectedHub.value === 'ALL' || selectedHub.value.startsWith('HUB-');
-            });
+            const normalizeCollection = (data, source) => unwrapCollection(data)
+                .map(item => normalizeInventoryItem(item, source))
+                .filter(item => asNonBlankString(item.trackingCode));
 
-            const isCurrentStationPostOffice = computed(() => {
-                return selectedHub.value && selectedHub.value.startsWith('POST-');
-            });
+            const mergeOptimisticItems = (nextItems) => {
+                const now = Date.now();
+                return nextItems.map(item => {
+                    const existing = shipmentsList.value.find(
+                        current => current.trackingCode === item.trackingCode
+                    );
+                    if (!existing || !existing._optimisticTimestamp || now - existing._optimisticTimestamp >= 4000) {
+                        return item;
+                    }
+                    return {
+                        ...item,
+                        currentStatus: existing.currentStatus || item.currentStatus,
+                        status: existing.status || item.status,
+                        inventoryStatus: existing.inventoryStatus || item.inventoryStatus,
+                        rawInventoryStatus: existing.rawInventoryStatus || item.rawInventoryStatus,
+                        locationCode: existing.locationCode || item.locationCode,
+                        _optimisticTimestamp: existing._optimisticTimestamp
+                    };
+                });
+            };
 
-            // 1. Tải danh sách bưu gửi thật từ backend (Hỗ trợ nạp ngầm không nháy màn hình)
+            const isMigrationUnavailable = (error) => {
+                const status = errorStatus(error);
+                return status === 404 || status === 405 || status === 501;
+            };
+
+            const showLoadError = (error) => {
+                const status = errorStatus(error);
+                if (status === 403) {
+                    showToast('Không Có Quyền (403)', 'Tài khoản không được phép xem tồn kho tại trạm này.', 'error');
+                    return;
+                }
+                if (status === 409) {
+                    showToast('Dữ Liệu Đã Thay Đổi (409)', 'Tồn kho vừa thay đổi. Vui lòng làm mới lại dữ liệu.', 'warning');
+                    return;
+                }
+                showToast('Lỗi Tải Dữ Liệu', errorMessage(error, 'Không thể tải tồn kho tại trạm'), 'error');
+            };
+
+            const loadHubsData = async () => {
+                if (typeof RoutingService === 'undefined' || typeof RoutingService.getAllHubs !== 'function') return;
+                try {
+                    const data = await RoutingService.getAllHubs();
+                    hubsList.value = Array.isArray(data) ? data : unwrapCollection(data);
+                } catch (error) {
+                    // Danh bạ hub chỉ bổ trợ cho bộ lọc; không che mất dữ liệu tồn kho.
+                    console.warn('[HubOpsView] Không thể tải danh bạ trạm:', error);
+                }
+            };
+
+            const loadShipmentFallback = async () => {
+                if (typeof ShipmentService === 'undefined' || typeof ShipmentService.getAll !== 'function') {
+                    throw new Error('Không có nguồn dữ liệu vận đơn tương thích để tải tồn kho.');
+                }
+                const data = await ShipmentService.getAll();
+                inventorySource.value = 'shipment-fallback';
+                shipmentsList.value = mergeOptimisticItems(normalizeCollection(data, 'shipment-fallback'));
+            };
+
+            // Tồn kho RoutingService là nguồn chính. ShipmentService chỉ còn là đường di trú.
             const loadShipmentsData = async (silent = false) => {
                 if (!silent) isLoading.value = true;
                 try {
-                    const data = await ShipmentService.getAll();
-                    if (Array.isArray(data)) {
-                        // Bảo vệ trạng thái vừa cập nhật lạc quan trong vòng 4s phòng trường hợp Kafka consumer chưa commit kịp
-                        shipmentsList.value = data.map(newItem => {
-                            const existing = shipmentsList.value.find(s => s.trackingCode === newItem.trackingCode);
-                            if (existing && existing._optimisticTimestamp && (Date.now() - existing._optimisticTimestamp < 4000)) {
-                                return {
-                                    ...newItem,
-                                    currentStatus: existing.currentStatus,
-                                    status: existing.status,
-                                    locationCode: existing.locationCode,
-                                    _optimisticTimestamp: existing._optimisticTimestamp
-                                };
-                            }
-                            return {
-                                ...newItem,
-                                locationCode: existing?.locationCode || newItem.locationCode
-                            };
-                        });
+                    const canReadInventory = typeof RoutingService !== 'undefined'
+                        && typeof RoutingService.getInventory === 'function'
+                        && currentActionLocation.value;
 
-                        // Nạp ngầm locationCode cho các đơn ARRIVED_DEST_HUB để phân biệt Kho Tổng vs Bưu Cục Con
-                        const arrivedItems = shipmentsList.value.filter(s => s.currentStatus === 'ARRIVED_DEST_HUB');
-                        if (arrivedItems.length > 0) {
-                            arrivedItems.forEach(async item => {
-                                try {
-                                    const tr = await TrackingService.getTracking(item.trackingCode);
-                                    if (tr && tr.locationCode) {
-                                        item.locationCode = tr.locationCode;
-                                    }
-                                } catch (e) {
-                                    // ignore
-                                }
-                            });
+                    if (canReadInventory) {
+                        try {
+                            const data = await RoutingService.getInventory(selectedHub.value);
+                            inventorySource.value = 'routing';
+                            shipmentsList.value = mergeOptimisticItems(normalizeCollection(data, 'routing'));
+                            return;
+                        } catch (error) {
+                            // Không che lỗi phân quyền/xung đột bằng dữ liệu cũ. Chỉ fallback khi endpoint chưa có.
+                            if (!isMigrationUnavailable(error)) {
+                                if (!silent) showLoadError(error);
+                                return;
+                            }
+                            console.warn('[HubOpsView] Inventory API chưa khả dụng, dùng nguồn di trú:', error);
                         }
-                    } else {
-                        shipmentsList.value = [];
                     }
-                } catch (err) {
-                    console.error('[HubOpsView] Lỗi tải bưu gửi:', err);
-                    if (!silent) {
-                        Utils.showToast('Lỗi Tải Dữ Liệu', err.message || 'Không thể tải danh sách bưu gửi từ máy chủ', 'error');
-                    }
+
+                    await loadShipmentFallback();
+                } catch (error) {
+                    console.error('[HubOpsView] Lỗi tải dữ liệu vận hành:', error);
+                    if (!silent) showLoadError(error);
                 } finally {
                     if (!silent) isLoading.value = false;
                 }
             };
+
+            // 1. Thống kê nhanh KPI theo dữ liệu thô của tồn kho
+            const kpiTotalInHub = computed(() => shipmentsList.value.filter(item => {
+                const status = operationalStatus(item);
+                const inventoryStatus = getInventoryStatus(item);
+                return ['RECEIVED', 'STORED', 'PICKED_UP', 'ARRIVED_DEST_HUB'].includes(status)
+                    || ['RECEIVED', 'STORED'].includes(asCode(inventoryStatus));
+            }).length);
+
+            const kpiAwaitingIntake = computed(() => shipmentsList.value.filter(item =>
+                ['ROUTE_ASSIGNED', 'PENDING_ROUTING'].includes(operationalStatus(item))
+            ).length);
+
+            const kpiInTransit = computed(() => shipmentsList.value.filter(item =>
+                operationalStatus(item) === 'IN_TRANSIT'
+            ).length);
 
             // 2. Lọc danh sách bưu gửi đa điều kiện
             const filteredShipments = computed(() => {
                 let list = shipmentsList.value;
 
                 if (selectedHub.value !== 'ALL') {
-                    const st = selectedHub.value;
-                    list = list.filter(s => {
-                        if (s.locationCode === st) return true;
-                        if (st.startsWith('POST-')) {
-                            if (s.currentStatus === 'ROUTE_ASSIGNED' || s.currentStatus === 'PENDING_ROUTING') {
-                                return getOriginPostOfficeInfo(s).code === st;
-                            }
-                            if (s.currentStatus === 'ARRIVED_DEST_HUB') {
-                                return getDestPostOfficeInfo(s).code === st;
-                            }
+                    const station = asCode(selectedHub.value);
+                    list = list.filter(item => {
+                        const location = locationForDisplay(item);
+                        if (location === station) return true;
+
+                        // Dữ liệu di trú thường chỉ có source/destination hub.
+                        const status = operationalStatus(item);
+                        if (['ROUTE_ASSIGNED', 'PENDING_ROUTING', 'PICKED_UP'].includes(status)) {
+                            return asCode(item.sourceHub) === station;
                         }
-                        if (st.startsWith('HUB-')) {
-                            if (s.currentStatus === 'IN_TRANSIT') {
-                                return s.sourceHub === st || s.destinationHub === st;
-                            }
-                            if (s.currentStatus === 'ARRIVED_DEST_HUB' && !isAtPostOffice(s)) {
-                                return s.destinationHub === st;
-                            }
-                            if (s.currentStatus === 'ROUTE_ASSIGNED' || s.currentStatus === 'PENDING_ROUTING') {
-                                return s.sourceHub === st;
-                            }
+                        if (['IN_TRANSIT', 'ARRIVED_DEST_HUB'].includes(status)) {
+                            return asCode(item.destinationHub) === station;
                         }
                         return false;
                     });
                 }
 
                 if (selectedStatusFilter.value !== 'ALL') {
-                    list = list.filter(s => s.currentStatus === selectedStatusFilter.value);
+                    const status = asCode(selectedStatusFilter.value);
+                    list = list.filter(item => operationalStatus(item) === status
+                        || asCode(getInventoryStatus(item)) === status);
                 }
 
-                if (searchQuery.value.trim()) {
-                    const q = searchQuery.value.trim().toLowerCase();
-                    list = list.filter(s => 
-                        (s.trackingCode && s.trackingCode.toLowerCase().includes(q)) ||
-                        (s.senderName && s.senderName.toLowerCase().includes(q)) ||
-                        (s.receiverName && s.receiverName.toLowerCase().includes(q)) ||
-                        (s.senderAddress && s.senderAddress.toLowerCase().includes(q)) ||
-                        (s.receiverAddress && s.receiverAddress.toLowerCase().includes(q))
-                    );
+                const query = searchQuery.value.trim().toLowerCase();
+                if (query) {
+                    list = list.filter(item => [
+                        item.trackingCode,
+                        item.senderName,
+                        item.receiverName,
+                        item.senderAddress,
+                        item.receiverAddress,
+                        item.locationCode,
+                        item.transportLeg,
+                        item.tripCode,
+                        item.inventoryStatus
+                    ].some(value => rawValueText(value).toLowerCase().includes(query)));
                 }
 
                 return list;
@@ -196,105 +437,167 @@
 
             watch([selectedHub, selectedStatusFilter, searchQuery, pageSize], () => {
                 currentPage.value = 1;
+                if (selectedHub.value !== 'ALL') loadShipmentsData();
             });
 
-            // 4. Thao tác nghiệp vụ: Tiếp nhận vào kho (PICKED_UP), Đóng chuyến xuất bến (IN_TRANSIT), Giao bưu tá (OUT_FOR_DELIVERY)
-            const handleUpdateStatus = async (trackingCode, targetStatus, noteMessage) => {
-                if (!trackingCode || !trackingCode.trim()) {
-                    Utils.showToast('Thông Báo', 'Vui lòng nhập mã bưu gửi cần xử lý', 'warning');
+            watch(() => stationContext.value.code, (newCode) => {
+                if (newCode && selectedHub.value === 'ALL') selectedHub.value = newCode;
+            });
+
+            const canReceive = (item) => ['ROUTE_ASSIGNED', 'PENDING_ROUTING'].includes(operationalStatus(item))
+                || asCode(getInventoryStatus(item)) === 'ROUTE_ASSIGNED';
+
+            const canStore = (item) => operationalStatus(item) === 'PICKED_UP'
+                || asCode(getInventoryStatus(item)) === 'RECEIVED';
+
+            const makeOperationPayload = (item, operation, note) => {
+                const payload = {
+                    trackingCodes: [asNonBlankString(item?.trackingCode)],
+                    shipmentStatus: operation === 'receive' ? 'PICKED_UP' : 'IN_TRANSIT',
+                    note
+                };
+                const transportLeg = getTransportLeg(item);
+                const tripCode = getTripCode(item);
+                if (transportLeg) payload.transportLeg = transportLeg;
+                if (tripCode) payload.tripCode = tripCode;
+                return payload;
+            };
+
+            const ensureSuccessfulOperationResult = async (result) => {
+                if (!result || result.ok !== false) return result;
+                if (typeof Api !== 'undefined' && typeof Api.parseError === 'function') {
+                    throw await Api.parseError(result, 'Tác nghiệp không thành công');
+                }
+                const error = new Error('Tác nghiệp không thành công');
+                error.status = result.status;
+                throw error;
+            };
+
+            const showOperationError = (error) => {
+                const status = errorStatus(error);
+                if (status === 403) {
+                    showToast('Không Có Quyền (403)', 'Tài khoản không được phép tác nghiệp tại trạm này.', 'error');
+                    return;
+                }
+                if (status === 409) {
+                    showToast('Xung Đột Tồn Kho (409)', 'Bưu gửi đã được tác nghiệp hoặc đang ở trạng thái khác. Vui lòng làm mới dữ liệu.', 'warning');
+                    return;
+                }
+                showToast('Tác Nghiệp Thất Bại', errorMessage(error, 'Không thể cập nhật tồn kho'), 'error');
+            };
+
+            const refreshAfterOperation = async () => {
+                await loadShipmentsData(true);
+                // Consumer/lifecycle có thể commit chậm hơn thao tác HTTP một nhịp.
+                setTimeout(() => {
+                    loadShipmentsData(true).catch(error => console.warn('[HubOpsView] Refresh nền thất bại:', error));
+                }, 600);
+            };
+
+            // 4. Tác nghiệp kho phải đi qua RoutingService, không giả lập bằng tracking status.
+            const handleInventoryOperation = async (item, operation) => {
+                const cleanCode = asNonBlankString(item?.trackingCode);
+                if (!cleanCode) {
+                    showToast('Thông Báo', 'Vui lòng nhập mã bưu gửi cần xử lý', 'warning');
                     return;
                 }
 
-                const cleanCode = trackingCode.trim();
-                const targetShipment = shipmentsList.value.find(s => s.trackingCode === cleanCode);
-
-                // Quy định nghiệp vụ: Kho Tổng không tiếp nhận tạo đơn
-                if (targetStatus === 'PICKED_UP' && isCurrentStationCentralHub.value && selectedHub.value !== 'ALL') {
-                    Utils.showToast('Quy Định Bưu Chính', 'Kho Tổng không tiếp nhận tạo đơn! Đơn mới chỉ được tiếp nhận tại Bưu Cục gốc.', 'warning');
+                const locationCode = currentActionLocation.value;
+                if (!locationCode) {
+                    showToast('Thiếu Ngữ Cảnh Trạm', 'Không xác định được trạm làm việc từ tài khoản. Vui lòng chọn đúng trạm trước khi tác nghiệp.', 'warning');
                     return;
                 }
 
-                let hubLocation = selectedHub.value !== 'ALL' ? selectedHub.value : null;
-                if (!hubLocation) {
-                    if (targetStatus === 'PICKED_UP' && targetShipment) {
-                        hubLocation = getOriginPostOfficeInfo(targetShipment).code;
-                    } else {
-                        hubLocation = targetShipment?.locationCode || 'HUB-HN-01';
-                    }
+                const methodName = operation === 'receive' ? 'receiveAtLocation' : 'storeAtLocation';
+                if (typeof RoutingService === 'undefined' || typeof RoutingService[methodName] !== 'function') {
+                    showToast('Phân Hệ Chưa Sẵn Sàng', 'RoutingService chưa hỗ trợ tác nghiệp tồn kho; không thực hiện chuyển trạng thái tạm thời.', 'warning');
+                    return;
                 }
+
+                const note = operation === 'receive'
+                    ? `Tiếp nhận bưu gửi tại trạm ${locationCode}`
+                    : `Lưu kho bưu gửi tại trạm ${locationCode}`;
+                const targetItem = shipmentsList.value.find(current => current.trackingCode === cleanCode) || item;
+                const payload = makeOperationPayload({ ...targetItem, trackingCode: cleanCode }, operation, note);
 
                 isActionRunning.value = true;
                 try {
-                    await TrackingService.updateStatus(
-                        cleanCode,
-                        targetStatus,
-                        hubLocation,
-                        noteMessage || `Khai thác tại trạm ${hubLocation}: Chuyển trạng thái ${targetStatus}`
-                    );
+                    const result = await RoutingService[methodName].call(RoutingService, locationCode, payload);
+                    await ensureSuccessfulOperationResult(result);
 
-                    // 1. Cập nhật lạc quan (Optimistic UI Update) ngay tại bộ nhớ (0ms latency)
-                    if (targetShipment) {
-                        targetShipment.currentStatus = targetStatus;
-                        targetShipment.status = targetStatus;
-                        targetShipment.locationCode = hubLocation;
-                        targetShipment._optimisticTimestamp = Date.now();
+                    if (targetItem) {
+                        targetItem.locationCode = locationCode;
+                        targetItem.inventoryStatus = operation === 'receive' ? 'RECEIVED' : 'STORED';
+                        targetItem.rawInventoryStatus = targetItem.inventoryStatus;
+                        targetItem.currentStatus = operation === 'receive' ? 'PICKED_UP' : 'IN_TRANSIT';
+                        targetItem.status = targetItem.currentStatus;
+                        targetItem._optimisticTimestamp = Date.now();
                     }
 
-                    Utils.showToast('Thành Công', `Bưu gửi ${cleanCode} đã chuyển sang: ${Utils.formatStatusText(targetStatus)}`);
+                    showToast(
+                        'Thành Công',
+                        `Bưu gửi ${cleanCode} đã ${operation === 'receive' ? 'được tiếp nhận' : 'được lưu kho'} tại ${locationCode}.`
+                    );
                     scanInputCode.value = '';
-
-                    // 2. Đồng bộ ngầm sau 600ms để Kafka Consumer phía shipment-service kịp commit CSDL
-                    setTimeout(() => {
-                        loadShipmentsData(true);
-                    }, 600);
-                } catch (err) {
-                    console.error('[HubOpsView] Lỗi tác nghiệp:', err);
-                    Utils.showToast('Thất Bại', err.message || 'Không thể cập nhật trạng thái bưu gửi', 'error');
+                    await refreshAfterOperation();
+                } catch (error) {
+                    console.error('[HubOpsView] Lỗi tác nghiệp tồn kho:', error);
+                    showOperationError(error);
                 } finally {
                     isActionRunning.value = false;
                 }
             };
 
-            // Quét mã tra cứu / nạp vào chuyến xe (Không cho phép tự ép trạng thái đơn lẻ)
-            const handleBarcodeLookupOrLoad = () => {
-                if (!scanInputCode.value.trim()) {
-                    Utils.showToast('Yêu Cầu Nhập Mã', 'Vui lòng quét hoặc nhập mã vận đơn để thực hiện tác nghiệp', 'warning');
+            const handleReceive = (item) => handleInventoryOperation(item, 'receive');
+            const handleStore = (item) => handleInventoryOperation(item, 'store');
+
+            const handleQuickScan = (operation) => {
+                const cleanCode = asNonBlankString(scanInputCode.value);
+                if (!cleanCode) {
+                    showToast('Yêu Cầu Nhập Mã', 'Vui lòng quét hoặc nhập mã vận đơn để thực hiện tác nghiệp', 'warning');
                     return;
                 }
-                const cleanCode = scanInputCode.value.trim();
-                const item = shipmentsList.value.find(s => s.trackingCode === cleanCode);
-                if (!item) {
-                    Utils.showToast('Không Tìm Thấy', `Không tìm thấy bưu gửi ${cleanCode} trong hệ thống`, 'warning');
-                    return;
-                }
-                if (item.currentStatus === 'PICKED_UP') {
-                    Utils.showToast('Bưu Gửi Tại Hub', `Bưu gửi ${cleanCode} đang lưu bãi tại Hub. Chờ điều phối chuyến xe.`, 'info');
-                } else if (item.currentStatus === 'IN_TRANSIT') {
-                    Utils.showToast('Đang Vận Chuyển', `Bưu gửi ${cleanCode} đang trên chuyến xe vận chuyển liên tỉnh.`, 'info');
-                } else if (item.currentStatus === 'ARRIVED_DEST_HUB') {
-                    Utils.showToast('Đã Cập Bến Hub', `Bưu gửi ${cleanCode} đã dỡ an toàn vào bãi. Chờ xuất xe trung chuyển về bưu cục phát.`, 'success');
-                } else {
-                    viewTrackingDetail(cleanCode);
-                }
+                const item = shipmentsList.value.find(current => current.trackingCode === cleanCode)
+                    || { trackingCode: cleanCode };
+                return handleInventoryOperation(item, operation);
             };
 
-            // Mở chi tiết hành trình & bản đồ tại TrackingView
+            // Mở chi tiết hành trình & bản đồ tại TrackingView.
             const viewTrackingDetail = (code) => {
-                if (code && code.trim()) {
-                    emit('view-tracking', code.trim(), 'hub-ops');
-                }
+                const cleanCode = asNonBlankString(code);
+                if (cleanCode) emit('view-tracking', cleanCode, 'hub-ops');
             };
 
-            onMounted(() => {
-                loadShipmentsData();
+            // TripsView không được nhúng tại đây. Event cho phép host xử lý nếu có, còn view này luôn có fallback an toàn.
+            const requestTrips = () => {
+                tripsNotice.value = 'Phân hệ điều phối chuyến xe chưa được nhúng trong màn hình này. Bạn vẫn có thể xem trip code và transport leg từ tồn kho.';
+                emit('request-trips');
+            };
+
+            const dismissTripsNotice = () => {
+                tripsNotice.value = '';
+            };
+
+            onMounted(async () => {
+                stationContext.value = resolveStationContext();
+                if (stationContext.value.code && selectedHub.value === 'ALL') {
+                    selectedHub.value = stationContext.value.code;
+                }
+                await Promise.all([
+                    loadHubsData(),
+                    loadShipmentsData()
+                ]);
             });
 
             return {
                 currentSubtab,
                 isLoading,
                 isActionRunning,
+                inventorySource,
+                tripsNotice,
                 shipmentsList,
                 scanInputCode,
+                stationContext,
                 selectedHub,
                 selectedStatusFilter,
                 searchQuery,
@@ -303,48 +606,63 @@
                 totalPages,
                 filteredShipments,
                 paginatedShipments,
+                availableStations,
+                currentActionLocation,
                 kpiTotalInHub,
                 kpiAwaitingIntake,
                 kpiInTransit,
-                getDestPostOfficeInfo,
-                getOriginPostOfficeInfo,
-                isAtPostOffice,
-                isCurrentStationCentralHub,
-                isCurrentStationPostOffice,
+                getStationName,
+                getInventoryStatus,
+                getTransportLeg,
+                getTripCode,
+                locationForDisplay,
+                operationalStatus,
+                canReceive,
+                canStore,
                 loadShipmentsData,
-                handleUpdateStatus,
-                handleBarcodeLookupOrLoad,
+                handleQuickScan,
+                handleReceive,
+                handleStore,
                 viewTrackingDetail,
+                requestTrips,
+                dismissTripsNotice,
                 Utils
             };
         },
         template: `
         <div class="space-y-3.5 pb-8 text-slate-800">
-            <!-- 1. HERO BANNER: THIẾT KẾ VNPT GRADIENT CHUẨN RBAC VIEW -->
             <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                 <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
-
                 <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                         <div class="flex items-center space-x-2">
                             <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
-                                Kho Tổng Cấp 1 (Super Hub)
+                                Hub Operations
                             </span>
                             <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
                         </div>
                         <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
-                            Khai Thác &amp; Quản Lý Tồn Bãi Kho Tổng
+                            Khai Thác &amp; Quản Lý Tồn Bãi Tại Hub
                         </h1>
                         <p class="text-xs text-blue-100/90 mt-0.5 leading-normal">
-                            Bàn tác nghiệp thủ kho Hub: Quét tiếp nhận hàng hóa cập bến, phân loại chia chọn theo tuyến đích và quản lý tồn bãi lưu kho.
+                            Dữ liệu tồn kho từ RoutingService, tác nghiệp theo đúng trạm làm việc và giữ nguyên thông tin vận tải của từng bưu gửi.
                         </p>
+                        <div class="mt-2 flex flex-wrap items-center gap-2 text-[10.5px]">
+                            <span class="px-2 py-1 rounded-md bg-white/10 border border-white/20">
+                                Trạm: <strong>{{ currentActionLocation || 'Chưa xác định' }}</strong>
+                            </span>
+                            <span v-if="inventorySource === 'shipment-fallback'" class="px-2 py-1 rounded-md bg-amber-400/20 border border-amber-200/30 text-amber-50">
+                                Nguồn tương thích di trú
+                            </span>
+                            <span v-else class="px-2 py-1 rounded-md bg-emerald-400/20 border border-emerald-200/30 text-emerald-50">
+                                Nguồn tồn kho RoutingService
+                            </span>
+                        </div>
                     </div>
-
-                    <!-- Thống kê nhanh KPI theo phong cách RBAC -->
                     <div class="flex items-center space-x-2 self-start sm:self-auto">
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[72px]">
                             <div class="text-sm sm:text-base font-bold leading-tight">{{ kpiTotalInHub }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Tồn Kho Bãi</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Tồn Bãi</div>
                         </div>
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[72px]">
                             <div class="text-sm sm:text-base font-bold leading-tight">{{ kpiAwaitingIntake }}</div>
@@ -352,355 +670,263 @@
                         </div>
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[72px]">
                             <div class="text-sm sm:text-base font-bold leading-tight">{{ kpiInTransit }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Đang Luân Chuyển</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Luân Chuyển</div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 2. SUBTABS ĐIỀU HƯỚNG GẠCH CHÂN CHUẨN RBAC -->
+            <div v-if="tripsNotice" class="flex items-start justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                <span>{{ tripsNotice }}</span>
+                <button type="button" @click="dismissTripsNotice" class="font-bold text-blue-600 hover:text-blue-900">Đóng</button>
+            </div>
+
             <div class="flex items-center justify-between border-b border-slate-200">
                 <div class="flex space-x-4 sm:space-x-6 overflow-x-auto pb-px">
-                    <button 
+                    <button
+                        type="button"
                         @click="currentSubtab = 'scan'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center space-x-1.5 whitespace-nowrap',
-                            currentSubtab === 'scan' 
-                                ? 'border-blue-600 text-blue-700' 
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                            'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 whitespace-nowrap',
+                            currentSubtab === 'scan' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800'
                         ]"
                     >
-                        <span>QUÉT NHẬP &amp; XUẤT KHO TỔNG</span>
+                        QUÉT TÁC NGHIỆP KHO
                     </button>
-
-                    <button 
+                    <button
+                        type="button"
                         @click="currentSubtab = 'inventory'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center space-x-1.5 whitespace-nowrap',
-                            currentSubtab === 'inventory' 
-                                ? 'border-blue-600 text-blue-700' 
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                            'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 whitespace-nowrap',
+                            currentSubtab === 'inventory' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800'
                         ]"
                     >
-                        <span>QUẢN LÝ TỒN BÃI TẠI HUB</span>
+                        QUẢN LÝ TỒN BÃI
+                    </button>
+                    <button
+                        type="button"
+                        @click="requestTrips"
+                        class="pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap"
+                    >
+                        ĐIỀU PHỐI CHUYẾN XE
                     </button>
                 </div>
-
-                <button 
-                    @click="loadShipmentsData()" 
+                <button
+                    type="button"
+                    @click="loadShipmentsData()"
                     :disabled="isLoading"
                     class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center space-x-1 border border-slate-200"
                 >
                     <span v-if="isLoading" class="w-2.5 h-2.5 border-2 border-slate-600 border-t-transparent rounded-full animate-spin"></span>
+                    <span v-else>↻</span>
                     <span>Làm Mới</span>
                 </button>
             </div>
 
-            <!-- =============================================================== -->
-            <!-- TRANSITION CHUYỂN SUBTAB MƯỢT MÀ                             -->
-            <!-- =============================================================== -->
-            <transition name="subtab" mode="out-in">
-                <!-- SUBTAB 1: QUÉT TIẾP NHẬN & XUẤT CHUYẾN -->
-                <div v-if="currentSubtab === 'scan'" key="scan" class="space-y-3">
-                <!-- THANH TÁC NGHIỆP QUÉT MÃ BARCODE (ĐIỀU PHỐI VÀO XE / TRA CỨU) -->
-                <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div v-if="currentSubtab === 'scan'" class="b2b-card bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div>
                     <div class="flex items-center space-x-2">
                         <span class="w-2 h-2 rounded-full bg-blue-600"></span>
-                        <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                            Đầu Đọc Mã Vạch / Tra Cứu Kiện Hàng
-                        </span>
-                        <span class="text-slate-400 text-xs font-normal">(Quét barcode kiểm tra vị trí &amp; điều phối vào xe)</span>
+                        <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">Đầu Đọc Mã Vạch / Tác Nghiệp Tồn Kho</span>
                     </div>
-
-                    <div class="flex flex-wrap items-center gap-2">
-                        <input 
-                            v-model="scanInputCode"
-                            @keyup.enter="handleBarcodeLookupOrLoad"
-                            type="text" 
-                            placeholder="Nhập hoặc quét mã bưu gửi..." 
-                            class="pl-3 pr-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono font-bold text-blue-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none w-56 transition"
-                        />
-                        <button 
-                            @click="handleBarcodeLookupOrLoad"
-                            class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition shadow-sm flex items-center space-x-1"
-                            title="Quét kiểm tra hành trình & điều phối kiện hàng"
-                        >
-                            <span>Kiểm Tra / Xếp Xe</span>
-                        </button>
-                        <button 
-                            @click="currentSubtab = 'trips'"
-                            class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition border border-slate-200 flex items-center space-x-1"
-                            title="Mở Bảng Điều Phối Chuyến Xe Đi và Đến"
-                        >
-                            <span>Mở Điều Phối Chuyến Xe ➔</span>
-                        </button>
-                    </div>
+                    <p class="text-[11px] text-slate-500 mt-1">
+                        Trạm tác nghiệp: <strong class="font-mono text-blue-700">{{ currentActionLocation || 'Chưa xác định' }}</strong>
+                    </p>
                 </div>
-
-                <!-- THANH SEARCH & FILTER ĐA TIÊU CHÍ (CHUẨN RBAC TOOLBAR) -->
-                <div class="b2b-card bg-white border border-slate-200 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2.5 shadow-sm text-xs">
-                    <div class="flex flex-wrap items-center gap-2 flex-1">
-                        <!-- Ô tìm kiếm -->
-                        <div class="relative w-52 sm:w-56">
-                            <input 
-                                v-model="searchQuery"
-                                type="text" 
-                                placeholder="Tìm mã vận đơn, người nhận, địa chỉ..."
-                                class="w-full pl-3 pr-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
-                            />
-                        </div>
-
-                        <!-- Lựa chọn Kho Tổng Cấp 1 Làm Việc (Chỉ hiển thị các Hub cấp 1) -->
-                        <select 
-                            v-model="selectedHub"
-                            class="px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-xs font-bold text-blue-900 focus:bg-white focus:border-blue-600 outline-none transition"
-                        >
-                            <option value="ALL">Toàn Mạng Lưới Kho Tổng (Tất Cả Siêu Hub)</option>
-                            <option value="HUB-HN-01">HUB-HN-01 - Kho Tổng Hà Nội</option>
-                            <option value="HUB-HP-01">HUB-HP-01 - Kho Tổng Hải Phòng</option>
-                            <option value="HUB-DN-01">HUB-DN-01 - Kho Tổng Đà Nẵng</option>
-                            <option value="HUB-HCM-01">HUB-HCM-01 - Kho Tổng TP. Hồ Chí Minh</option>
-                            <option value="HUB-CT-01">HUB-CT-01 - Kho Tổng Cần Thơ</option>
-                        </select>
-
-                        <!-- Lọc trạng thái -->
-                        <select 
-                            v-model="selectedStatusFilter"
-                            class="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:border-blue-600 outline-none transition"
-                        >
-                            <option value="ALL">Tất cả trạng thái</option>
-                            <option value="ROUTE_ASSIGNED">Chờ Tiếp Nhận</option>
-                            <option value="PICKED_UP">Đã Nhập Kho</option>
-                            <option value="IN_TRANSIT">Đang Luân Chuyển</option>
-                            <option value="ARRIVED_DEST_HUB">Đã Về Bãi Đích</option>
-                            <option value="OUT_FOR_DELIVERY">Đang Đi Phát</option>
-                            <option value="DELIVERED">Phát Thành Công</option>
-                        </select>
-
-                        <!-- Lọc số bản ghi -->
-                        <select 
-                            v-model.number="pageSize"
-                            class="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white outline-none"
-                        >
-                            <option :value="10">10 bản ghi / trang</option>
-                            <option :value="25">25 bản ghi / trang</option>
-                            <option :value="50">50 bản ghi / trang</option>
-                            <option :value="-1">Tất cả bản ghi</option>
-                        </select>
-                    </div>
-
-                    <div class="text-[11px] text-slate-500 font-medium">
-                        Tổng số: <strong class="text-slate-800">{{ filteredShipments.length }}</strong> bưu gửi trong CSDL
-                    </div>
-                </div>
-
-                <!-- BẢNG DANH SÁCH BƯU GỬI THẬT TỪ CSDL -->
-                <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden text-xs">
-                    <div v-if="isLoading" class="p-8 text-center text-slate-400">
-                        <div class="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
-                        <span>Đang nạp dữ liệu bưu gửi từ CSDL...</span>
-                    </div>
-
-                    <div v-else-if="paginatedShipments.length === 0" class="p-8 text-center text-slate-400">
-                        <span>Không tìm thấy bưu gửi nào phù hợp với bộ lọc.</span>
-                    </div>
-
-                    <div v-else class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-slate-50/70 text-slate-600 font-bold border-b border-slate-200 text-[11px] uppercase tracking-wider">
-                                    <th class="py-2.5 px-3">Số Hiệu Bưu Gửi</th>
-                                    <th class="py-2.5 px-3">Người Gửi</th>
-                                    <th class="py-2.5 px-3">Người Nhận &amp; Địa Chỉ</th>
-                                    <th class="py-2.5 px-3">Khối Lượng</th>
-                                    <th class="py-2.5 px-3">Tiền COD</th>
-                                    <th class="py-2.5 px-3">Trạng Thái Hiện Tại</th>
-                                    <th class="py-2.5 px-3 text-right">Tác Nghiệp Kho Bãi</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 font-medium">
-                                <tr v-for="item in paginatedShipments" :key="item.id" class="hover:bg-blue-50/30 transition">
-                                    <td class="py-2.5 px-3">
-                                        <button 
-                                            type="button"
-                                            @click="viewTrackingDetail(item.trackingCode)"
-                                            class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group text-left transition-colors"
-                                            title="Click để xem chi tiết hành trình & bản đồ"
-                                        >
-                                            <span>{{ item.trackingCode }}</span>
-                                            <span class="text-[11px] text-blue-500 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all">↗</span>
-                                        </button>
-                                    </td>
-                                    <td class="py-2.5 px-3 text-slate-700">
-                                        {{ item.senderName || 'Chưa cập nhật' }}
-                                    </td>
-                                    <td class="py-2.5 px-3 text-slate-800 max-w-xs truncate">
-                                        <div class="font-bold">{{ item.receiverName || 'Chưa cập nhật' }}</div>
-                                        <div class="text-[10.5px] text-slate-500 truncate">{{ item.receiverAddress || 'Chưa có địa chỉ' }}</div>
-                                    </td>
-                                    <td class="py-2.5 px-3 font-mono text-slate-700">
-                                        {{ item.weight ? item.weight + ' kg' : '0 kg' }}
-                                    </td>
-                                    <td class="py-2.5 px-3 font-mono font-bold text-emerald-700">
-                                        {{ Utils.formatCurrency(item.codAmount) }}
-                                    </td>
-                                    <td class="py-2.5 px-3">
-                                        <span :class="['px-2.5 py-0.5 rounded-md text-[10.5px] font-bold border inline-block', Utils.getStatusBadgeClass(item.currentStatus)]">
-                                            {{ Utils.formatStatusText(item.currentStatus) }}
-                                        </span>
-                                    </td>
-                                    <td class="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">
-                                        <!-- Khi ROUTE_ASSIGNED hoặc PENDING_ROUTING: Đơn mới tạo tại bưu cục -->
-                                        <template v-if="item.currentStatus === 'ROUTE_ASSIGNED' || item.currentStatus === 'PENDING_ROUTING'">
-                                            <span 
-                                                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200"
-                                                :title="'Đơn mới tạo thuộc Bưu Cục ' + getOriginPostOfficeInfo(item).name + ' (' + getOriginPostOfficeInfo(item).code + '). Bưu cục gốc sẽ tiếp nhận và gom xe trung chuyển lên Kho Tổng.'"
-                                            >
-                                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                                                Tại Bưu Cục Gốc [{{ getOriginPostOfficeInfo(item).code }}] - Chờ Xe Gom
-                                            </span>
-                                        </template>
-
-                                        <!-- Khi PICKED_UP: Đã tiếp nhận tại Hub hoặc đang gom lên Hub -->
-                                        <template v-else-if="item.currentStatus === 'PICKED_UP'">
-                                            <span 
-                                                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold text-blue-800 bg-blue-50 border border-blue-200"
-                                                :title="'Đang tại Kho Tổng ' + (item.sourceHub || 'HUB-HN-01') + '. Sẵn sàng ghép chuyến xe trục.'"
-                                            >
-                                                <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                                                Tại Hub [{{ item.sourceHub || 'HUB-HN-01' }}] - Chờ Điều Phối Xe
-                                            </span>
-                                        </template>
-
-                                        <!-- Khi IN_TRANSIT: Đang luân chuyển trên xe trục liên tỉnh -->
-                                        <template v-else-if="item.currentStatus === 'IN_TRANSIT'">
-                                            <span 
-                                                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200"
-                                                title="Kiện hàng đang trên xe. Chờ chuyến xe cập bến kho bãi đích để dỡ hàng."
-                                            >
-                                                <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
-                                                Đang Trên Chuyến Xe
-                                            </span>
-                                        </template>
-
-                                        <!-- Khi ARRIVED_DEST_HUB: Đã đến Kho Tổng đích -->
-                                        <template v-else-if="item.currentStatus === 'ARRIVED_DEST_HUB'">
-                                            <span 
-                                                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200"
-                                                :title="'Hàng đang tại Siêu Hub ' + (item.destinationHub || 'Kho Tổng') + '. Ghép xe trung chuyển về bưu cục phát ' + getDestPostOfficeInfo(item).name"
-                                            >
-                                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                                                Tại Hub ➔ Chờ Xe Về {{ getDestPostOfficeInfo(item).code }}
-                                            </span>
-                                        </template>
-
-                                        <!-- Khi OUT_FOR_DELIVERY hoặc DELIVERED -->
-                                        <template v-else-if="item.currentStatus === 'OUT_FOR_DELIVERY'">
-                                            <span class="text-emerald-700 font-bold text-[11px]">Bưu Tá Đang Phát</span>
-                                        </template>
-                                        <template v-else-if="item.currentStatus === 'DELIVERED'">
-                                            <span class="text-slate-400 font-medium text-[11px]">Phát Thành Công</span>
-                                        </template>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- THANH PHÂN TRANG (PAGINATION BAR) -->
-                    <div class="px-4 py-2.5 bg-slate-50/50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
-                        <div class="text-slate-500">
-                            Hiển thị trang {{ currentPage }} / {{ totalPages }} (Tổng số {{ filteredShipments.length }} kết quả)
-                        </div>
-                        <div class="flex items-center space-x-1">
-                            <button 
-                                @click="currentPage--"
-                                :disabled="currentPage <= 1"
-                                class="px-2.5 py-1 rounded-md text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 disabled:opacity-40"
-                            >
-                                Trước
-                            </button>
-                            <button 
-                                v-for="p in totalPages" 
-                                :key="p"
-                                @click="currentPage = p"
-                                :class="[
-                                    'px-2.5 py-1 rounded-md text-xs font-bold transition',
-                                    currentPage === p 
-                                        ? 'bg-blue-600 text-white border border-blue-600 shadow-sm' 
-                                        : 'border border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
-                                ]"
-                            >
-                                {{ p }}
-                            </button>
-                            <button 
-                                @click="currentPage++"
-                                :disabled="currentPage >= totalPages"
-                                class="px-2.5 py-1 rounded-md text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 disabled:opacity-40"
-                            >
-                                Sau
-                            </button>
-                        </div>
-                    </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <input
+                        v-model="scanInputCode"
+                        @keyup.enter="handleQuickScan('receive')"
+                        type="text"
+                        placeholder="Nhập hoặc quét mã bưu gửi..."
+                        class="pl-3 pr-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono font-bold text-blue-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none w-56 transition"
+                    />
+                    <button
+                        type="button"
+                        @click="handleQuickScan('receive')"
+                        :disabled="isActionRunning"
+                        class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg text-xs transition shadow-sm disabled:opacity-50"
+                    >
+                        Tiếp Nhận
+                    </button>
+                    <button
+                        type="button"
+                        @click="handleQuickScan('store')"
+                        :disabled="isActionRunning"
+                        class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition shadow-sm disabled:opacity-50"
+                    >
+                        Lưu Kho
+                    </button>
                 </div>
             </div>
 
-            <!-- =============================================================== -->
-            <!-- SUBTAB 2: QUẢN LÝ TỒN BÃI TẠI TRẠM (HUB INVENTORY) -->
-            <!-- =============================================================== -->
-            <div v-else-if="currentSubtab === 'inventory'" key="inventory" class="space-y-3">
-                <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm text-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
-                    <div>
-                        <h2 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Kiểm Soát Bưu Gửi Tồn Bãi</h2>
-                        <p class="text-slate-500 text-[11px] mt-0.5">Giám sát các kiện hàng đang lưu tại kho bãi chưa đóng chuyến luân chuyển</p>
-                    </div>
-                    <div class="flex items-center space-x-3 bg-slate-50 p-2 rounded-lg border border-slate-200">
-                        <div><span class="text-slate-500">Đang lưu kho:</span> <strong class="text-slate-800 font-bold">{{ kpiTotalInHub }} kiện</strong></div>
-                        <div class="w-px h-4 bg-slate-300"></div>
-                        <div><span class="text-slate-500">Chờ tiếp nhận:</span> <strong class="text-amber-700 font-bold">{{ kpiAwaitingIntake }} kiện</strong></div>
-                    </div>
+            <div class="b2b-card bg-white border border-slate-200 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2.5 shadow-sm text-xs">
+                <div class="flex flex-wrap items-center gap-2 flex-1">
+                    <input
+                        v-model="searchQuery"
+                        type="text"
+                        placeholder="Tìm mã vận đơn, chuyến, vị trí..."
+                        class="w-56 sm:w-64 pl-3 pr-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
+                    />
+                    <select
+                        v-model="selectedHub"
+                        class="px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-xs font-bold text-blue-900 focus:bg-white focus:border-blue-600 outline-none transition"
+                    >
+                        <option value="ALL">Tất cả trạm</option>
+                        <option v-for="station in availableStations" :key="station.code" :value="station.code">
+                            {{ station.code }} - {{ station.name }}
+                        </option>
+                    </select>
+                    <select
+                        v-model="selectedStatusFilter"
+                        class="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:border-blue-600 outline-none transition"
+                    >
+                        <option value="ALL">Tất cả trạng thái</option>
+                        <option value="ROUTE_ASSIGNED">ROUTE_ASSIGNED</option>
+                        <option value="PENDING_ROUTING">PENDING_ROUTING</option>
+                        <option value="RECEIVED">RECEIVED</option>
+                        <option value="STORED">STORED</option>
+                        <option value="PICKED_UP">PICKED_UP</option>
+                        <option value="IN_TRANSIT">IN_TRANSIT</option>
+                        <option value="ARRIVED_DEST_HUB">ARRIVED_DEST_HUB</option>
+                    </select>
+                    <select
+                        v-model.number="pageSize"
+                        class="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white outline-none"
+                    >
+                        <option :value="10">10 bản ghi / trang</option>
+                        <option :value="25">25 bản ghi / trang</option>
+                        <option :value="50">50 bản ghi / trang</option>
+                        <option :value="-1">Tất cả bản ghi</option>
+                    </select>
                 </div>
+                <div class="text-[11px] text-slate-500 font-medium">
+                    Tổng số: <strong class="text-slate-800">{{ filteredShipments.length }}</strong> bưu gửi
+                </div>
+            </div>
 
-                <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden text-xs">
+            <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden text-xs">
+                <div v-if="isLoading" class="p-8 text-center text-slate-400">
+                    <div class="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
+                    <span>Đang nạp dữ liệu tồn kho...</span>
+                </div>
+                <div v-else-if="paginatedShipments.length === 0" class="p-8 text-center text-slate-400">
+                    <span>Không tìm thấy bưu gửi nào phù hợp với bộ lọc.</span>
+                </div>
+                <div v-else class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-50/70 text-slate-600 font-bold border-b border-slate-200 text-[11px] uppercase tracking-wider">
                                 <th class="py-2.5 px-3">Mã Vận Đơn</th>
-                                <th class="py-2.5 px-3">Ngày Tạo Đơn</th>
                                 <th class="py-2.5 px-3">Người Nhận</th>
-                                <th class="py-2.5 px-3">Địa Chỉ Giao</th>
-                                <th class="py-2.5 px-3">Khối Lượng</th>
-                                <th class="py-2.5 px-3 text-right">Thao Tác</th>
+                                <th class="py-2.5 px-3">Trạng Thái Vận Đơn</th>
+                                <th class="py-2.5 px-3">Tồn Kho (Raw)</th>
+                                <th class="py-2.5 px-3">Transport Leg / Trip</th>
+                                <th class="py-2.5 px-3">Location</th>
+                                <th class="py-2.5 px-3 text-right">Tác Nghiệp</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 font-medium">
-                            <tr v-for="item in shipmentsList.filter(s => s.currentStatus === 'PICKED_UP' || s.currentStatus === 'ROUTE_ASSIGNED')" :key="item.id" class="hover:bg-blue-50/30">
+                            <tr v-for="item in paginatedShipments" :key="item.id || item.trackingCode" class="hover:bg-blue-50/30 transition">
                                 <td class="py-2.5 px-3">
-                                    <button 
+                                    <button
                                         type="button"
                                         @click="viewTrackingDetail(item.trackingCode)"
                                         class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group text-left transition-colors"
                                         title="Click để xem chi tiết hành trình & bản đồ"
                                     >
                                         <span>{{ item.trackingCode }}</span>
-                                        <span class="text-[11px] text-blue-500 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all">↗</span>
+                                        <span class="text-[11px] text-blue-500 opacity-60 group-hover:opacity-100 transition-all">↗</span>
                                     </button>
+                                    <div v-if="item.senderName" class="text-[10px] text-slate-500 mt-1">Gửi: {{ item.senderName }}</div>
                                 </td>
-                                <td class="py-2.5 px-3 font-mono text-slate-500">{{ item.createdAt ? item.createdAt.substring(0, 16) : 'Chưa có' }}</td>
-                                <td class="py-2.5 px-3 font-bold text-slate-800">{{ item.receiverName }}</td>
-                                <td class="py-2.5 px-3 text-slate-600 max-w-xs truncate">{{ item.receiverAddress }}</td>
-                                <td class="py-2.5 px-3 font-mono">{{ item.weight || 0 }} kg</td>
-                                <td class="py-2.5 px-3 text-right">
-                                    <span class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                        Lưu Bãi Kho Tổng
+                                <td class="py-2.5 px-3 text-slate-800 max-w-xs">
+                                    <div class="font-bold truncate">{{ item.receiverName || 'Chưa cập nhật' }}</div>
+                                    <div class="text-[10.5px] text-slate-500 truncate">{{ item.receiverAddress || 'Chưa có địa chỉ' }}</div>
+                                </td>
+                                <td class="py-2.5 px-3">
+                                    <span :class="['px-2.5 py-0.5 rounded-md text-[10.5px] font-bold border inline-block', Utils.getStatusBadgeClass(operationalStatus(item))]">
+                                        {{ operationalStatus(item) || '—' }}
                                     </span>
+                                    <div v-if="operationalStatus(item)" class="text-[10px] text-slate-500 mt-1">{{ Utils.formatStatusText(operationalStatus(item)) }}</div>
+                                </td>
+                                <td class="py-2.5 px-3 align-top">
+                                    <span v-if="getInventoryStatus(item)" class="font-mono font-bold text-slate-800" :title="getInventoryStatus(item)">
+                                        {{ getInventoryStatus(item) }}
+                                    </span>
+                                    <span v-else class="text-slate-400">—</span>
+                                </td>
+                                <td class="py-2.5 px-3 align-top text-[10.5px]">
+                                    <div v-if="getTransportLeg(item)" class="font-mono text-slate-700">{{ getTransportLeg(item) }}</div>
+                                    <div v-if="getTripCode(item)" class="font-mono font-bold text-indigo-700 mt-0.5">Trip: {{ getTripCode(item) }}</div>
+                                    <span v-if="!getTransportLeg(item) && !getTripCode(item)" class="text-slate-400">—</span>
+                                </td>
+                                <td class="py-2.5 px-3 align-top">
+                                    <span v-if="locationForDisplay(item)" class="font-mono text-slate-700">{{ locationForDisplay(item) }}</span>
+                                    <span v-else class="text-slate-400">—</span>
+                                </td>
+                                <td class="py-2.5 px-3 text-right whitespace-nowrap">
+                                    <button
+                                        v-if="canReceive(item)"
+                                        type="button"
+                                        @click="handleReceive(item)"
+                                        :disabled="isActionRunning"
+                                        class="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-md font-bold hover:bg-amber-100 transition shadow-sm disabled:opacity-50"
+                                    >
+                                        Tiếp Nhận
+                                    </button>
+                                    <button
+                                        v-else-if="canStore(item)"
+                                        type="button"
+                                        @click="handleStore(item)"
+                                        :disabled="isActionRunning"
+                                        class="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-md font-bold hover:bg-blue-100 transition shadow-sm disabled:opacity-50"
+                                    >
+                                        Lưu Kho
+                                    </button>
+                                    <span v-else class="text-slate-400 text-[11px]">Theo dõi</span>
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
+
+                <div class="px-4 py-2.5 bg-slate-50/50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div class="text-slate-500">
+                        Hiển thị trang {{ currentPage }} / {{ totalPages }} (Tổng số {{ filteredShipments.length }} kết quả)
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <button
+                            type="button"
+                            @click="currentPage--"
+                            :disabled="currentPage <= 1"
+                            class="px-2.5 py-1 rounded-md text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 disabled:opacity-40"
+                        >
+                            Trước
+                        </button>
+                        <button
+                            v-for="p in totalPages"
+                            :key="p"
+                            type="button"
+                            @click="currentPage = p"
+                            :class="[
+                                'px-2.5 py-1 rounded-md text-xs font-bold transition',
+                                currentPage === p ? 'bg-blue-600 text-white border border-blue-600 shadow-sm' : 'border border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                            ]"
+                        >
+                            {{ p }}
+                        </button>
+                        <button
+                            type="button"
+                            @click="currentPage++"
+                            :disabled="currentPage >= totalPages"
+                            class="px-2.5 py-1 rounded-md text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 disabled:opacity-40"
+                        >
+                            Sau
+                        </button>
+                    </div>
+                </div>
             </div>
-            </transition>
         </div>
         `
     };
