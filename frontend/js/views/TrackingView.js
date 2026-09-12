@@ -36,7 +36,296 @@
             const routeInfo = ref(null);
             const lastRenderedCode = ref(null);
 
+            const FINAL_STATUSES = new Set(['DELIVERED', 'CANCELLED', 'RETURNED']);
+            const ROUTING_HISTORY_METHODS = [
+                'getOperationHistory',
+                'getOperationHistoryByTrackingCode',
+                'getRoutingOperationHistory',
+                'getRouteOperationHistory',
+                'getOperationsHistory',
+                'getRoutingOperations',
+                'getAssignmentHistory',
+                'getRoutingHistory',
+                'getHistory'
+            ];
+
             let livePollTimer = null;
+
+            const hasValue = (value) => value !== undefined && value !== null && value !== '';
+            const firstValue = (...values) => values.find(hasValue);
+
+            const getUtilsApi = () => {
+                try {
+                    if (typeof Utils !== 'undefined') return Utils;
+                } catch (e) {}
+                return typeof window !== 'undefined' ? window.Utils : null;
+            };
+
+            const callUtils = (methodName, ...args) => {
+                const utilsApi = getUtilsApi();
+                if (!utilsApi) return undefined;
+                if (typeof utilsApi.then === 'function') {
+                    return Promise.resolve(utilsApi).then(api => {
+                        if (!api || typeof api[methodName] !== 'function') return undefined;
+                        return api[methodName](...args);
+                    }).catch(() => undefined);
+                }
+                if (typeof utilsApi[methodName] !== 'function') return undefined;
+                try {
+                    const result = utilsApi[methodName](...args);
+                    // Utility wrappers may be async; callers that render synchronously use their fallback.
+                    if (result && typeof result.catch === 'function') result.catch(() => {});
+                    return result;
+                } catch (e) {
+                    return undefined;
+                }
+            };
+
+            const showToast = (...args) => callUtils('showToast', ...args);
+
+            const unwrapHistoryPayload = (payload, depth = 0) => {
+                if (Array.isArray(payload)) return payload;
+                if (!payload || typeof payload !== 'object' || depth > 3) return [];
+
+                const collectionKeys = ['history', 'operationHistory', 'operations', 'events', 'items', 'records', 'content', 'data', 'result'];
+                for (const key of collectionKeys) {
+                    if (!Object.prototype.hasOwnProperty.call(payload, key)) continue;
+                    const nested = payload[key];
+                    if (Array.isArray(nested)) return nested;
+                    const unwrapped = unwrapHistoryPayload(nested, depth + 1);
+                    if (unwrapped.length > 0) return unwrapped;
+                }
+
+                const looksLikeHistoryItem = [
+                    'eventId', 'operationId', 'status', 'currentStatus', 'occurredAt',
+                    'timestamp', 'assignedAt', 'operationType', 'note', 'node'
+                ].some(key => Object.prototype.hasOwnProperty.call(payload, key));
+                return looksLikeHistoryItem ? [payload] : [];
+            };
+
+            const normalizeHistoryItem = (item, source) => {
+                if (!item || typeof item !== 'object') return null;
+
+                const metadata = item.metadata && typeof item.metadata === 'object' ? item.metadata : {};
+                const operation = item.operation && typeof item.operation === 'object' ? item.operation : {};
+                const actor = item.actor && typeof item.actor === 'object' ? item.actor : {};
+                const eventId = firstValue(item.eventId, item.eventID, item.event_id, metadata.eventId, operation.eventId);
+                const operationId = firstValue(
+                    item.operationId,
+                    item.operationID,
+                    item.operation_id,
+                    metadata.operationId,
+                    operation.operationId,
+                    source === 'routing' ? item.id : undefined
+                );
+                const operationType = firstValue(
+                    item.operationType,
+                    item.operation_type,
+                    item.type,
+                    metadata.operationType,
+                    operation.operationType,
+                    operation.type
+                );
+                const transportLeg = firstValue(
+                    item.transportLeg,
+                    item.transport_leg,
+                    item.leg,
+                    metadata.transportLeg,
+                    operation.transportLeg,
+                    operation.leg
+                );
+                const tripCode = firstValue(
+                    item.tripCode,
+                    item.trip_code,
+                    item.trip,
+                    metadata.tripCode,
+                    operation.tripCode,
+                    operation.trip
+                );
+                const actorId = firstValue(
+                    item.actorId,
+                    item.actorID,
+                    item.actor_id,
+                    metadata.actorId,
+                    operation.actorId,
+                    actor.actorId,
+                    actor.id,
+                    actor.userId
+                );
+                const location = firstValue(
+                    item.location,
+                    item.locationCode,
+                    item.hubCode,
+                    item.sourceHub,
+                    metadata.location,
+                    metadata.locationCode,
+                    operation.location,
+                    operation.locationCode
+                );
+                const note = firstValue(
+                    item.note,
+                    item.node,
+                    item.description,
+                    item.message,
+                    metadata.note,
+                    operation.note,
+                    operation.description
+                );
+                const status = firstValue(
+                    item.status,
+                    item.currentStatus,
+                    item.eventStatus,
+                    item.operationStatus,
+                    metadata.status,
+                    operation.status
+                );
+                const timestamp = firstValue(
+                    item.timestamp,
+                    item.occurredAt,
+                    item.operationAt,
+                    item.eventTime,
+                    item.createdAt,
+                    item.updatedAt,
+                    item.assignedAt,
+                    metadata.timestamp,
+                    operation.timestamp
+                );
+
+                return {
+                    ...item,
+                    eventId: eventId ?? null,
+                    operationId: operationId ?? null,
+                    operationType: operationType ?? null,
+                    transportLeg: transportLeg ?? null,
+                    tripCode: tripCode ?? null,
+                    actorId: actorId ?? null,
+                    location: location ?? null,
+                    note: note ?? null,
+                    status: status ?? null,
+                    timestamp: timestamp ?? null,
+                    // Keep existing backend names available to the map and legacy template paths.
+                    locationCode: hasValue(item.locationCode) ? item.locationCode : (location ?? null),
+                    node: hasValue(item.node) ? item.node : (note ?? null),
+                    occurredAt: hasValue(item.occurredAt) ? item.occurredAt : (timestamp ?? null),
+                    historySource: source
+                };
+            };
+
+            const historyValue = (item, key) => {
+                if (!item) return null;
+                if (hasValue(item[key])) return item[key];
+                if (key === 'location') return firstValue(item.location, item.locationCode);
+                if (key === 'note') return firstValue(item.note, item.node);
+                return null;
+            };
+
+            const getHistoryKeys = (item) => {
+                const keys = [];
+                if (hasValue(item.eventId)) {
+                    keys.push(`event:${String(item.eventId)}`);
+                    keys.push(`id:${String(item.eventId)}`);
+                }
+                if (hasValue(item.operationId)) {
+                    keys.push(`operation:${String(item.operationId)}`);
+                    keys.push(`id:${String(item.operationId)}`);
+                }
+
+                // Older records may not have either identifier. Only dedupe exact, content-identical records.
+                if (keys.length === 0) {
+                    const fallbackParts = [
+                        item.timestamp,
+                        item.status,
+                        historyValue(item, 'location'),
+                        historyValue(item, 'note'),
+                        item.operationType,
+                        item.transportLeg,
+                        item.tripCode,
+                        item.actorId
+                    ];
+                    if (fallbackParts.some(hasValue)) {
+                        keys.push(`content:${fallbackParts.map(value => String(value ?? '')).join('|')}`);
+                    }
+                }
+                return keys;
+            };
+
+            const mergeHistoryItems = (existing, incoming) => {
+                const merged = { ...existing };
+                Object.keys(incoming).forEach(key => {
+                    if (!hasValue(merged[key]) && hasValue(incoming[key])) {
+                        merged[key] = incoming[key];
+                    }
+                });
+                if (hasValue(existing.historySource) && hasValue(incoming.historySource) && existing.historySource !== incoming.historySource) {
+                    merged.historySource = `${existing.historySource},${incoming.historySource}`;
+                }
+                return merged;
+            };
+
+            const mergeHistory = (lifecycleHistory, routingHistory) => {
+                const merged = [];
+                const indexByKey = new Map();
+
+                const addHistory = (rawItem, source) => {
+                    const item = normalizeHistoryItem(rawItem, source);
+                    if (!item) return;
+
+                    const keys = getHistoryKeys(item);
+                    const existingIndex = keys.map(key => indexByKey.get(key)).find(index => index !== undefined);
+                    if (existingIndex !== undefined) {
+                        merged[existingIndex] = mergeHistoryItems(merged[existingIndex], item);
+                    } else {
+                        merged.push(item);
+                    }
+
+                    const itemIndex = existingIndex !== undefined ? existingIndex : merged.length - 1;
+                    keys.forEach(key => indexByKey.set(key, itemIndex));
+                };
+
+                unwrapHistoryPayload(lifecycleHistory).forEach(item => addHistory(item, 'tracking'));
+                unwrapHistoryPayload(routingHistory).forEach(item => addHistory(item, 'routing'));
+                return merged;
+            };
+
+            const loadRoutingOperationHistory = async (code) => {
+                let routingService;
+                try {
+                    routingService = typeof RoutingService !== 'undefined'
+                        ? RoutingService
+                        : (typeof window !== 'undefined' ? window.RoutingService : null);
+                    if (routingService && typeof routingService.then === 'function') {
+                        routingService = await routingService;
+                    }
+                } catch (e) {
+                    return [];
+                }
+                if (!routingService) return [];
+
+                const methodName = ROUTING_HISTORY_METHODS.find(name => typeof routingService[name] === 'function');
+                if (!methodName) return [];
+
+                try {
+                    const result = await Promise.resolve(routingService[methodName](code));
+                    return unwrapHistoryPayload(result);
+                } catch (e) {
+                    // Routing history is optional; tracking remains usable when that wrapper/endpoint is absent.
+                    return [];
+                }
+            };
+
+            const safeFormatHistoryNote = (historyItem) => {
+                const fallback = firstValue(historyItem?.note, historyItem?.node, historyItem?.status, '');
+                const nodeText = firstValue(historyItem?.node, historyItem?.note);
+                // Preserve the existing node formatter for tracking records while showing an explicit operation note verbatim.
+                if (hasValue(historyItem?.note) && historyItem.note !== historyItem.node) return historyItem.note;
+                const result = callUtils('formatNodeText', nodeText, historyItem?.status);
+                return result && typeof result.then !== 'function' && hasValue(result) ? result : fallback;
+            };
+
+            const safeFormatStatusText = (status) => {
+                const result = callUtils('formatStatusText', status);
+                return result && typeof result.then !== 'function' && hasValue(result) ? result : (status || 'N/A');
+            };
 
             // Hub nguồn & Hub phát đích
             const currentSourceHub = computed(() => {
@@ -260,46 +549,8 @@
                 if (!trackingHistory.value || trackingHistory.value.length === 0) return [];
 
                 const list = [...trackingHistory.value];
-                const currentSt = currentShipment.value?.status;
-                const hasOutForDelivery = list.some(h => h.status === 'OUT_FOR_DELIVERY');
-                const hasDelivered = list.some(h => h.status === 'DELIVERED');
-                const hasArrivedDestHub = list.some(h => h.status === 'ARRIVED_DEST_HUB' || (h.node && h.node.includes('bàn giao cho Bưu cục phát')));
 
-                // Nếu đơn đã tiến tới chặng phát (OUT_FOR_DELIVERY hoặc DELIVERED) nhưng lịch sử chưa có mốc bàn giao cho Bưu cục con phát:
-                if (!hasArrivedDestHub && (hasOutForDelivery || hasDelivered || ['OUT_FOR_DELIVERY', 'DELIVERED'].includes(currentSt))) {
-                    const inTransitItem = list.find(h => h.status === 'IN_TRANSIT');
-                    const outDeliveryItem = list.find(h => h.status === 'OUT_FOR_DELIVERY');
-                    const deliveredItem = list.find(h => h.status === 'DELIVERED');
-
-                    let transferTime = null;
-                    if (outDeliveryItem && (outDeliveryItem.occurredAt || outDeliveryItem.timestamp)) {
-                        const baseTime = new Date(outDeliveryItem.occurredAt || outDeliveryItem.timestamp).getTime();
-                        transferTime = new Date(baseTime - 35 * 60 * 1000).toISOString();
-                    } else if (deliveredItem && (deliveredItem.occurredAt || deliveredItem.timestamp)) {
-                        const baseTime = new Date(deliveredItem.occurredAt || deliveredItem.timestamp).getTime();
-                        transferTime = new Date(baseTime - 120 * 60 * 1000).toISOString();
-                    } else if (inTransitItem && (inTransitItem.occurredAt || inTransitItem.timestamp)) {
-                        const baseTime = new Date(inTransitItem.occurredAt || inTransitItem.timestamp).getTime();
-                        transferTime = new Date(baseTime + 3 * 3600 * 1000).toISOString();
-                    } else {
-                        transferTime = new Date().toISOString();
-                    }
-
-                    const destHubCode = currentDestHub.value;
-                    const destHubName = getPostOfficeDisplayName(destHubCode);
-                    const destPoCode = currentDestPostOffice.value;
-                    const destPoName = getPostOfficeDisplayName(destPoCode);
-
-                    list.push({
-                        status: 'ARRIVED_DEST_HUB',
-                        locationCode: destPoCode,
-                        node: `Bưu gửi đã cập bến Kho Tổng Đích [${destHubName}], hoàn tất khai thác và điều xe trung chuyển bàn giao cho ${destPoName} (${destPoCode}). Bưu cục phát đã tiếp nhận bưu phẩm vào kho.`,
-                        timestamp: transferTime,
-                        occurredAt: transferTime
-                    });
-                }
-
-                // Sắp xếp thời gian giảm dần: Mốc mới nhất luôn đưa lên đầu (Newest First)
+                // Chỉ sắp xếp các mốc server trả về; không tự tạo mốc lịch sử còn thiếu.
                 return list.sort((a, b) => {
                     const rawA = a.occurredAt || a.timestamp || a.createdAt;
                     const rawB = b.occurredAt || b.timestamp || b.createdAt;
@@ -329,8 +580,12 @@
                 });
             });
 
-            // Đơn đã kết thúc hành trình thì dừng polling
-            const isFinalState = computed(() => currentShipment.value?.status === 'DELIVERED');
+            // Đơn đã kết thúc hành trình thì dừng polling. DELIVERY_FAILED vẫn phải được theo dõi
+            // để giữ luồng giao lại / chuyển hoàn của nghiệp vụ hiện hữu.
+            const isFinalState = computed(() => {
+                const status = String(currentShipment.value?.status || '').toUpperCase();
+                return FINAL_STATUSES.has(status);
+            });
 
             // Định dạng thời gian tương đối
             const formatRelativeTime = (ts) => {
@@ -368,14 +623,23 @@
                 }
             };
 
-            // Tải dữ liệu lịch sử luân chuyển
+            // Tải song song lịch sử tracking và lịch sử tác nghiệp định tuyến (nếu wrapper có hỗ trợ).
             const loadSecondaryData = async (code) => {
-                try {
-                    const res = await TrackingService.getHistory(code);
-                    trackingHistory.value = Array.isArray(res) ? res : [];
-                } catch (e) {
-                    // Im lặng nếu không tải được lịch sử phụ trợ
-                }
+                const trackingHistoryPromise = (async () => {
+                    try {
+                        const res = await Promise.resolve(TrackingService.getHistory(code));
+                        return unwrapHistoryPayload(res);
+                    } catch (e) {
+                        return [];
+                    }
+                })();
+                const routingHistoryPromise = loadRoutingOperationHistory(code);
+
+                const [lifecycleHistory, routingHistory] = await Promise.all([
+                    trackingHistoryPromise,
+                    routingHistoryPromise
+                ]);
+                trackingHistory.value = mergeHistory(lifecycleHistory, routingHistory);
             };
 
             // Cache thông tin chi tiết bưu gửi (sender, receiver, cod, weight)
@@ -437,8 +701,14 @@
                 notFoundCode.value = '';
 
                 try {
-                    const data = await TrackingService.getFullTracking(code);
-                    const detail = await loadShipmentDetail(code);
+                    // Nạp trạng thái, chi tiết đơn và lịch sử định tuyến song song để tránh làm chậm
+                    // timeline khi routing service chỉ là một wrapper tùy chọn.
+                    const routingHistoryPromise = loadRoutingOperationHistory(code);
+                    const [data, detail, routingHistory] = await Promise.all([
+                        Promise.resolve(TrackingService.getFullTracking(code)),
+                        loadShipmentDetail(code),
+                        routingHistoryPromise
+                    ]);
 
                     currentShipment.value = {
                         ...(detail || {}),
@@ -446,14 +716,22 @@
                         status: data.currentStatus,
                         source: data.source
                     };
-                    trackingHistory.value = data.history || [];
+                    trackingHistory.value = mergeHistory(
+                        data.history || data.lifecycleHistory || data.trackingHistory || data.events || [],
+                        routingHistory
+                    );
+                    if (isFinalState.value) {
+                        stopLivePolling();
+                    } else if (isLiveTracking.value && !livePollTimer) {
+                        startLivePolling();
+                    }
 
                     // Vẽ bản đồ lộ trình dựa trên hành trình thật
                     await nextTick();
                     if (window.MapManager) {
                         window.MapManager.init('tracking-map');
                         if (lastRenderedCode.value === code) {
-                            const latestMilestone = (trackingHistory.value || [])[trackingHistory.value.length - 1];
+                            const latestMilestone = sortedHistory.value[0];
                             window.MapManager.updateProgress(data.currentStatus, latestMilestone?.node || '', latestMilestone?.locationCode || null);
                         } else {
                             routeInfo.value = await window.MapManager.renderRoute(
@@ -466,7 +744,7 @@
                         }
                     }
 
-                    Utils.showToast('Thành Công', `Đã nạp dữ liệu hành trình bưu gửi ${code}`);
+                    showToast('Thành Công', `Đã nạp dữ liệu hành trình bưu gửi ${code}`);
                 } catch (err) {
                     currentShipment.value = null;
                     trackingHistory.value = [];
@@ -477,7 +755,7 @@
                         isNotFound.value = true;
                         notFoundCode.value = code;
                     } else {
-                        Utils.showToast('Lỗi Tra Cứu', err.message || 'Không thể tải dữ liệu bưu gửi', 'error');
+                        showToast('Lỗi Tra Cứu', err.message || 'Không thể tải dữ liệu bưu gửi', 'error');
                     }
                 } finally {
                     isLoading.value = false;
@@ -488,24 +766,41 @@
             const syncStatusInBackground = async () => {
                 const code = currentShipment.value?.trackingCode;
                 if (!code) return;
+                if (isFinalState.value) {
+                    stopLivePolling();
+                    return;
+                }
 
                 try {
-                    const st = await TrackingService.getTracking(code);
+                    const st = await Promise.resolve(TrackingService.getTracking(code));
                     const newStatus = st.currentStatus;
                     if (!newStatus || newStatus === currentShipment.value.status) return;
 
                     currentShipment.value = { ...currentShipment.value, status: newStatus, source: st.source };
+                    if (isFinalState.value) {
+                        // Stop immediately; history refresh failure must not restart terminal polling.
+                        stopLivePolling();
+                    }
 
-                    const fullData = await TrackingService.getFullTracking(code);
-                    trackingHistory.value = fullData.history || [];
+                    const [fullData, routingHistory] = await Promise.all([
+                        Promise.resolve(TrackingService.getFullTracking(code)),
+                        loadRoutingOperationHistory(code)
+                    ]);
+                    trackingHistory.value = mergeHistory(
+                        fullData.history || fullData.lifecycleHistory || fullData.trackingHistory || fullData.events || [],
+                        routingHistory
+                    );
                     const latestMilestone = (trackingHistory.value || [])[trackingHistory.value.length - 1];
 
                     if (window.MapManager) {
                         window.MapManager.updateProgress(newStatus, latestMilestone?.node || '', latestMilestone?.locationCode || null);
                     }
 
-                    Utils.showToast('Cập Nhật Tự Động', `Bưu gửi vừa chuyển sang: ${Utils.formatStatusText(newStatus)}`);
-                    await loadSecondaryData(code);
+                    showToast('Cập Nhật Tự Động', `Bưu gửi vừa chuyển sang: ${safeFormatStatusText(newStatus)}`);
+                    if (isFinalState.value) {
+                        // DELIVERED/CANCELLED/RETURNED are terminal; DELIVERY_FAILED intentionally is not.
+                        stopLivePolling();
+                    }
                 } catch (err) {
                     // Lỗi đồng bộ ngầm thì bỏ qua
                 }
@@ -518,7 +813,10 @@
                 livePollTimer = setInterval(() => {
                     if (!isLiveTracking.value) return;
                     if (document.hidden) return;
-                    if (isFinalState.value) return;
+                    if (isFinalState.value) {
+                        stopLivePolling();
+                        return;
+                    }
                     if (!currentShipment.value?.trackingCode) return;
                     syncStatusInBackground();
                 }, POLL_INTERVAL_MS);
@@ -541,7 +839,11 @@
             const handleVisibilityChange = () => {
                 if (document.hidden) return;
                 if (window.MapManager) window.MapManager.invalidateSize();
-                if (isLiveTracking.value && !isFinalState.value && currentShipment.value?.trackingCode) {
+                if (isFinalState.value) {
+                    stopLivePolling();
+                    return;
+                }
+                if (isLiveTracking.value && currentShipment.value?.trackingCode) {
                     syncStatusInBackground();
                 }
             };
@@ -598,13 +900,22 @@
                     if (window.MapManager) {
                         window.MapManager.init('tracking-map');
                     }
-                    if (typeof RoutingService !== 'undefined') {
-                        RoutingService.getAllHubs().then(data => {
-                            if (window.MapManager && Array.isArray(data)) {
-                                window.MapManager.updateHubs(data);
-                            }
-                        }).catch(() => {});
+                    let routingService;
+                    try {
+                        routingService = typeof RoutingService !== 'undefined'
+                            ? RoutingService
+                            : (typeof window !== 'undefined' ? window.RoutingService : null);
+                    } catch (e) {
+                        routingService = null;
                     }
+                    Promise.resolve(routingService).then(service => {
+                        if (!service || typeof service.getAllHubs !== 'function') return null;
+                        return Promise.resolve(service.getAllHubs());
+                    }).then(data => {
+                        if (window.MapManager && Array.isArray(data)) {
+                            window.MapManager.updateHubs(data);
+                        }
+                    }).catch(() => {});
                     if (searchCode.value) {
                         fetchTrackingData(searchCode.value);
                     } else {
@@ -664,6 +975,7 @@
                 getStationAddress,
                 getStatusIconConfig,
                 formatRelativeTime,
+                safeFormatHistoryNote,
                 fetchTrackingData,
                 fitVietnamView,
                 fitRouteView,
@@ -673,7 +985,7 @@
                 counterInsurance,
                 animateNumbers,
                 previousTab,
-                Utils
+                Utils: getUtilsApi() || {}
             };
         },
         template: `
@@ -1291,7 +1603,7 @@
 
                     <!-- VERTICAL TIMELINE WITH SMART ICONS -->
                     <div v-if="sortedHistory.length > 0" class="relative pl-7 sm:pl-10 space-y-5 before:absolute before:left-[17px] sm:before:left-[21px] before:top-4 before:bottom-4 before:w-[2px] before:bg-slate-200">
-                        <div v-for="(h, idx) in sortedHistory" :key="idx" class="relative flex items-start group">
+                        <div v-for="(h, idx) in sortedHistory" :key="h.eventId || h.operationId || idx" class="relative flex items-start group">
                             <!-- Icon Thông Minh Tròn Theo Trạng Thái -->
                             <div :class="[
                                 'absolute -left-[35px] sm:-left-[43px] mt-1 w-9 h-9 rounded-full text-white border-4 border-white shadow-md flex items-center justify-center z-10',
@@ -1355,16 +1667,24 @@
                                         {{ Utils.formatStatusText(h.status) }}
                                     </span>
                                     <span class="text-xs font-bold text-slate-800">
-                                        {{ getPostOfficeDisplayName(h.locationCode) || h.locationCode || 'Bưu Cục Trung Tâm' }}
+                                        {{ getPostOfficeDisplayName(h.location || h.locationCode) || h.location || h.locationCode || 'Bưu Cục Trung Tâm' }}
                                     </span>
-                                    <span v-if="h.locationCode && getPostOfficeDisplayName(h.locationCode) !== h.locationCode" class="text-[10px] text-slate-400 font-mono">
-                                        ({{ h.locationCode }})
+                                    <span v-if="(h.location || h.locationCode) && getPostOfficeDisplayName(h.location || h.locationCode) !== (h.location || h.locationCode)" class="text-[10px] text-slate-400 font-mono">
+                                        ({{ h.location || h.locationCode }})
                                     </span>
+                                </div>
+
+                                <!-- Metadata tác nghiệp chỉ hiển thị khi backend trả về -->
+                                <div v-if="h.operationType || h.transportLeg || h.tripCode || h.actorId" class="flex flex-wrap items-center gap-1.5 mb-1.5 text-[10px] font-mono text-slate-500">
+                                    <span v-if="h.operationType" class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">Loại: {{ h.operationType }}</span>
+                                    <span v-if="h.transportLeg" class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">Chặng: {{ h.transportLeg }}</span>
+                                    <span v-if="h.tripCode" class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">Chuyến: {{ h.tripCode }}</span>
+                                    <span v-if="h.actorId" class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">Tác nhân: {{ h.actorId }}</span>
                                 </div>
 
                                 <!-- Tầng 3: Ghi chú chi tiết hành trình -->
                                 <p :class="['text-xs leading-relaxed', idx === 0 ? 'text-slate-700' : 'text-slate-500']">
-                                    {{ Utils.formatNodeText(h.node, h.status) }}
+                                    {{ safeFormatHistoryNote(h) }}
                                 </p>
                             </div>
                         </div>
