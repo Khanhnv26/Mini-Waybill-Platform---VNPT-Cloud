@@ -583,7 +583,7 @@
             // Đơn đã kết thúc hành trình thì dừng polling. DELIVERY_FAILED vẫn phải được theo dõi
             // để giữ luồng giao lại / chuyển hoàn của nghiệp vụ hiện hữu.
             const isFinalState = computed(() => {
-                const status = String(currentShipment.value?.status || '').toUpperCase();
+                const status = String(currentShipment.value?.status || '').trim().toUpperCase();
                 return FINAL_STATUSES.has(status);
             });
 
