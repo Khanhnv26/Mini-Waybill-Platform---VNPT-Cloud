@@ -36,33 +36,296 @@
             const routeInfo = ref(null);
             const lastRenderedCode = ref(null);
 
+            const FINAL_STATUSES = new Set(['DELIVERED', 'CANCELLED', 'RETURNED']);
+            const ROUTING_HISTORY_METHODS = [
+                'getOperationHistory',
+                'getOperationHistoryByTrackingCode',
+                'getRoutingOperationHistory',
+                'getRouteOperationHistory',
+                'getOperationsHistory',
+                'getRoutingOperations',
+                'getAssignmentHistory',
+                'getRoutingHistory',
+                'getHistory'
+            ];
+
             let livePollTimer = null;
 
-            // Tính toán chặng hiện tại (1 đến 4) - bám sát các trạng thái chuẩn của hệ thống
-            const currentStageIndex = computed(() => {
-                const s = currentShipment.value?.status;
-                if (!s || s === 'CREATED' || s === 'PENDING_ROUTING' || s === 'ROUTE_ASSIGNED') return 1;
-                if (s === 'PICKED_UP' || s === 'IN_TRANSIT') return 2;
-                if (s === 'ARRIVED_DEST_HUB' || s === 'OUT_FOR_DELIVERY' || s === 'DELIVERY_FAILED') return 3;
-                if (s === 'DELIVERED') return 4;
-                return 1;
-            });
+            const hasValue = (value) => value !== undefined && value !== null && value !== '';
+            const firstValue = (...values) => values.find(hasValue);
 
-            // Tỉ lệ thanh tiến trình và vị trí xe tải
-            const stageProgress = computed(() => {
-                switch (currentStageIndex.value) {
-                    case 1:
-                        return { width: '6%', left: 'calc(24px + (100% - 48px) * 0.06)' };
-                    case 2:
-                        return { width: '38%', left: 'calc(24px + (100% - 48px) * 0.38)' };
-                    case 3:
-                        return { width: '75%', left: 'calc(24px + (100% - 48px) * 0.75)' };
-                    case 4:
-                        return { width: '100%', left: 'calc(24px + (100% - 48px) * 1.0)' };
-                    default:
-                        return { width: '6%', left: 'calc(24px + (100% - 48px) * 0.06)' };
+            const getUtilsApi = () => {
+                try {
+                    if (typeof Utils !== 'undefined') return Utils;
+                } catch (e) {}
+                return typeof window !== 'undefined' ? window.Utils : null;
+            };
+
+            const callUtils = (methodName, ...args) => {
+                const utilsApi = getUtilsApi();
+                if (!utilsApi) return undefined;
+                if (typeof utilsApi.then === 'function') {
+                    return Promise.resolve(utilsApi).then(api => {
+                        if (!api || typeof api[methodName] !== 'function') return undefined;
+                        return api[methodName](...args);
+                    }).catch(() => undefined);
                 }
-            });
+                if (typeof utilsApi[methodName] !== 'function') return undefined;
+                try {
+                    const result = utilsApi[methodName](...args);
+                    // Utility wrappers may be async; callers that render synchronously use their fallback.
+                    if (result && typeof result.catch === 'function') result.catch(() => {});
+                    return result;
+                } catch (e) {
+                    return undefined;
+                }
+            };
+
+            const showToast = (...args) => callUtils('showToast', ...args);
+
+            const unwrapHistoryPayload = (payload, depth = 0) => {
+                if (Array.isArray(payload)) return payload;
+                if (!payload || typeof payload !== 'object' || depth > 3) return [];
+
+                const collectionKeys = ['history', 'operationHistory', 'operations', 'events', 'items', 'records', 'content', 'data', 'result'];
+                for (const key of collectionKeys) {
+                    if (!Object.prototype.hasOwnProperty.call(payload, key)) continue;
+                    const nested = payload[key];
+                    if (Array.isArray(nested)) return nested;
+                    const unwrapped = unwrapHistoryPayload(nested, depth + 1);
+                    if (unwrapped.length > 0) return unwrapped;
+                }
+
+                const looksLikeHistoryItem = [
+                    'eventId', 'operationId', 'status', 'currentStatus', 'occurredAt',
+                    'timestamp', 'assignedAt', 'operationType', 'note', 'node'
+                ].some(key => Object.prototype.hasOwnProperty.call(payload, key));
+                return looksLikeHistoryItem ? [payload] : [];
+            };
+
+            const normalizeHistoryItem = (item, source) => {
+                if (!item || typeof item !== 'object') return null;
+
+                const metadata = item.metadata && typeof item.metadata === 'object' ? item.metadata : {};
+                const operation = item.operation && typeof item.operation === 'object' ? item.operation : {};
+                const actor = item.actor && typeof item.actor === 'object' ? item.actor : {};
+                const eventId = firstValue(item.eventId, item.eventID, item.event_id, metadata.eventId, operation.eventId);
+                const operationId = firstValue(
+                    item.operationId,
+                    item.operationID,
+                    item.operation_id,
+                    metadata.operationId,
+                    operation.operationId,
+                    source === 'routing' ? item.id : undefined
+                );
+                const operationType = firstValue(
+                    item.operationType,
+                    item.operation_type,
+                    item.type,
+                    metadata.operationType,
+                    operation.operationType,
+                    operation.type
+                );
+                const transportLeg = firstValue(
+                    item.transportLeg,
+                    item.transport_leg,
+                    item.leg,
+                    metadata.transportLeg,
+                    operation.transportLeg,
+                    operation.leg
+                );
+                const tripCode = firstValue(
+                    item.tripCode,
+                    item.trip_code,
+                    item.trip,
+                    metadata.tripCode,
+                    operation.tripCode,
+                    operation.trip
+                );
+                const actorId = firstValue(
+                    item.actorId,
+                    item.actorID,
+                    item.actor_id,
+                    metadata.actorId,
+                    operation.actorId,
+                    actor.actorId,
+                    actor.id,
+                    actor.userId
+                );
+                const location = firstValue(
+                    item.location,
+                    item.locationCode,
+                    item.hubCode,
+                    item.sourceHub,
+                    metadata.location,
+                    metadata.locationCode,
+                    operation.location,
+                    operation.locationCode
+                );
+                const note = firstValue(
+                    item.note,
+                    item.node,
+                    item.description,
+                    item.message,
+                    metadata.note,
+                    operation.note,
+                    operation.description
+                );
+                const status = firstValue(
+                    item.status,
+                    item.currentStatus,
+                    item.eventStatus,
+                    item.operationStatus,
+                    metadata.status,
+                    operation.status
+                );
+                const timestamp = firstValue(
+                    item.timestamp,
+                    item.occurredAt,
+                    item.operationAt,
+                    item.eventTime,
+                    item.createdAt,
+                    item.updatedAt,
+                    item.assignedAt,
+                    metadata.timestamp,
+                    operation.timestamp
+                );
+
+                return {
+                    ...item,
+                    eventId: eventId ?? null,
+                    operationId: operationId ?? null,
+                    operationType: operationType ?? null,
+                    transportLeg: transportLeg ?? null,
+                    tripCode: tripCode ?? null,
+                    actorId: actorId ?? null,
+                    location: location ?? null,
+                    note: note ?? null,
+                    status: status ?? null,
+                    timestamp: timestamp ?? null,
+                    // Keep existing backend names available to the map and legacy template paths.
+                    locationCode: hasValue(item.locationCode) ? item.locationCode : (location ?? null),
+                    node: hasValue(item.node) ? item.node : (note ?? null),
+                    occurredAt: hasValue(item.occurredAt) ? item.occurredAt : (timestamp ?? null),
+                    historySource: source
+                };
+            };
+
+            const historyValue = (item, key) => {
+                if (!item) return null;
+                if (hasValue(item[key])) return item[key];
+                if (key === 'location') return firstValue(item.location, item.locationCode);
+                if (key === 'note') return firstValue(item.note, item.node);
+                return null;
+            };
+
+            const getHistoryKeys = (item) => {
+                const keys = [];
+                if (hasValue(item.eventId)) {
+                    keys.push(`event:${String(item.eventId)}`);
+                    keys.push(`id:${String(item.eventId)}`);
+                }
+                if (hasValue(item.operationId)) {
+                    keys.push(`operation:${String(item.operationId)}`);
+                    keys.push(`id:${String(item.operationId)}`);
+                }
+
+                // Older records may not have either identifier. Only dedupe exact, content-identical records.
+                if (keys.length === 0) {
+                    const fallbackParts = [
+                        item.timestamp,
+                        item.status,
+                        historyValue(item, 'location'),
+                        historyValue(item, 'note'),
+                        item.operationType,
+                        item.transportLeg,
+                        item.tripCode,
+                        item.actorId
+                    ];
+                    if (fallbackParts.some(hasValue)) {
+                        keys.push(`content:${fallbackParts.map(value => String(value ?? '')).join('|')}`);
+                    }
+                }
+                return keys;
+            };
+
+            const mergeHistoryItems = (existing, incoming) => {
+                const merged = { ...existing };
+                Object.keys(incoming).forEach(key => {
+                    if (!hasValue(merged[key]) && hasValue(incoming[key])) {
+                        merged[key] = incoming[key];
+                    }
+                });
+                if (hasValue(existing.historySource) && hasValue(incoming.historySource) && existing.historySource !== incoming.historySource) {
+                    merged.historySource = `${existing.historySource},${incoming.historySource}`;
+                }
+                return merged;
+            };
+
+            const mergeHistory = (lifecycleHistory, routingHistory) => {
+                const merged = [];
+                const indexByKey = new Map();
+
+                const addHistory = (rawItem, source) => {
+                    const item = normalizeHistoryItem(rawItem, source);
+                    if (!item) return;
+
+                    const keys = getHistoryKeys(item);
+                    const existingIndex = keys.map(key => indexByKey.get(key)).find(index => index !== undefined);
+                    if (existingIndex !== undefined) {
+                        merged[existingIndex] = mergeHistoryItems(merged[existingIndex], item);
+                    } else {
+                        merged.push(item);
+                    }
+
+                    const itemIndex = existingIndex !== undefined ? existingIndex : merged.length - 1;
+                    keys.forEach(key => indexByKey.set(key, itemIndex));
+                };
+
+                unwrapHistoryPayload(lifecycleHistory).forEach(item => addHistory(item, 'tracking'));
+                unwrapHistoryPayload(routingHistory).forEach(item => addHistory(item, 'routing'));
+                return merged;
+            };
+
+            const loadRoutingOperationHistory = async (code) => {
+                let routingService;
+                try {
+                    routingService = typeof RoutingService !== 'undefined'
+                        ? RoutingService
+                        : (typeof window !== 'undefined' ? window.RoutingService : null);
+                    if (routingService && typeof routingService.then === 'function') {
+                        routingService = await routingService;
+                    }
+                } catch (e) {
+                    return [];
+                }
+                if (!routingService) return [];
+
+                const methodName = ROUTING_HISTORY_METHODS.find(name => typeof routingService[name] === 'function');
+                if (!methodName) return [];
+
+                try {
+                    const result = await Promise.resolve(routingService[methodName](code));
+                    return unwrapHistoryPayload(result);
+                } catch (e) {
+                    // Routing history is optional; tracking remains usable when that wrapper/endpoint is absent.
+                    return [];
+                }
+            };
+
+            const safeFormatHistoryNote = (historyItem) => {
+                const fallback = firstValue(historyItem?.note, historyItem?.node, historyItem?.status, '');
+                const nodeText = firstValue(historyItem?.node, historyItem?.note);
+                // Preserve the existing node formatter for tracking records while showing an explicit operation note verbatim.
+                if (hasValue(historyItem?.note) && historyItem.note !== historyItem.node) return historyItem.note;
+                const result = callUtils('formatNodeText', nodeText, historyItem?.status);
+                return result && typeof result.then !== 'function' && hasValue(result) ? result : fallback;
+            };
+
+            const safeFormatStatusText = (status) => {
+                const result = callUtils('formatStatusText', status);
+                return result && typeof result.then !== 'function' && hasValue(result) ? result : (status || 'N/A');
+            };
 
             // Hub nguồn & Hub phát đích
             const currentSourceHub = computed(() => {
@@ -73,18 +336,256 @@
                 return routeInfo.value?.destHub || currentShipment.value?.destinationHub || 'HUB-HCM-01';
             });
 
-            // Sắp xếp lịch sử luân chuyển: Mốc mới nhất luôn đưa lên đầu
+            // Bưu cục tiếp nhận & Bưu cục phát địa phương (Hub Cấp 2/3)
+            const currentOriginPostOffice = computed(() => {
+                return routeInfo.value?.originPostOffice || currentShipment.value?.originPostOffice || 'POST-HN-CG';
+            });
+
+            const currentDestPostOffice = computed(() => {
+                return routeInfo.value?.destPostOffice || currentShipment.value?.destPostOffice || 'POST-HCM-Q1';
+            });
+
+            const getPostOfficeDisplayName = (code) => {
+                const mapH = window.MapManager?.hubCoordinates;
+                if (mapH && mapH[code]?.name) return mapH[code].name;
+                return code;
+            };
+
+            const getStationAddress = (code) => {
+                if (!code) return '';
+                const mapH = window.MapManager?.hubCoordinates;
+                if (mapH && mapH[code]?.address) return mapH[code].address;
+                return '';
+            };
+
+            // Kiểm tra tuyến liên tỉnh hay nội tỉnh
+            const isInterProvincial = computed(() => {
+                const src = currentSourceHub.value;
+                const dst = currentDestHub.value;
+                return !!(src && dst && src !== dst);
+            });
+
+            // Địa chỉ rút gọn của người nhận hiển thị trên stepper
+            const recipientShortAddress = computed(() => {
+                const addr = currentShipment.value?.receiverAddress;
+                if (!addr) return 'Người Nhận';
+                const parts = addr.split(',').map(p => p.trim()).filter(Boolean);
+                if (parts.length >= 2) {
+                    return parts.slice(-2).join(', ');
+                }
+                return addr;
+            });
+
+            const recipientFullAddress = computed(() => {
+                return currentShipment.value?.receiverAddress || 'Địa chỉ phát hàng tận tay người nhận';
+            });
+
+            // Danh sách các mốc hành trình động (6 mốc liên tỉnh hoặc 4 mốc nội tỉnh)
+            const routeCheckpoints = computed(() => {
+                const inter = isInterProvincial.value;
+                if (inter) {
+                    return [
+                        {
+                            key: 'origin-po',
+                            stageName: '1. Tiếp Nhận',
+                            roleLabel: 'Bưu Cục Tiếp Nhận',
+                            subLabel: 'Tiếp Nhận Tại Quầy',
+                            code: currentOriginPostOffice.value,
+                            displayName: getPostOfficeDisplayName(currentOriginPostOffice.value),
+                            address: getStationAddress(currentOriginPostOffice.value)
+                        },
+                        {
+                            key: 'source-hub',
+                            stageName: '2. Gom Kho Tổng',
+                            roleLabel: 'Kho Tổng Xuất Phát',
+                            subLabel: 'Gom Hàng Về Kho',
+                            code: currentSourceHub.value,
+                            displayName: getPostOfficeDisplayName(currentSourceHub.value),
+                            address: getStationAddress(currentSourceHub.value)
+                        },
+                        {
+                            key: 'linehaul',
+                            stageName: '3. Tuyến Trục',
+                            roleLabel: 'Xe Trục Tuyến',
+                            subLabel: 'Vận Chuyển Trục Bắc - Nam',
+                            code: 'QL1A/CT01',
+                            displayName: 'Xe Tải Trục Bắc - Nam',
+                            address: 'Hành lang vận tải đường bộ Bắc - Nam (Quốc lộ 1A & Cao tốc CT01)'
+                        },
+                        {
+                            key: 'dest-hub',
+                            stageName: '4. Kho Đích',
+                            roleLabel: 'Kho Tổng Đích',
+                            subLabel: 'Khai Thác Đến',
+                            code: currentDestHub.value,
+                            displayName: getPostOfficeDisplayName(currentDestHub.value),
+                            address: getStationAddress(currentDestHub.value)
+                        },
+                        {
+                            key: 'dest-po',
+                            stageName: '5. Bưu Cục Phát',
+                            roleLabel: 'Bưu Cục Phát',
+                            subLabel: 'Chia Chọn Quận/Huyện',
+                            code: currentDestPostOffice.value,
+                            displayName: getPostOfficeDisplayName(currentDestPostOffice.value),
+                            address: getStationAddress(currentDestPostOffice.value)
+                        },
+                        {
+                            key: 'recipient',
+                            stageName: '6. Phát Thành Công',
+                            roleLabel: 'Người Nhận',
+                            subLabel: 'Giao Tận Tay',
+                            code: 'NGƯỜI NHẬN',
+                            displayName: recipientShortAddress.value,
+                            address: recipientFullAddress.value
+                        }
+                    ];
+                } else {
+                    return [
+                        {
+                            key: 'origin-po',
+                            stageName: '1. Tiếp Nhận',
+                            roleLabel: 'Bưu Cục Tiếp Nhận',
+                            subLabel: 'Tiếp Nhận Tại Quầy',
+                            code: currentOriginPostOffice.value,
+                            displayName: getPostOfficeDisplayName(currentOriginPostOffice.value),
+                            address: getStationAddress(currentOriginPostOffice.value)
+                        },
+                        {
+                            key: 'source-hub',
+                            stageName: '2. Kho Trung Tâm',
+                            roleLabel: 'Kho Tổng Vùng',
+                            subLabel: 'Phân Loại Nội Tỉnh',
+                            code: currentSourceHub.value,
+                            displayName: getPostOfficeDisplayName(currentSourceHub.value),
+                            address: getStationAddress(currentSourceHub.value)
+                        },
+                        {
+                            key: 'dest-po',
+                            stageName: '3. Bưu Cục Phát',
+                            roleLabel: 'Bưu Cục Phát',
+                            subLabel: 'Chia Chọn Quận/Huyện',
+                            code: currentDestPostOffice.value,
+                            displayName: getPostOfficeDisplayName(currentDestPostOffice.value),
+                            address: getStationAddress(currentDestPostOffice.value)
+                        },
+                        {
+                            key: 'recipient',
+                            stageName: '4. Phát Thành Công',
+                            roleLabel: 'Người Nhận',
+                            subLabel: 'Giao Tận Tay',
+                            code: 'NGƯỜI NHẬN',
+                            displayName: recipientShortAddress.value,
+                            address: recipientFullAddress.value
+                        }
+                    ];
+                }
+            });
+
+            // Chỉ số mốc đang tác nghiệp (0-indexed)
+            const currentCheckpointIndex = computed(() => {
+                const s = currentShipment.value?.status;
+                const inter = isInterProvincial.value;
+
+                if (inter) {
+                    if (!s || s === 'CREATED' || s === 'PENDING_ROUTING' || s === 'ROUTE_ASSIGNED') return 0;
+                    if (s === 'PICKED_UP') return 1;
+                    if (s === 'IN_TRANSIT') return 2;
+                    if (s === 'ARRIVED_DEST_HUB') return 3;
+                    if (s === 'OUT_FOR_DELIVERY' || s === 'DELIVERY_FAILED') return 4;
+                    if (s === 'DELIVERED') return 5;
+                    return 0;
+                } else {
+                    if (!s || s === 'CREATED' || s === 'PENDING_ROUTING' || s === 'ROUTE_ASSIGNED') return 0;
+                    if (s === 'PICKED_UP') return 1;
+                    if (s === 'IN_TRANSIT' || s === 'ARRIVED_DEST_HUB') return 1;
+                    if (s === 'OUT_FOR_DELIVERY' || s === 'DELIVERY_FAILED') return 2;
+                    if (s === 'DELIVERED') return 3;
+                    return 0;
+                }
+            });
+
+            // Tương thích ngược với currentStageIndex
+            const currentStageIndex = computed(() => currentCheckpointIndex.value + 1);
+
+            // Xác định loại huy hiệu hiển thị tại mốc hiện tại
+            const activePinType = computed(() => {
+                const s = currentShipment.value?.status;
+                if (s === 'DELIVERED') return 'success';
+                if (s === 'OUT_FOR_DELIVERY') return 'shipper';
+                return 'truck';
+            });
+
+            // Tỷ lệ thanh tiến trình
+            const stageProgress = computed(() => {
+                const total = routeCheckpoints.value.length;
+                if (total <= 1) return { width: '0%', left: '0%' };
+                const idx = currentCheckpointIndex.value;
+                const ratio = idx / (total - 1);
+                const pct = Math.round(ratio * 100);
+                return {
+                    width: `${pct}%`,
+                    left: `calc(18px + (100% - 36px) * ${ratio})`
+                };
+            });
+
+            const STATUS_CHRONO_WEIGHT = {
+                'CREATED': 1,
+                'PENDING_ROUTING': 2,
+                'ROUTE_ASSIGNED': 3,
+                'PICKED_UP': 4,
+                'IN_TRANSIT': 5,
+                'ARRIVED_DEST_HUB': 6,
+                'OUT_FOR_DELIVERY': 7,
+                'DELIVERY_FAILED': 8,
+                'DELIVERED': 9,
+                'RETURNING': 10,
+                'RETURNED': 11,
+                'CANCELLED': 12
+            };
+
+            // Sắp xếp lịch sử luân chuyển: Mới nhất luôn đưa lên đầu (Newest First)
             const sortedHistory = computed(() => {
                 if (!trackingHistory.value || trackingHistory.value.length === 0) return [];
-                return [...trackingHistory.value].sort((a, b) => {
-                    const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-                    const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-                    return timeB - timeA;
+
+                const list = [...trackingHistory.value];
+
+                // Chỉ sắp xếp các mốc server trả về; không tự tạo mốc lịch sử còn thiếu.
+                return list.sort((a, b) => {
+                    const rawA = a.occurredAt || a.timestamp || a.createdAt;
+                    const rawB = b.occurredAt || b.timestamp || b.createdAt;
+                    const timeA = rawA ? new Date(rawA).getTime() : 0;
+                    const timeB = rawB ? new Date(rawB).getTime() : 0;
+
+                    // 1. So sánh thời gian chính xác (Mới nhất trước)
+                    if (timeA !== timeB && !isNaN(timeA) && !isNaN(timeB)) {
+                        return timeB - timeA;
+                    }
+
+                    // 2. Nếu thời gian bằng nhau hoặc cùng giây, so sánh thứ tự id giảm dần
+                    const idA = typeof a.id === 'number' ? a.id : 0;
+                    const idB = typeof b.id === 'number' ? b.id : 0;
+                    if (idA !== idB && idA > 0 && idB > 0) {
+                        return idB - idA;
+                    }
+
+                    // 3. Nếu không có id hoặc id bằng nhau, so sánh theo trọng số vòng đời trạng thái
+                    const weightA = STATUS_CHRONO_WEIGHT[a.status] || 0;
+                    const weightB = STATUS_CHRONO_WEIGHT[b.status] || 0;
+                    if (weightA !== weightB) {
+                        return weightB - weightA;
+                    }
+
+                    return 0;
                 });
             });
 
-            // Đơn đã kết thúc hành trình thì dừng polling
-            const isFinalState = computed(() => currentShipment.value?.status === 'DELIVERED');
+            // Đơn đã kết thúc hành trình thì dừng polling. DELIVERY_FAILED vẫn phải được theo dõi
+            // để giữ luồng giao lại / chuyển hoàn của nghiệp vụ hiện hữu.
+            const isFinalState = computed(() => {
+                const status = String(currentShipment.value?.status || '').trim().toUpperCase();
+                return FINAL_STATUSES.has(status);
+            });
 
             // Định dạng thời gian tương đối
             const formatRelativeTime = (ts) => {
@@ -122,14 +623,23 @@
                 }
             };
 
-            // Tải dữ liệu lịch sử luân chuyển
+            // Tải song song lịch sử tracking và lịch sử tác nghiệp định tuyến (nếu wrapper có hỗ trợ).
             const loadSecondaryData = async (code) => {
-                try {
-                    const res = await TrackingService.getHistory(code);
-                    trackingHistory.value = Array.isArray(res) ? res : [];
-                } catch (e) {
-                    // Im lặng nếu không tải được lịch sử phụ trợ
-                }
+                const trackingHistoryPromise = (async () => {
+                    try {
+                        const res = await Promise.resolve(TrackingService.getHistory(code));
+                        return unwrapHistoryPayload(res);
+                    } catch (e) {
+                        return [];
+                    }
+                })();
+                const routingHistoryPromise = loadRoutingOperationHistory(code);
+
+                const [lifecycleHistory, routingHistory] = await Promise.all([
+                    trackingHistoryPromise,
+                    routingHistoryPromise
+                ]);
+                trackingHistory.value = mergeHistory(lifecycleHistory, routingHistory);
             };
 
             // Cache thông tin chi tiết bưu gửi (sender, receiver, cod, weight)
@@ -191,8 +701,14 @@
                 notFoundCode.value = '';
 
                 try {
-                    const data = await TrackingService.getFullTracking(code);
-                    const detail = await loadShipmentDetail(code);
+                    // Nạp trạng thái, chi tiết đơn và lịch sử định tuyến song song để tránh làm chậm
+                    // timeline khi routing service chỉ là một wrapper tùy chọn.
+                    const routingHistoryPromise = loadRoutingOperationHistory(code);
+                    const [data, detail, routingHistory] = await Promise.all([
+                        Promise.resolve(TrackingService.getFullTracking(code)),
+                        loadShipmentDetail(code),
+                        routingHistoryPromise
+                    ]);
 
                     currentShipment.value = {
                         ...(detail || {}),
@@ -200,25 +716,35 @@
                         status: data.currentStatus,
                         source: data.source
                     };
-                    trackingHistory.value = data.history || [];
+                    trackingHistory.value = mergeHistory(
+                        data.history || data.lifecycleHistory || data.trackingHistory || data.events || [],
+                        routingHistory
+                    );
+                    if (isFinalState.value) {
+                        stopLivePolling();
+                    } else if (isLiveTracking.value && !livePollTimer) {
+                        startLivePolling();
+                    }
 
                     // Vẽ bản đồ lộ trình dựa trên hành trình thật
                     await nextTick();
                     if (window.MapManager) {
                         window.MapManager.init('tracking-map');
                         if (lastRenderedCode.value === code) {
-                            window.MapManager.updateProgress(data.currentStatus);
+                            const latestMilestone = sortedHistory.value[0];
+                            window.MapManager.updateProgress(data.currentStatus, latestMilestone?.node || '', latestMilestone?.locationCode || null);
                         } else {
                             routeInfo.value = await window.MapManager.renderRoute(
                                 trackingHistory.value,
                                 data.currentStatus,
-                                true
+                                true,
+                                currentShipment.value
                             );
                             lastRenderedCode.value = code;
                         }
                     }
 
-                    Utils.showToast('Thành Công', `Đã nạp dữ liệu hành trình bưu gửi ${code}`);
+                    showToast('Thành Công', `Đã nạp dữ liệu hành trình bưu gửi ${code}`);
                 } catch (err) {
                     currentShipment.value = null;
                     trackingHistory.value = [];
@@ -229,7 +755,7 @@
                         isNotFound.value = true;
                         notFoundCode.value = code;
                     } else {
-                        Utils.showToast('Lỗi Tra Cứu', err.message || 'Không thể tải dữ liệu bưu gửi', 'error');
+                        showToast('Lỗi Tra Cứu', err.message || 'Không thể tải dữ liệu bưu gửi', 'error');
                     }
                 } finally {
                     isLoading.value = false;
@@ -240,20 +766,53 @@
             const syncStatusInBackground = async () => {
                 const code = currentShipment.value?.trackingCode;
                 if (!code) return;
+                if (isFinalState.value) {
+                    stopLivePolling();
+                    return;
+                }
 
                 try {
-                    const st = await TrackingService.getTracking(code);
+                    const st = await Promise.resolve(TrackingService.getTracking(code));
                     const newStatus = st.currentStatus;
-                    if (!newStatus || newStatus === currentShipment.value.status) return;
+                    if (!newStatus) return;
+                    const previousStatus = currentShipment.value.status;
+                    const statusChanged = newStatus !== previousStatus;
 
-                    currentShipment.value = { ...currentShipment.value, status: newStatus, source: st.source };
-
-                    if (window.MapManager) {
-                        window.MapManager.updateProgress(newStatus);
+                    // A trip can progress physically while its public status stays
+                    // unchanged. Always refresh the two histories during polling so
+                    // those unload/store milestones are not missed.
+                    currentShipment.value = {
+                        ...currentShipment.value,
+                        status: newStatus,
+                        locationCode: st.locationCode || currentShipment.value.locationCode,
+                        source: st.source
+                    };
+                    if (isFinalState.value) {
+                        // Stop immediately; history refresh failure must not restart terminal polling.
+                        stopLivePolling();
                     }
 
-                    Utils.showToast('Cập Nhật Tự Động', `Bưu gửi vừa chuyển sang: ${Utils.formatStatusText(newStatus)}`);
-                    await loadSecondaryData(code);
+                    const [fullData, routingHistory] = await Promise.all([
+                        Promise.resolve(TrackingService.getFullTracking(code)),
+                        loadRoutingOperationHistory(code)
+                    ]);
+                    trackingHistory.value = mergeHistory(
+                        fullData.history || fullData.lifecycleHistory || fullData.trackingHistory || fullData.events || [],
+                        routingHistory
+                    );
+                    const latestMilestone = sortedHistory.value[0];
+
+                    if (window.MapManager) {
+                        window.MapManager.updateProgress(newStatus, latestMilestone?.node || '', latestMilestone?.locationCode || null);
+                    }
+
+                    if (statusChanged) {
+                        showToast('Cập Nhật Tự Động', `Bưu gửi vừa chuyển sang: ${safeFormatStatusText(newStatus)}`);
+                    }
+                    if (isFinalState.value) {
+                        // DELIVERED/CANCELLED/RETURNED are terminal; DELIVERY_FAILED intentionally is not.
+                        stopLivePolling();
+                    }
                 } catch (err) {
                     // Lỗi đồng bộ ngầm thì bỏ qua
                 }
@@ -266,7 +825,10 @@
                 livePollTimer = setInterval(() => {
                     if (!isLiveTracking.value) return;
                     if (document.hidden) return;
-                    if (isFinalState.value) return;
+                    if (isFinalState.value) {
+                        stopLivePolling();
+                        return;
+                    }
                     if (!currentShipment.value?.trackingCode) return;
                     syncStatusInBackground();
                 }, POLL_INTERVAL_MS);
@@ -289,7 +851,11 @@
             const handleVisibilityChange = () => {
                 if (document.hidden) return;
                 if (window.MapManager) window.MapManager.invalidateSize();
-                if (isLiveTracking.value && !isFinalState.value && currentShipment.value?.trackingCode) {
+                if (isFinalState.value) {
+                    stopLivePolling();
+                    return;
+                }
+                if (isLiveTracking.value && currentShipment.value?.trackingCode) {
                     syncStatusInBackground();
                 }
             };
@@ -346,6 +912,22 @@
                     if (window.MapManager) {
                         window.MapManager.init('tracking-map');
                     }
+                    let routingService;
+                    try {
+                        routingService = typeof RoutingService !== 'undefined'
+                            ? RoutingService
+                            : (typeof window !== 'undefined' ? window.RoutingService : null);
+                    } catch (e) {
+                        routingService = null;
+                    }
+                    Promise.resolve(routingService).then(service => {
+                        if (!service || typeof service.getAllHubs !== 'function') return null;
+                        return Promise.resolve(service.getAllHubs());
+                    }).then(data => {
+                        if (window.MapManager && Array.isArray(data)) {
+                            window.MapManager.updateHubs(data);
+                        }
+                    }).catch(() => {});
                     if (searchCode.value) {
                         fetchTrackingData(searchCode.value);
                     } else {
@@ -391,10 +973,21 @@
                 isFinalState,
                 currentStageIndex,
                 stageProgress,
+                isInterProvincial,
+                routeCheckpoints,
+                currentCheckpointIndex,
+                activePinType,
+                recipientShortAddress,
+                recipientFullAddress,
                 currentSourceHub,
                 currentDestHub,
+                currentOriginPostOffice,
+                currentDestPostOffice,
+                getPostOfficeDisplayName,
+                getStationAddress,
                 getStatusIconConfig,
                 formatRelativeTime,
+                safeFormatHistoryNote,
                 fetchTrackingData,
                 fitVietnamView,
                 fitRouteView,
@@ -404,7 +997,7 @@
                 counterInsurance,
                 animateNumbers,
                 previousTab,
-                Utils
+                Utils: getUtilsApi() || {}
             };
         },
         template: `
@@ -427,8 +1020,8 @@
                     </button>
                 </div>
 
-                <!-- 1. HERO BANNER: CHUẨN VNPT GRADIENT ĐỒNG BỘ RBAC -->
-                <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
+                <!-- 1. HERO BANNER TOÀN MÀN NGANG (KHI CHƯA TRA CỨU ĐƠN) -->
+                <div v-if="!currentShipment" class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
 
                     <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -463,8 +1056,24 @@
                     </div>
                 </div>
 
-                <!-- 2. TOOLBAR TRA CỨU BƯU GỬI B2B -->
-                <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-2">
+                <!-- 1.B BANNER TINH GỌN KHI ĐÃ CÓ KẾT QUẢ TRA CỨU ĐƠN -->
+                <div v-if="currentShipment" class="vnpt-gradient rounded-xl text-white px-4 py-2.5 shadow-sm flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center space-x-2.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span class="text-xs font-bold text-white uppercase tracking-wider">Hành Trình Bưu Gửi:</span>
+                        <span class="font-mono text-xs font-extrabold bg-white/20 px-2 py-0.5 rounded border border-white/25">{{ currentShipment.trackingCode }}</span>
+                        <span class="hidden sm:inline text-xs text-blue-100 font-medium">• {{ currentShipment.serviceType || 'EXPRESS' }}</span>
+                    </div>
+                    <div class="flex items-center space-x-2 text-xs">
+                        <span class="text-blue-100 text-[11px]">Trạng thái:</span>
+                        <span :class="['px-2.5 py-0.5 rounded-full font-bold text-[11px] border', Utils.getStatusBadgeClass(currentShipment.status)]">
+                            {{ Utils.formatStatusText(currentShipment.status) }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- 2. TOOLBAR TRA CỨU BƯU GỬI B2B TOÀN MÀN NGANG (KHI CHƯA TRA CỨU ĐƠN) -->
+                <div v-if="!currentShipment" class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-2">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div class="flex items-center space-x-2 w-full sm:w-auto flex-1 max-w-lg">
                             <div class="relative w-full">
@@ -693,24 +1302,28 @@
                     </div>
                 </div>
 
-                <!-- 3. KHU VỰC BẢN ĐỒ LỘ TRÌNH & THÔNG TIN BƯU GỬI (KHI CÓ DỮ LIỆU) -->
-                <div v-show="!isNotFound && currentShipment" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <!-- Cột Trái (2/3): Bản đồ lộ trình & Thanh Tiến Trình Liên Tục Mới -->
-                    <div class="lg:col-span-2 b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col justify-between">
+                <!-- 3. KHU VỰC SƠ ĐỒ, BẢN ĐỒ & THÔNG TIN BƯU GỬI (KHI CÓ DỮ LIỆU) -->
+                <div v-show="!isNotFound && currentShipment" class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+                    
+                    <!-- CỘT TRÁI (~65% / 8 of 12 cols trên Desktop, order-2 trên Mobile): Sơ Đồ Tuyến Luân Chuyển (Stepper + Bản Đồ) -->
+                    <div class="order-2 lg:order-1 lg:col-span-8 b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col justify-between space-y-3">
                         <!-- Map Card Header Tối Giản -->
-                        <div class="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-3">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
                             <div class="flex items-center space-x-2">
                                 <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
                                 <span class="font-extrabold text-slate-800 uppercase tracking-wider text-xs">
                                     Sơ Đồ Tuyến Luân Chuyển Bưu Cục
+                                </span>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 font-mono">
+                                    {{ isInterProvincial ? 'Tuyến Liên Tỉnh (6 Chặng)' : 'Tuyến Nội Tỉnh (4 Chặng)' }}
                                 </span>
                             </div>
                             <div class="flex items-center space-x-2">
                                 <button 
                                     @click="fitVietnamView()" 
                                     type="button" 
-                                    title="Xem toàn cảnh bản đồ Việt Nam (Hoàng Sa & Trường Sa)"
-                                    class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center space-x-1"
+                                    title="Xem toàn cảnh bản đồ Việt Nam (Hoàng Sa &amp; Trường Sa)"
+                                    class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center space-x-1 cursor-pointer"
                                 >
                                     <span>Toàn Cảnh VN</span>
                                 </button>
@@ -719,76 +1332,128 @@
                                     @click="fitRouteView()" 
                                     type="button" 
                                     title="Xem ôm sát tuyến xe luân chuyển bưu kiện"
-                                    class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition flex items-center space-x-1"
+                                    class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition flex items-center space-x-1 cursor-pointer"
                                 >
                                     <span>Tuyến Xe Chạy</span>
                                 </button>
                             </div>
                         </div>
 
-                        <!-- THANH TIẾN TRÌNH LIÊN TỤC KÈM PIN XE TẢI (CONTINUOUS PROGRESS BAR) -->
-                        <div class="mb-3.5 bg-slate-50/70 border border-slate-200 rounded-xl p-3.5">
-                            <!-- 1. Hàng trên: Tên 4 giai đoạn -->
-                            <div class="grid grid-cols-4 text-center text-xs font-bold mb-2">
-                                <div>
-                                    <span :class="currentStageIndex >= 1 ? 'text-blue-700' : 'text-slate-400 font-medium'">1. Tiếp Nhận</span>
+                        <!-- THANH TIẾN TRÌNH LUÂN CHUYỂN BƯU GỬI (B2B MINIMALIST STEPPER - DHL / FEDEX STYLE) -->
+                        <div class="bg-slate-50/70 border border-slate-200 rounded-xl p-3 sm:p-3.5">
+                            <!-- Tiêu đề & Thông tin vị trí bưu gửi -->
+                            <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5 border-b border-slate-200/60 pb-1.5">
+                                <div class="flex items-center space-x-2">
+                                    <span class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                                    <span class="text-xs font-bold text-slate-800 tracking-tight uppercase">Vị trí bưu gửi:</span>
+                                    <strong class="text-blue-700 text-xs">
+                                        {{ routeCheckpoints[currentCheckpointIndex]?.displayName }}
+                                    </strong>
+                                    <span class="text-slate-400 text-[10px]">({{ routeCheckpoints[currentCheckpointIndex]?.roleLabel }})</span>
                                 </div>
-                                <div>
-                                    <span :class="currentStageIndex >= 2 ? 'text-blue-700' : 'text-slate-400 font-medium'">2. Luân Chuyển</span>
-                                </div>
-                                <div>
-                                    <span :class="currentStageIndex >= 3 ? 'text-blue-700' : 'text-slate-400 font-medium'">3. Đến Kho Đích</span>
-                                </div>
-                                <div>
-                                    <span :class="currentStageIndex >= 4 ? 'text-emerald-700' : 'text-slate-400 font-medium'">4. Thành Công</span>
+                                <div class="font-mono text-[10.5px] font-bold text-blue-700">
+                                    Chặng {{ currentCheckpointIndex + 1 }} / {{ routeCheckpoints.length }}
                                 </div>
                             </div>
 
-                            <!-- 2. Rãnh trượt Progress Bar kèm xe tải -->
-                            <div class="relative px-6 py-2">
-                                <div class="h-2.5 w-full bg-slate-100 border border-slate-200/80 rounded-full overflow-hidden relative">
-                                    <div class="h-full bg-gradient-to-r from-blue-700 via-blue-600 to-blue-500 rounded-full smooth-transition" 
-                                         :style="{ width: stageProgress.width }"></div>
-                                </div>
+                            <!-- Khung Stepper Tối Giản B2B (Đồng nhất, không badge màu mè) -->
+                            <div class="flex items-start justify-between relative pt-0.5 pb-0.5">
+                                <!-- Từng Cụm Mốc Hành Trình (Flex-1) -->
+                                <div 
+                                    v-for="(cp, idx) in routeCheckpoints" 
+                                    :key="cp.key" 
+                                    class="flex-1 flex flex-col items-center text-center relative px-0.5"
+                                >
+                                    <!-- Rãnh kết nối giữa 2 mốc liên tiếp (Toán học căn chuẩn tâm 100%) -->
+                                    <div 
+                                        v-if="idx < routeCheckpoints.length - 1" 
+                                        class="absolute top-[36px] -translate-y-1/2 left-1/2 w-full h-[2.5px] z-0 transition-colors duration-300"
+                                        :class="idx < currentCheckpointIndex ? 'bg-blue-600' : 'bg-slate-200'"
+                                    ></div>
 
-                                <!-- 4 Mốc Điểm Tròn Trên Thanh Bar -->
-                                <div class="absolute inset-x-6 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none">
-                                    <div :class="['w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm -ml-1.5', currentStageIndex >= 1 ? 'bg-blue-600' : 'bg-slate-300']"></div>
-                                    <div :class="['w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm -ml-1.5', currentStageIndex >= 2 ? 'bg-blue-600' : 'bg-slate-300']"></div>
-                                    <div :class="['w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm -ml-1.5', currentStageIndex >= 3 ? 'bg-blue-600' : 'bg-slate-300']"></div>
-                                    <div :class="['w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm -mr-1.5', currentStageIndex >= 4 ? 'bg-emerald-600' : 'bg-slate-300']"></div>
-                                </div>
-
-                                <!-- HUY HIỆU XE TẢI MINI DI CHUYỂN LIÊN TỤC -->
-                                <div class="truck-pin absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-20 pointer-events-none" 
-                                     :style="{ left: stageProgress.left }" 
-                                     title="Bưu kiện đang ở chặng này">
-                                    <div :class="['w-8 h-8 rounded-full text-white border-2 border-white shadow-lg flex items-center justify-center pulse-active', currentStageIndex === 4 ? 'bg-emerald-600' : 'bg-blue-600']">
-                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M18 18.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM6 18.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
-                                            <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 17c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm11-7h2.5l2 2.67V15H17v-5zm1 7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z" />
-                                        </svg>
+                                    <!-- 1. Hàng trên: Tên giai đoạn tác nghiệp -->
+                                    <div class="mb-1 h-4 flex items-center justify-center relative z-10">
+                                        <span 
+                                            :class="[
+                                                'text-[10.5px] leading-none transition-colors',
+                                                idx === currentCheckpointIndex ? (currentShipment?.status === 'DELIVERED' ? 'text-emerald-700 font-bold' : 'text-blue-700 font-bold') : (idx < currentCheckpointIndex ? 'text-slate-700 font-semibold' : 'text-slate-400 font-medium')
+                                            ]"
+                                        >
+                                            {{ cp.stageName }}
+                                        </span>
                                     </div>
-                                </div>
-                            </div>
 
-                            <!-- 3. Hàng dưới: Địa điểm bưu cục chi tiết -->
-                            <div class="grid grid-cols-4 text-center text-[10.5px] font-mono text-slate-400 mt-2 select-none">
-                                <div>
-                                    <span class="font-semibold text-slate-600">{{ currentSourceHub }}</span>
-                                    <div class="text-[9.5px] text-slate-400">Kho Gửi</div>
-                                </div>
-                                <div>
-                                    <span class="font-semibold text-slate-600">Quốc Lộ 1A</span>
-                                    <div class="text-[9.5px] text-slate-400">Liên Tỉnh</div>
-                                </div>
-                                <div>
-                                    <span :class="currentStageIndex >= 3 ? 'font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200' : 'font-semibold text-slate-600'">{{ currentDestHub }}</span>
-                                    <div class="text-[9.5px] text-blue-600 font-semibold">Kho Phát Đích</div>
-                                </div>
-                                <div>
-                                    <span :class="currentStageIndex >= 4 ? 'font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200' : 'text-slate-400'">Khách Nhận</span>
-                                    <div class="text-[9.5px] text-slate-300">Tận Nơi</div>
+                                    <!-- 2. Điểm Mốc Tròn / Biểu Tượng Trạng Thái -->
+                                    <div class="relative my-0.5 flex items-center justify-center h-7 z-10">
+                                        <!-- Mốc Hiện Tại (Active): Nổi bật với Ring màu trạng thái & Icon phương tiện -->
+                                        <div 
+                                            v-if="idx === currentCheckpointIndex"
+                                            :class="[
+                                                'w-7 h-7 rounded-full text-white flex items-center justify-center transition-transform hover:scale-105 cursor-pointer shadow-sm',
+                                                currentShipment?.status === 'DELIVERED' ? 'bg-emerald-600 ring-4 ring-emerald-100 shadow-emerald-500/20' : 'bg-blue-600 ring-4 ring-blue-100 pulse-active shadow-blue-500/20'
+                                            ]"
+                                            :title="'Đang xử lý tại: ' + cp.displayName + (cp.address ? ' | ' + cp.address : '')"
+                                        >
+                                            <!-- Icon Bưu tá xe máy khi OUT_FOR_DELIVERY -->
+                                            <svg v-if="activePinType === 'shipper'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                <circle cx="5" cy="18" r="3"/><circle cx="19" cy="18" r="3"/><path d="M12 18V8l3 3h4"/><circle cx="12" cy="5" r="1"/>
+                                            </svg>
+                                            <!-- Icon Tích xanh thành công khi DELIVERED -->
+                                            <svg v-else-if="activePinType === 'success'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                                            </svg>
+                                            <!-- Icon Xe tải bưu chính mặc định -->
+                                            <svg v-else class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M18 18.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM6 18.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+                                                <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 17c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm11-7h2.5l2 2.67V15H17v-5zm1 7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z" />
+                                            </svg>
+                                        </div>
+
+                                        <!-- Mốc Đã Qua (Completed): Nền xanh dương đậm, tích kiểm trắng gọn gàng -->
+                                        <div 
+                                            v-else-if="idx < currentCheckpointIndex"
+                                            class="w-6 h-6 rounded-full bg-blue-600 text-white shadow-2xs flex items-center justify-center cursor-pointer hover:bg-blue-700 transition"
+                                            :title="'Đã hoàn thành qua: ' + cp.displayName"
+                                        >
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                                            </svg>
+                                        </div>
+
+                                        <!-- Mốc Chưa Đến (Upcoming): Vòng tròn xám trung tính, số thứ tự mốc -->
+                                        <div 
+                                            v-else
+                                            class="w-6 h-6 rounded-full bg-white border-2 border-slate-300 text-slate-400 flex items-center justify-center text-[10px] font-bold font-mono shadow-2xs"
+                                            :title="'Chờ xử lý: ' + cp.displayName"
+                                        >
+                                            {{ idx + 1 }}
+                                        </div>
+                                    </div>
+
+                                    <!-- 3. Hàng dưới: Thông tin bưu cục tinh gọn chuẩn B2B -->
+                                    <div class="mt-1.5 w-full max-w-[115px] flex flex-col items-center">
+                                        <!-- Tên bưu cục / trạm địa danh chính -->
+                                        <div 
+                                            :class="[
+                                                'text-[11px] font-semibold leading-tight text-center max-w-full truncate px-0.5 transition-colors',
+                                                idx === currentCheckpointIndex ? (currentShipment?.status === 'DELIVERED' ? 'text-emerald-700 font-bold' : 'text-blue-700 font-bold') : (idx < currentCheckpointIndex ? 'text-slate-700' : 'text-slate-400 font-normal')
+                                            ]"
+                                            :title="cp.displayName + (cp.code ? ' (' + cp.code + ')' : '') + (cp.roleLabel ? ' • ' + cp.roleLabel : '') + (cp.address ? ' | ' + cp.address : '')"
+                                        >
+                                            {{ cp.displayName }}
+                                        </div>
+
+                                        <!-- Mã định danh trạm (Tinh gọn, chỉ hiển thị nếu khác tên trạm và không phải người nhận) -->
+                                        <div 
+                                            v-if="cp.code && cp.code !== cp.displayName && cp.code !== 'NGƯỜI NHẬN'"
+                                            :class="[
+                                                'text-[9.5px] font-mono mt-0.5 tracking-tight px-1 rounded transition-colors',
+                                                idx === currentCheckpointIndex ? (currentShipment?.status === 'DELIVERED' ? 'text-emerald-600 font-medium' : 'text-blue-600 font-medium') : (idx < currentCheckpointIndex ? 'text-slate-500' : 'text-slate-400')
+                                            ]"
+                                        >
+                                            {{ cp.code }}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -799,12 +1464,93 @@
                         </div>
                     </div>
 
-                    <!-- Cột Phải (1/3): Thẻ Thông Tin Bưu Gửi Chi Tiết -->
-                    <div class="space-y-4">
+                    <!-- CỘT PHẢI (~35% / 4 of 12 cols trên Desktop, order-1 trên Mobile): Khối Tra Cứu & Khối Thông Tin Bưu Gửi Chi Tiết -->
+                    <div class="order-1 lg:order-2 lg:col-span-4 space-y-4">
+                        <!-- 1. Thẻ Tra Cứu Vận Đơn (Cho phép tra tiếp mã khác hoặc làm mới) -->
+                        <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                                <div class="flex items-center space-x-2">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                    <span class="font-extrabold text-slate-800 uppercase tracking-wider text-xs">Tra Cứu Bưu Gửi</span>
+                                </div>
+                                <span class="text-[10px] text-slate-400 font-mono">Hỗ trợ mã WB...</span>
+                            </div>
+
+                            <div class="space-y-2.5">
+                                <div class="relative">
+                                    <input 
+                                        id="tracking-search-input"
+                                        v-model="searchCode" 
+                                        @keyup.enter="fetchTrackingData()"
+                                        @input="validationError = ''"
+                                        type="text" 
+                                        placeholder="Nhập mã số bưu gửi (VD: WB...)" 
+                                        class="w-full pl-8 pr-7 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+                                    />
+                                    <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                    <button 
+                                        v-if="searchCode" 
+                                        @click="searchCode = ''; validationError = ''; currentShipment = null; isNotFound = false; animateNumbers()" 
+                                        class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
+                                        title="Xóa mã &amp; về trang chủ"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+
+                                <div class="flex items-center space-x-2">
+                                    <button 
+                                        @click="fetchTrackingData()"
+                                        :disabled="isLoading"
+                                        class="flex-1 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-sm shadow-blue-500/20 transition disabled:opacity-50 flex items-center justify-center space-x-1.5 cursor-pointer"
+                                    >
+                                        <span v-if="isLoading" class="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></span>
+                                        <span>{{ isLoading ? 'Đang Tra Cứu...' : 'Tra Cứu Tiếp' }}</span>
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        @click="searchCode = ''; validationError = ''; currentShipment = null; isNotFound = false; animateNumbers()" 
+                                        class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition cursor-pointer"
+                                        title="Làm mới quay lại ban đầu"
+                                    >
+                                        Làm Mới
+                                    </button>
+                                </div>
+
+                                <!-- Lỗi Validation Inline -->
+                                <div v-if="validationError" class="text-rose-600 text-[11px] font-semibold flex items-center space-x-1.5 pt-1 animate-pulse">
+                                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                    </svg>
+                                    <span>{{ validationError }}</span>
+                                </div>
+
+                                <!-- Gợi ý nhanh mã -->
+                                <div class="pt-2 border-t border-slate-100 flex items-center flex-wrap gap-1.5">
+                                    <span class="text-[10px] text-slate-400 font-medium">Gợi ý:</span>
+                                    <button 
+                                        v-for="code in ['WB-HN-SG-001', 'WB-HN-HP-002', 'WB-DN-HCM-003']" 
+                                        :key="code"
+                                        @click="searchCode = code; fetchTrackingData(code)"
+                                        type="button"
+                                        class="px-2 py-0.5 rounded bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 font-mono text-[10.5px] cursor-pointer transition"
+                                    >
+                                        {{ code }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. Thẻ Thông Tin Bưu Gửi Chi Tiết -->
                         <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-3 text-xs">
                             <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                                <span class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
-                                    Thông Tin Bưu Gửi
+                                <span class="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center space-x-1.5">
+                                    <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    <span>Thông Tin Bưu Gửi</span>
                                 </span>
                                 <span v-if="currentShipment" class="font-mono text-[11px] text-slate-400">#{{ currentShipment.id }}</span>
                             </div>
@@ -812,7 +1558,13 @@
                             <div v-if="currentShipment" class="space-y-2.5">
                                 <div class="flex justify-between py-1 border-b border-slate-50">
                                     <span class="text-slate-500 font-medium">Mã bưu gửi:</span>
-                                    <span class="font-mono font-extrabold text-blue-700">{{ currentShipment.trackingCode }}</span>
+                                    <span class="font-mono font-extrabold text-blue-700 text-sm">{{ currentShipment.trackingCode }}</span>
+                                </div>
+                                <div class="flex justify-between py-1 border-b border-slate-50">
+                                    <span class="text-slate-500 font-medium">Trạng thái:</span>
+                                    <span :class="['px-2.5 py-0.5 rounded-full font-bold text-[11px] border', Utils.getStatusBadgeClass(currentShipment.status)]">
+                                        {{ Utils.formatStatusText(currentShipment.status) }}
+                                    </span>
                                 </div>
                                 <div class="flex justify-between py-1 border-b border-slate-50">
                                     <span class="text-slate-500 font-medium">Dịch vụ:</span>
@@ -824,7 +1576,7 @@
                                 </div>
                                 <div class="flex justify-between py-1 border-b border-slate-50">
                                     <span class="text-slate-500 font-medium">Tiền thu hộ COD:</span>
-                                    <span class="font-mono font-bold text-emerald-700">{{ Utils.formatCurrency(currentShipment.codAmount) }}</span>
+                                    <span class="font-mono font-bold text-emerald-700 text-sm">{{ Utils.formatCurrency(currentShipment.codAmount) }}</span>
                                 </div>
                                 <div class="py-1 border-b border-slate-50">
                                     <span class="text-slate-500 block mb-0.5 font-medium">Người gửi:</span>
@@ -842,13 +1594,6 @@
                                     </div>
                                     <span class="text-slate-600 text-[11px] block mt-0.5 leading-relaxed">{{ currentShipment.receiverAddress || 'N/A' }}</span>
                                 </div>
-                            </div>
-
-                            <div v-else class="text-slate-400 py-10 text-center">
-                                <svg class="w-8 h-8 text-slate-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
-                                <span>Chưa có dữ liệu. Vui lòng nhập mã bưu gửi để tra cứu.</span>
                             </div>
                         </div>
                     </div>
@@ -870,7 +1615,7 @@
 
                     <!-- VERTICAL TIMELINE WITH SMART ICONS -->
                     <div v-if="sortedHistory.length > 0" class="relative pl-7 sm:pl-10 space-y-5 before:absolute before:left-[17px] sm:before:left-[21px] before:top-4 before:bottom-4 before:w-[2px] before:bg-slate-200">
-                        <div v-for="(h, idx) in sortedHistory" :key="idx" class="relative flex items-start group">
+                        <div v-for="(h, idx) in sortedHistory" :key="h.eventId || h.operationId || idx" class="relative flex items-start group">
                             <!-- Icon Thông Minh Tròn Theo Trạng Thái -->
                             <div :class="[
                                 'absolute -left-[35px] sm:-left-[43px] mt-1 w-9 h-9 rounded-full text-white border-4 border-white shadow-md flex items-center justify-center z-10',
@@ -921,10 +1666,10 @@
                                 <!-- Tầng 1: Thời gian -->
                                 <div class="flex items-center justify-between mb-1.5">
                                     <span :class="['font-mono text-xs font-bold', idx === 0 ? 'text-blue-700' : 'text-slate-500']">
-                                        {{ Utils.formatTime(h.timestamp) }}
+                                        {{ Utils.formatTime(h.timestamp || h.occurredAt) }}
                                     </span>
-                                    <span v-if="formatRelativeTime(h.timestamp)" :class="['text-[11px] font-mono', idx === 0 ? 'text-blue-600 font-semibold' : 'text-slate-400']">
-                                        {{ formatRelativeTime(h.timestamp) }}
+                                    <span v-if="formatRelativeTime(h.timestamp || h.occurredAt)" :class="['text-[11px] font-mono', idx === 0 ? 'text-blue-600 font-semibold' : 'text-slate-400']">
+                                        {{ formatRelativeTime(h.timestamp || h.occurredAt) }}
                                     </span>
                                 </div>
 
@@ -934,13 +1679,24 @@
                                         {{ Utils.formatStatusText(h.status) }}
                                     </span>
                                     <span class="text-xs font-bold text-slate-800">
-                                        {{ h.locationCode || 'Bưu Cục Trung Tâm' }}
+                                        {{ getPostOfficeDisplayName(h.location || h.locationCode) || h.location || h.locationCode || 'Bưu Cục Trung Tâm' }}
                                     </span>
+                                    <span v-if="(h.location || h.locationCode) && getPostOfficeDisplayName(h.location || h.locationCode) !== (h.location || h.locationCode)" class="text-[10px] text-slate-400 font-mono">
+                                        ({{ h.location || h.locationCode }})
+                                    </span>
+                                </div>
+
+                                <!-- Metadata tác nghiệp chỉ hiển thị khi backend trả về -->
+                                <div v-if="h.operationType || h.transportLeg || h.tripCode || h.actorId" class="flex flex-wrap items-center gap-1.5 mb-1.5 text-[10px] font-mono text-slate-500">
+                                    <span v-if="h.operationType" class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">Loại: {{ h.operationType }}</span>
+                                    <span v-if="h.transportLeg" class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">Chặng: {{ h.transportLeg }}</span>
+                                    <span v-if="h.tripCode" class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">Chuyến: {{ h.tripCode }}</span>
+                                    <span v-if="h.actorId" class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">Tác nhân: {{ h.actorId }}</span>
                                 </div>
 
                                 <!-- Tầng 3: Ghi chú chi tiết hành trình -->
                                 <p :class="['text-xs leading-relaxed', idx === 0 ? 'text-slate-700' : 'text-slate-500']">
-                                    {{ Utils.formatNodeText(h.node, h.status) }}
+                                    {{ safeFormatHistoryNote(h) }}
                                 </p>
                             </div>
                         </div>

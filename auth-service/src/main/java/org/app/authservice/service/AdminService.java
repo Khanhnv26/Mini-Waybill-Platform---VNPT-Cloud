@@ -11,5 +11,6 @@ public interface AdminService {
     List<UserAdminResponse> getAllUsers();
     UserAdminResponse updateUserRoles(Long userId, UpdateUserRolesRequest request);
     UserAdminResponse updateUserStatus(Long userId, UpdateUserStatusRequest request);
+    UserAdminResponse updateUserLocation(Long userId, UpdateUserLocationRequest request);
 
 }

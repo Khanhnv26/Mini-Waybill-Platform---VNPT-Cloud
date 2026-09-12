@@ -90,6 +90,22 @@
                 throw new Error(errData.message || `Cập nhật trạng thái người dùng thất bại (HTTP ${res.status})`);
             }
             return await res.json();
+        },
+
+        /**
+         * 7. Gán hoặc thu hồi trạm tác nghiệp tin cậy của tài khoản
+         * @param {number} userId
+         * @param {string|null} locationCode
+         */
+        async updateUserLocation(userId, locationCode) {
+            const res = await Api.put(`/api/admin/users/${userId}/location`, {
+                locationCode: locationCode || null
+            });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.message || `Cập nhật trạm tác nghiệp thất bại (HTTP ${res.status})`);
+            }
+            return await res.json();
         }
     };
 

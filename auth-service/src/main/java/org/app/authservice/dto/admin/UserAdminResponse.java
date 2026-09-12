@@ -17,6 +17,7 @@ public class UserAdminResponse {
     private String email;
     private String fullName;
     private String status;
+    private String locationCode;
     private List<String> roles;
     private LocalDateTime createdAt;
 }

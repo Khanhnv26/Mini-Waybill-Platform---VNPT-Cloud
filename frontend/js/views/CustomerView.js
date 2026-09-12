@@ -125,7 +125,7 @@
 
             // Mở Modal thêm mới đối tác
             const openCreateModal = () => {
-                newCustomer.customerCode = 'CUST-' + Math.floor(1000 + Math.random() * 9000);
+                newCustomer.customerCode = 'CUST-' + Math.floor(100000 + Math.random() * 900000);
                 newCustomer.fullName = '';
                 newCustomer.phoneNumber = '';
                 newCustomer.email = '';
@@ -135,14 +135,47 @@
 
             // Lưu tạo mới khách hàng
             const handleCreateCustomer = async () => {
-                if (!newCustomer.fullName || !newCustomer.phoneNumber) {
-                    Utils.showToast('Lỗi Nhập Liệu', 'Vui lòng nhập họ tên và số điện thoại khách hàng', 'error');
+                const fullName = (newCustomer.fullName || '').trim();
+                const phoneNumber = (newCustomer.phoneNumber || '').trim();
+                const email = (newCustomer.email || '').trim();
+                const address = (newCustomer.address || '').trim();
+
+                if (!fullName) {
+                    Utils.showToast('Lỗi Nhập Liệu', 'Vui lòng nhập họ tên hoặc tên doanh nghiệp', 'error');
+                    return;
+                }
+
+                if (!phoneNumber) {
+                    Utils.showToast('Lỗi Nhập Liệu', 'Vui lòng nhập số điện thoại liên hệ', 'error');
+                    return;
+                }
+
+                const vnPhoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/;
+                if (!vnPhoneRegex.test(phoneNumber)) {
+                    Utils.showToast('Lỗi Nhập Liệu', 'Số điện thoại không đúng định dạng di động Việt Nam (10 chữ số, ví dụ 0912345678)', 'error');
+                    return;
+                }
+
+                if (!email) {
+                    Utils.showToast('Lỗi Nhập Liệu', 'Email không được để trống (bắt buộc cho tài khoản bưu chính)', 'error');
+                    return;
+                }
+
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    Utils.showToast('Lỗi Nhập Liệu', 'Định dạng email không hợp lệ (ví dụ: name@company.com)', 'error');
                     return;
                 }
 
                 isSaving.value = true;
                 try {
-                    await CustomerService.createCustomer({ ...newCustomer });
+                    await CustomerService.createCustomer({
+                        customerCode: newCustomer.customerCode,
+                        fullName,
+                        phoneNumber,
+                        email,
+                        address: address || 'Chưa cập nhật địa chỉ'
+                    });
                     Utils.showToast('Thành Công', 'Đã lưu thông tin khách hàng bưu chính');
                     showModal.value = false;
                     loadCustomers();
@@ -158,7 +191,7 @@
                 const newStatus = customer.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
                 const actionText = newStatus === 'ACTIVE' ? 'Kích hoạt' : 'Tạm dừng';
                 try {
-                    await CustomerService.updateCustomerStatus(customer.id, newStatus);
+                    await CustomerService.updateCustomerStatus(customer.id, newStatus, customer);
                     customer.status = newStatus;
                     Utils.showToast('Thành Công', `Đã ${actionText.toLowerCase()} đối tác ${customer.fullName}`);
                 } catch (err) {
@@ -168,6 +201,10 @@
 
             // Tác nghiệp nhanh: Tạo vận đơn cho khách hàng này
             const handleCreateShipmentFor = (customer) => {
+                if (!customer || customer.status !== 'ACTIVE') {
+                    Utils.showToast('Không Khả Dụng', 'Khách hàng đang ở trạng thái Tạm Dừng, không thể tạo vận đơn.', 'warning');
+                    return;
+                }
                 emit('create-shipment-for', customer);
                 Utils.showToast('Điều Hướng', `Đang chuẩn bị vận đơn cho đối tác: ${customer.fullName}`);
             };
@@ -378,8 +415,9 @@
 
                                     <td class="text-right py-2.5 px-3 whitespace-nowrap">
                                         <div class="flex items-center justify-end space-x-1.5">
-                                            <!-- Nút Tạo Đơn Nhanh -->
+                                            <!-- Nút Tạo Đơn Nhanh (Chỉ hiển thị khi khách hàng đang Hoạt Động) -->
                                             <button 
+                                                v-if="c.status === 'ACTIVE'"
                                                 @click="handleCreateShipmentFor(c)"
                                                 type="button"
                                                 class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition flex items-center space-x-1 shadow-xs"
@@ -471,8 +509,10 @@
                 </div>
 
                 <!-- 5. MODAL THÊM MỚI KHÁCH HÀNG (ACRYLIC BLUR CHUẨN RBAC) -->
-                <div v-if="showModal" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-150">
+                <teleport to="body">
+                <Transition name="modal">
+                <div v-if="showModal" class="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden">
                         <!-- Modal Header -->
                         <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                             <div class="flex items-center space-x-2">
@@ -510,18 +550,19 @@
                                     <label class="block text-[11px] font-bold text-slate-700 mb-1">Số Điện Thoại <span class="text-rose-500">*</span></label>
                                     <input 
                                         v-model="newCustomer.phoneNumber" 
-                                        type="text" 
+                                        type="tel" 
                                         required 
-                                        placeholder="09..." 
+                                        placeholder="09... (10 số)" 
                                         class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
                                     />
                                 </div>
                                 <div>
-                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Email Liên Hệ</label>
+                                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Email Liên Hệ <span class="text-rose-500">*</span></label>
                                     <input 
                                         v-model="newCustomer.email" 
                                         type="email" 
-                                        placeholder="contact@domain.com" 
+                                        required
+                                        placeholder="name@company.com" 
                                         class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
                                     />
                                 </div>
@@ -532,7 +573,7 @@
                                 <textarea 
                                     v-model="newCustomer.address" 
                                     rows="2" 
-                                    placeholder="Số nhà, đường, phường/xã, tỉnh/thành..." 
+                                    placeholder="Số nhà, đường, phường/xã, tỉnh/thành (để trống sẽ lưu: Chưa cập nhật địa chỉ)..." 
                                     class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                                 ></textarea>
                             </div>
@@ -558,6 +599,8 @@
                         </form>
                     </div>
                 </div>
+                </Transition>
+                </teleport>
             </div>
         `
     };

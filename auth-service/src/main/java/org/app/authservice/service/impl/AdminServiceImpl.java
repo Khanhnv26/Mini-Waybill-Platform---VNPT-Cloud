@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 @Service
@@ -87,6 +88,7 @@ public class AdminServiceImpl implements AdminService {
                         .email(u.getEmail())
                         .fullName(u.getFullName())
                         .status(u.getStatus())
+                        .locationCode(u.getLocationCode())
                         .roles(u.getRoles() != null
                                 ? u.getRoles().stream().map(Role::getName).toList()
                                 : List.of())
@@ -118,7 +120,42 @@ public class AdminServiceImpl implements AdminService {
                 .email(savedUser.getEmail())
                 .fullName(savedUser.getFullName())
                 .status(savedUser.getStatus())
+                .locationCode(savedUser.getLocationCode())
                 .roles(savedUser.getRoles() != null ? savedUser.getRoles().stream().map(Role::getName).toList() : List.of())
+                .createdAt(savedUser.getCreatedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public UserAdminResponse updateUserLocation(Long userId, UpdateUserLocationRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản với ID: " + userId));
+
+        String requestedLocation = request != null ? request.getLocationCode() : null;
+        String normalizedLocation = requestedLocation == null ? null : requestedLocation.trim().toUpperCase(Locale.ROOT);
+        if (normalizedLocation != null && normalizedLocation.isBlank()) {
+            normalizedLocation = null;
+        }
+        if (normalizedLocation != null
+                && ("ALL".equals(normalizedLocation)
+                || (!normalizedLocation.startsWith("POST-") && !normalizedLocation.startsWith("HUB-")))) {
+            throw new IllegalArgumentException("locationCode phải là mã POST-* hoặc HUB-* cụ thể");
+        }
+
+        user.setLocationCode(normalizedLocation);
+        User savedUser = userRepository.save(user);
+        log.info("Admin đã phân công tài khoản {} tại {}", savedUser.getEmail(), normalizedLocation != null ? normalizedLocation : "không có trạm");
+
+        return UserAdminResponse.builder()
+                .id(savedUser.getId())
+                .email(savedUser.getEmail())
+                .fullName(savedUser.getFullName())
+                .status(savedUser.getStatus())
+                .locationCode(savedUser.getLocationCode())
+                .roles(savedUser.getRoles() != null
+                        ? savedUser.getRoles().stream().map(Role::getName).toList()
+                        : List.of())
                 .createdAt(savedUser.getCreatedAt())
                 .build();
     }
@@ -154,6 +191,7 @@ public class AdminServiceImpl implements AdminService {
                 .email(savedUser.getEmail())
                 .fullName(savedUser.getFullName())
                 .status(savedUser.getStatus())
+                .locationCode(savedUser.getLocationCode())
                 .roles(savedUser.getRoles().stream().map(Role::getName).toList())
                 .createdAt(savedUser.getCreatedAt())
                 .build();

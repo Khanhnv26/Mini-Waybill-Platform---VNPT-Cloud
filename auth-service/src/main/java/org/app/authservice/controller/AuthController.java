@@ -84,6 +84,7 @@ public class AuthController {
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .avatarUrl(user.getAvatarUrl())
+                .locationCode(user.getLocationCode())
                 .roles(user.getRoles().stream().map(Role::getName).toList())
                 .permissions(permissions)
                 .build();

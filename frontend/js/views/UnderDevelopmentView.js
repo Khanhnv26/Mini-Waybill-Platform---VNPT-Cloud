@@ -141,9 +141,7 @@
                             Hạng Mục Đang Xây Dựng:
                         </span>
                         <div v-for="(item, idx) in currentFeature.highlights" :key="idx" class="flex items-center space-x-2 text-xs text-slate-600">
-                            <span class="w-4 h-4 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold flex-shrink-0">
-                                ✓
-                            </span>
+                            <span class="w-1.5 h-1.5 rounded-full bg-blue-600 flex-shrink-0"></span>
                             <span>{{ item }}</span>
                         </div>
                     </div>

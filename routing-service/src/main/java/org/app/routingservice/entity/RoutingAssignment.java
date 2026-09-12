@@ -30,11 +30,23 @@ public class RoutingAssignment {
     @Column(name = "destination_hub", nullable = false)
     private String destinationHub;
 
+    @Column(name = "origin_post_office", length = 50)
+    private String originPostOffice;
+
+    @Column(name = "dest_post_office", length = 50)
+    private String destPostOffice;
+
     @Column(name = "route_code", nullable = false)
     private String routeCode;
 
     @Column(name = "status", nullable = false)
     private String status;
+
+    @Column(name = "weight")
+    private Double weight;
+
+    @Column(name = "service_type")
+    private String serviceType;
 
     @Column(name = "assigned_at", nullable = false)
     LocalDateTime assignedAt;
@@ -47,6 +59,14 @@ public class RoutingAssignment {
 
         if(this.status == null) {
             this.status = "ASSIGNED";
+        }
+
+        if(this.weight == null) {
+            this.weight = 1.0;
+        }
+
+        if(this.serviceType == null) {
+            this.serviceType = "EXPRESS";
         }
     }
 

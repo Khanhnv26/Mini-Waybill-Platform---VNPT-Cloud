@@ -50,6 +50,7 @@ EXEC #UpsertPermission 'shipment:read_all', N'Xem toàn bộ đơn hàng', 'SHIP
 EXEC #UpsertPermission 'tracking:read_public', N'Tra cứu nhanh công khai', 'TRACKING', N'Tra cứu lộ trình đã che mờ thông tin cá nhân';
 EXEC #UpsertPermission 'tracking:read_full', N'Tra cứu chi tiết đầy đủ', 'TRACKING', N'Xem đầy đủ số điện thoại và địa chỉ giao nhận';
 EXEC #UpsertPermission 'tracking:update_hub', N'Quét mã trạm kho', 'TRACKING', N'Cập nhật trạng thái PICKED_UP và IN_TRANSIT';
+EXEC #UpsertPermission 'tracking:update_post_office', N'Tác nghiệp bưu cục', 'TRACKING', N'Tiếp nhận quầy, xuất/nhận xe trung chuyển và bàn giao bưu tá';
 EXEC #UpsertPermission 'tracking:update_delivery', N'Báo phát giao hàng', 'TRACKING', N'Cập nhật trạng thái DELIVERED và DELIVERY_FAILED';
 
 -- Phân hệ AUDIT
@@ -62,12 +63,13 @@ EXEC #UpsertPermission 'user:assign_role', N'Gán vai trò tài khoản', 'USER'
 
 -- Phân hệ ROUTING
 EXEC #UpsertPermission 'routing:manage', N'Quản lý tuyến & Hub', 'ROUTING', N'Cấu hình danh mục bưu cục, tọa độ và tuyến giao';
+EXEC #UpsertPermission 'routing:trip_manage', N'Điều phối chuyến xe', 'ROUTING', N'Lập lịch, ghép xe, xuất bến và cập bến chuyến xe vận tải';
 
 PRINT N'Khởi tạo Permissions hoàn tất!';
 GO
 
 -- -------------------------------------------------------------------------
--- 2. KHỞI TẠO 5 VAI TRÒ (ROLES)
+-- 2. KHỞI TẠO 6 VAI TRÒ (ROLES)
 -- -------------------------------------------------------------------------
 PRINT N'Đang khởi tạo Roles...';
 
@@ -78,7 +80,13 @@ IF NOT EXISTS (SELECT 1 FROM roles WHERE name = 'ROLE_SHIPPER')
     INSERT INTO roles (name, description) VALUES ('ROLE_SHIPPER', N'Bưu tá giao nhận chặng cuối');
 
 IF NOT EXISTS (SELECT 1 FROM roles WHERE name = 'ROLE_HUB_OPERATOR')
-    INSERT INTO roles (name, description) VALUES ('ROLE_HUB_OPERATOR', N'Nhân viên kho bãi / Hub trung chuyển');
+    INSERT INTO roles (name, description) VALUES ('ROLE_HUB_OPERATOR', N'Thủ kho / Nhân viên kho bãi Hub trung chuyển cấp 1');
+
+IF NOT EXISTS (SELECT 1 FROM roles WHERE name = 'ROLE_POST_OFFICE_OPERATOR')
+    INSERT INTO roles (name, description) VALUES ('ROLE_POST_OFFICE_OPERATOR', N'Giao dịch viên / Nhân viên bưu cục cấp 2/3');
+
+IF NOT EXISTS (SELECT 1 FROM roles WHERE name = 'ROLE_DISPATCHER')
+    INSERT INTO roles (name, description) VALUES ('ROLE_DISPATCHER', N'Điều phối viên Vận tải / Quản lý Đội xe & Chuyến đi');
 
 IF NOT EXISTS (SELECT 1 FROM roles WHERE name = 'ROLE_CS')
     INSERT INTO roles (name, description) VALUES ('ROLE_CS', N'Nhân viên Chăm sóc khách hàng');
@@ -137,6 +145,25 @@ EXEC #AddPermissionToRole 'ROLE_HUB_OPERATOR', 'shipment:read_all';
 EXEC #AddPermissionToRole 'ROLE_HUB_OPERATOR', 'tracking:read_public';
 EXEC #AddPermissionToRole 'ROLE_HUB_OPERATOR', 'tracking:read_full';
 EXEC #AddPermissionToRole 'ROLE_HUB_OPERATOR', 'tracking:update_hub';
+
+-- 3.3b. Gán cho ROLE_POST_OFFICE_OPERATOR
+EXEC #AddPermissionToRole 'ROLE_POST_OFFICE_OPERATOR', 'profile:read';
+EXEC #AddPermissionToRole 'ROLE_POST_OFFICE_OPERATOR', 'password:change';
+EXEC #AddPermissionToRole 'ROLE_POST_OFFICE_OPERATOR', 'shipment:create';
+EXEC #AddPermissionToRole 'ROLE_POST_OFFICE_OPERATOR', 'shipment:create_for_others';
+EXEC #AddPermissionToRole 'ROLE_POST_OFFICE_OPERATOR', 'shipment:read_all';
+EXEC #AddPermissionToRole 'ROLE_POST_OFFICE_OPERATOR', 'tracking:read_public';
+EXEC #AddPermissionToRole 'ROLE_POST_OFFICE_OPERATOR', 'tracking:read_full';
+EXEC #AddPermissionToRole 'ROLE_POST_OFFICE_OPERATOR', 'tracking:update_post_office';
+EXEC #AddPermissionToRole 'ROLE_POST_OFFICE_OPERATOR', 'tracking:update_hub';
+
+-- 3.3c. Gán cho ROLE_DISPATCHER
+EXEC #AddPermissionToRole 'ROLE_DISPATCHER', 'profile:read';
+EXEC #AddPermissionToRole 'ROLE_DISPATCHER', 'password:change';
+EXEC #AddPermissionToRole 'ROLE_DISPATCHER', 'shipment:read_all';
+EXEC #AddPermissionToRole 'ROLE_DISPATCHER', 'tracking:read_public';
+EXEC #AddPermissionToRole 'ROLE_DISPATCHER', 'tracking:read_full';
+EXEC #AddPermissionToRole 'ROLE_DISPATCHER', 'routing:trip_manage';
 
 -- 3.4. Gán cho ROLE_CS
 EXEC #AddPermissionToRole 'ROLE_CS', 'profile:read';
@@ -215,7 +242,7 @@ BEGIN
     VALUES (
         'hub.operator@waybill.vn',
         '$2a$10$KqcMs2kyTysvFRxWltdp4OAKvki.ghZEEXC.yymChFIkHs.jJqLY2',
-        N'Nguyễn Văn Kho (Thủ Kho)',
+        N'Nguyễn Văn Kho (Thủ Kho Hub)',
         'ACTIVE',
         GETDATE()
     );
@@ -227,6 +254,30 @@ IF @HubUserId IS NOT NULL AND @HubRoleId IS NOT NULL
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = @HubUserId AND role_id = @HubRoleId)
         INSERT INTO user_roles (user_id, role_id) VALUES (@HubUserId, @HubRoleId);
+END
+GO
+
+-- 5.1b. Tài khoản Nhân Viên Bưu Cục (post.operator@waybill.vn)
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+IF NOT EXISTS (SELECT 1 FROM users WHERE email = 'post.operator@waybill.vn')
+BEGIN
+    INSERT INTO users (email, password, full_name, status, created_at)
+    VALUES (
+        'post.operator@waybill.vn',
+        '$2a$10$KqcMs2kyTysvFRxWltdp4OAKvki.ghZEEXC.yymChFIkHs.jJqLY2',
+        N'Hoàng Thị Bưu Cục (Giao Dịch Viên)',
+        'ACTIVE',
+        GETDATE()
+    );
+END
+
+DECLARE @PostUserId BIGINT = (SELECT id FROM users WHERE email = 'post.operator@waybill.vn');
+DECLARE @PostRoleId BIGINT = (SELECT id FROM roles WHERE name = 'ROLE_POST_OFFICE_OPERATOR');
+IF @PostUserId IS NOT NULL AND @PostRoleId IS NOT NULL
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = @PostUserId AND role_id = @PostRoleId)
+        INSERT INTO user_roles (user_id, role_id) VALUES (@PostUserId, @PostRoleId);
 END
 GO
 

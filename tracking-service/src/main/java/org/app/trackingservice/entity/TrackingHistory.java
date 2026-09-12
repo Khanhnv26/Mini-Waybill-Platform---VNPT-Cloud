@@ -6,6 +6,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.app.sharedevents.entity.OperationType;
+import org.app.sharedevents.entity.TransportLeg;
 
 import java.time.LocalDateTime;
 
@@ -35,5 +37,22 @@ public class TrackingHistory {
 
     @Column(name = "occurred_at", nullable = false)
     private LocalDateTime occurredAt;
+
+    @Column(name = "event_id", length = 100)
+    private String eventId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "operation_type", length = 100)
+    private OperationType operationType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "transport_leg", length = 100)
+    private TransportLeg transportLeg;
+
+    @Column(name = "trip_code", length = 100)
+    private String tripCode;
+
+    @Column(name = "actor_id", length = 100)
+    private String actorId;
 
 }

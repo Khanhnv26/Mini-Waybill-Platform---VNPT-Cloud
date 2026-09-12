@@ -9,7 +9,15 @@
             const response = await Api.post('/api/shipments', payload);
             if (!response.ok) {
                 const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.error || errData.message || 'Lỗi khi khởi tạo bưu gửi');
+                let msg = errData.error || errData.message;
+                if (!msg) {
+                    const fieldErrors = Object.entries(errData)
+                        .filter(([k]) => k !== 'errorCode' && k !== 'timestamp' && k !== 'status')
+                        .map(([k, v]) => `${v}`)
+                        .join('; ');
+                    if (fieldErrors) msg = fieldErrors;
+                }
+                throw new Error(msg || 'Lỗi khi khởi tạo bưu gửi (400 Bad Request)');
             }
             return response.json();
         },
@@ -33,18 +41,34 @@
 
         /**
          * Chi tiết bưu gửi theo mã vận đơn.
-         * Endpoint yêu cầu đăng nhập; trả về null (không ném lỗi) khi 401/403
-         * để khách vãng lai vẫn tra cứu được hành trình.
+         * Dùng fetch trực tiếp (không qua Api.get) để KHÔNG kích hoạt
+         * toast lỗi 403 toàn cục khi khách vãng lai hoặc user không có
+         * quyền shipment:read_all tra cứu đơn của người khác.
          */
         async getByCode(trackingCode) {
             if (!trackingCode) return null;
             try {
-                const response = await Api.get(`/api/shipments/${encodeURIComponent(trackingCode)}`);
+                const headers = { 'Content-Type': 'application/json' };
+                if (typeof Auth !== 'undefined') {
+                    const token = Auth.getToken();
+                    if (token) headers['Authorization'] = `Bearer ${token}`;
+                }
+                const base = window.location.port === '3000' ? '' : 'http://localhost:8080';
+                const response = await fetch(`${base}/api/shipments/${encodeURIComponent(trackingCode)}`, { headers });
                 if (!response.ok) return null;
                 return await response.json();
             } catch (e) {
                 return null;
             }
+        },
+
+        async cancelShipment(trackingCode) {
+            const response = await Api.post(`/api/shipments/${encodeURIComponent(trackingCode)}/cancel`);
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || errData.message || 'Lỗi khi hủy vận đơn');
+            }
+            return response.json();
         }
     };
 

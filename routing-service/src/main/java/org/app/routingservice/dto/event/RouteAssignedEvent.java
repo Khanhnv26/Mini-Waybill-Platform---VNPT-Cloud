@@ -16,6 +16,8 @@ public class RouteAssignedEvent {
     private String trackingCode;
     private String sourceHub;
     private String destinationHub;
+    private String originPostOffice;
+    private String destPostOffice;
     private String routeCode;
     private String status;
     private LocalDateTime assignedAt;

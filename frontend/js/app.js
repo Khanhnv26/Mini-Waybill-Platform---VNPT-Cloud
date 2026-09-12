@@ -15,9 +15,160 @@
             const currentTrackingCode = ref('');
             const previousTab = ref(null);
             const selectedCustomerForShipment = ref(null);
-            const isSidebarCollapsed = ref(false);
+            const isSidebarCollapsed = ref(true);
+            const showUserProfileModal = ref(false);
+            const userProfile = ref(null);
+            const isLoadingUserProfile = ref(false);
+            const isSavingUserProfile = ref(false);
+            const profileFormData = reactive({
+                fullName: '',
+                phoneNumber: '',
+                address: ''
+            });
+            const stationFieldNames = ['locationCode', 'postOfficeCode', 'hubCode'];
+            // Customer profile data is not an authorization source. Station
+            // assignment comes from the authenticated user's JWT/response.
+            const profileStorageFields = ['fullName', 'phoneNumber', 'address'];
+
+            const normalizeStationCode = (value) => {
+                if (typeof value !== 'string' && typeof value !== 'number') return '';
+                return String(value).trim();
+            };
+
+            const readStoredObject = (key) => {
+                try {
+                    const raw = localStorage.getItem(key);
+                    if (!raw) return null;
+                    const parsed = JSON.parse(raw);
+                    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+                } catch (err) {
+                    return null;
+                }
+            };
+
+            const getStationFields = (...sources) => {
+                const context = {
+                    locationCode: '',
+                    postOfficeCode: '',
+                    hubCode: ''
+                };
+
+                sources.forEach(source => {
+                    if (!source || typeof source !== 'object') return;
+                    stationFieldNames.forEach(field => {
+                        if (!context[field]) {
+                            context[field] = normalizeStationCode(source[field]);
+                        }
+                    });
+                });
+
+                return context;
+            };
+
+            const getProfileStoragePatch = (source) => {
+                const patch = {};
+                if (!source || typeof source !== 'object') return patch;
+
+                profileStorageFields.forEach(field => {
+                    if (!Object.prototype.hasOwnProperty.call(source, field)) return;
+                    if (stationFieldNames.includes(field)) {
+                        const value = normalizeStationCode(source[field]);
+                        if (value) patch[field] = value;
+                        return;
+                    }
+
+                    const value = typeof source[field] === 'string'
+                        ? source[field].trim()
+                        : source[field];
+                    if (value !== undefined && value !== null && value !== '') {
+                        patch[field] = value;
+                    }
+                });
+
+                return patch;
+            };
+
+            const persistUserProfilePatch = (patch) => {
+                if (!patch || Object.keys(patch).length === 0 || typeof localStorage === 'undefined') return;
+
+                try {
+                    const canonicalUser = readStoredObject('user') || (currentUser.value ? { ...currentUser.value } : null);
+                    const nextUser = canonicalUser ? { ...canonicalUser, ...patch } : null;
+                    if (nextUser) {
+                        localStorage.setItem('user', JSON.stringify(nextUser));
+                    }
+
+                    // auth_user is retained as a legacy mirror; Auth continues to own authentication via user/accessToken.
+                    const legacyUser = readStoredObject('auth_user');
+                    const nextLegacyUser = legacyUser || nextUser;
+                    if (nextLegacyUser) {
+                        localStorage.setItem('auth_user', JSON.stringify({ ...nextLegacyUser, ...patch }));
+                    }
+                } catch (err) {
+                    console.warn('[app.js] Không thể đồng bộ hồ sơ người dùng:', err);
+                }
+            };
+
+            const syncProfileToCurrentUser = (source, persist = false) => {
+                const patch = getProfileStoragePatch(source);
+                if (currentUser.value && Object.keys(patch).length > 0) {
+                    currentUser.value = { ...currentUser.value, ...patch };
+                }
+                if (persist) {
+                    persistUserProfilePatch(patch);
+                }
+            };
+
+            const stationContext = computed(() => {
+                const context = getStationFields(currentUser.value);
+                const trustedLocation = typeof Auth !== 'undefined'
+                    && typeof Auth.getLocationCode === 'function'
+                    ? normalizeStationCode(Auth.getLocationCode())
+                    : '';
+
+                // Never let a customer profile or a client-edited station field
+                // widen an operator's scope. The signed assignment is primary;
+                // the local user object is only a compatibility fallback.
+                context.locationCode = trustedLocation;
+                context.postOfficeCode = trustedLocation.startsWith('POST-') ? trustedLocation : '';
+                context.hubCode = trustedLocation.startsWith('HUB-') ? trustedLocation : '';
+
+                const primaryCode = trustedLocation;
+                return {
+                    ...context,
+                    primaryCode,
+                    hasStation: Boolean(primaryCode)
+                };
+            });
+
+            const stationDisplayData = computed(() => {
+                const context = stationContext.value;
+                const labels = [];
+                if (context.locationCode) labels.push(`Vị trí: ${context.locationCode}`);
+                if (context.postOfficeCode) labels.push(`Bưu cục: ${context.postOfficeCode}`);
+                if (context.hubCode) labels.push(`Hub: ${context.hubCode}`);
+
+                return {
+                    ...context,
+                    code: context.primaryCode,
+                    label: context.primaryCode || 'Chưa phân công trạm',
+                    summary: labels.join(' · ') || 'Chưa phân công trạm'
+                };
+            });
+
+            const activateTab = (tabId) => {
+                if (tabId !== 'tracking') {
+                    currentTrackingCode.value = '';
+                }
+                currentTab.value = tabId;
+            };
             const toggleSidebarCollapse = () => {
                 isSidebarCollapsed.value = !isSidebarCollapsed.value;
+                setTimeout(() => {
+                    if (window.MapManager) {
+                        window.MapManager.invalidateSize();
+                    }
+                }, 300);
             };
 
             // 1. Danh bạ toàn bộ Tabs nghiệp vụ trong hệ thống kèm mã Permission tương ứng
@@ -37,11 +188,25 @@
                     icon: 'M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
                 },
                 { 
+                    id: 'trips', 
+                    name: 'Quản Lý Chuyến Xe', 
+                    component: 'TripsView', 
+                    permission: 'routing:trip_manage', // Điều phối viên Vận tải (ROLE_DISPATCHER) & Admin
+                    icon: 'M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8h4.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h2a1 1 0 001-1'
+                },
+                { 
+                    id: 'post-office', 
+                    name: 'Khai Thác Bưu Cục', 
+                    component: 'PostOfficeOpsView', 
+                    permission: 'tracking:update_post_office', // Giao dịch viên bưu cục & Admin
+                    icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
+                },
+                { 
                     id: 'hub-ops', 
-                    name: 'Tác Nghiệp Kho Bãi', 
+                    name: 'Khai Thác Kho Tổng', 
                     component: 'HubOpsView', 
                     permission: 'tracking:update_hub', // Thủ kho Hub & Admin
-                    icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
+                    icon: 'M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z'
                 },
                 { 
                     id: 'shipper', 
@@ -123,16 +288,16 @@
             // Xử lý khi khách vãng lai bấm các tiện ích ở sidebar (Hướng B)
             const handleGuestTabClick = (tab) => {
                 if (tab.id === 'tracking') {
-                    currentTab.value = 'tracking';
+                    activateTab('tracking');
                 } else {
-                    currentTab.value = tab.id;
+                    activateTab(tab.id);
                     currentFeatureId.value = tab.id;
                 }
             };
 
             // Quay lại trang Tra Cứu chính từ màn hình Đang Phát Triển
             const handleBackToHome = () => {
-                currentTab.value = 'tracking';
+                activateTab('tracking');
             };
 
             // 3. View Component động tương ứng với tab được chọn
@@ -180,7 +345,10 @@
                     }
                 }
                 previousTab.value = null; // Người dùng chủ động chuyển tab từ sidebar -> xóa lịch sử quay lại
-                currentTab.value = tabId;
+                if (tabId !== 'shipment') {
+                    selectedCustomerForShipment.value = null;
+                }
+                activateTab(tabId);
             };
 
             // Khi click xem chi tiết vận đơn từ bất kỳ màn hình nào (Kho, Bưu tá, Khởi tạo, Điều phối)
@@ -191,24 +359,31 @@
                 previousTab.value = srcObj ? { id: srcObj.id, name: srcObj.name } : null;
                 currentTrackingCode.value = trackingCode.trim();
                 selectedCustomerForShipment.value = null;
-                currentTab.value = 'tracking';
+                activateTab('tracking');
             };
 
             // Khi người dùng bấm nút "Quay lại trang trước" từ TrackingView
             const handleBackToPreviousTab = () => {
                 if (previousTab.value && previousTab.value.id) {
-                    currentTab.value = previousTab.value.id;
+                    activateTab(previousTab.value.id);
                 }
                 previousTab.value = null;
             };
 
             // Khi tạo vận đơn thành công ở ShipmentView, nhận sự kiện và chuyển sang Tra Cứu
             const handleShipmentCreated = (trackingCode) => {
+                selectedCustomerForShipment.value = null;
                 handleViewTracking(trackingCode, 'shipment');
             };
 
             // Khi chọn tạo vận đơn nhanh cho đối tác từ CustomerView
             const handleCreateShipmentFor = (customer) => {
+                if (!customer || customer.status !== 'ACTIVE') {
+                    if (window.Utils && window.Utils.showToast) {
+                        window.Utils.showToast('Không Khả Dụng', 'Khách hàng đang ở trạng thái Tạm Dừng, không thể tạo vận đơn.', 'warning');
+                    }
+                    return;
+                }
                 selectedCustomerForShipment.value = customer;
                 switchTab('shipment');
             };
@@ -216,6 +391,11 @@
             const handleLogoClick = () => {
                 if (isSidebarCollapsed.value) {
                     isSidebarCollapsed.value = false;
+                    setTimeout(() => {
+                        if (window.MapManager) {
+                            window.MapManager.invalidateSize();
+                        }
+                    }, 300);
                 } else {
                     switchTab('tracking');
                 }
@@ -231,16 +411,6 @@
             };
 
             // 6. Quản Lý Hồ Sơ Cá Nhân & Thông Tin Shop (Global Profile Modal)
-            const showUserProfileModal = ref(false);
-            const userProfile = ref(null);
-            const isLoadingUserProfile = ref(false);
-            const isSavingUserProfile = ref(false);
-            const profileFormData = reactive({
-                fullName: '',
-                phoneNumber: '',
-                address: ''
-            });
-
             const openUserProfileModal = async () => {
                 if (typeof Auth === 'undefined' || !Auth.isAuthenticated()) {
                     window.location.href = 'login.html';
@@ -252,6 +422,7 @@
                     const prof = await CustomerService.getMyProfile();
                     if (prof) {
                         userProfile.value = prof;
+                        syncProfileToCurrentUser(prof);
                         profileFormData.fullName = prof.fullName || currentUser.value?.fullName || '';
                         profileFormData.phoneNumber = prof.phoneNumber || '';
                         profileFormData.address = prof.address || '';
@@ -280,15 +451,13 @@
                         phoneNumber: profileFormData.phoneNumber.trim(),
                         address: profileFormData.address.trim()
                     });
-                    userProfile.value = updated;
-                    if (currentUser.value) {
-                        currentUser.value.fullName = updated.fullName;
-                    }
-                    try {
-                        const stored = JSON.parse(localStorage.getItem('auth_user') || '{}');
-                        stored.fullName = updated.fullName;
-                        localStorage.setItem('auth_user', JSON.stringify(stored));
-                    } catch (e) {}
+                    const updatedProfile = updated && typeof updated === 'object' ? updated : {
+                        fullName: profileFormData.fullName.trim(),
+                        phoneNumber: profileFormData.phoneNumber.trim(),
+                        address: profileFormData.address.trim()
+                    };
+                    userProfile.value = updatedProfile;
+                    syncProfileToCurrentUser(updatedProfile, true);
 
                     Utils.showToast('Thành Công', 'Đã cập nhật hồ sơ tài khoản!');
                     showUserProfileModal.value = false;
@@ -314,6 +483,8 @@
 
             return {
                 currentUser,
+                stationContext,
+                stationDisplayData,
                 currentTab,
                 currentTabTitle,
                 previousTab,
@@ -352,7 +523,9 @@
     // Đăng ký các View Components
     if (window.TrackingView) app.component('TrackingView', window.TrackingView);
     if (window.ShipmentView) app.component('ShipmentView', window.ShipmentView);
+    if (window.PostOfficeOpsView) app.component('PostOfficeOpsView', window.PostOfficeOpsView);
     if (window.HubOpsView) app.component('HubOpsView', window.HubOpsView);
+    if (window.TripsView) app.component('TripsView', window.TripsView);
     if (window.ShipperView) app.component('ShipperView', window.ShipperView);
     if (window.DispatchSimulationView) app.component('DispatchSimulationView', window.DispatchSimulationView);
     if (window.CustomerView) app.component('CustomerView', window.CustomerView);

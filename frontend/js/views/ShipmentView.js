@@ -82,6 +82,193 @@
                 receiverDetail: ''
             });
 
+            // ==========================================
+            // BẢNG ĐỊNH TUYẾN & ĐỊNH VỊ ĐỊA CHỈ BƯU CHÍNH
+            // ==========================================
+            const VIETNAM_HUB_ROUTING_MAP = [
+                { hub: 'Hải Phòng', keywords: ['hải phòng', 'hai phong', 'quảng ninh', 'quang ninh'] },
+                { hub: 'Cần Thơ', keywords: [
+                    'cần thơ', 'can tho', 'long an', 'tiền giang', 'tien giang', 'bến tre', 'ben tre',
+                    'trà vinh', 'tra vinh', 'vĩnh long', 'vinh long', 'đồng tháp', 'dong thap',
+                    'an giang', 'kiên giang', 'kien giang', 'hậu giang', 'hau giang',
+                    'sóc trăng', 'soc trang', 'bạc liêu', 'bac lieu', 'cà mau', 'ca mau'
+                ]},
+                { hub: 'Đà Nẵng', keywords: [
+                    'đà nẵng', 'da nang', 'quảng nam', 'quang nam', 'quảng ngãi', 'quang ngai',
+                    'thừa thiên huế', 'thừa thiên', 'huế', 'hue',
+                    'quảng bình', 'quang binh', 'quảng trị', 'quang tri', 'hà tĩnh', 'ha tinh',
+                    'nghệ an', 'nghe an', 'thanh hóa', 'thanh hoa', 'bình định', 'binh dinh',
+                    'quy nhơn', 'phú yên', 'phu yen', 'tuy hòa', 'khánh hòa', 'khanh hoa',
+                    'nha trang', 'cam ranh', 'ninh thuận', 'ninh thuan', 'phan rang',
+                    'bình thuận', 'binh thuan', 'phan thiết', 'kon tum', 'gia lai', 'pleiku',
+                    'đắk lắk', 'dak lak', 'đắc lắk', 'buôn ma thuột', 'đắk nông', 'dak nong',
+                    'lâm đồng', 'lam dong', 'đà lạt', 'da lat', 'bảo lộc'
+                ]},
+                { hub: 'Hồ Chí Minh', keywords: [
+                    'hồ chí minh', 'ho chi minh', 'sài gòn', 'sai gon', 'tp.hcm', 'tphcm',
+                    'bình dương', 'binh duong', 'thủ dầu một', 'dĩ an', 'thuận an',
+                    'đồng nai', 'dong nai', 'biên hòa', 'long khánh',
+                    'bà rịa', 'ba ria', 'vũng tàu', 'vung tau',
+                    'tây ninh', 'tay ninh', 'bình phước', 'binh phuoc', 'đồng xoài'
+                ]},
+                { hub: 'Hà Nội', keywords: [
+                    'hà nội', 'ha noi', 'bắc ninh', 'bac ninh', 'bắc giang', 'bac giang',
+                    'hải dương', 'hai duong', 'hưng yên', 'hung yen', 'nam định', 'nam dinh',
+                    'thái bình', 'thai binh', 'hà nam', 'ha nam', 'phủ lý',
+                    'ninh bình', 'ninh binh', 'vĩnh phúc', 'vinh phuc', 'phú thọ', 'phu tho',
+                    'việt trì', 'thái nguyên', 'thai nguyen', 'tuyên quang', 'tuyen quang',
+                    'hà giang', 'ha giang', 'cao bằng', 'cao bang', 'bắc kạn', 'bac kan',
+                    'lạng sơn', 'lang son', 'lào cai', 'lao cai', 'yên bái', 'yen bai',
+                    'điện biên', 'dien bien', 'lai châu', 'lai chau', 'sơn la', 'son la',
+                    'hòa bình', 'hoa binh'
+                ]}
+            ];
+
+            const detectHubProvince = (item, defaultProvince = 'Hà Nội') => {
+                if (!item) return defaultProvince;
+                const addr = item.address || {};
+                const textToMatch = [
+                    addr.city || '',
+                    addr.state || '',
+                    addr.province || '',
+                    addr.county || '',
+                    addr.quarter || '',
+                    addr.suburb || '',
+                    item.display_name || ''
+                ].join(' ').toLowerCase();
+
+                for (const region of VIETNAM_HUB_ROUTING_MAP) {
+                    for (const kw of region.keywords) {
+                        if (textToMatch.includes(kw)) {
+                            return region.hub;
+                        }
+                    }
+                }
+                return defaultProvince;
+            };
+
+            // Address Autocomplete Bên Nhận (Bản đồ số OpenStreetMap)
+            const receiverAddressQuery = ref('');
+            const addressSuggestions = ref([]);
+            const isSearchingAddress = ref(false);
+            const showAddressDropdown = ref(false);
+            const verifiedAddress = ref(null);
+            const manualReceiverProvinceMode = ref(false);
+            let addressSearchTimeout = null;
+
+            const onAddressInput = () => {
+                if (addressSearchTimeout) clearTimeout(addressSearchTimeout);
+                const q = receiverAddressQuery.value.trim();
+                if (q.length < 3) {
+                    addressSuggestions.value = [];
+                    showAddressDropdown.value = false;
+                    return;
+                }
+                isSearchingAddress.value = true;
+                addressSearchTimeout = setTimeout(async () => {
+                    try {
+                        const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=vn&addressdetails=1&limit=5&q=${encodeURIComponent(q)}`;
+                        const res = await fetch(url, { headers: { 'Accept-Language': 'vi' } });
+                        if (res.ok) {
+                            const data = await res.json();
+                            addressSuggestions.value = Array.isArray(data) ? data : [];
+                            showAddressDropdown.value = addressSuggestions.value.length > 0;
+                        }
+                    } catch (e) {
+                        addressSuggestions.value = [];
+                    } finally {
+                        isSearchingAddress.value = false;
+                    }
+                }, 350);
+            };
+
+            const selectAddressSuggestion = (item) => {
+                verifiedAddress.value = {
+                    displayName: item.display_name,
+                    lat: item.lat,
+                    lon: item.lon
+                };
+                receiverAddressQuery.value = item.display_name;
+                showAddressDropdown.value = false;
+                manualReceiverProvinceMode.value = false;
+
+                form.receiverProvince = detectHubProvince(item, form.receiverProvince || 'Hồ Chí Minh');
+
+                let detail = item.display_name;
+                const parts = detail.split(',').map(p => p.trim());
+                const filteredParts = parts.filter(p => !p.toLowerCase().includes('việt nam') && !/^\d{5,6}$/.test(p));
+                form.receiverDetail = filteredParts.join(', ');
+                Utils.showToast('Định Vị Thành Công', `Đã xác thực địa chỉ: ${form.receiverProvince}`, 'success');
+            };
+
+            const clearVerifiedAddress = () => {
+                verifiedAddress.value = null;
+                receiverAddressQuery.value = '';
+                showAddressDropdown.value = false;
+                manualReceiverProvinceMode.value = false;
+            };
+
+            // Address Autocomplete Bên Gửi (Bản đồ số OpenStreetMap)
+            const senderAddressQuery = ref('');
+            const senderAddressSuggestions = ref([]);
+            const isSearchingSenderAddress = ref(false);
+            const showSenderAddressDropdown = ref(false);
+            const verifiedSenderAddress = ref(null);
+            const manualSenderProvinceMode = ref(false);
+            let senderAddressSearchTimeout = null;
+
+            const onSenderAddressInput = () => {
+                if (senderAddressSearchTimeout) clearTimeout(senderAddressSearchTimeout);
+                const q = senderAddressQuery.value.trim();
+                if (q.length < 3) {
+                    senderAddressSuggestions.value = [];
+                    showSenderAddressDropdown.value = false;
+                    return;
+                }
+                isSearchingSenderAddress.value = true;
+                senderAddressSearchTimeout = setTimeout(async () => {
+                    try {
+                        const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=vn&addressdetails=1&limit=5&q=${encodeURIComponent(q)}`;
+                        const res = await fetch(url, { headers: { 'Accept-Language': 'vi' } });
+                        if (res.ok) {
+                            const data = await res.json();
+                            senderAddressSuggestions.value = Array.isArray(data) ? data : [];
+                            showSenderAddressDropdown.value = senderAddressSuggestions.value.length > 0;
+                        }
+                    } catch (e) {
+                        senderAddressSuggestions.value = [];
+                    } finally {
+                        isSearchingSenderAddress.value = false;
+                    }
+                }, 350);
+            };
+
+            const selectSenderAddressSuggestion = (item) => {
+                verifiedSenderAddress.value = {
+                    displayName: item.display_name,
+                    lat: item.lat,
+                    lon: item.lon
+                };
+                senderAddressQuery.value = item.display_name;
+                showSenderAddressDropdown.value = false;
+                manualSenderProvinceMode.value = false;
+
+                form.senderProvince = detectHubProvince(item, form.senderProvince || 'Hà Nội');
+
+                let detail = item.display_name;
+                const parts = detail.split(',').map(p => p.trim());
+                const filteredParts = parts.filter(p => !p.toLowerCase().includes('việt nam') && !/^\d{5,6}$/.test(p));
+                form.senderDetail = filteredParts.join(', ');
+                Utils.showToast('Định Vị Thành Công', `Đã xác thực địa chỉ gửi: ${form.senderProvince}`, 'success');
+            };
+
+            const clearVerifiedSenderAddress = () => {
+                verifiedSenderAddress.value = null;
+                senderAddressQuery.value = '';
+                showSenderAddressDropdown.value = false;
+                manualSenderProvinceMode.value = false;
+            };
+
             // Hồ sơ khách hàng của tài khoản đang đăng nhập
             const myProfile = ref(null);
             const isLoadingProfile = ref(false);
@@ -114,8 +301,9 @@
                     form.customerId = null;
                     if (myProfile.value) {
                         form.senderName = myProfile.value.fullName || currentUser?.fullName || 'Quản Trị Viên VNPT';
-                        form.senderPhone = myProfile.value.phoneNumber || '02438888999';
+                        form.senderPhone = myProfile.value.phoneNumber || '0913888999';
                         form.senderDetail = myProfile.value.address || '57 Huỳnh Thúc Kháng, Đống Đa, Hà Nội';
+                        senderAddressQuery.value = form.senderDetail;
                     }
                 } else {
                     form.customerId = null;
@@ -142,7 +330,10 @@
                         if (isShopOwner.value || (isAdmin.value && adminCreateMode.value === 'self')) {
                             if (prof.fullName) form.senderName = prof.fullName;
                             if (prof.phoneNumber) form.senderPhone = prof.phoneNumber;
-                            if (prof.address) form.senderDetail = prof.address;
+                            if (prof.address) {
+                                form.senderDetail = prof.address;
+                                senderAddressQuery.value = prof.address;
+                            }
                         }
                     }
                 } catch (err) {
@@ -182,16 +373,30 @@
                 if (!custVal) return;
                 const cust = customersList.value.find(c => c.id === Number(custVal));
                 if (cust) {
+                    if (cust.status && cust.status !== 'ACTIVE') {
+                        Utils.showToast('Cảnh Báo', `Khách hàng ${cust.fullName} đang ở trạng thái Tạm Dừng, không thể tạo vận đơn!`, 'warning');
+                        form.customerId = null;
+                        return;
+                    }
                     form.customerId = cust.id;
                     if (cust.fullName) form.senderName = cust.fullName;
                     if (cust.phoneNumber) form.senderPhone = cust.phoneNumber;
-                    if (cust.address) form.senderDetail = cust.address;
+                    if (cust.address) {
+                        form.senderDetail = cust.address;
+                        senderAddressQuery.value = cust.address;
+                        const detected = detectHubProvince({ display_name: cust.address }, form.senderProvince);
+                        if (detected) form.senderProvince = detected;
+                    }
                 }
             };
 
             // Tự động điền dữ liệu nếu nhận từ Danh Bạ Khách Hàng (Tác nghiệp Tạo Đơn Nhanh)
             watch(() => props.customerPrefill, (cust) => {
                 if (cust) {
+                    if (cust.status && cust.status !== 'ACTIVE') {
+                        Utils.showToast('Từ Chối Tiếp Nhận', `Khách hàng ${cust.fullName || ''} đang ở trạng thái Tạm Dừng, không thể tạo vận đơn.`, 'warning');
+                        return;
+                    }
                     currentSubtab.value = 'create';
                     if (isAdmin.value) {
                         adminCreateMode.value = 'for_customer';
@@ -200,6 +405,13 @@
                     form.senderName = cust.fullName || form.senderName;
                     form.senderPhone = cust.phoneNumber || form.senderPhone;
                     form.senderDetail = cust.address || form.senderDetail;
+                    senderAddressQuery.value = form.senderDetail;
+                    if (cust.address && typeof detectHubProvince === 'function') {
+                        const detected = detectHubProvince({ display_name: cust.address }, form.senderProvince);
+                        if (detected) {
+                            form.senderProvince = detected;
+                        }
+                    }
                     Utils.showToast('Đã Điền Dữ Liệu', `Đã gắn thông tin đối tác ${cust.fullName} vào đơn gửi`);
                 }
             }, { immediate: true });
@@ -272,6 +484,42 @@
                     Utils.showToast('Thông Báo', err.message || 'Không thể tải danh sách vận đơn', 'warning');
                 } finally {
                     isLoadingShipments.value = false;
+                }
+            };
+
+            // Hủy Vận Đơn Phía Khách Hàng (Customer Cancellation)
+            const showCancelModal = ref(false);
+            const selectedShipmentToCancel = ref(null);
+            const isCancellingShipment = ref(false);
+            const cancelReasonCode = ref('CHANGE_MIND');
+            const cancelReasonNote = ref('');
+
+            const canCancelShipment = (s) => {
+                if (!s) return false;
+                const status = s.currentStatus || s.status;
+                return status !== 'DELIVERED' && status !== 'RETURNED' && status !== 'CANCELLED';
+            };
+
+            const openCancelModal = (s) => {
+                selectedShipmentToCancel.value = s;
+                cancelReasonCode.value = 'CHANGE_MIND';
+                cancelReasonNote.value = '';
+                showCancelModal.value = true;
+            };
+
+            const confirmCancelShipment = async () => {
+                if (!selectedShipmentToCancel.value) return;
+                isCancellingShipment.value = true;
+                const code = selectedShipmentToCancel.value.trackingCode;
+                try {
+                    await ShipmentService.cancelShipment(code);
+                    Utils.showToast('Hủy Đơn Thành Công', `Vận đơn ${code} đã được hủy bỏ và thông báo tới toàn hệ thống.`, 'success');
+                    showCancelModal.value = false;
+                    await loadShipments();
+                } catch (err) {
+                    Utils.showToast('Hủy Đơn Thất Bại', err.message || 'Không thể hủy đơn hàng này', 'error');
+                } finally {
+                    isCancellingShipment.value = false;
                 }
             };
 
@@ -356,18 +604,43 @@
                 const h = hubsList.value.find(x => x.province === form.senderProvince);
                 if (h) {
                     const cleanName = (h.hubName && !h.hubName.includes('?')) ? h.hubName : (standardHubInfo[h.hubCode]?.hubName || `Kho Tổng ${h.province}`);
-                    return `${cleanName} (${h.hubCode})`;
+                    return cleanName;
                 }
-                return `Bưu cục ${form.senderProvince || 'Hà Nội'}`;
+                return `Kho Tiếp Nhận ${form.senderProvince || 'Hà Nội'}`;
             });
 
             const receiverHubName = computed(() => {
                 const h = hubsList.value.find(x => x.province === form.receiverProvince);
                 if (h) {
                     const cleanName = (h.hubName && !h.hubName.includes('?')) ? h.hubName : (standardHubInfo[h.hubCode]?.hubName || `Kho Tổng ${h.province}`);
-                    return `${cleanName} (${h.hubCode})`;
+                    return cleanName;
                 }
-                return `Bưu cục ${form.receiverProvince || 'Hải Phòng'}`;
+                return `Kho Phát Trả ${form.receiverProvince || 'Hồ Chí Minh'}`;
+            });
+            // Tìm Bưu Cục Giao Dịch tương ứng theo địa chỉ người gửi (Cấp 2/3)
+            const senderPostOfficeInfo = computed(() => {
+                const fullAddr = `${form.senderDetail || ''}, ${form.senderProvince || ''}`;
+                if (window.MapManager?.getPostOfficeForAddress) {
+                    const found = window.MapManager.getPostOfficeForAddress(fullAddr);
+                    if (found) return found;
+                }
+                if (form.senderProvince === 'Hà Nội') return { code: 'POST-HN-CG', name: 'Bưu Cục Cầu Giấy' };
+                if (form.senderProvince === 'Hồ Chí Minh') return { code: 'POST-HCM-Q1', name: 'Bưu Cục Quận 1' };
+                if (form.senderProvince === 'Đà Nẵng') return { code: 'POST-DN-HC', name: 'Bưu Cục Hải Châu' };
+                return { code: 'POST-GD', name: `Bưu Cục Giao Dịch ${form.senderProvince || ''}` };
+            });
+
+            // Tìm Bưu Cục Phát tương ứng theo địa chỉ người nhận (Cấp 2/3)
+            const receiverPostOfficeInfo = computed(() => {
+                const fullAddr = `${form.receiverDetail || ''}, ${form.receiverProvince || ''}`;
+                if (window.MapManager?.getPostOfficeForAddress) {
+                    const found = window.MapManager.getPostOfficeForAddress(fullAddr);
+                    if (found) return found;
+                }
+                if (form.receiverProvince === 'Đà Nẵng') return { code: 'POST-DN-HC', name: 'Bưu Cục Hải Châu' };
+                if (form.receiverProvince === 'Hồ Chí Minh') return { code: 'POST-HCM-Q1', name: 'Bưu Cục Quận 1' };
+                if (form.receiverProvince === 'Hà Nội') return { code: 'POST-HN-CG', name: 'Bưu Cục Cầu Giấy' };
+                return { code: 'POST-PHAT', name: `Bưu Cục Phát ${form.receiverProvince || ''}` };
             });
 
             const resetForm = () => {
@@ -377,6 +650,8 @@
                 form.receiverName = '';
                 form.receiverPhone = '';
                 form.receiverDetail = '';
+                clearVerifiedAddress();
+                clearVerifiedSenderAddress();
                 Utils.showToast('Làm Mới', 'Đã đặt lại biểu mẫu tạo vận đơn');
             };
 
@@ -400,6 +675,13 @@
                     Utils.showToast('Chưa Chọn Khách Hàng', 'Vui lòng chọn khách hàng gửi từ danh bạ để tạo đơn hộ', 'warning');
                     return;
                 }
+                if (form.customerId && customersList.value && customersList.value.length > 0) {
+                    const cust = customersList.value.find(c => c.id === form.customerId);
+                    if (cust && cust.status && cust.status !== 'ACTIVE') {
+                        Utils.showToast('Từ Chối Tạo Đơn', `Khách hàng ${cust.fullName} đang ở trạng thái Tạm Dừng, không thể tạo vận đơn!`, 'error');
+                        return;
+                    }
+                }
                 if (!form.senderName || !form.senderPhone || !form.senderProvince || !form.senderDetail) {
                     Utils.showToast('Thiếu Thông Tin', 'Vui lòng điền đầy đủ Họ tên, SĐT, Tỉnh/Thành và Địa chỉ người gửi', 'warning');
                     return;
@@ -409,16 +691,54 @@
                     return;
                 }
 
+                // Làm sạch và chuẩn hóa số điện thoại
+                const cleanSenderPhone = (form.senderPhone || '').toString().trim().replace(/[\s\.\-\(\)]/g, '');
+                const cleanReceiverPhone = (form.receiverPhone || '').toString().trim().replace(/[\s\.\-\(\)]/g, '');
+
+                const phonePattern = /^(0|\+84)(2|3|5|7|8|9)[0-9]{8,9}$/;
+                if (!phonePattern.test(cleanSenderPhone)) {
+                    Utils.showToast('SĐT Người Gửi Không Hợp Lệ', 'Số điện thoại người gửi không đúng định dạng (VD: 0912345678 hoặc 02438888999)', 'warning');
+                    return;
+                }
+                if (!phonePattern.test(cleanReceiverPhone)) {
+                    Utils.showToast('SĐT Người Nhận Không Hợp Lệ', 'Số điện thoại người nhận không đúng định dạng (VD: 0987654321)', 'warning');
+                    return;
+                }
+
+                // Chuẩn hóa địa chỉ đầy đủ có kèm Tỉnh/Thành phố bưu cục
+                const senderDetailTrimmed = form.senderDetail.trim();
+                const receiverDetailTrimmed = form.receiverDetail.trim();
+                const senderAddress = senderDetailTrimmed.toLowerCase().includes(form.senderProvince.toLowerCase())
+                    ? senderDetailTrimmed
+                    : `${senderDetailTrimmed}, ${form.senderProvince}`;
+
+                const receiverAddress = receiverDetailTrimmed.toLowerCase().includes(form.receiverProvince.toLowerCase())
+                    ? receiverDetailTrimmed
+                    : `${receiverDetailTrimmed}, ${form.receiverProvince}`;
+
+                if (senderAddress.length < 8) {
+                    Utils.showToast('Địa Chỉ Người Gửi Quá Ngắn', 'Địa chỉ người gửi phải từ 8 ký tự trở lên', 'warning');
+                    return;
+                }
+                if (receiverAddress.length < 8) {
+                    Utils.showToast('Địa Chỉ Người Nhận Quá Ngắn', 'Địa chỉ người nhận phải từ 8 ký tự trở lên', 'warning');
+                    return;
+                }
+
                 isSubmitting.value = true;
                 try {
                     const payload = {
                         requestId: 'REQ-' + Date.now(),
-                        senderName: form.senderName,
-                        senderPhone: form.senderPhone,
-                        senderAddress: `${form.senderDetail}, ${form.senderProvince}`,
-                        receiverName: form.receiverName,
-                        receiverPhone: form.receiverPhone,
-                        receiverAddress: `${form.receiverDetail}, ${form.receiverProvince}`,
+                        senderName: form.senderName.trim(),
+                        senderPhone: cleanSenderPhone,
+                        senderAddress: senderAddress,
+                        senderLatitude: verifiedSenderAddress.value ? Number(verifiedSenderAddress.value.lat) : null,
+                        senderLongitude: verifiedSenderAddress.value ? Number(verifiedSenderAddress.value.lon) : null,
+                        receiverName: form.receiverName.trim(),
+                        receiverPhone: cleanReceiverPhone,
+                        receiverAddress: receiverAddress,
+                        receiverLatitude: verifiedAddress.value ? Number(verifiedAddress.value.lat) : null,
+                        receiverLongitude: verifiedAddress.value ? Number(verifiedAddress.value.lon) : null,
                         serviceType: form.serviceType,
                         weight: Number(form.weight),
                         codAmount: Number(form.codAmount)
@@ -435,6 +755,7 @@
                     form.receiverName = '';
                     form.receiverPhone = '';
                     form.receiverDetail = '';
+                    clearVerifiedAddress();
 
                     // Tự động chuyển sang Subtab Danh Sách Vận Đơn và nạp dữ liệu mới nhất
                     currentSubtab.value = 'list';
@@ -476,6 +797,8 @@
                 setServiceType,
                 senderHubName,
                 receiverHubName,
+                senderPostOfficeInfo,
+                receiverPostOfficeInfo,
                 currentUser,
                 hasReadAllPermission,
                 isShopOwner,
@@ -505,6 +828,32 @@
                 itemsPerPage,
                 stats,
                 viewTracking,
+                showCancelModal,
+                selectedShipmentToCancel,
+                isCancellingShipment,
+                cancelReasonCode,
+                cancelReasonNote,
+                canCancelShipment,
+                openCancelModal,
+                confirmCancelShipment,
+                receiverAddressQuery,
+                addressSuggestions,
+                isSearchingAddress,
+                showAddressDropdown,
+                verifiedAddress,
+                manualReceiverProvinceMode,
+                onAddressInput,
+                selectAddressSuggestion,
+                clearVerifiedAddress,
+                senderAddressQuery,
+                senderAddressSuggestions,
+                isSearchingSenderAddress,
+                showSenderAddressDropdown,
+                verifiedSenderAddress,
+                manualSenderProvinceMode,
+                onSenderAddressInput,
+                selectSenderAddressSuggestion,
+                clearVerifiedSenderAddress,
                 Utils
             };
         },
@@ -666,8 +1015,8 @@
                                             class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                                         >
                                             <option :value="null" disabled>-- Chọn khách hàng / đối tác từ danh bạ --</option>
-                                            <option v-for="c in customersList" :key="c.id" :value="c.id">
-                                                #{{ c.id }} - {{ c.fullName }} | {{ c.phoneNumber || 'N/A' }}
+                                            <option v-for="c in customersList" :key="c.id" :value="c.id" :disabled="c.status !== 'ACTIVE'">
+                                                #{{ c.id }} - {{ c.fullName }} | {{ c.phoneNumber || 'N/A' }}{{ c.status !== 'ACTIVE' ? ' (Tạm Dừng)' : '' }}
                                             </option>
                                         </select>
                                         <input 
@@ -737,10 +1086,10 @@
                                                 <div class="text-[11px] font-normal text-slate-500 mt-0.5">Toàn quốc trong 24h</div>
                                             </div>
                                             <span 
-                                                :class="form.serviceType === 'EXPRESS' ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white'"
-                                                class="w-4 h-4 rounded-full border flex items-center justify-center text-[9px] font-bold"
+                                                :class="form.serviceType === 'EXPRESS' ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white'"
+                                                class="w-3.5 h-3.5 rounded-full border flex items-center justify-center p-0.5"
                                             >
-                                                <span v-if="form.serviceType === 'EXPRESS'">✓</span>
+                                                <span v-if="form.serviceType === 'EXPRESS'" class="w-1.5 h-1.5 rounded-full bg-white"></span>
                                             </span>
                                         </div>
 
@@ -759,10 +1108,10 @@
                                                 <div class="text-[11px] font-normal text-slate-500 mt-0.5">Liên tỉnh 2 - 3 ngày</div>
                                             </div>
                                             <span 
-                                                :class="form.serviceType === 'STANDARD' ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white'"
-                                                class="w-4 h-4 rounded-full border flex items-center justify-center text-[9px] font-bold"
+                                                :class="form.serviceType === 'STANDARD' ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white'"
+                                                class="w-3.5 h-3.5 rounded-full border flex items-center justify-center p-0.5"
                                             >
-                                                <span v-if="form.serviceType === 'STANDARD'">✓</span>
+                                                <span v-if="form.serviceType === 'STANDARD'" class="w-1.5 h-1.5 rounded-full bg-white"></span>
                                             </span>
                                         </div>
                                     </div>
@@ -889,15 +1238,74 @@
                                             />
                                         </div>
 
+                                        <!-- Autocomplete Địa Chỉ Bản Đồ Số (OpenStreetMap) Bên Gửi -->
+                                        <div class="relative">
+                                            <div class="flex items-center justify-between mb-1">
+                                                <label class="block text-[11px] font-semibold text-slate-700">
+                                                    Định Vị Nhanh Địa Chỉ Gửi (Bản Đồ Số)
+                                                </label>
+                                                <span v-if="verifiedSenderAddress" class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center space-x-1">
+                                                    <span>Đã Định Vị</span>
+                                                    <button type="button" @click="clearVerifiedSenderAddress" class="text-rose-500 font-bold ml-1 hover:underline">Xóa</button>
+                                                </span>
+                                            </div>
+                                            <div class="relative">
+                                                <input 
+                                                    v-model="senderAddressQuery"
+                                                    @input="onSenderAddressInput"
+                                                    type="text" 
+                                                    placeholder="Gõ số nhà, tên đường, quận/huyện kho gửi..." 
+                                                    class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 bg-slate-50/70 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
+                                                />
+                                                <span v-if="isSearchingSenderAddress" class="absolute right-3 top-2 w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
+                                            </div>
+
+                                            <!-- Dropdown Danh Sách Gợi Ý -->
+                                            <div v-if="showSenderAddressDropdown && senderAddressSuggestions.length > 0" class="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto divide-y divide-slate-100 text-xs">
+                                                <div 
+                                                    v-for="(item, idx) in senderAddressSuggestions" 
+                                                    :key="idx"
+                                                    @click="selectSenderAddressSuggestion(item)"
+                                                    class="p-2.5 hover:bg-blue-50 cursor-pointer transition text-left"
+                                                >
+                                                    <div class="font-medium text-slate-800 leading-snug">{{ item.display_name }}</div>
+                                                    <div class="text-[10px] text-slate-400 font-mono mt-0.5" v-if="item.lat">Tọa độ: {{ Number(item.lat).toFixed(4) }}, {{ Number(item.lon).toFixed(4) }}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <div>
-                                            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Tỉnh / Thành Phố Tiếp Nhận (Hub)</label>
+                                            <div class="flex items-center justify-between mb-1">
+                                                <label class="block text-[11px] font-semibold text-slate-600">Bưu Cục Tiếp Nhận</label>
+                                                <button 
+                                                    v-if="verifiedSenderAddress" 
+                                                    type="button" 
+                                                    @click="manualSenderProvinceMode = !manualSenderProvinceMode" 
+                                                    class="text-[10px] font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                                                >
+                                                    {{ manualSenderProvinceMode ? 'Thu gọn' : 'Thay đổi' }}
+                                                </button>
+                                            </div>
+
+                                            <div v-if="verifiedSenderAddress && !manualSenderProvinceMode" class="flex items-center justify-between px-3 py-2 bg-blue-50/70 border border-blue-200 rounded-lg text-xs">
+                                                <div class="flex items-center space-x-2 truncate">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-blue-600 flex-shrink-0"></span>
+                                                    <span class="font-bold text-slate-900">{{ form.senderProvince }}</span>
+                                                    <span class="text-blue-700 text-[11px] truncate font-medium">({{ senderPostOfficeInfo.name }} - {{ senderPostOfficeInfo.code }})</span>
+                                                </div>
+                                                <span class="text-[10px] font-semibold text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200 shadow-2xs flex-shrink-0 ml-2">
+                                                    Tự động nhận diện
+                                                </span>
+                                            </div>
+
                                             <select 
+                                                v-else
                                                 v-model="form.senderProvince" 
                                                 required 
                                                 class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                                             >
                                                 <option v-for="h in hubsList" :key="h.id" :value="h.province">
-                                                    {{ h.province }} - {{ h.hubName }} ({{ h.hubCode }})
+                                                    {{ h.province }} - {{ h.hubName }}
                                                 </option>
                                                 <option v-if="hubsList.length === 0" value="Hà Nội">Hà Nội (Mặc định)</option>
                                             </select>
@@ -912,6 +1320,7 @@
                                                 placeholder="VD: Số 57 Huỳnh Thúc Kháng, Đống Đa..." 
                                                 class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                                             ></textarea>
+                                            <p class="text-[10.5px] text-slate-400 mt-1">Bưu tá (Shipper) sẽ đến tận địa chỉ người gửi để nhận bưu phẩm mang về Bưu Cục giao dịch, hoặc người gửi mang trực tiếp ra Bưu Cục gần nhất (Kho Tổng không tiếp nhận gửi hàng trực tiếp).</p>
                                         </div>
                                     </div>
                                 </div>
@@ -953,15 +1362,74 @@
                                             />
                                         </div>
 
+                                        <!-- Autocomplete Địa Chỉ Bản Đồ Số (OpenStreetMap) -->
+                                        <div class="relative">
+                                            <div class="flex items-center justify-between mb-1">
+                                                <label class="block text-[11px] font-semibold text-slate-700">
+                                                    Định Vị Nhanh Địa Chỉ Nhận (Bản Đồ Số)
+                                                </label>
+                                                <span v-if="verifiedAddress" class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center space-x-1">
+                                                    <span>Đã Định Vị</span>
+                                                    <button type="button" @click="clearVerifiedAddress" class="text-rose-500 font-bold ml-1 hover:underline">Xóa</button>
+                                                </span>
+                                            </div>
+                                            <div class="relative">
+                                                <input 
+                                                    v-model="receiverAddressQuery"
+                                                    @input="onAddressInput"
+                                                    type="text" 
+                                                    placeholder="Gõ số nhà, tên đường, quận/huyện để gợi ý..." 
+                                                    class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 bg-slate-50/70 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
+                                                />
+                                                <span v-if="isSearchingAddress" class="absolute right-3 top-2 w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
+                                            </div>
+
+                                            <!-- Dropdown Danh Sách Gợi Ý -->
+                                            <div v-if="showAddressDropdown && addressSuggestions.length > 0" class="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto divide-y divide-slate-100 text-xs">
+                                                <div 
+                                                    v-for="(item, idx) in addressSuggestions" 
+                                                    :key="idx"
+                                                    @click="selectAddressSuggestion(item)"
+                                                    class="p-2.5 hover:bg-blue-50 cursor-pointer transition text-left"
+                                                >
+                                                    <div class="font-medium text-slate-800 leading-snug">{{ item.display_name }}</div>
+                                                    <div class="text-[10px] text-slate-400 font-mono mt-0.5" v-if="item.lat">Tọa độ: {{ Number(item.lat).toFixed(4) }}, {{ Number(item.lon).toFixed(4) }}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <div>
-                                            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Tỉnh / Thành Phố Phát Trả (Hub)</label>
+                                            <div class="flex items-center justify-between mb-1">
+                                                <label class="block text-[11px] font-semibold text-slate-600">Bưu Cục Phát Trả Đích</label>
+                                                <button 
+                                                    v-if="verifiedAddress" 
+                                                    type="button" 
+                                                    @click="manualReceiverProvinceMode = !manualReceiverProvinceMode" 
+                                                    class="text-[10px] font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                                                >
+                                                    {{ manualReceiverProvinceMode ? 'Thu gọn' : 'Thay đổi' }}
+                                                </button>
+                                            </div>
+
+                                            <div v-if="verifiedAddress && !manualReceiverProvinceMode" class="flex items-center justify-between px-3 py-2 bg-blue-50/70 border border-blue-200 rounded-lg text-xs">
+                                                <div class="flex items-center space-x-2 truncate">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-blue-600 flex-shrink-0"></span>
+                                                    <span class="font-bold text-slate-900">{{ form.receiverProvince }}</span>
+                                                    <span class="text-blue-700 text-[11px] truncate font-medium">({{ receiverPostOfficeInfo.name }} - {{ receiverPostOfficeInfo.code }})</span>
+                                                </div>
+                                                <span class="text-[10px] font-semibold text-blue-700 bg-white px-2 py-0.5 rounded border border-blue-200 shadow-2xs flex-shrink-0 ml-2">
+                                                    Tự động nhận diện
+                                                </span>
+                                            </div>
+
                                             <select 
+                                                v-else
                                                 v-model="form.receiverProvince" 
                                                 required 
                                                 class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                                             >
                                                 <option v-for="h in hubsList" :key="h.id" :value="h.province">
-                                                    {{ h.province }} - {{ h.hubName }} ({{ h.hubCode }})
+                                                    {{ h.province }} - {{ h.hubName }}
                                                 </option>
                                                 <option v-if="hubsList.length === 0" value="Hồ Chí Minh">TP. Hồ Chí Minh (Mặc định)</option>
                                             </select>
@@ -973,9 +1441,10 @@
                                                 v-model="form.receiverDetail" 
                                                 rows="2" 
                                                 required 
-                                                placeholder="VD: Số 121 Pasteur, Phường 6, Quận 3..." 
+                                                placeholder="VD: Số 121 Pasteur, Phường Võ Thị Sáu, Quận 3..." 
                                                 class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                                             ></textarea>
+                                            <p class="text-[10.5px] text-slate-400 mt-1">Bưu gửi sẽ được trung chuyển về {{ receiverPostOfficeInfo.name }} ({{ receiverPostOfficeInfo.code }}) trước khi bưu tá nhận đi phát tận tay người nhận.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -1160,6 +1629,7 @@
                                     <option value="ROUTE_ASSIGNED">Đã định tuyến luân chuyển</option>
                                     <option value="PICKED_UP">Đã lấy hàng từ người gửi</option>
                                     <option value="IN_TRANSIT">Đang vận chuyển liên tỉnh</option>
+                                    <option value="ARRIVED_DEST_HUB">Đã đến bưu cục phát</option>
                                     <option value="OUT_FOR_DELIVERY">Đang chuyển phát</option>
                                     <option value="DELIVERED">Phát thành công</option>
                                     <option value="DELIVERY_FAILED">Giao không thành công</option>
@@ -1289,7 +1759,7 @@
                                         </td>
 
                                         <!-- Thao Tác (Nút text tối giản, không icon) -->
-                                        <td class="py-3 px-3.5 text-right whitespace-nowrap">
+                                        <td class="py-3 px-3.5 text-right whitespace-nowrap space-x-1.5">
                                             <button 
                                                 type="button"
                                                 @click="viewTracking(s.trackingCode)"
@@ -1297,6 +1767,15 @@
                                                 title="Mở bản đồ định tuyến và giám sát vận trình"
                                             >
                                                 Xem Lộ Trình
+                                            </button>
+                                            <button 
+                                                v-if="canCancelShipment(s)"
+                                                type="button"
+                                                @click="openCancelModal(s)"
+                                                class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white rounded-lg text-xs font-bold transition-all border border-rose-200 hover:border-rose-600 shadow-sm"
+                                                title="Hủy đơn hàng và thông báo đồng bộ tới kho bãi"
+                                            >
+                                                Hủy Đơn
                                             </button>
                                         </td>
                                     </tr>
@@ -1336,8 +1815,10 @@
                 </transition>
 
                 <!-- MODAL CẬP NHẬT HỒ SƠ KHÁCH HÀNG (GET/PUT /api/customers/me) -->
-                <div v-if="showProfileModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-                    <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+                <teleport to="body">
+                <Transition name="modal">
+                <div v-if="showProfileModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+                    <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 space-y-4">
                         <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                             <div>
                                 <h3 class="text-sm font-bold text-slate-800">Cập Nhật Hồ Sơ Gửi Hàng</h3>
@@ -1353,40 +1834,39 @@
                                     v-model="profileForm.fullName" 
                                     type="text" 
                                     required 
-                                    placeholder="VD: Nguyễn Văn A"
-                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none" 
+                                    placeholder="VD: Công ty TNHH Giải Pháp VNPT..." 
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none"
                                 />
                             </div>
 
                             <div>
-                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Số Điện Thoại Liên Hệ <span class="text-rose-500">*</span></label>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Số Điện Thoại Mặc Định <span class="text-rose-500">*</span></label>
                                 <input 
                                     v-model="profileForm.phoneNumber" 
                                     type="text" 
                                     required 
-                                    placeholder="VD: 0912345678"
-                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none" 
+                                    placeholder="0912..." 
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none"
                                 />
                             </div>
 
                             <div>
-                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Địa Chỉ Chi Tiết (Số nhà, đường, phường/xã) <span class="text-rose-500">*</span></label>
-                                <textarea 
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Địa Chỉ Bưu Cục / Kho Gửi Hàng Mặc Định</label>
+                                <input 
                                     v-model="profileForm.address" 
-                                    rows="2" 
-                                    required 
-                                    placeholder="VD: 57 Huỳnh Thúc Kháng, Láng Hạ, Đống Đa, Hà Nội"
-                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none" 
-                                ></textarea>
+                                    type="text" 
+                                    placeholder="Địa chỉ gửi hàng mặc định..." 
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none"
+                                />
                             </div>
 
-                            <div class="pt-2 flex items-center justify-end space-x-2">
+                            <div class="pt-2 flex items-center justify-end space-x-2 border-t border-slate-100">
                                 <button 
                                     type="button" 
                                     @click="showProfileModal = false" 
                                     class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition"
                                 >
-                                    Hủy Bỏ
+                                    Đóng
                                 </button>
                                 <button 
                                     type="submit" 
@@ -1399,6 +1879,78 @@
                         </form>
                     </div>
                 </div>
+                </Transition>
+                </teleport>
+
+                <!-- MODAL XÁC NHẬN HỦY VẬN ĐƠN (POST /api/shipments/{code}/cancel) -->
+                <teleport to="body">
+                <Transition name="modal">
+                <div v-if="showCancelModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+                    <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-800">Xác Nhận Yêu Cầu Hủy Vận Đơn</h3>
+                                <p class="text-[11px] text-slate-500 mt-0.5">Hệ thống sẽ đồng bộ hủy và gỡ kiện trên toàn mạng lưới</p>
+                            </div>
+                            <button type="button" @click="showCancelModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1">&times;</button>
+                        </div>
+
+                        <div class="space-y-3 text-xs">
+                            <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1">
+                                <div class="font-bold text-amber-900 flex items-center space-x-1">
+                                    <span>Lưu ý nghiệp vụ:</span>
+                                </div>
+                                <p class="text-[11px] text-amber-800 leading-relaxed">
+                                    Vận đơn <span class="font-mono font-bold">{{ selectedShipmentToCancel?.trackingCode }}</span> sẽ chuyển sang trạng thái <strong>ĐÃ HỦY (CANCELLED)</strong>. Nếu kiện đang nằm trong chuyến xe trục, hệ thống sẽ tự động gỡ kiện và hoàn trả tải trọng cho xe.
+                                </p>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Lý Do Hủy Đơn</label>
+                                <select 
+                                    v-model="cancelReasonCode"
+                                    class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none"
+                                >
+                                    <option value="CUSTOMER_REQUEST">Khách hàng đổi ý / Hủy đơn</option>
+                                    <option value="WRONG_INFO">Nhập sai thông tin người nhận hoặc địa chỉ</option>
+                                    <option value="DELAYED_TRANSIT">Thời gian giao hàng dự kiến quá hạn</option>
+                                    <option value="OUT_OF_STOCK">Hàng hóa bị hư hỏng / Hết hàng</option>
+                                    <option value="OTHER">Lý do khác</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Ghi Chú Chi Tiết (Không bắt buộc)</label>
+                                <textarea 
+                                    v-model="cancelReasonNote" 
+                                    rows="2" 
+                                    placeholder="Ghi rõ chi tiết lý do hủy để đối soát..."
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none" 
+                                ></textarea>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 flex items-center justify-end space-x-2 border-t border-slate-100">
+                            <button 
+                                type="button" 
+                                @click="showCancelModal = false" 
+                                class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition"
+                            >
+                                Đóng
+                            </button>
+                            <button 
+                                type="button"
+                                @click="confirmCancelShipment" 
+                                :disabled="isCancellingShipment" 
+                                class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition disabled:opacity-50 shadow-sm"
+                            >
+                                {{ isCancellingShipment ? 'Đang Xử Lý Hủy...' : 'Xác Nhận Hủy' }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                </Transition>
+                </teleport>
             </div>
         `
     };

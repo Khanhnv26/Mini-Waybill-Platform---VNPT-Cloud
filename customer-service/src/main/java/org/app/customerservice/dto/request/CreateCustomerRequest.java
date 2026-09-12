@@ -27,7 +27,7 @@ public class CreateCustomerRequest {
     @Size(min = 2, max = 100)
     private String fullName;
 
-    @NotBlank(message = "Địa chỉ không được để trống")
+    @Size(max = 255, message = "Địa chỉ không được vượt quá 255 ký tự")
     private String address;
 
 

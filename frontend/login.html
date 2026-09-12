@@ -312,7 +312,7 @@
                 <!-- ============================================================ -->
                 <!-- TRANSITION CHUYỂN BIỂU MẪU MƯỢT MÀ (FORM SLIDE-FADE)         -->
                 <!-- ============================================================ -->
-                <transition name="form-slide" mode="out-in">
+                <transition name="form-slide" mode="out-in" @enter="handleFormEnter" @after-enter="handleFormAfterEnter">
                     <!-- 1. FORM ĐĂNG NHẬP -->
                     <div v-if="authMode === 'login'" key="login" class="space-y-4">
                     <div>
@@ -372,6 +372,8 @@
                             Đang xác thực tài khoản Google...
                         </div>
                     </div>
+
+
 
                 </div>
 
@@ -634,14 +636,32 @@
                     clearAlert();
                     authMode.value = mode;
                     if (mode === 'login' || mode === 'register') {
-                        nextTick(() => {
+                        setTimeout(() => {
                             renderGoogleButton();
-                        });
+                        }, 250);
                     } else if (mode === 'forgot_step2') {
-                        nextTick(() => {
+                        setTimeout(() => {
                             const firstBox = document.getElementById('otp-box-0');
                             if (firstBox) firstBox.focus();
-                        });
+                        }, 250);
+                    }
+                }
+
+                function handleFormEnter(el) {
+                    if (authMode.value === 'login' || authMode.value === 'register') {
+                        renderGoogleButton();
+                    } else if (authMode.value === 'forgot_step2') {
+                        const firstBox = el ? el.querySelector('#otp-box-0') : document.getElementById('otp-box-0');
+                        if (firstBox) firstBox.focus();
+                    }
+                }
+
+                function handleFormAfterEnter(el) {
+                    if (authMode.value === 'login' || authMode.value === 'register') {
+                        renderGoogleButton();
+                    } else if (authMode.value === 'forgot_step2') {
+                        const firstBox = el ? el.querySelector('#otp-box-0') : document.getElementById('otp-box-0');
+                        if (firstBox) firstBox.focus();
                     }
                 }
 
@@ -837,7 +857,7 @@
                 }
 
                 // Hàm khởi tạo và render nút Google với cơ chế thử lại (Retry Polling)
-                function renderGoogleButton() {
+                function renderGoogleButton(force = false) {
                     if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
                         google.accounts.id.initialize({
                             client_id: GOOGLE_CLIENT_ID,
@@ -846,7 +866,7 @@
                         });
 
                         const loginContainer = document.getElementById('googleBtn');
-                        if (loginContainer) {
+                        if (loginContainer && (force || !loginContainer.hasChildNodes())) {
                             loginContainer.innerHTML = '';
                             google.accounts.id.renderButton(
                                 loginContainer,
@@ -862,7 +882,7 @@
                         }
 
                         const registerContainer = document.getElementById('googleBtnRegister');
-                        if (registerContainer) {
+                        if (registerContainer && (force || !registerContainer.hasChildNodes())) {
                             registerContainer.innerHTML = '';
                             google.accounts.id.renderButton(
                                 registerContainer,
@@ -905,6 +925,8 @@
                     resetForm,
                     otpDigits,
                     switchMode,
+                    handleFormEnter,
+                    handleFormAfterEnter,
                     handleOtpKeyUp,
                     handleOtpPaste,
                     handleEmailLogin,

@@ -1,0 +1,85 @@
+package org.app.routingservice.dto.trip;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.app.routingservice.entity.Trip;
+import org.app.routingservice.entity.TripType;
+import org.app.sharedevents.entity.TransportLeg;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+public class TripDetailResponse {
+
+    private Long id;
+    private String tripCode;
+    private String routeName;
+    private String vehiclePlate;
+    private String driverName;
+    private Double maxWeight;
+    private Double currentWeight;
+    private Integer totalShipments;
+    private String currentHub;
+    private TripType tripType;
+    private String status;
+    private Double currentLatitude;
+    private Double currentLongitude;
+    private LocalDateTime lastProgressAt;
+    private Double progressPercent;
+    private LocalDateTime departureTime;
+    private LocalDateTime scheduledDepartureTime;
+    private LocalDateTime cutoffTime;
+    private Boolean readyToDepart;
+    private Boolean isOverdue;
+    private LocalDateTime createdAt;
+    private Double weightPercentage;
+    private List<StopItemResponse> stops;
+    private List<ManifestItemResponse> manifests;
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @Builder
+    public static class StopItemResponse {
+        private Integer stopOrder;
+        private String hubCode;
+        private String hubName;
+        private String hubAddress;
+        private Double latitude;
+        private Double longitude;
+        private String status;
+        private LocalDateTime arrivedAt;
+        private LocalDateTime departedAt;
+    }
+
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @Builder
+    @Data
+    public static class ManifestItemResponse {
+        private String trackingCode;
+        private String originHub;
+        private String originHubName;
+        private String originHubAddress;
+        private String destinationHub;
+        private String destinationHubName;
+        private String destinationHubAddress;
+        private String pickupLocationCode;
+        private String dropoffLocationCode;
+        private TransportLeg transportLeg;
+        private Double weightKg;
+        private String serviceType;
+        private String status;
+        private LocalDateTime loadedAt;
+        private LocalDateTime unloadedAt;
+
+    }
+
+
+}

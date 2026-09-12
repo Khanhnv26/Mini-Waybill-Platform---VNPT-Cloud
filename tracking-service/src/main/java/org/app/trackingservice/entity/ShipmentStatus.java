@@ -8,6 +8,7 @@ public enum ShipmentStatus {
     ROUTE_ASSIGNED,
     PICKED_UP,
     IN_TRANSIT,
+    ARRIVED_DEST_HUB,
     OUT_FOR_DELIVERY,
     DELIVERED,
     DELIVERY_FAILED,
@@ -31,6 +32,8 @@ public enum ShipmentStatus {
             case PICKED_UP:
                 return nextStatus == IN_TRANSIT;
             case IN_TRANSIT:
+                return nextStatus == ARRIVED_DEST_HUB;
+            case ARRIVED_DEST_HUB:
                 return nextStatus == OUT_FOR_DELIVERY;
             case OUT_FOR_DELIVERY:
                 return Set.of(DELIVERED, DELIVERY_FAILED).contains(nextStatus);

@@ -24,24 +24,40 @@ public class CreateShipmentRequest {
     private String senderName;
 
     @NotBlank(message = "Số điện thoại người gửi không được để trống")
-    @Pattern(regexp = "^(0|\\+84)(3|5|7|8|9)[0-9]{8}$", message = "Số điện thoại người gửi không đúng định dạng di động Việt Nam")
+    @Pattern(regexp = "^(0|\\+84)(2|3|5|7|8|9)[0-9]{8,9}$", message = "Số điện thoại người gửi không đúng định dạng số điện thoại Việt Nam")
     private String senderPhone;
 
     @NotBlank(message = "Địa chỉ người gửi không được để trống")
     @Size(min = 8, max = 255, message = "Địa chỉ người gửi phải từ 8 đến 255 ký tự")
     private String senderAddress;
 
+    @DecimalMin(value = "-90.0", message = "Vĩ độ người gửi không hợp lệ")
+    @DecimalMax(value = "90.0", message = "Vĩ độ người gửi không hợp lệ")
+    private Double senderLatitude;
+
+    @DecimalMin(value = "-180.0", message = "Kinh độ người gửi không hợp lệ")
+    @DecimalMax(value = "180.0", message = "Kinh độ người gửi không hợp lệ")
+    private Double senderLongitude;
+
     @NotBlank(message = "Tên người nhận không được để trống")
     @Size(min = 2, max = 100, message = "Tên người nhận phải từ 2 đến 100 ký tự")
     private String receiverName;
 
     @NotBlank(message = "Số điện thoại người nhận không được để trống")
-    @Pattern(regexp = "^(0|\\+84)(3|5|7|8|9)[0-9]{8}$", message = "Số điện thoại người nhận không đúng định dạng di động Việt Nam")
+    @Pattern(regexp = "^(0|\\+84)(2|3|5|7|8|9)[0-9]{8,9}$", message = "Số điện thoại người nhận không đúng định dạng số điện thoại Việt Nam")
     private String receiverPhone;
 
     @NotBlank(message = "Địa chỉ người nhận không được để trống")
     @Size(min = 8, max = 255, message = "Địa chỉ người nhận phải từ 8 đến 255 ký tự")
     private String receiverAddress;
+
+    @DecimalMin(value = "-90.0", message = "Vĩ độ người nhận không hợp lệ")
+    @DecimalMax(value = "90.0", message = "Vĩ độ người nhận không hợp lệ")
+    private Double receiverLatitude;
+
+    @DecimalMin(value = "-180.0", message = "Kinh độ người nhận không hợp lệ")
+    @DecimalMax(value = "180.0", message = "Kinh độ người nhận không hợp lệ")
+    private Double receiverLongitude;
 
     private ServiceType serviceType;
 

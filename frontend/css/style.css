@@ -102,6 +102,57 @@ body {
     z-index: 500;
 }
 
+/* Bưu cục gửi (Tiếp nhận Cấp 2/3) */
+.hub-pin-postoffice {
+    width: 14px;
+    height: 14px;
+    background: #7c3aed;
+    border: 2.5px solid #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 2px 5px rgba(124, 58, 237, 0.35);
+    cursor: pointer;
+}
+
+/* Bưu cục phát (Đích địa phương Cấp 2/3) */
+.hub-pin-delivery-post {
+    width: 14px;
+    height: 14px;
+    background: #ea580c;
+    border: 2.5px solid #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 2px 5px rgba(234, 88, 12, 0.35);
+    cursor: pointer;
+}
+
+/* Điểm giao tận tay Người nhận */
+.customer-pin {
+    width: 16px;
+    height: 16px;
+    background: #059669;
+    border: 3px solid #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 2px 6px rgba(5, 150, 105, 0.4);
+    cursor: pointer;
+}
+
+/* Bưu tá / Shipper xe máy giao chặng cuối */
+.shipper-motorcycle-pin {
+    width: 24px;
+    height: 24px;
+    background: #059669;
+    color: #ffffff;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.3);
+    animation: radar-pulse 1.6s infinite cubic-bezier(0, 0, 0.2, 1);
+    font-size: 12px;
+    cursor: pointer;
+    z-index: 600;
+}
+
 @keyframes radar-pulse {
     0% {
         box-shadow: 0 0 0 0 rgba(2, 132, 199, 0.75);
@@ -349,4 +400,23 @@ body {
     transform: translateY(-4px);
 }
 
+/* 3. Modal Popup Transition (Fade + Scale 300ms) */
+.modal-enter-active,
+.modal-leave-active {
+    transition: opacity 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-enter-from,
+.modal-leave-to {
+    opacity: 0;
+}
+
+/* Modal content panel: scale nhẹ từ 0.95 → 1 */
+.modal-enter-active > div,
+.modal-leave-active > div {
+    transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-enter-from > div,
+.modal-leave-to > div {
+    transform: scale(0.95);
+}
 

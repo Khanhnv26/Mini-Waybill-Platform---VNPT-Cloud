@@ -27,9 +27,26 @@ public class Hub {
     @Column(name = "province", nullable = false, length = 100, columnDefinition = "NVARCHAR(100)")
     private String province;
 
+    @Column(name = "address", length = 255, columnDefinition = "NVARCHAR(255)")
+    private String address;
+
     @Column(name = "latitude", nullable = false)
     private Double latitude;
 
     @Column(name = "longitude", nullable = false)
     private Double longitude;
+
+    @Column(name = "hub_type", nullable = false, length = 20)
+    @Builder.Default
+    private String hubType = "SUPER_HUB";
+
+    @Column(name = "parent_hub_code", length = 50)
+    private String parentHubCode;
+
+    @Column(name = "district", length = 100, columnDefinition = "NVARCHAR(100)")
+    private String district;
+
+    @Column(name = "hub_level")
+    @Builder.Default
+    private Integer hubLevel = 1;
 }

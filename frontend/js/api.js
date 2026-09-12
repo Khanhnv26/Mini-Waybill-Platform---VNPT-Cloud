@@ -93,6 +93,77 @@ const Api = {
         }
     },
 
+    async parseError(response, fallbackMessage = 'Yêu cầu không thành công') {
+        let payload = null;
+
+        // Đọc từ bản sao trước để không làm mất body của Response gốc khi cần dùng tiếp.
+        const readBody = async (candidate) => {
+            if (!candidate) return null;
+            if (typeof candidate.text === 'function') {
+                try {
+                    const raw = await candidate.text();
+                    if (raw === undefined || raw === null || raw === '') return null;
+                    try {
+                        return JSON.parse(raw);
+                    } catch (e) {
+                        return raw;
+                    }
+                } catch (e) {
+                    return null;
+                }
+            }
+            if (typeof candidate.json === 'function') {
+                try {
+                    return await candidate.json();
+                } catch (e) {
+                    return null;
+                }
+            }
+            return null;
+        };
+
+        if (response) {
+            let candidate = response;
+            if (typeof response.clone === 'function') {
+                try {
+                    candidate = response.clone();
+                } catch (e) {
+                    candidate = response;
+                }
+            }
+            payload = await readBody(candidate);
+
+            // Một số mock Response chỉ hỗ trợ json(), không hỗ trợ text()/clone().
+            if (payload === null && candidate !== response) {
+                payload = await readBody(response);
+            }
+        }
+
+        if (payload === null || payload === undefined) {
+            payload = {};
+        }
+
+        const body = payload && typeof payload === 'object' ? payload : {};
+        const nestedError = body.error && typeof body.error === 'object' ? body.error : {};
+        const message = body.message
+            || (typeof body.error === 'string' ? body.error : null)
+            || nestedError.message
+            || body.detail
+            || body.title
+            || (typeof payload === 'string' ? payload : null)
+            || fallbackMessage;
+        const error = new Error(String(message));
+        error.status = response?.status ?? body.status ?? null;
+        error.code = body.errorCode
+            ?? body.code
+            ?? nestedError.errorCode
+            ?? nestedError.code
+            ?? body.statusCode
+            ?? null;
+        error.details = payload;
+        return error;
+    },
+
     get(endpoint, headers = {}) {
         return this.request(endpoint, { method: 'GET', headers });
     },
@@ -108,6 +179,14 @@ const Api = {
     put(endpoint, body, headers = {}) {
         return this.request(endpoint, {
             method: 'PUT',
+            body: typeof body === 'string' ? body : JSON.stringify(body),
+            headers
+        });
+    },
+
+    patch(endpoint, body, headers = {}) {
+        return this.request(endpoint, {
+            method: 'PATCH',
             body: typeof body === 'string' ? body : JSON.stringify(body),
             headers
         });
