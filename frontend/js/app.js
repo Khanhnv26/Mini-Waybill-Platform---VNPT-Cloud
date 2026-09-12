@@ -16,6 +16,140 @@
             const previousTab = ref(null);
             const selectedCustomerForShipment = ref(null);
             const isSidebarCollapsed = ref(true);
+            const showUserProfileModal = ref(false);
+            const userProfile = ref(null);
+            const isLoadingUserProfile = ref(false);
+            const isSavingUserProfile = ref(false);
+            const profileFormData = reactive({
+                fullName: '',
+                phoneNumber: '',
+                address: ''
+            });
+            const stationFieldNames = ['locationCode', 'postOfficeCode', 'hubCode'];
+            const profileStorageFields = ['fullName', 'phoneNumber', 'address', ...stationFieldNames];
+
+            const normalizeStationCode = (value) => {
+                if (typeof value !== 'string' && typeof value !== 'number') return '';
+                return String(value).trim();
+            };
+
+            const readStoredObject = (key) => {
+                try {
+                    const raw = localStorage.getItem(key);
+                    if (!raw) return null;
+                    const parsed = JSON.parse(raw);
+                    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+                } catch (err) {
+                    return null;
+                }
+            };
+
+            const getStationFields = (...sources) => {
+                const context = {
+                    locationCode: '',
+                    postOfficeCode: '',
+                    hubCode: ''
+                };
+
+                sources.forEach(source => {
+                    if (!source || typeof source !== 'object') return;
+                    stationFieldNames.forEach(field => {
+                        if (!context[field]) {
+                            context[field] = normalizeStationCode(source[field]);
+                        }
+                    });
+                });
+
+                return context;
+            };
+
+            const getProfileStoragePatch = (source) => {
+                const patch = {};
+                if (!source || typeof source !== 'object') return patch;
+
+                profileStorageFields.forEach(field => {
+                    if (!Object.prototype.hasOwnProperty.call(source, field)) return;
+                    if (stationFieldNames.includes(field)) {
+                        const value = normalizeStationCode(source[field]);
+                        if (value) patch[field] = value;
+                        return;
+                    }
+
+                    const value = typeof source[field] === 'string'
+                        ? source[field].trim()
+                        : source[field];
+                    if (value !== undefined && value !== null && value !== '') {
+                        patch[field] = value;
+                    }
+                });
+
+                return patch;
+            };
+
+            const persistUserProfilePatch = (patch) => {
+                if (!patch || Object.keys(patch).length === 0 || typeof localStorage === 'undefined') return;
+
+                try {
+                    const canonicalUser = readStoredObject('user') || (currentUser.value ? { ...currentUser.value } : null);
+                    const nextUser = canonicalUser ? { ...canonicalUser, ...patch } : null;
+                    if (nextUser) {
+                        localStorage.setItem('user', JSON.stringify(nextUser));
+                    }
+
+                    // auth_user is retained as a legacy mirror; Auth continues to own authentication via user/accessToken.
+                    const legacyUser = readStoredObject('auth_user');
+                    const nextLegacyUser = legacyUser || nextUser;
+                    if (nextLegacyUser) {
+                        localStorage.setItem('auth_user', JSON.stringify({ ...nextLegacyUser, ...patch }));
+                    }
+                } catch (err) {
+                    console.warn('[app.js] Không thể đồng bộ hồ sơ người dùng:', err);
+                }
+            };
+
+            const syncProfileToCurrentUser = (source, persist = false) => {
+                const patch = getProfileStoragePatch(source);
+                if (currentUser.value && Object.keys(patch).length > 0) {
+                    currentUser.value = { ...currentUser.value, ...patch };
+                }
+                if (persist) {
+                    persistUserProfilePatch(patch);
+                }
+            };
+
+            const stationContext = computed(() => {
+                const context = getStationFields(currentUser.value, userProfile.value);
+                const primaryCode = context.locationCode || context.postOfficeCode || context.hubCode;
+                return {
+                    ...context,
+                    primaryCode,
+                    hasStation: Boolean(primaryCode)
+                };
+            });
+
+            const stationDisplayData = computed(() => {
+                const context = stationContext.value;
+                const labels = [];
+                if (context.locationCode) labels.push(`Vị trí: ${context.locationCode}`);
+                if (context.postOfficeCode) labels.push(`Bưu cục: ${context.postOfficeCode}`);
+                if (context.hubCode) labels.push(`Hub: ${context.hubCode}`);
+
+                return {
+                    ...context,
+                    code: context.primaryCode,
+                    label: context.primaryCode || 'Chưa phân công trạm',
+                    summary: labels.join(' · ') || 'Chưa phân công trạm'
+                };
+            });
+
+            const activateTab = (tabId) => {
+                if (tabId !== 'tracking') {
+                    currentTrackingCode.value = '';
+                }
+                currentTab.value = tabId;
+            };
+
+
             const toggleSidebarCollapse = () => {
                 isSidebarCollapsed.value = !isSidebarCollapsed.value;
                 setTimeout(() => {
@@ -142,16 +276,16 @@
             // Xử lý khi khách vãng lai bấm các tiện ích ở sidebar (Hướng B)
             const handleGuestTabClick = (tab) => {
                 if (tab.id === 'tracking') {
-                    currentTab.value = 'tracking';
+                    activateTab('tracking');
                 } else {
-                    currentTab.value = tab.id;
+                    activateTab(tab.id);
                     currentFeatureId.value = tab.id;
                 }
             };
 
             // Quay lại trang Tra Cứu chính từ màn hình Đang Phát Triển
             const handleBackToHome = () => {
-                currentTab.value = 'tracking';
+                activateTab('tracking');
             };
 
             // 3. View Component động tương ứng với tab được chọn
@@ -202,7 +336,7 @@
                 if (tabId !== 'shipment') {
                     selectedCustomerForShipment.value = null;
                 }
-                currentTab.value = tabId;
+                activateTab(tabId)
             };
 
             // Khi click xem chi tiết vận đơn từ bất kỳ màn hình nào (Kho, Bưu tá, Khởi tạo, Điều phối)
@@ -213,13 +347,13 @@
                 previousTab.value = srcObj ? { id: srcObj.id, name: srcObj.name } : null;
                 currentTrackingCode.value = trackingCode.trim();
                 selectedCustomerForShipment.value = null;
-                currentTab.value = 'tracking';
+                activateTab('tracking');
             };
 
             // Khi người dùng bấm nút "Quay lại trang trước" từ TrackingView
             const handleBackToPreviousTab = () => {
                 if (previousTab.value && previousTab.value.id) {
-                    currentTab.value = previousTab.value.id;
+                    activateTab(previousTab.value.id);
                 }
                 previousTab.value = null;
             };
@@ -265,16 +399,6 @@
             };
 
             // 6. Quản Lý Hồ Sơ Cá Nhân & Thông Tin Shop (Global Profile Modal)
-            const showUserProfileModal = ref(false);
-            const userProfile = ref(null);
-            const isLoadingUserProfile = ref(false);
-            const isSavingUserProfile = ref(false);
-            const profileFormData = reactive({
-                fullName: '',
-                phoneNumber: '',
-                address: ''
-            });
-
             const openUserProfileModal = async () => {
                 if (typeof Auth === 'undefined' || !Auth.isAuthenticated()) {
                     window.location.href = 'login.html';
@@ -286,6 +410,7 @@
                     const prof = await CustomerService.getMyProfile();
                     if (prof) {
                         userProfile.value = prof;
+                        syncProfileToCurrentUser(prof);
                         profileFormData.fullName = prof.fullName || currentUser.value?.fullName || '';
                         profileFormData.phoneNumber = prof.phoneNumber || '';
                         profileFormData.address = prof.address || '';
@@ -314,15 +439,13 @@
                         phoneNumber: profileFormData.phoneNumber.trim(),
                         address: profileFormData.address.trim()
                     });
-                    userProfile.value = updated;
-                    if (currentUser.value) {
-                        currentUser.value.fullName = updated.fullName;
-                    }
-                    try {
-                        const stored = JSON.parse(localStorage.getItem('auth_user') || '{}');
-                        stored.fullName = updated.fullName;
-                        localStorage.setItem('auth_user', JSON.stringify(stored));
-                    } catch (e) {}
+                    const updatedProfile = updated && typeof updated === 'object' ? updated : {
+                        fullName: profileFormData.fullName.trim(),
+                        phoneNumber: profileFormData.phoneNumber.trim(),
+                        address: profileFormData.address.trim()
+                    };
+                    userProfile.value = updatedProfile;
+                    syncProfileToCurrentUser(updatedProfile, true);
 
                     Utils.showToast('Thành Công', 'Đã cập nhật hồ sơ tài khoản!');
                     showUserProfileModal.value = false;
@@ -348,6 +471,8 @@
 
             return {
                 currentUser,
+                stationContext,
+                stationDisplayData,
                 currentTab,
                 currentTabTitle,
                 previousTab,
