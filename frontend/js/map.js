@@ -316,6 +316,17 @@
         lastMilePolyline: null,
         shipperMarker: null,
 
+        // State riêng cho bản đồ chuyến xe; không dùng chung với tracking map của bưu gửi.
+        tripMap: null,
+        tripContainerId: null,
+        tripMapOwned: false,
+        tripMarkersGroup: null,
+        tripStopsGroup: null,
+        tripRouteLayer: null,
+        tripMarker: null,
+        tripMarkerAnimFrame: null,
+        tripState: null,
+
         // Mạng lưới trạm chốt hành lang nội địa dọc QL1A và Cao tốc Bắc - Nam CT01
         vietnamCorridorWaypoints: [
             { name: 'Ninh Bình (CT01)', lat: 20.2506, lng: 105.9745 },
@@ -383,6 +394,16 @@
             if (this.map && this.currentContainerId === containerId && el._leaflet_id) {
                 this.map.invalidateSize();
                 return;
+            }
+
+            // Nếu trip map đang dùng chung container này, xoá layer riêng trước khi huỷ map.
+            if (this.tripMap === this.map) {
+                this.clearTripLayers();
+                this.tripMap = null;
+                this.tripContainerId = null;
+                this.tripMapOwned = false;
+                this.tripMarkersGroup = null;
+                this.tripStopsGroup = null;
             }
 
             // Nếu đổi sang container khác hoặc map cũ bị mất, dọn dẹp an toàn
@@ -641,6 +662,580 @@
         // Lấy thông tin tọa độ bưu cục
         getHubCoord(hubCode) {
             return hubCode ? this.hubCoordinates[hubCode] || null : null;
+        },
+
+        /**
+         * Các helper dưới đây phục vụ riêng cho bản đồ chuyến xe.
+         * Không dùng STATUS_RATIOS, routePoints, radarMarker hoặc marker animation
+         * của tracking map để tránh chuyến xe làm thay đổi vị trí bưu gửi.
+         */
+        hasLeaflet() {
+            return typeof L !== 'undefined' && L !== null && typeof L.map === 'function';
+        },
+
+        getTripText(value) {
+            if (value === null || value === undefined) return '';
+            if (typeof value === 'object') {
+                return String(value.code || value.hubCode || value.locationCode || value.name || value.label || '').trim();
+            }
+            return String(value).trim();
+        },
+
+        getTripNumber(value) {
+            if (value === null || value === undefined || value === '' || typeof value === 'boolean') return null;
+            const number = Number(value);
+            return Number.isFinite(number) ? number : null;
+        },
+
+        normalizeTripCoordinate(latitude, longitude) {
+            const lat = this.getTripNumber(latitude);
+            const lng = this.getTripNumber(longitude);
+            if (lat === null || lng === null || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+                return null;
+            }
+            return { lat, lng };
+        },
+
+        getTripCoordinate(value) {
+            if (!value) return null;
+
+            if (Array.isArray(value) && value.length >= 2) {
+                return this.normalizeTripCoordinate(value[0], value[1]);
+            }
+
+            if (typeof value !== 'object') return null;
+
+            const nested = value.coordinates || value.coordinate || value.location || value.hub;
+            if (nested && nested !== value) {
+                const nestedCoordinate = this.getTripCoordinate(nested);
+                if (nestedCoordinate) return nestedCoordinate;
+            }
+
+            return this.normalizeTripCoordinate(
+                value.latitude !== undefined
+                    ? value.latitude
+                    : (value.lat !== undefined
+                        ? value.lat
+                        : (value.stopLatitude !== undefined ? value.stopLatitude : value.hubLatitude)),
+                value.longitude !== undefined
+                    ? value.longitude
+                    : (value.lng !== undefined
+                        ? value.lng
+                        : (value.lon !== undefined
+                            ? value.lon
+                            : (value.stopLongitude !== undefined ? value.stopLongitude : value.hubLongitude)))
+            );
+        },
+
+        normalizeTripArguments(input, mapId, currentLocationCode, currentLatitude, currentLongitude, progressPercent, vehiclePlate, stops, legacyMapId) {
+            if (input && typeof input === 'object' && !Array.isArray(input)) {
+                return {
+                    payload: input,
+                    mapId: typeof mapId === 'string' && mapId.trim() ? mapId.trim() : input.mapId
+                };
+            }
+
+            // Tương thích với caller cũ truyền positional arguments.
+            return {
+                payload: {
+                    tripCode: input,
+                    tripType: mapId,
+                    currentLocationCode,
+                    currentLatitude,
+                    currentLongitude,
+                    progressPercent,
+                    vehiclePlate,
+                    stops
+                },
+                mapId: legacyMapId
+            };
+        },
+
+        normalizeTripPayload(payload) {
+            const source = payload && typeof payload === 'object' ? payload : {};
+            const currentHub = source.currentHub !== undefined ? source.currentHub : source.hub;
+            const currentLocation = source.currentLocation && typeof source.currentLocation === 'object'
+                ? source.currentLocation
+                : {};
+            const currentHubCode = this.getTripText(currentHub);
+            const currentLocationCode = this.getTripText(
+                source.currentLocationCode !== undefined
+                    ? source.currentLocationCode
+                    : (source.locationCode !== undefined
+                        ? source.locationCode
+                        : (currentLocation.code || currentLocation.locationCode || currentLocation.hubCode || currentHubCode))
+            );
+
+            const currentLatitude = source.currentLatitude !== undefined
+                ? source.currentLatitude
+                : (source.currentLat !== undefined
+                    ? source.currentLat
+                    : (source.backendLatitude !== undefined
+                        ? source.backendLatitude
+                        : (source.latitude !== undefined
+                            ? source.latitude
+                            : (currentLocation.latitude !== undefined
+                                ? currentLocation.latitude
+                                : (currentHub && typeof currentHub === 'object' ? currentHub.latitude : undefined)))));
+            const currentLongitude = source.currentLongitude !== undefined
+                ? source.currentLongitude
+                : (source.currentLng !== undefined
+                    ? source.currentLng
+                    : (source.backendLongitude !== undefined
+                        ? source.backendLongitude
+                        : (source.longitude !== undefined
+                            ? source.longitude
+                            : (currentLocation.longitude !== undefined
+                                ? currentLocation.longitude
+                                : (currentHub && typeof currentHub === 'object' ? currentHub.longitude : undefined)))));
+
+            let progressPercent = source.progressPercent;
+            if (progressPercent === undefined) progressPercent = source.progressPercentage;
+            if (progressPercent === undefined) progressPercent = source.progress;
+            if (progressPercent === undefined) progressPercent = source.percent;
+            const numericProgress = this.getTripNumber(progressPercent);
+
+            const stops = Array.isArray(source.stops)
+                ? source.stops
+                : (Array.isArray(source.stopList)
+                    ? source.stopList
+                    : (Array.isArray(source.routeStops) ? source.routeStops : []));
+
+            return {
+                ...source,
+                tripCode: source.tripCode !== undefined ? source.tripCode : (source.tripId !== undefined ? source.tripId : source.code),
+                tripType: source.tripType !== undefined ? source.tripType : source.type,
+                currentHub,
+                currentLocationCode,
+                currentLatitude,
+                currentLongitude,
+                progressPercent: numericProgress === null
+                    ? null
+                    : Math.max(0, Math.min(100, numericProgress)),
+                vehiclePlate: source.vehiclePlate !== undefined
+                    ? source.vehiclePlate
+                    : (source.plateNumber !== undefined ? source.plateNumber : source.plate),
+                stops
+            };
+        },
+
+        resolveTripState(payload) {
+            const normalized = this.normalizeTripPayload(payload);
+            const stops = Array.isArray(normalized.stops) ? normalized.stops : [];
+            const currentCode = this.getTripText(normalized.currentLocationCode).toUpperCase();
+            const currentHubCode = this.getTripText(normalized.currentHub).toUpperCase();
+            const codes = [currentCode, currentHubCode].filter(Boolean);
+
+            let currentStop = null;
+            if (codes.length > 0) {
+                currentStop = stops.find(stop => {
+                    if (!stop || typeof stop !== 'object') return false;
+                    const stopHub = stop.hub && typeof stop.hub === 'object' ? stop.hub : {};
+                    const stopLocation = stop.location && typeof stop.location === 'object' ? stop.location : {};
+                    const stopCode = this.getTripText(
+                        stop.stopCode !== undefined
+                            ? stop.stopCode
+                            : (stop.locationCode !== undefined
+                                ? stop.locationCode
+                                : (stop.hubCode !== undefined
+                                    ? stop.hubCode
+                                    : (stop.code !== undefined
+                                        ? stop.code
+                                        : (stopLocation.code || stopLocation.locationCode || stopHub.hubCode || stopHub.code))))
+                    ).toUpperCase();
+                    return stopCode && codes.includes(stopCode);
+                }) || null;
+            }
+
+            // Chỉ dùng cờ rõ ràng từ stop; tuyệt đối không suy ra vị trí từ shipment status.
+            if (!currentStop) {
+                currentStop = stops.find(stop => stop && typeof stop === 'object' && (
+                    stop.isCurrent === true || stop.current === true || stop.active === true || stop.isActive === true
+                )) || null;
+            }
+            if (!currentStop && stops.length === 1) currentStop = stops[0];
+
+            const backendCoordinate = this.normalizeTripCoordinate(
+                normalized.currentLatitude,
+                normalized.currentLongitude
+            );
+            const stopCoordinate = currentStop ? this.getTripCoordinate(currentStop) : null;
+            const coordinate = backendCoordinate || stopCoordinate;
+
+            return {
+                ...normalized,
+                currentLocationCode: this.getTripText(normalized.currentLocationCode) || null,
+                currentPoint: coordinate ? [coordinate.lat, coordinate.lng] : null,
+                coordinateSource: backendCoordinate ? 'backend' : (stopCoordinate ? 'stop' : null),
+                currentStop
+            };
+        },
+
+        ensureTripMap(mapId) {
+            if (!this.hasLeaflet()) return null;
+
+            const requestedId = typeof mapId === 'string' && mapId.trim()
+                ? mapId.trim()
+                : (this.tripContainerId || 'trip-map');
+
+            if (this.tripMap && this.tripContainerId === requestedId) {
+                try {
+                    if (typeof this.tripMap.invalidateSize === 'function') this.tripMap.invalidateSize();
+                    return this.tripMap;
+                } catch (e) {
+                    this.tripMap = null;
+                    this.tripContainerId = null;
+                    this.tripMapOwned = false;
+                    this.tripMarkersGroup = null;
+                    this.tripStopsGroup = null;
+                    this.tripRouteLayer = null;
+                    this.tripMarker = null;
+                }
+            }
+
+            const oldTripMap = this.tripMap;
+            if (oldTripMap && oldTripMap !== this.map && this.tripMapOwned) {
+                try {
+                    if (typeof oldTripMap.remove === 'function') oldTripMap.remove();
+                } catch (e) {}
+            }
+            this.clearTripLayers();
+            this.tripMap = null;
+            this.tripContainerId = null;
+            this.tripMapOwned = false;
+
+            // Chỉ dùng map tracking khi caller truyền đúng container một cách tường minh.
+            if (requestedId === this.currentContainerId && this.map) {
+                this.tripMap = this.map;
+                this.tripContainerId = requestedId;
+                this.tripMapOwned = false;
+                this.createTripLayerGroups();
+                return this.tripMap;
+            }
+
+            if (typeof document === 'undefined' || !document.getElementById) return null;
+            const element = document.getElementById(requestedId);
+            if (!element) return null;
+
+            // Không đụng vào một Leaflet map khác nếu không phải map đang được quản lý ở đây.
+            if (element._leaflet_id) return null;
+
+            try {
+                this.tripMap = L.map(requestedId, {
+                    zoomControl: true,
+                    minZoom: 4,
+                    maxZoom: 20
+                });
+                this.tripContainerId = requestedId;
+                this.tripMapOwned = true;
+
+                if (typeof L.tileLayer === 'function') {
+                    const baseLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; OpenStreetMap | Bưu chính VNPT',
+                        maxZoom: 19,
+                        keepBuffer: 4,
+                        updateWhenIdle: false
+                    });
+                    if (baseLayer && typeof baseLayer.addTo === 'function') baseLayer.addTo(this.tripMap);
+                }
+                this.createTripLayerGroups();
+                return this.tripMap;
+            } catch (e) {
+                this.tripMap = null;
+                this.tripContainerId = null;
+                this.tripMapOwned = false;
+                this.tripMarkersGroup = null;
+                this.tripStopsGroup = null;
+                this.tripRouteLayer = null;
+                this.tripMarker = null;
+                return null;
+            }
+        },
+
+        createTripLayerGroups() {
+            if (!this.tripMap || typeof L === 'undefined' || typeof L.layerGroup !== 'function') return;
+
+            if (!this.tripMarkersGroup) {
+                this.tripMarkersGroup = L.layerGroup();
+                if (this.tripMarkersGroup && typeof this.tripMarkersGroup.addTo === 'function') {
+                    this.tripMarkersGroup.addTo(this.tripMap);
+                }
+            }
+            if (!this.tripStopsGroup) {
+                this.tripStopsGroup = L.layerGroup();
+                if (this.tripStopsGroup && typeof this.tripStopsGroup.addTo === 'function') {
+                    this.tripStopsGroup.addTo(this.tripMap);
+                }
+            }
+        },
+
+        clearTripLayers() {
+            if (this.tripMarkerAnimFrame && typeof cancelAnimationFrame === 'function') {
+                cancelAnimationFrame(this.tripMarkerAnimFrame);
+            }
+            this.tripMarkerAnimFrame = null;
+
+            if (this.tripStopsGroup && typeof this.tripStopsGroup.clearLayers === 'function') {
+                this.tripStopsGroup.clearLayers();
+            }
+            if (this.tripMarkersGroup && typeof this.tripMarkersGroup.clearLayers === 'function') {
+                this.tripMarkersGroup.clearLayers();
+            }
+            if (this.tripRouteLayer && this.tripMap && typeof this.tripMap.removeLayer === 'function') {
+                try {
+                    this.tripMap.removeLayer(this.tripRouteLayer);
+                } catch (e) {}
+            }
+            this.tripRouteLayer = null;
+            this.tripMarker = null;
+        },
+
+        escapeTripHtml(value) {
+            return String(value === null || value === undefined ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        },
+
+        buildTripTooltip(state) {
+            const tripCode = this.escapeTripHtml(state.tripCode || 'Chuyến xe');
+            const tripType = this.escapeTripHtml(state.tripType || '');
+            const location = this.escapeTripHtml(state.currentLocationCode || this.getTripText(state.currentHub) || 'Chưa xác định');
+            const plate = this.escapeTripHtml(state.vehiclePlate || 'Chưa cập nhật');
+            const progress = state.progressPercent === null || state.progressPercent === undefined
+                ? 'Chưa cập nhật'
+                : `${Math.round(state.progressPercent)}%`;
+
+            return `
+                <div style="font-size: 11px; font-weight: 700; color: #0f172a;">${tripCode}</div>
+                ${tripType ? `<div style="font-size: 10px; color: #475569;">Loại chuyến: ${tripType}</div>` : ''}
+                <div style="font-size: 10px; color: #0066cc; font-family: monospace; font-weight: 600;">TIẾN ĐỘ: ${progress}</div>
+                <div style="font-size: 10px; color: #475569;">Vị trí: ${location}</div>
+                <div style="font-size: 10px; color: #475569;">Biển số: ${plate}</div>
+            `;
+        },
+
+        getTripIcon(className, size = 16) {
+            if (typeof L === 'undefined' || typeof L.divIcon !== 'function') return null;
+            return L.divIcon({
+                className,
+                iconSize: [size, size],
+                iconAnchor: [Math.round(size / 2), Math.round(size / 2)]
+            });
+        },
+
+        addTripLayer(layer, group) {
+            if (!layer || !this.tripMap) return false;
+            if (group && typeof group.addLayer === 'function') {
+                group.addLayer(layer);
+                return true;
+            }
+            if (typeof layer.addTo === 'function') {
+                layer.addTo(this.tripMap);
+                return true;
+            }
+            return false;
+        },
+
+        renderTripStops(state) {
+            if (this.tripStopsGroup && typeof this.tripStopsGroup.clearLayers === 'function') {
+                this.tripStopsGroup.clearLayers();
+            }
+            if (!this.tripMap || typeof L === 'undefined' || typeof L.marker !== 'function') return [];
+
+            const points = [];
+            (Array.isArray(state.stops) ? state.stops : []).forEach((stop, index) => {
+                const coordinate = this.getTripCoordinate(stop);
+                if (!coordinate) return;
+                points.push([coordinate.lat, coordinate.lng]);
+
+                const stopName = this.getTripText(
+                    stop && (stop.stopName || stop.hubName || stop.name || stop.locationName || stop.stopCode || stop.hubCode || stop.code)
+                ) || `Điểm dừng ${index + 1}`;
+                const iconClass = index === 0
+                    ? 'trip-stop-start'
+                    : (index === state.stops.length - 1 ? 'trip-stop-end' : 'trip-stop');
+                const icon = this.getTripIcon(iconClass, 14);
+                const options = icon ? { icon } : {};
+                let marker;
+                try {
+                    marker = L.marker([coordinate.lat, coordinate.lng], options);
+                    if (marker && typeof marker.bindTooltip === 'function') {
+                        marker.bindTooltip(this.escapeTripHtml(stopName), {
+                            direction: 'top',
+                            offset: [0, -8],
+                            className: 'trip-stop-tooltip'
+                        });
+                    }
+                    this.addTripLayer(marker, this.tripStopsGroup);
+                } catch (e) {}
+            });
+
+            if (points.length > 1 && typeof L.polyline === 'function') {
+                try {
+                    this.tripRouteLayer = L.polyline(points, {
+                        color: '#7c3aed',
+                        weight: 3,
+                        opacity: 0.75,
+                        dashArray: '5, 7',
+                        lineJoin: 'round',
+                        lineCap: 'round'
+                    });
+                    this.addTripLayer(this.tripRouteLayer, this.tripMarkersGroup);
+                } catch (e) {
+                    this.tripRouteLayer = null;
+                }
+            }
+
+            return points;
+        },
+
+        animateTripMarkerTo(targetPoint, duration = 700) {
+            if (!this.tripMarker || !targetPoint || typeof this.tripMarker.setLatLng !== 'function') return;
+
+            if (this.tripMarkerAnimFrame && typeof cancelAnimationFrame === 'function') {
+                cancelAnimationFrame(this.tripMarkerAnimFrame);
+                this.tripMarkerAnimFrame = null;
+            }
+
+            if (typeof this.tripMarker.getLatLng !== 'function' || typeof requestAnimationFrame !== 'function') {
+                this.tripMarker.setLatLng(targetPoint);
+                return;
+            }
+
+            const from = this.tripMarker.getLatLng();
+            if (!from || !Number.isFinite(Number(from.lat)) || !Number.isFinite(Number(from.lng))) {
+                this.tripMarker.setLatLng(targetPoint);
+                return;
+            }
+            const toLat = targetPoint[0];
+            const toLng = targetPoint[1];
+            const delta = Math.abs(from.lat - toLat) + Math.abs(from.lng - toLng);
+            if (delta < 0.0005) {
+                this.tripMarker.setLatLng(targetPoint);
+                return;
+            }
+
+            const startTime = typeof performance !== 'undefined' && typeof performance.now === 'function'
+                ? performance.now()
+                : Date.now();
+            const step = (now) => {
+                const t = Math.min(1, (now - startTime) / duration);
+                const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+                if (!this.tripMarker || typeof this.tripMarker.setLatLng !== 'function') return;
+                this.tripMarker.setLatLng([
+                    from.lat + (toLat - from.lat) * eased,
+                    from.lng + (toLng - from.lng) * eased
+                ]);
+                if (t < 1) {
+                    this.tripMarkerAnimFrame = requestAnimationFrame(step);
+                } else {
+                    this.tripMarkerAnimFrame = null;
+                }
+            };
+            this.tripMarkerAnimFrame = requestAnimationFrame(step);
+        },
+
+        buildTripResult(state) {
+            const currentPoint = state && state.currentPoint ? [state.currentPoint[0], state.currentPoint[1]] : null;
+            return {
+                tripCode: state ? state.tripCode : null,
+                tripType: state ? state.tripType : null,
+                currentLocationCode: state ? state.currentLocationCode : null,
+                currentHub: state ? state.currentHub : null,
+                currentLatitude: currentPoint ? currentPoint[0] : null,
+                currentLongitude: currentPoint ? currentPoint[1] : null,
+                progressPercent: state ? state.progressPercent : null,
+                vehiclePlate: state ? state.vehiclePlate : null,
+                stops: state && Array.isArray(state.stops) ? state.stops : [],
+                currentStop: state ? state.currentStop : null,
+                coordinateSource: state ? state.coordinateSource : null,
+                currentPoint,
+                marker: this.tripMarker || null
+            };
+        },
+
+        /**
+         * Vẽ các điểm dừng và marker chuyến xe trên trip map riêng.
+         * Không suy ra vị trí từ status của bưu gửi; chỉ dùng tọa độ backend hoặc stop hiện tại.
+         */
+        renderTripProgress(payload, mapId) {
+            const args = this.normalizeTripArguments.apply(this, arguments);
+            const state = this.resolveTripState(args.payload);
+            this.tripState = state;
+
+            const tripMap = this.ensureTripMap(args.mapId);
+            if (!tripMap) return null;
+
+            this.clearTripLayers();
+            this.createTripLayerGroups();
+            const stopPoints = this.renderTripStops(state);
+            const result = this.updateTripMarker(state, args.mapId);
+
+            // Chỉ tự căn khung khi đây là bản đồ chuyến xe do MapManager tạo.
+            if (this.tripMapOwned && typeof tripMap.fitBounds === 'function') {
+                const boundsPoints = state.currentPoint ? [state.currentPoint, ...stopPoints] : stopPoints;
+                if (boundsPoints.length > 0 && typeof L !== 'undefined' && typeof L.latLngBounds === 'function') {
+                    try {
+                        tripMap.fitBounds(L.latLngBounds(boundsPoints), { padding: [35, 35] });
+                    } catch (e) {}
+                }
+            }
+
+            return result || this.buildTripResult(state);
+        },
+
+        /**
+         * Cập nhật riêng marker chuyến xe, không đụng tới radar marker của shipment tracking.
+         */
+        updateTripMarker(payload, mapId) {
+            const args = this.normalizeTripArguments.apply(this, arguments);
+            const incoming = args.payload && typeof args.payload === 'object' && !Array.isArray(args.payload)
+                ? args.payload
+                : {};
+            const mergedPayload = this.tripState ? { ...this.tripState } : {};
+            Object.keys(incoming).forEach(key => {
+                if (incoming[key] !== undefined) mergedPayload[key] = incoming[key];
+            });
+            const state = this.resolveTripState(mergedPayload);
+            this.tripState = state;
+
+            const tripMap = this.ensureTripMap(args.mapId);
+            if (!tripMap) return null;
+            this.createTripLayerGroups();
+
+            const tooltipHtml = this.buildTripTooltip(state);
+            if (this.tripMarker && typeof this.tripMarker.setTooltipContent === 'function') {
+                this.tripMarker.setTooltipContent(tooltipHtml);
+            }
+
+            if (state.currentPoint && typeof L !== 'undefined' && typeof L.marker === 'function') {
+                const icon = this.getTripIcon('trip-vehicle-marker', 22);
+                const options = icon ? { icon, zIndexOffset: 1200 } : { zIndexOffset: 1200 };
+
+                if (!this.tripMarker) {
+                    try {
+                        this.tripMarker = L.marker(state.currentPoint, options);
+                        if (this.tripMarker && typeof this.tripMarker.bindTooltip === 'function') {
+                            this.tripMarker.bindTooltip(tooltipHtml, {
+                                permanent: true,
+                                direction: 'top',
+                                offset: [0, -12],
+                                className: 'trip-marker-tooltip'
+                            });
+                        }
+                        this.addTripLayer(this.tripMarker, this.tripMarkersGroup);
+                    } catch (e) {
+                        this.tripMarker = null;
+                    }
+                } else {
+                    this.animateTripMarkerTo(state.currentPoint);
+                }
+            }
+
+            return this.buildTripResult(state);
         },
 
         // Cập nhật tiến độ bưu kiện trên từng chặng OSRM thời gian thực
