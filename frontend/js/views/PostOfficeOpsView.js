@@ -20,44 +20,316 @@
             // Dữ liệu bưu gửi thật từ backend
             const shipmentsList = ref([]);
             const scanInputCode = ref('');
-            const selectedPostOffice = ref('ALL');
             const selectedStatusFilter = ref('ALL');
+            const normalizeCode = (value) => typeof value === 'string' ? value.trim() : '';
             const searchQuery = ref('');
+
+            const getAuthUser = () => {
+                try {
+                    return typeof Auth !== 'undefined' && typeof Auth.getUser === 'function'
+                        ? (Auth.getUser() || {})
+                        : {};
+                } catch (err) {
+                    console.warn('[PostOfficeOpsView] Không đọc được thông tin phiên:', err);
+                    return {};
+                }
+            };
+
+            const getAuthClaims = () => {
+                try {
+                    return typeof Auth !== 'undefined' && typeof Auth.decodeJwtPayload === 'function'
+                        ? (Auth.decodeJwtPayload() || {})
+                        : {};
+                } catch (err) {
+                    return {};
+                }
+            };
+
+            const authUser = getAuthUser();
+            const authClaims = getAuthClaims();
+            const isAdmin = computed(() => {
+                if (typeof Auth !== 'undefined' && typeof Auth.hasRole === 'function') {
+                    try {
+                        if (Auth.hasRole('ROLE_ADMIN') || Auth.hasRole('ADMIN')) return true;
+                    } catch (err) {
+                        // Continue with the locally available role claims.
+                    }
+                }
+                const roles = [];
+                if (typeof Auth !== 'undefined' && typeof Auth.getRoles === 'function') {
+                    try {
+                        const authRoles = Auth.getRoles();
+                        roles.push(...(Array.isArray(authRoles) ? authRoles : (authRoles ? [authRoles] : [])));
+                    } catch (err) {
+                        // Fall through to the user and JWT claims below.
+                    }
+                }
+                const declaredRoles = [
+                    authUser.roles,
+                    authUser.role,
+                    authUser.authorities,
+                    authClaims.roles,
+                    authClaims.role,
+                    authClaims.authorities
+                ].flatMap(value => Array.isArray(value) ? value : (value ? [value] : []));
+                roles.push(...declaredRoles);
+                return roles.some(role => {
+                    const normalizedRole = String(role?.authority || role?.name || role).toUpperCase();
+                    return normalizedRole === 'ROLE_ADMIN' || normalizedRole === 'ADMIN';
+                });
+            });
+
+            const firstNonBlank = (...values) => values
+                .map(normalizeCode)
+                .find(value => value && value.toUpperCase() !== 'ALL') || '';
+
+            const stationCode = computed(() => firstNonBlank(
+                authUser.locationCode,
+                authUser.postOfficeCode,
+                authUser.profile?.locationCode,
+                authUser.profile?.postOfficeCode,
+                authUser.postOffice?.locationCode,
+                authUser.postOffice?.code,
+                authClaims.locationCode,
+                authClaims.postOfficeCode,
+                authClaims.profile?.locationCode,
+                authClaims.profile?.postOfficeCode
+            ));
+
+            const stationName = computed(() => {
+                const code = stationCode.value;
+                return code && window.MapManager?.hubCoordinates?.[code]?.name
+                    ? window.MapManager.hubCoordinates[code].name
+                    : code || 'Chưa được gán bưu cục';
+            });
+
+            // ALL chỉ là phạm vi của quản trị viên. Nhân viên luôn thao tác tại
+            // locationCode/postOfficeCode được cấp trong phiên đăng nhập.
+            const selectedPostOffice = ref(isAdmin.value ? 'ALL' : stationCode.value);
 
             // Phân trang
             const currentPage = ref(1);
             const pageSize = ref(10);
 
+            const syncStationSelection = () => {
+                if (isAdmin.value) {
+                    if (!selectedPostOffice.value) selectedPostOffice.value = 'ALL';
+                    return;
+                }
+                selectedPostOffice.value = stationCode.value;
+            };
+            syncStationSelection();
+
             const getOriginPostOfficeInfo = (item) => {
-                if (!item) return { code: 'POST-HN-CG', name: 'Bưu Cục Cầu Giấy' };
+                if (!item) return { code: '', name: 'Chưa xác định' };
                 if (item.originPostOffice) {
-                    const name = window.MapManager?.hubCoordinates?.[item.originPostOffice]?.name || item.originPostOffice;
-                    return { code: item.originPostOffice, name };
+                    const code = normalizeCode(item.originPostOffice);
+                    const name = window.MapManager?.hubCoordinates?.[code]?.name || code || 'Chưa xác định';
+                    return { code, name };
                 }
                 if (item.senderAddress && window.MapManager?.getPostOfficeForAddress) {
                     const found = window.MapManager.getPostOfficeForAddress(item.senderAddress);
-                    if (found) return { code: found.code, name: found.name };
+                    if (found) return { code: normalizeCode(found.code), name: found.name || found.code || 'Chưa xác định' };
                 }
-                return { code: 'POST-HN-CG', name: 'Bưu Cục Cầu Giấy' };
+                return { code: '', name: 'Chưa xác định' };
             };
 
             const getDestPostOfficeInfo = (item) => {
-                if (!item) return { code: 'POST-DN-HC', name: 'Bưu Cục Hải Châu' };
+                if (!item) return { code: '', name: 'Chưa xác định' };
                 if (item.destPostOffice) {
-                    const name = window.MapManager?.hubCoordinates?.[item.destPostOffice]?.name || item.destPostOffice;
-                    return { code: item.destPostOffice, name };
+                    const code = normalizeCode(item.destPostOffice);
+                    const name = window.MapManager?.hubCoordinates?.[code]?.name || code || 'Chưa xác định';
+                    return { code, name };
                 }
                 if (item.receiverAddress && window.MapManager?.getPostOfficeForAddress) {
                     const found = window.MapManager.getPostOfficeForAddress(item.receiverAddress);
-                    if (found) return { code: found.code, name: found.name };
+                    if (found) return { code: normalizeCode(found.code), name: found.name || found.code || 'Chưa xác định' };
                 }
-                return { code: 'POST-DN-HC', name: 'Bưu Cục Hải Châu' };
+                return { code: '', name: 'Chưa xác định' };
             };
 
             const isAtPostOffice = (item) => {
                 if (!item) return false;
                 const loc = (item.locationCode || '').toUpperCase();
                 return loc.startsWith('POST-') || loc === 'DELIVERY_OFFICE';
+            };
+
+            const getCourierId = () => {
+                const sources = [
+                    authUser,
+                    authUser.profile,
+                    authUser.courier,
+                    authUser.employee,
+                    authClaims,
+                    authClaims.profile,
+                    authClaims.courier,
+                    authClaims.employee
+                ].filter(Boolean);
+                const fields = ['courierId', 'courierID', 'courierCode', 'deliveryAgentId', 'bikerId'];
+                for (const source of sources) {
+                    for (const field of fields) {
+                        const value = normalizeCode(source[field]);
+                        if (value) return value;
+                    }
+                }
+                return '';
+            };
+
+            const courierId = computed(getCourierId);
+            const operationStorageKey = 'post-office-ops.operation-id';
+            let sessionOperationId = null;
+
+            const getSessionOperationId = async () => {
+                if (sessionOperationId) return sessionOperationId;
+
+                try {
+                    sessionOperationId = sessionStorage.getItem(operationStorageKey);
+                } catch (err) {
+                    sessionOperationId = null;
+                }
+                if (sessionOperationId) return sessionOperationId;
+
+                const routingService = window.RoutingService;
+                const helperName = ['getOrCreateOperationId', 'createOperationId', 'generateOperationId', 'getOperationId']
+                    .find(name => routingService && typeof routingService[name] === 'function');
+                if (helperName) {
+                    try {
+                        const generatedId = await routingService[helperName]();
+                        sessionOperationId = typeof generatedId === 'object'
+                            ? (generatedId?.operationId || generatedId?.id || '')
+                            : generatedId;
+                    } catch (err) {
+                        console.warn('[PostOfficeOpsView] Không tạo được operationId từ RoutingService:', err);
+                    }
+                }
+
+                if (!normalizeCode(sessionOperationId)) {
+                    const randomPart = window.crypto?.randomUUID
+                        ? window.crypto.randomUUID()
+                        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                    sessionOperationId = `post-office-${randomPart}`;
+                }
+                sessionOperationId = normalizeCode(sessionOperationId);
+                try {
+                    sessionStorage.setItem(operationStorageKey, sessionOperationId);
+                } catch (err) {
+                    // Private browsing can disable sessionStorage; the in-memory ID is still stable.
+                }
+                return sessionOperationId;
+            };
+
+            const getRoutingService = () => window.RoutingService || null;
+            const getShipmentService = () => window.ShipmentService || null;
+
+            const unwrapCollection = (value) => {
+                if (Array.isArray(value)) return value;
+                if (!value || typeof value !== 'object') return [];
+                for (const key of ['items', 'inventory', 'shipments', 'content', 'data', 'results']) {
+                    if (Array.isArray(value[key])) return value[key];
+                }
+                return [];
+            };
+
+            const normalizeInventoryItem = (item) => {
+                if (!item || typeof item !== 'object') return null;
+                const nestedShipment = item.shipment || item.parcel || item.waybill;
+                const normalized = nestedShipment && typeof nestedShipment === 'object'
+                    ? { ...nestedShipment, ...item }
+                    : { ...item };
+                normalized.trackingCode = normalizeCode(
+                    normalized.trackingCode || normalized.code || nestedShipment?.trackingCode
+                );
+                return normalized.trackingCode ? normalized : null;
+            };
+
+            const loadAuthoritativeInventory = async () => {
+                const routingService = getRoutingService();
+                const location = isAdmin.value
+                    ? (selectedPostOffice.value !== 'ALL' ? normalizeCode(selectedPostOffice.value) : '')
+                    : stationCode.value;
+
+                if (routingService && typeof routingService.getInventory === 'function') {
+                    try {
+                        const rawInventory = await routingService.getInventory(location || undefined);
+                        return unwrapCollection(rawInventory).map(normalizeInventoryItem).filter(Boolean);
+                    } catch (err) {
+                        console.warn('[PostOfficeOpsView] RoutingService.getInventory chưa khả dụng, dùng fallback migration:', err);
+                    }
+                }
+
+                // ShipmentService is deliberately retained only as a migration fallback
+                // for deployments whose RoutingService has not exposed inventory yet or
+                // temporarily cannot serve the inventory request.
+                const shipmentService = getShipmentService();
+                if (!shipmentService || typeof shipmentService.getAll !== 'function') {
+                    throw new Error('Chưa có nguồn dữ liệu tồn kho bưu cục');
+                }
+                const fallback = await shipmentService.getAll();
+                return unwrapCollection(fallback).map(normalizeInventoryItem).filter(Boolean);
+            };
+
+            const isConflictError = (err) => {
+                const status = err?.status || err?.statusCode || err?.response?.status;
+                const text = String(err?.message || err || '').toLowerCase();
+                return Number(status) === 409 || text.includes('409') || text.includes('conflict') ||
+                    text.includes('already') || text.includes('đã được') || text.includes('đã tồn tại');
+            };
+
+            const getActionLocation = (targetStatus, customLocation, targetShipment) => {
+                const requestedLocation = normalizeCode(customLocation);
+                const currentStation = stationCode.value;
+
+                if (!isAdmin.value) {
+                    if (!currentStation) {
+                        throw new Error('Tài khoản chưa được gán locationCode/postOfficeCode nên không thể thao tác.');
+                    }
+                    if (requestedLocation && requestedLocation !== currentStation) {
+                        throw new Error(`Tài khoản chỉ được thao tác tại bưu cục ${currentStation}.`);
+                    }
+                    return currentStation;
+                }
+
+                if (requestedLocation && requestedLocation.toUpperCase() !== 'ALL') return requestedLocation;
+                if (selectedPostOffice.value && selectedPostOffice.value !== 'ALL') {
+                    return normalizeCode(selectedPostOffice.value);
+                }
+
+                let derivedLocation = '';
+                if (targetStatus === 'PICKED_UP') {
+                    derivedLocation = getOriginPostOfficeInfo(targetShipment).code;
+                } else if (targetStatus === 'OUT_FOR_DELIVERY') {
+                    derivedLocation = getDestPostOfficeInfo(targetShipment).code;
+                } else {
+                    derivedLocation = normalizeCode(targetShipment?.locationCode);
+                }
+                if (!derivedLocation || derivedLocation.toUpperCase() === 'ALL') {
+                    throw new Error('Không xác định được bưu cục tác nghiệp từ dữ liệu vận đơn. Vui lòng chọn bưu cục cụ thể.');
+                }
+                return derivedLocation;
+            };
+
+            const callRoutingOperation = async (operationName, trackingCode, locationCode, operationId, extra = {}) => {
+                const routingService = getRoutingService();
+                const operation = routingService?.[operationName];
+                if (typeof operation !== 'function') {
+                    throw new Error(`RoutingService chưa hỗ trợ thao tác ${operationName}. Vui lòng cập nhật dịch vụ định tuyến.`);
+                }
+
+                const payload = {
+                    trackingCode,
+                    locationCode,
+                    operationId,
+                    ...extra
+                };
+                const positionalArgs = operationName === 'handoffToCourier'
+                    ? [trackingCode, locationCode, extra.courierId, operationId, extra.note]
+                    : [trackingCode, locationCode, operationId, extra.note];
+
+                // Support both the positional helper contract and a single-payload
+                // helper while the routing client is being rolled out.
+                return operation.length === 1
+                    ? operation.call(routingService, payload)
+                    : operation.call(routingService, ...positionalArgs);
             };
 
             // Thống kê nhanh KPI Bưu Cục
@@ -99,35 +371,16 @@
                 }).length;
             });
 
-            // 1. Tải danh sách bưu gửi từ backend
+            // 1. Tải tồn kho từ RoutingService; ShipmentService chỉ là fallback migration.
             const loadShipmentsData = async (silent = false) => {
                 if (!silent) isLoading.value = true;
                 try {
-                    const data = await ShipmentService.getAll();
-                    if (Array.isArray(data)) {
-                        shipmentsList.value = data.map(newItem => {
-                            const existing = shipmentsList.value.find(s => s.trackingCode === newItem.trackingCode);
-                            if (existing && existing._optimisticTimestamp && (Date.now() - existing._optimisticTimestamp < 4000)) {
-                                return {
-                                    ...newItem,
-                                    currentStatus: existing.currentStatus,
-                                    status: existing.status,
-                                    locationCode: existing.locationCode,
-                                    _optimisticTimestamp: existing._optimisticTimestamp
-                                };
-                            }
-                            return {
-                                ...newItem,
-                                locationCode: existing?.locationCode || newItem.locationCode
-                            };
-                        });
-                    } else {
-                        shipmentsList.value = [];
-                    }
+                    syncStationSelection();
+                    shipmentsList.value = await loadAuthoritativeInventory();
                 } catch (err) {
-                    console.error('[PostOfficeOpsView] Lỗi tải bưu gửi:', err);
+                    console.error('[PostOfficeOpsView] Lỗi tải tồn kho bưu cục:', err);
                     if (!silent) {
-                        Utils.showToast('Lỗi Tải Dữ Liệu', err.message || 'Không thể tải danh sách bưu gửi', 'error');
+                        Utils.showToast('Lỗi Tải Dữ Liệu', err.message || 'Không thể tải tồn kho bưu gửi', 'error');
                     }
                 } finally {
                     if (!silent) isLoading.value = false;
@@ -191,6 +444,54 @@
 
 
             // 5. Thao tác nghiệp vụ Bưu Cục
+            const executePhysicalOperation = async ({ cleanCode, targetStatus, locationCode, targetShipment, note }) => {
+                const operationId = await getSessionOperationId();
+                let hadConflict = false;
+                const run = async (operationName, extra = {}) => {
+                    try {
+                        return await callRoutingOperation(
+                            operationName,
+                            cleanCode,
+                            locationCode,
+                            operationId,
+                            { ...extra, note }
+                        );
+                    } catch (err) {
+                        if (!isConflictError(err)) throw err;
+                        hadConflict = true;
+                        return null;
+                    }
+                };
+
+                if (targetStatus === 'PICKED_UP') {
+                    await run('receiveAtLocation');
+                    // Receiving and storing are separate routing operations. If the
+                    // store helper is available, complete both physical steps from
+                    // the existing "Tiếp Nhận Quầy" action.
+                    if (typeof getRoutingService()?.storeAtLocation === 'function') {
+                        await run('storeAtLocation');
+                    }
+                } else if (targetStatus === 'OUT_FOR_DELIVERY') {
+                    const currentCourierId = courierId.value || getCourierId();
+                    if (!currentCourierId) {
+                        throw new Error('Chưa có courierId của bưu tá trong tài khoản/profile. Vui lòng bổ sung mã bưu tá trước khi bàn giao.');
+                    }
+                    // A parcel arriving from a hub must be stored at the delivery
+                    // office before it can be handed to a courier.
+                    if (targetShipment?.currentStatus === 'ARRIVED_DEST_HUB' &&
+                        typeof getRoutingService()?.storeAtLocation === 'function') {
+                        await run('storeAtLocation');
+                    }
+                    await run('handoffToCourier', { courierId: currentCourierId });
+                } else if (targetStatus === 'STORED' || targetStatus === 'IN_STORAGE') {
+                    await run('storeAtLocation');
+                } else {
+                    throw new Error(`Thao tác vật lý không hỗ trợ trạng thái ${targetStatus}.`);
+                }
+
+                return { hadConflict };
+            };
+
             const handleUpdateStatus = async (trackingCode, targetStatus, customLocation, customNote) => {
                 if (!trackingCode || !trackingCode.trim()) {
                     Utils.showToast('Thông Báo', 'Vui lòng nhập mã bưu gửi cần xử lý', 'warning');
@@ -199,22 +500,12 @@
 
                 const cleanCode = trackingCode.trim();
                 const targetShipment = shipmentsList.value.find(s => s.trackingCode === cleanCode);
-
-                let locationCode = customLocation;
-                if (!locationCode) {
-                    if (selectedPostOffice.value !== 'ALL') {
-                        locationCode = selectedPostOffice.value;
-                    } else if (targetShipment) {
-                        if (targetStatus === 'PICKED_UP') {
-                            locationCode = getOriginPostOfficeInfo(targetShipment).code;
-                        } else if (targetStatus === 'OUT_FOR_DELIVERY') {
-                            locationCode = getDestPostOfficeInfo(targetShipment).code;
-                        } else {
-                            locationCode = targetShipment.locationCode || 'POST-HN-HBT';
-                        }
-                    } else {
-                        locationCode = 'POST-HN-HBT';
-                    }
+                let locationCode;
+                try {
+                    locationCode = getActionLocation(targetStatus, customLocation, targetShipment);
+                } catch (err) {
+                    Utils.showToast('Thiếu Ngữ Cảnh Bưu Cục', err.message, 'warning');
+                    return;
                 }
 
                 if (targetShipment && targetStatus === 'OUT_FOR_DELIVERY') {
@@ -227,33 +518,45 @@
 
                 isActionRunning.value = true;
                 try {
-                    await TrackingService.updateStatus(
+                    const result = await executePhysicalOperation({
                         cleanCode,
                         targetStatus,
                         locationCode,
-                        customNote || `Khai thác tại bưu cục ${locationCode}: ${Utils.formatStatusText(targetStatus)}`
-                    );
+                        targetShipment,
+                        note: customNote || `Khai thác tại bưu cục ${locationCode}: ${Utils.formatStatusText(targetStatus)}`
+                    });
 
-                    // Optimistic update
-                    if (targetShipment) {
-                        targetShipment.currentStatus = targetStatus;
-                        targetShipment.status = targetStatus;
-                        targetShipment.locationCode = locationCode;
-                        targetShipment._optimisticTimestamp = Date.now();
+                    // Always reconcile with the backend. Do not leave a local
+                    // optimistic status as the source of truth after an action.
+                    await loadShipmentsData(true);
+                    if (result.hadConflict) {
+                        Utils.showToast('Đã Đồng Bộ', `Bưu gửi ${cleanCode} đã được xử lý trước đó; tồn kho đã được tải lại.`, 'warning');
+                    } else {
+                        Utils.showToast('Thành Công', `Bưu gửi ${cleanCode} đã hoàn tất tác nghiệp tại ${locationCode}.`);
                     }
-
-                    Utils.showToast('Thành Công', `Bưu gửi ${cleanCode} đã cập nhật: ${Utils.formatStatusText(targetStatus)}`);
                     scanInputCode.value = '';
-
-                    setTimeout(() => {
-                        loadShipmentsData(true);
-                    }, 600);
                 } catch (err) {
                     console.error('[PostOfficeOpsView] Lỗi tác nghiệp:', err);
-                    Utils.showToast('Thất Bại', err.message || 'Không thể cập nhật trạng thái bưu gửi', 'error');
+                    // A receive/store chain can partially succeed, so reconcile even
+                    // when the final helper reports a non-conflict failure.
+                    await loadShipmentsData(true);
+                    if (isConflictError(err)) {
+                        Utils.showToast('Đã Có Thay Đổi', `Bưu gửi ${cleanCode} đã thay đổi trên máy chủ; dữ liệu đã được làm mới.`, 'warning');
+                    } else {
+                        Utils.showToast('Thất Bại', err.message || 'Không thể hoàn tất tác nghiệp bưu cục', 'error');
+                    }
                 } finally {
                     isActionRunning.value = false;
                 }
+            };
+
+            const handleStoreAtLocation = (trackingCode, customLocation, customNote) => {
+                return handleUpdateStatus(
+                    trackingCode,
+                    'STORED',
+                    customLocation,
+                    customNote || 'Bưu cục đã xác nhận lưu kho tại địa điểm tác nghiệp'
+                );
             };
 
             // Quét mã nhanh từ ô Input
@@ -292,6 +595,10 @@
                 selectedPostOffice,
                 selectedStatusFilter,
                 searchQuery,
+                isAdmin,
+                stationCode,
+                stationName,
+                courierId,
                 currentPage,
                 pageSize,
                 totalPages,
@@ -306,6 +613,7 @@
                 isAtPostOffice,
                 loadShipmentsData,
                 handleUpdateStatus,
+                handleStoreAtLocation,
                 handleQuickScan,
                 viewTrackingDetail,
                 Utils
@@ -330,6 +638,10 @@
                         </h1>
                         <p class="text-xs text-cyan-100/90 mt-0.5 leading-normal">
                             Bàn tác nghiệp giao dịch viên: Tiếp nhận bưu gửi tại quầy, xuất xe gom trung chuyển lên Kho Tổng và bàn giao bưu tá phát.
+                        </p>
+                        <p class="text-[11px] text-cyan-100 mt-1 font-semibold">
+                            <span v-if="isAdmin">Phạm vi: Toàn mạng lưới (quản trị viên)</span>
+                            <span v-else>Đang làm việc tại: {{ stationName }}<span v-if="stationCode"> ({{ stationCode }})</span></span>
                         </p>
                     </div>
 
@@ -454,24 +766,27 @@
                         </div>
 
                         <!-- Lựa chọn Bưu Cục Làm Việc (Chỉ hiển thị các bưu cục POST-*) -->
-                        <select 
+                        <select
                             v-model="selectedPostOffice"
-                            class="px-3 py-1.5 rounded-lg bg-cyan-50 border border-cyan-200 text-xs font-bold text-cyan-900 focus:bg-white focus:border-cyan-600 outline-none transition"
+                            :disabled="!isAdmin"
+                            class="px-3 py-1.5 rounded-lg bg-cyan-50 border border-cyan-200 text-xs font-bold text-cyan-900 focus:bg-white focus:border-cyan-600 outline-none transition disabled:opacity-80 disabled:cursor-not-allowed"
                         >
-                            <option value="ALL">Toàn Bộ Mạng Lưới Bưu Cục</option>
-                            <optgroup label="Bưu Cục Giao Dịch & Phát (Hà Nội)">
+                            <option v-if="isAdmin" value="ALL">Toàn Bộ Mạng Lưới Bưu Cục</option>
+                            <option v-if="!isAdmin && stationCode" :value="stationCode">{{ stationCode }} - {{ stationName }}</option>
+                            <option v-if="!isAdmin && !stationCode" value="">Chưa được gán bưu cục</option>
+                            <optgroup v-if="isAdmin" label="Bưu Cục Giao Dịch & Phát (Hà Nội)">
                                 <option value="POST-HN-CG">POST-HN-CG - Bưu Cục Cầu Giấy</option>
                                 <option value="POST-HN-DDA">POST-HN-DDA - Bưu Cục Đống Đa</option>
                                 <option value="POST-HN-HBT">POST-HN-HBT - Bưu Cục Hai Bà Trưng</option>
                                 <option value="POST-HN-TX">POST-HN-TX - Bưu Cục Thanh Xuân</option>
                                 <option value="POST-HN-HD">POST-HN-HD - Bưu Cục Hà Đông</option>
                             </optgroup>
-                            <optgroup label="Bưu Cục Giao Dịch & Phát (Đà Nẵng)">
+                            <optgroup v-if="isAdmin" label="Bưu Cục Giao Dịch & Phát (Đà Nẵng)">
                                 <option value="POST-DN-HC">POST-DN-HC - Bưu Cục Hải Châu</option>
                                 <option value="POST-DN-TK">POST-DN-TK - Bưu Cục Thanh Khê</option>
                                 <option value="POST-DN-ST">POST-DN-ST - Bưu Cục Sơn Trà</option>
                             </optgroup>
-                            <optgroup label="Bưu Cục Giao Dịch & Phát (TP.HCM)">
+                            <optgroup v-if="isAdmin" label="Bưu Cục Giao Dịch & Phát (TP.HCM)">
                                 <option value="POST-HCM-Q1">POST-HCM-Q1 - Bưu Cục Quận 1</option>
                                 <option value="POST-HCM-TB">POST-HCM-TB - Bưu Cục Tân Bình</option>
                                 <option value="POST-HCM-BT">POST-HCM-BT - Bưu Cục Bình Thạnh</option>
