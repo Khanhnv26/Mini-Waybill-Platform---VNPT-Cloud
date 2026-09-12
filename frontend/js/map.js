@@ -1192,6 +1192,7 @@
          */
         updateTripMarker(payload, mapId) {
             const args = this.normalizeTripArguments.apply(this, arguments);
+            const previousTripCode = this.tripState && this.tripState.tripCode;
             const incoming = args.payload && typeof args.payload === 'object' && !Array.isArray(args.payload)
                 ? args.payload
                 : {};
@@ -1204,6 +1205,9 @@
 
             const tripMap = this.ensureTripMap(args.mapId);
             if (!tripMap) return null;
+            if (previousTripCode && state.tripCode && previousTripCode !== state.tripCode) {
+                this.clearTripLayers();
+            }
             this.createTripLayerGroups();
 
             const tooltipHtml = this.buildTripTooltip(state);
