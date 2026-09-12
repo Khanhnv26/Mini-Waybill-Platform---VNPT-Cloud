@@ -31,6 +31,6 @@ IF NOT EXISTS (
     WHERE name = 'ux_tracking_history_event_id'
       AND object_id = OBJECT_ID('tracking_history')
 )
-    CREATE UNIQUE INDEX ux_tracking_history_event_id
+    EXEC(N'CREATE UNIQUE INDEX ux_tracking_history_event_id
         ON tracking_history(event_id)
-        WHERE event_id IS NOT NULL;
+        WHERE event_id IS NOT NULL');

@@ -10,6 +10,7 @@ import org.app.routingservice.dto.trip.EligibleAssignmentResponse;
 import org.app.routingservice.dto.trip.TripDetailResponse;
 import org.app.routingservice.dto.trip.TripProgressRequest;
 import org.app.routingservice.entity.Hub;
+import org.app.routingservice.entity.HandlingEvent;
 import org.app.routingservice.entity.RoutingAssignment;
 import org.app.routingservice.entity.Trip;
 import org.app.routingservice.entity.TripManifest;
