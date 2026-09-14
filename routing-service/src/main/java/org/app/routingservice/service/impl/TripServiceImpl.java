@@ -373,6 +373,14 @@ public class TripServiceImpl implements TripService {
                     continue;
                 }
 
+                if (!isInventoryStoredAt(trackingCode, origin)) {
+                    // Hàng mới dỡ tại kho tổng đang ở khu tiếp nhận (RECEIVED); chỉ gom
+                    // lên chuyến sau khi thủ kho xác nhận lưu kho (STORED).
+                    log.warn("Bỏ qua kiện {} khi nạp chuyến {}: tồn kho chưa STORED tại {}",
+                            trackingCode, trip.getTripCode(), origin);
+                    continue;
+                }
+
                 TripManifest manifest = TripManifest.builder()
                         .tripId(trip.getId())
                         .trackingCode(trackingCode)
@@ -773,12 +781,7 @@ public class TripServiceImpl implements TripService {
                     tripManifestRepository.save(item);
                     WarehouseInventory inventory = warehouseInventoryRepository.findByTrackingCode(item.getTrackingCode())
                             .orElseGet(() -> createLegacyInventory(item));
-                    inventory.setLocationCode(currentStop.getHubCode());
-                    inventory.setInventoryStatus("STORED");
-                    inventory.setActiveTripId(null);
-                    inventory.setStoredAt(arrivalAt);
-                    inventory.setUpdatedAt(arrivalAt);
-                    warehouseInventoryRepository.save(inventory);
+                    unloadInventoryAt(inventory, currentStop.getHubCode(), arrivalAt);
                     unloadedCount++;
 
                     RoutingAssignment raOpt = routingAssignmentRepository.findByTrackingCode(item.getTrackingCode()).orElse(null);
@@ -791,7 +794,7 @@ public class TripServiceImpl implements TripService {
                     String newShipmentStatus;
                     OperationType operationType = OperationType.UNLOADED;
                     if (isSourceHub) {
-                        note = String.format("Chuyến xe trung chuyển gom hàng %s đã cập bến Kho Tổng gốc %s. Kiện hàng đã dỡ vào kho bãi, sẵn sàng đóng chuyến xe trục liên tỉnh.", trip.getTripCode(), currentStop.getHubCode());
+                        note = String.format("Chuyến xe trung chuyển gom hàng %s đã cập bến Kho Tổng gốc %s. Kiện hàng đã được dỡ xuống khu tiếp nhận, chờ thủ kho xác nhận lưu kho trước khi đóng chuyến xe trục liên tỉnh.", trip.getTripCode(), currentStop.getHubCode());
                         // IN_TRANSIT -> PICKED_UP là chuyển ngược state machine; chỉ ghi
                         // operational event UNLOADED và giữ nguyên trạng thái rộng.
                         newShipmentStatus = "IN_TRANSIT";
@@ -799,7 +802,7 @@ public class TripServiceImpl implements TripService {
                         note = String.format("Chuyến xe %s đã cập bến Bưu cục phát con %s. Kiện hàng đã được dỡ an toàn vào bưu cục, sẵn sàng giao bưu tá.", trip.getTripCode(), currentStop.getHubCode());
                         newShipmentStatus = "ARRIVED_DEST_HUB";
                     } else {
-                        note = String.format("Chuyến xe %s đã cập bến Kho Tổng Đích %s. Kiện hàng đã được dỡ an toàn vào kho bãi, chờ trung chuyển về bưu cục phát.", trip.getTripCode(), currentStop.getHubCode());
+                        note = String.format("Chuyến xe %s đã cập bến Kho Tổng Đích %s. Kiện hàng đã được dỡ xuống khu tiếp nhận, chờ thủ kho xác nhận lưu kho trước khi trung chuyển về bưu cục phát.", trip.getTripCode(), currentStop.getHubCode());
                         newShipmentStatus = "ARRIVED_DEST_HUB";
                     }
 
@@ -1010,6 +1013,32 @@ public class TripServiceImpl implements TripService {
                 .storedAt(now)
                 .updatedAt(now)
                 .build());
+    }
+
+    // Dỡ hàng tại kho tổng đưa kiện về khu tiếp nhận (RECEIVED) và chờ thủ kho xác
+    // nhận lưu kho; bưu cục giữ hành vi cũ (dỡ xuống là sẵn sàng phát).
+    private WarehouseInventory unloadInventoryAt(WarehouseInventory inventory, String stopHubCode, LocalDateTime arrivalAt) {
+        String hubCode = stopHubCode != null ? stopHubCode.toUpperCase() : "";
+        inventory.setLocationCode(stopHubCode);
+        inventory.setActiveTripId(null);
+        inventory.setUpdatedAt(arrivalAt);
+        if (hubCode.startsWith("HUB-")) {
+            inventory.setInventoryStatus("RECEIVED");
+            inventory.setReceivedAt(arrivalAt);
+            inventory.setStoredAt(null);
+        } else {
+            inventory.setInventoryStatus("STORED");
+            inventory.setStoredAt(arrivalAt);
+        }
+        return warehouseInventoryRepository.save(inventory);
+    }
+
+    private boolean isInventoryStoredAt(String trackingCode, String locationCode) {
+        return warehouseInventoryRepository.findByTrackingCode(trackingCode)
+                .map(inventory -> locationCode != null
+                        && locationCode.equalsIgnoreCase(inventory.getLocationCode())
+                        && "STORED".equalsIgnoreCase(inventory.getInventoryStatus()))
+                .orElse(false);
     }
 
     private void reserveInventoryForTrip(Trip trip, String trackingCode, String pickupLocation, TransportLeg transportLeg) {

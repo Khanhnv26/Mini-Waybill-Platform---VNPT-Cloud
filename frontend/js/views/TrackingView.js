@@ -33,6 +33,7 @@
 
             const currentShipment = ref(null);
             const trackingHistory = ref([]);
+            const historyExpanded = ref(false);
             const routeInfo = ref(null);
             const lastRenderedCode = ref(null);
 
@@ -322,6 +323,122 @@
                 return result && typeof result.then !== 'function' && hasValue(result) ? result : fallback;
             };
 
+            // ------------------------------------------------------------------
+            // Gộp mốc lịch sử: mỗi thao tác vật lý thường sinh 2-3 bản ghi
+            // (lifecycle + legacy-status, đôi khi + routing operation) nên UI bị lặp.
+            // ------------------------------------------------------------------
+            const HISTORY_MERGE_WINDOW_MS = 5000;
+
+            const toHistoryMillis = (item) => {
+                const raw = item?.occurredAt || item?.timestamp || item?.createdAt;
+                const time = raw ? new Date(raw).getTime() : NaN;
+                return Number.isFinite(time) ? time : 0;
+            };
+
+            const normalizeHistoryNote = (value) => String(value ?? '')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .toLowerCase();
+
+            const isLegacyHistoryRecord = (item) => String(item?.eventId || '').startsWith('legacy-status:');
+            const isRichHistoryRecord = (item) => !isLegacyHistoryRecord(item)
+                && Boolean(item?.operationType || item?.tripCode || item?.operationId);
+
+            const getOperationStepLabel = (item) => {
+                const type = String(item?.operationType || '').trim().toUpperCase();
+                const labels = {
+                    RECEIVED_AT_POST_OFFICE: 'Tiếp nhận tại quầy',
+                    RECEIVE: 'Tiếp nhận tại kho',
+                    ARRIVED: 'Cập bến trạm',
+                    STORED: 'Lưu kho bưu cục',
+                    STORED_AT_HUB: 'Lưu kho kho tổng',
+                    RESERVED_FOR_TRIP: 'Giữ chỗ lên chuyến',
+                    DEPARTED: 'Xuất bến',
+                    ARRIVE: 'Cập bến trạm',
+                    UNLOADED: 'Dỡ hàng',
+                    HANDED_TO_COURIER: 'Bàn giao bưu tá'
+                };
+                if (labels[type]) return labels[type];
+                if (!type) return '';
+                return type;
+            };
+
+            const buildHistoryMilestone = (group) => {
+                const primary = group.find(isRichHistoryRecord)
+                    || group.reduce((newest, item) => (toHistoryMillis(item) > toHistoryMillis(newest) ? item : newest), group[0]);
+                const timestamps = group.map(toHistoryMillis).filter(Boolean);
+                const stepLabels = group
+                    .filter(item => Boolean(String(item?.operationType || '').trim()))
+                    .map(item => getOperationStepLabel(item))
+                    .filter(Boolean);
+                const subSteps = [...new Set(stepLabels)].reverse();
+                const rawTimestamp = timestamps.length
+                    ? new Date(Math.max(...timestamps)).toISOString()
+                    : primary.timestamp;
+                return {
+                    ...primary,
+                    timestamp: rawTimestamp,
+                    occurredAt: rawTimestamp,
+                    mergedCount: group.length,
+                    subSteps: subSteps.length > 1 ? subSteps : []
+                };
+            };
+
+            const collapseHistoryMilestones = (list) => {
+                if (!Array.isArray(list) || list.length === 0) return [];
+                const items = [...list].sort((a, b) =>
+                    toHistoryMillis(b) - toHistoryMillis(a)
+                    || (Number(b?.id) || 0) - (Number(a?.id) || 0)
+                );
+                const used = new Set();
+                const milestones = [];
+
+                for (let i = 0; i < items.length; i += 1) {
+                    if (used.has(i)) continue;
+                    const base = items[i];
+                    used.add(i);
+                    const group = [base];
+                    const baseTime = toHistoryMillis(base);
+                    const baseNote = normalizeHistoryNote(base.note);
+                    const baseLocation = historyValue(base, 'location');
+                    const groupHasType = (type) => group.some(item =>
+                        String(item?.operationType || '').trim().toUpperCase() === type
+                    );
+
+                    for (let j = i + 1; j < items.length; j += 1) {
+                        if (used.has(j)) continue;
+                        const candidate = items[j];
+                        const candidateTripCode = candidate?.tripCode;
+                        // Legacy record có thể không mang tripCode, nên so khớp theo cả nhóm.
+                        const sameTrip = hasValue(candidateTripCode) && group.some(item =>
+                            hasValue(item?.tripCode) && item.tripCode === candidateTripCode
+                        );
+                        const candidateType = String(candidate?.operationType || '').trim().toUpperCase();
+                        const reserveDepartPair = sameTrip
+                            && ((groupHasType('DEPARTED') && candidateType === 'RESERVED_FOR_TRIP')
+                                || (groupHasType('RESERVED_FOR_TRIP') && candidateType === 'DEPARTED'));
+                        if (reserveDepartPair) {
+                            group.push(candidate);
+                            used.add(j);
+                            continue;
+                        }
+
+                        const withinWindow = (baseTime - toHistoryMillis(candidate)) <= HISTORY_MERGE_WINDOW_MS;
+                        const candidateLocation = historyValue(candidate, 'location');
+                        // Một số bản ghi legacy cũ thiếu locationCode; chỉ so khớp khi cả hai đều có.
+                        const sameLocation = !baseLocation || !candidateLocation || candidateLocation === baseLocation;
+                        const sameNote = baseNote !== '' && normalizeHistoryNote(candidate.note) === baseNote;
+                        if (withinWindow && sameLocation && sameNote) {
+                            group.push(candidate);
+                            used.add(j);
+                        }
+                    }
+
+                    milestones.push(buildHistoryMilestone(group));
+                }
+                return milestones;
+            };
+
             const safeFormatStatusText = (status) => {
                 const result = callUtils('formatStatusText', status);
                 return result && typeof result.then !== 'function' && hasValue(result) ? result : (status || 'N/A');
@@ -551,7 +668,7 @@
                 const list = [...trackingHistory.value];
 
                 // Chỉ sắp xếp các mốc server trả về; không tự tạo mốc lịch sử còn thiếu.
-                return list.sort((a, b) => {
+                const sortedList = list.sort((a, b) => {
                     const rawA = a.occurredAt || a.timestamp || a.createdAt;
                     const rawB = b.occurredAt || b.timestamp || b.createdAt;
                     const timeA = rawA ? new Date(rawA).getTime() : 0;
@@ -578,7 +695,14 @@
 
                     return 0;
                 });
+
+                return collapseHistoryMilestones(sortedList);
             });
+
+            // Số mốc trùng đã gộp để hiển thị nhắc nhỏ trên tiêu đề.
+            const mergedMilestoneCount = computed(() =>
+                Math.max(0, trackingHistory.value.length - sortedHistory.value.length)
+            );
 
             // Đơn đã kết thúc hành trình thì dừng polling. DELIVERY_FAILED vẫn phải được theo dõi
             // để giữ luồng giao lại / chuyển hoàn của nghiệp vụ hiện hữu.
@@ -969,6 +1093,9 @@
                 currentShipment,
                 trackingHistory,
                 sortedHistory,
+                historyExpanded,
+                mergedMilestoneCount,
+                collapseHistoryMilestones,
                 routeInfo,
                 isFinalState,
                 currentStageIndex,
@@ -1601,7 +1728,7 @@
 
                 <!-- 4. LỊCH SỬ LUÂN CHUYỂN BƯU CỤC (SMART ICON VERTICAL TIMELINE) -->
                 <div v-show="!isNotFound && currentShipment" class="b2b-card bg-white border border-slate-200 rounded-xl shadow-sm p-5 sm:p-6 text-xs">
-                    <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-6">
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 mb-4">
                         <div class="flex items-center space-x-2">
                             <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
                             <span class="font-extrabold text-slate-800 uppercase tracking-wider text-xs">
@@ -1610,11 +1737,21 @@
                             <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
                                 {{ sortedHistory.length }} Mốc Quét
                             </span>
+                            <span v-if="mergedMilestoneCount > 0" class="text-[10px] font-medium text-slate-400">
+                                đã gộp {{ mergedMilestoneCount }} mốc trùng
+                            </span>
                         </div>
+                        <button
+                            type="button"
+                            @click="historyExpanded = !historyExpanded"
+                            class="px-2.5 py-1 rounded-md border border-slate-200 text-[10.5px] font-semibold text-slate-600 hover:bg-slate-50 transition"
+                        >
+                            {{ historyExpanded ? 'Thu gọn ghi chú' : 'Xem đầy đủ' }}
+                        </button>
                     </div>
 
                     <!-- VERTICAL TIMELINE WITH SMART ICONS -->
-                    <div v-if="sortedHistory.length > 0" class="relative pl-7 sm:pl-10 space-y-5 before:absolute before:left-[17px] sm:before:left-[21px] before:top-4 before:bottom-4 before:w-[2px] before:bg-slate-200">
+                    <div v-if="sortedHistory.length > 0" class="relative pl-7 sm:pl-10 space-y-3 before:absolute before:left-[17px] sm:before:left-[21px] before:top-4 before:bottom-4 before:w-[2px] before:bg-slate-200">
                         <div v-for="(h, idx) in sortedHistory" :key="h.eventId || h.operationId || idx" class="relative flex items-start group">
                             <!-- Icon Thông Minh Tròn Theo Trạng Thái -->
                             <div :class="[
@@ -1658,7 +1795,7 @@
 
                             <!-- Khung nội dung 3 tầng -->
                             <div :class="[
-                                'flex-1 rounded-2xl p-4 transition smooth-transition',
+                                'flex-1 rounded-2xl p-3 transition smooth-transition',
                                 idx === 0 
                                     ? 'bg-blue-50/40 border border-blue-200/80 shadow-sm hover:border-blue-300' 
                                     : 'bg-white border border-slate-200 shadow-sm hover:border-slate-300'
@@ -1668,7 +1805,7 @@
                                     <span :class="['font-mono text-xs font-bold', idx === 0 ? 'text-blue-700' : 'text-slate-500']">
                                         {{ Utils.formatTime(h.timestamp || h.occurredAt) }}
                                     </span>
-                                    <span v-if="formatRelativeTime(h.timestamp || h.occurredAt)" :class="['text-[11px] font-mono', idx === 0 ? 'text-blue-600 font-semibold' : 'text-slate-400']">
+                                    <span v-if="idx === 0 && formatRelativeTime(h.timestamp || h.occurredAt)" class="text-[11px] font-mono text-blue-600 font-semibold">
                                         {{ formatRelativeTime(h.timestamp || h.occurredAt) }}
                                     </span>
                                 </div>
@@ -1686,16 +1823,24 @@
                                     </span>
                                 </div>
 
-                                <!-- Metadata tác nghiệp chỉ hiển thị khi backend trả về -->
-                                <div v-if="h.operationType || h.transportLeg || h.tripCode || h.actorId" class="flex flex-wrap items-center gap-1.5 mb-1.5 text-[10px] font-mono text-slate-500">
-                                    <span v-if="h.operationType" class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">Loại: {{ h.operationType }}</span>
-                                    <span v-if="h.transportLeg" class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">Chặng: {{ h.transportLeg }}</span>
+                                <!-- Metadata tác nghiệp (chuẩn hoá nhãn, bỏ actor uuid gây nhiễu) -->
+                                <div v-if="h.operationType || h.transportLeg || h.tripCode || (h.mergedCount || 0) > 1" class="flex flex-wrap items-center gap-1.5 mb-1.5 text-[10px] font-mono text-slate-500">
+                                    <span v-if="(h.mergedCount || 0) > 1" class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 font-semibold">Đã gộp {{ h.mergedCount }} mốc</span>
+                                    <span v-if="h.operationType" class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">Loại: {{ Utils.formatOperationType(h.operationType) }}</span>
+                                    <span v-if="h.transportLeg" class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">Chặng: {{ Utils.formatTransportLeg(h.transportLeg) }}</span>
                                     <span v-if="h.tripCode" class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">Chuyến: {{ h.tripCode }}</span>
-                                    <span v-if="h.actorId" class="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">Tác nhân: {{ h.actorId }}</span>
                                 </div>
 
-                                <!-- Tầng 3: Ghi chú chi tiết hành trình -->
-                                <p :class="['text-xs leading-relaxed', idx === 0 ? 'text-slate-700' : 'text-slate-500']">
+                                <!-- Các bước trong cụm tác nghiệp 1-Click (nhận → lưu kho → bàn giao) -->
+                                <div v-if="h.subSteps && h.subSteps.length" class="flex flex-wrap items-center gap-1 mb-1.5">
+                                    <template v-for="(step, sIdx) in h.subSteps" :key="step">
+                                        <span class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-semibold">{{ step }}</span>
+                                        <span v-if="sIdx < h.subSteps.length - 1" class="text-slate-300 text-[10px]">→</span>
+                                    </template>
+                                </div>
+
+                                <!-- Tầng 3: Ghi chú chi tiết hành trình (clamp 2 dòng, mở rộng toàn danh sách) -->
+                                <p :class="['text-xs leading-relaxed', historyExpanded ? '' : 'line-clamp-2', idx === 0 ? 'text-slate-700' : 'text-slate-500']" :title="safeFormatHistoryNote(h)">
                                     {{ safeFormatHistoryNote(h) }}
                                 </p>
                             </div>

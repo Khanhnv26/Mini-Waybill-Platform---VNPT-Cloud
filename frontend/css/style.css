@@ -420,3 +420,38 @@ body {
     transform: scale(0.95);
 }
 
+/* Nhóm thao tác ưu tiên cho màn hình quét và bulk operation */
+.operation-action-bar {
+    border: 1px solid #dbeafe;
+    background: linear-gradient(120deg, #eff6ff, #ffffff);
+    border-radius: 0.75rem;
+}
+
+.selection-summary-bar {
+    position: sticky;
+    bottom: 0.75rem;
+    z-index: 10;
+    border: 1px solid #bfdbfe;
+    background: rgba(239, 246, 255, 0.96);
+    box-shadow: 0 8px 24px rgba(30, 64, 175, 0.12);
+    backdrop-filter: blur(8px);
+}
+
+.status-next-action {
+    border-left: 3px solid #2563eb;
+    background: #eff6ff;
+}
+
+@media (max-width: 640px) {
+    .operation-action-bar,
+    .selection-summary-bar {
+        border-radius: 0.625rem;
+    }
+
+    .table-b2b th,
+    .table-b2b td {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+}
+

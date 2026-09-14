@@ -938,7 +938,7 @@
                                 type="button"
                                 v-if="currentShipment?.trackingCode"
                                 @click="viewTrackingDetail(currentShipment.trackingCode)"
-                                class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group transition-colors"
+                                class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group transition-colors whitespace-nowrap"
                                 title="Click để xem chi tiết toàn trình & bản đồ tại trang Tra Cứu"
                             >
                                 <span>{{ currentShipment.trackingCode }}</span>
