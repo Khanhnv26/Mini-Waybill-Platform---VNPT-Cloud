@@ -119,7 +119,7 @@
                 }
                 return 'Đã đến Kho Tổng đích';
             }
-            case 'OUT_FOR_DELIVERY': return 'Đang chuyển phát';
+            case 'OUT_FOR_DELIVERY': return 'Đang phát';
             case 'DELIVERED': return 'Phát thành công';
             case 'FAILED':
             case 'DELIVERY_FAILED': return 'Phát không thành công';
@@ -192,6 +192,19 @@
         FEEDER: 'Xe trung chuyển'
     };
 
+    const TRIP_STATUS_LABELS = {
+        SCHEDULED: 'Đã lập chuyến',
+        IN_TRANSIT: 'Đang chạy tuyến',
+        COMPLETED: 'Đã hoàn thành',
+        CANCELLED: 'Đã hủy'
+    };
+
+    const STOP_STATUS_LABELS = {
+        PENDING: 'Chờ cập bến',
+        ARRIVED: 'Đã cập bến',
+        DEPARTED: 'Đã rời trạm'
+    };
+
     const enumCode = (value) => {
         if (value === undefined || value === null) return '';
         return String(value).trim().toUpperCase();
@@ -234,6 +247,9 @@
             : tripType;
         return formatMappedValue(value, TRIP_TYPE_LABELS);
     };
+
+    const formatTripStatus = (status) => formatMappedValue(status, TRIP_STATUS_LABELS);
+    const formatStopStatus = (status) => formatMappedValue(status, STOP_STATUS_LABELS);
 
     const formatLocationCode = (locationCode, fallback = 'Chưa xác định') => {
         if (locationCode === undefined || locationCode === null || String(locationCode).trim() === '') {
@@ -322,6 +338,8 @@
         formatInventoryStatus,
         formatTransportLeg,
         formatTripType,
+        formatTripStatus,
+        formatStopStatus,
         formatLocationCode,
         isHubLocation,
         isPostOfficeLocation,

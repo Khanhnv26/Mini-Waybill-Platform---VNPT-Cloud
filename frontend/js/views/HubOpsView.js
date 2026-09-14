@@ -17,6 +17,11 @@
 
     const asCode = (value) => asNonBlankString(value).toUpperCase();
 
+    const asHubCode = (value) => {
+        const code = asCode(value);
+        return code.startsWith('HUB-') ? code : '';
+    };
+
     const readFirstField = (source, keys) => {
         if (!source || typeof source !== 'object') return '';
         for (const key of keys) {
@@ -56,6 +61,17 @@
     };
 
     const resolveStationContext = () => {
+        try {
+            if (typeof Auth !== 'undefined' && typeof Auth.getLocationCode === 'function') {
+                const authoritativeCode = asCode(Auth.getLocationCode());
+                if (authoritativeCode && authoritativeCode !== 'ALL') {
+                    return { code: authoritativeCode, label: authoritativeCode };
+                }
+            }
+        } catch (error) {
+            console.warn('[HubOpsView] Không thể đọc location authoritative:', error);
+        }
+
         let user = null;
         let claims = null;
 
@@ -179,13 +195,20 @@
                     return false;
                 }
             });
-            const selectedHub = ref(stationContext.value.code || (isAdmin.value ? 'ALL' : ''));
+            // Filter mặc định mỗi lần vào trang: admin xem toàn bộ trạm tổng,
+            // thủ kho bám đúng hub được gán (mã POST-* không lọt vào phạm vi kho).
+            const resolveDefaultHub = () => {
+                if (isAdmin.value) return 'ALL';
+                return asHubCode(stationContext.value.code) || 'ALL';
+            };
+            const selectedHub = ref(resolveDefaultHub());
             const selectedStatusFilter = ref('ALL');
             const searchQuery = ref('');
 
             // Phân trang
             const currentPage = ref(1);
             const pageSize = ref(10);
+            const selectedTrackingCodes = ref(new Set());
 
             const showToast = (title, message, type = 'success') => {
                 if (typeof Utils !== 'undefined' && typeof Utils.showToast === 'function') {
@@ -211,13 +234,20 @@
                 };
 
                 addStation(stationContext.value.code, stationContext.value.label);
+                // Giữ option khớp với giá trị đang chọn để select không bao giờ trống.
+                addStation(selectedHub.value, getStationName(selectedHub.value));
+                KNOWN_HUB_CODES.forEach(code => addStation(code, getStationName(code)));
                 hubsList.value.forEach(hub => {
                     addStation(
                         readFirstField(hub, ['hubCode', 'stationCode', 'locationCode', 'code']),
                         readFirstField(hub, ['hubName', 'stationName', 'locationName', 'name'])
                     );
                 });
-                shipmentsList.value.forEach(item => addStation(item.locationCode, item.locationCode));
+                shipmentsList.value.forEach(item => {
+                    addStation(item.locationCode, item.locationCode);
+                    addStation(item.sourceHub, item.sourceHub);
+                    addStation(item.destinationHub, item.destinationHub);
+                });
 
                 return Array.from(stations, ([code, name]) => ({ code, name }))
                     .sort((left, right) => left.code.localeCompare(right.code));
@@ -226,7 +256,7 @@
             const currentActionLocation = computed(() => {
                 if (selectedHub.value !== 'ALL') return asCode(selectedHub.value);
                 // ALL is an aggregation scope, never an implicit mutation location.
-                return isAdmin.value ? '' : asCode(stationContext.value.code);
+                return isAdmin.value ? '' : asHubCode(stationContext.value.code);
             });
 
             const operationalStatus = (item) => asCode(
@@ -240,6 +270,27 @@
             const getInventoryStatus = (item) => rawValueText(
                 item?.rawInventoryStatus ?? item?.inventoryStatus ?? item?.inventory_status
             );
+
+            // Bucket trạng thái duy nhất cho từng kiện: ưu tiên trạng thái tồn kho
+            // thực tế, chỉ fallback sang trạng thái vận đơn khi chưa có bản ghi tồn kho.
+            // Nhờ vậy bộ lọc, KPI và danh sách luôn khớp nhau và không chồng chéo.
+            const resolveHubBucket = (item) => {
+                if (!item) return '';
+                const inventory = asCode(getInventoryStatus(item));
+                if (inventory === 'RECEIVED') return 'RECEIVED';
+                if (inventory === 'STORED') return 'STORED';
+                if (inventory === 'RESERVED' || inventory === 'LOADED') return 'IN_TRANSIT';
+                if (inventory === 'HANDED_TO_COURIER') return 'HANDED_TO_COURIER';
+                if (inventory === 'CANCELLED') return 'CANCELLED';
+
+                const status = operationalStatus(item);
+                if (['ROUTE_ASSIGNED', 'PENDING_ROUTING', 'CREATED'].includes(status)) return 'WAITING_INTAKE';
+                if (status === 'PICKED_UP') return 'PICKED_UP';
+                if (status === 'IN_TRANSIT') return 'IN_TRANSIT';
+                if (status === 'ARRIVED_DEST_HUB') return 'ARRIVED_DEST_HUB';
+                if (status === 'HANDED_TO_COURIER') return 'HANDED_TO_COURIER';
+                return '';
+            };
 
             const getTransportLeg = (item) => rawValueText(item?.transportLeg ?? item?.transport_leg ?? item?.leg);
             const getTripCode = (item) => rawValueText(item?.tripCode ?? item?.trip_code ?? item?.activeTripCode);
@@ -429,7 +480,7 @@
             const loadShipmentsData = async (silent = false) => {
                 if (!silent) isLoading.value = true;
                 try {
-                    if (!isAdmin.value && !currentActionLocation.value) {
+                    if (!isAdmin.value && stationContext.value.code && !currentActionLocation.value) {
                         throw new Error('Tài khoản chưa được gán hub nên không thể tải tồn kho.');
                     }
                     const routingService = typeof RoutingService !== 'undefined' ? RoutingService : null;
@@ -462,27 +513,29 @@
                 }
             };
 
-            // 1. Thống kê nhanh KPI theo dữ liệu thô của tồn kho
-            const kpiTotalInHub = computed(() => shipmentsList.value.filter(item => {
-                const status = operationalStatus(item);
-                const inventoryStatus = getInventoryStatus(item);
-                return ['RECEIVED', 'STORED', 'PICKED_UP', 'ARRIVED_DEST_HUB'].includes(status)
-                    || ['RECEIVED', 'STORED'].includes(asCode(inventoryStatus));
-            }).length);
+            // 1. Thống kê nhanh KPI theo cùng bucket với bộ lọc
+            const kpiTotalInHub = computed(() => shipmentsList.value.filter(item =>
+                ['RECEIVED', 'STORED'].includes(resolveHubBucket(item))
+            ).length);
 
             const kpiAwaitingIntake = computed(() => shipmentsList.value.filter(item =>
-                ['ROUTE_ASSIGNED', 'PENDING_ROUTING'].includes(operationalStatus(item))
+                resolveHubBucket(item) === 'WAITING_INTAKE'
+            ).length);
+
+            // Hàng mới dỡ xuống khu tiếp nhận, chờ thủ kho xác nhận lưu kho.
+            const kpiAwaitingStore = computed(() => shipmentsList.value.filter(item =>
+                resolveHubBucket(item) === 'RECEIVED'
             ).length);
 
             const kpiInTransit = computed(() => shipmentsList.value.filter(item =>
-                operationalStatus(item) === 'IN_TRANSIT'
+                resolveHubBucket(item) === 'IN_TRANSIT'
             ).length);
 
             // 2. Lọc danh sách bưu gửi đa điều kiện
             const filteredShipments = computed(() => {
                 let list = shipmentsList.value;
 
-                if (selectedHub.value !== 'ALL') {
+                if (selectedHub.value && selectedHub.value !== 'ALL') {
                     const station = asCode(selectedHub.value);
                     list = list.filter(item => {
                         const location = locationForDisplay(item);
@@ -501,9 +554,8 @@
                 }
 
                 if (selectedStatusFilter.value !== 'ALL') {
-                    const status = asCode(selectedStatusFilter.value);
-                    list = list.filter(item => operationalStatus(item) === status
-                        || asCode(getInventoryStatus(item)) === status);
+                    const bucket = asCode(selectedStatusFilter.value);
+                    list = list.filter(item => resolveHubBucket(item) === bucket);
                 }
 
                 const query = searchQuery.value.trim().toLowerCase();
@@ -538,35 +590,101 @@
 
             watch([selectedStatusFilter, searchQuery, pageSize], () => {
                 currentPage.value = 1;
+                selectedTrackingCodes.value = new Set();
             });
 
             watch(selectedHub, () => {
                 currentPage.value = 1;
+                selectedTrackingCodes.value = new Set();
                 loadShipmentsData();
             });
 
             watch(() => stationContext.value.code, (newCode) => {
-                if (!isAdmin.value && newCode) selectedHub.value = newCode;
+                const hubCode = asHubCode(newCode);
+                if (!isAdmin.value && hubCode && hubCode !== selectedHub.value) {
+                    selectedHub.value = hubCode;
+                }
             });
 
-            const canReceive = (item) => ['ROUTE_ASSIGNED', 'PENDING_ROUTING'].includes(operationalStatus(item))
-                || asCode(getInventoryStatus(item)) === 'ROUTE_ASSIGNED';
+            const canReceive = (item) => {
+                const inventory = asCode(getInventoryStatus(item));
+                if (['RECEIVED', 'STORED', 'RESERVED', 'LOADED', 'HANDED_TO_COURIER'].includes(inventory)) return false;
+                const status = operationalStatus(item);
+                // Route-assigned parcels at the origin post office belong to PO ops,
+                // not hub intake, even when migration projections are incomplete.
+                if (['ROUTE_ASSIGNED', 'PENDING_ROUTING'].includes(status)) {
+                    const location = locationForDisplay(item);
+                    return !location.startsWith('POST-') && asCode(item.sourceHub) === asCode(currentActionLocation.value);
+                }
+                return ['PICKED_UP', 'IN_TRANSIT', 'ARRIVED_DEST_HUB'].includes(status)
+                    && inventory !== 'RECEIVED';
+            };
 
-            const canStore = (item) => operationalStatus(item) === 'PICKED_UP'
-                || asCode(getInventoryStatus(item)) === 'RECEIVED';
+            const canStore = (item) => {
+                const inventory = asCode(getInventoryStatus(item));
+                return inventory === 'RECEIVED';
+            };
+
+            const isShipmentInSelectedHubScope = (item) => {
+                const selected = asCode(currentActionLocation.value);
+                if (!selected || !item) return false;
+
+                const location = locationForDisplay(item);
+                if (location === selected) return true;
+
+                const status = operationalStatus(item);
+                if (['ROUTE_ASSIGNED', 'PENDING_ROUTING', 'PICKED_UP'].includes(status)) {
+                    return asCode(item.sourceHub) === selected;
+                }
+                if (['IN_TRANSIT', 'ARRIVED_DEST_HUB'].includes(status)) {
+                    return asCode(item.destinationHub) === selected;
+                }
+                return false;
+            };
+
+            // UI-only resolver: ô quét luôn hướng tới thao tác vật lý kế tiếp.
+            const getNextHubAction = (item) => {
+                if (!item) return { key: 'LOOKUP', label: 'Tra cứu bưu gửi', operation: '' };
+                const status = operationalStatus(item);
+                const inventory = asCode(getInventoryStatus(item));
+                if (['DELIVERED', 'DELIVERY_FAILED', 'CANCELLED', 'RETURNED'].includes(status)) {
+                    return { key: 'DONE', label: 'Đã hoàn tất', operation: '' };
+                }
+                if (canReceive(item)) return { key: 'RECEIVE', label: 'Tiếp nhận vào hub', operation: 'receive' };
+                if (canStore(item)) return { key: 'STORE', label: 'Lưu kho tại hub', operation: 'store' };
+                if (inventory === 'STORED' || status === 'IN_TRANSIT' || status === 'ARRIVED_DEST_HUB') {
+                    return { key: 'WAITING', label: inventory === 'STORED' ? 'Đã lưu kho' : 'Đang luân chuyển', operation: '' };
+                }
+                return { key: 'REVIEW', label: 'Kiểm tra chi tiết', operation: '' };
+            };
+
+            const scannedItem = computed(() => {
+                const code = asCode(scanInputCode.value);
+                if (!code) return null;
+                return shipmentsList.value.find(item => {
+                    if (asCode(item.trackingCode) !== code) return false;
+                    // ALL remains available for lookup, but a concrete hub scope
+                    // is required before the scanner can expose a mutation CTA.
+                    return selectedHub.value === 'ALL' || isShipmentInSelectedHubScope(item);
+                }) || null;
+            });
+            const scannedAction = computed(() => getNextHubAction(scannedItem.value));
 
             const makeOperationPayload = (item, operation, note) => {
-                const publicStatuses = new Set([
-                    'CREATED', 'PENDING_ROUTING', 'ROUTE_ASSIGNED', 'PICKED_UP', 'IN_TRANSIT',
-                    'ARRIVED_DEST_HUB', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DELIVERY_FAILED',
-                    'CANCELLED', 'RETURNING', 'RETURNED'
-                ]);
-                const currentStatus = asCode(item?.currentStatus);
+                const currentStatus = operationalStatus(item);
+                const inventory = asCode(getInventoryStatus(item));
+                const publicStatuses = new Set(['PICKED_UP', 'IN_TRANSIT', 'ARRIVED_DEST_HUB']);
+                // Routing inventory accepts only operational public statuses. A
+                // migration projection may still expose route-assigned while the
+                // physical hub intake is the next valid operation.
+                const shipmentStatus = ['ROUTE_ASSIGNED', 'PENDING_ROUTING'].includes(currentStatus)
+                    && !inventory.startsWith('RECEIVED')
+                    ? 'PICKED_UP'
+                    : (publicStatuses.has(currentStatus) ? currentStatus : '');
+                if (!shipmentStatus) return null;
                 const payload = {
                     trackingCodes: [asNonBlankString(item?.trackingCode)],
-                    // Hub handling changes physical inventory only. Keep the public
-                    // shipment status from the projection instead of forcing IN_TRANSIT.
-                    shipmentStatus: publicStatuses.has(currentStatus) ? currentStatus : 'IN_TRANSIT',
+                    shipmentStatus,
                     note
                 };
                 const transportLeg = getTransportLeg(item);
@@ -608,6 +726,69 @@
             };
 
             // 4. Tác nghiệp kho phải đi qua RoutingService, không giả lập bằng tracking status.
+            const isConflictError = (error) => {
+                const status = errorStatus(error);
+                const text = String(error?.message || error || '').toLowerCase();
+                return status === 409 || text.includes('409') || text.includes('conflict')
+                    || text.includes('đã được') || text.includes('đã tồn tại');
+            };
+
+            // Một bước vật lý đơn lẻ (không tự làm mới danh sách).
+            const runInventoryStep = async (item, operation) => {
+                const cleanCode = asNonBlankString(item?.trackingCode);
+                if (!cleanCode) {
+                    showToast('Thông Báo', 'Vui lòng nhập mã bưu gửi cần xử lý', 'warning');
+                    return false;
+                }
+
+                const locationCode = currentActionLocation.value;
+                if (!locationCode) {
+                    showToast('Thiếu Ngữ Cảnh Trạm', 'Không xác định được trạm làm việc từ tài khoản. Vui lòng chọn đúng trạm trước khi tác nghiệp.', 'warning');
+                    return false;
+                }
+
+                const methodName = operation === 'receive' ? 'receiveAtLocation' : 'storeAtLocation';
+                if (typeof RoutingService === 'undefined' || typeof RoutingService[methodName] !== 'function') {
+                    showToast('Phân Hệ Chưa Sẵn Sàng', 'RoutingService chưa hỗ trợ tác nghiệp tồn kho; không thực hiện chuyển trạng thái tạm thời.', 'warning');
+                    return false;
+                }
+
+                const note = operation === 'receive'
+                    ? `Tiếp nhận bưu gửi tại trạm ${locationCode}`
+                    : `Lưu kho bưu gửi tại trạm ${locationCode}`;
+                const targetItem = shipmentsList.value.find(current => asCode(current.trackingCode) === asCode(cleanCode)) || item;
+                if (!isShipmentInSelectedHubScope(targetItem)) {
+                    showToast('Sai Phạm Vi Hub', `Bưu gửi ${cleanCode} không thuộc hub đang chọn (${locationCode}).`, 'warning');
+                    return false;
+                }
+                const eligible = operation === 'receive' ? canReceive(targetItem) : canStore(targetItem);
+                if (!eligible) {
+                    showToast('Sai Trình Tự', `${cleanCode} hiện không còn ở bước “${getNextHubAction(targetItem).label}”.`, 'warning');
+                    return false;
+                }
+                const payload = makeOperationPayload({ ...targetItem, trackingCode: cleanCode }, operation, note);
+                if (!payload) {
+                    showToast('Thiếu Trạng Thái', `Không thể xác định trạng thái vận đơn hợp lệ cho ${cleanCode}.`, 'warning');
+                    return false;
+                }
+
+                const result = await RoutingService[methodName].call(RoutingService, locationCode, payload);
+                await ensureSuccessfulOperationResult(result);
+
+                if (targetItem) {
+                    targetItem.locationCode = locationCode;
+                    targetItem.inventoryStatus = operation === 'receive' ? 'RECEIVED' : 'STORED';
+                    targetItem.rawInventoryStatus = targetItem.inventoryStatus;
+                    const existingStatus = operationalStatus(targetItem);
+                    if (existingStatus && !['RECEIVED', 'STORED'].includes(existingStatus)) {
+                        targetItem.currentStatus = existingStatus;
+                        targetItem.status = existingStatus;
+                    }
+                    targetItem._optimisticTimestamp = Date.now();
+                }
+                return true;
+            };
+
             const handleInventoryOperation = async (item, operation) => {
                 if (isActionRunning.value) return;
                 const cleanCode = asNonBlankString(item?.trackingCode);
@@ -616,44 +797,13 @@
                     return;
                 }
 
-                const locationCode = currentActionLocation.value;
-                if (!locationCode) {
-                    showToast('Thiếu Ngữ Cảnh Trạm', 'Không xác định được trạm làm việc từ tài khoản. Vui lòng chọn đúng trạm trước khi tác nghiệp.', 'warning');
-                    return;
-                }
-
-                const methodName = operation === 'receive' ? 'receiveAtLocation' : 'storeAtLocation';
-                if (typeof RoutingService === 'undefined' || typeof RoutingService[methodName] !== 'function') {
-                    showToast('Phân Hệ Chưa Sẵn Sàng', 'RoutingService chưa hỗ trợ tác nghiệp tồn kho; không thực hiện chuyển trạng thái tạm thời.', 'warning');
-                    return;
-                }
-
-                const note = operation === 'receive'
-                    ? `Tiếp nhận bưu gửi tại trạm ${locationCode}`
-                    : `Lưu kho bưu gửi tại trạm ${locationCode}`;
-                const targetItem = shipmentsList.value.find(current => current.trackingCode === cleanCode) || item;
-                const payload = makeOperationPayload({ ...targetItem, trackingCode: cleanCode }, operation, note);
-
                 isActionRunning.value = true;
                 try {
-                    const result = await RoutingService[methodName].call(RoutingService, locationCode, payload);
-                    await ensureSuccessfulOperationResult(result);
-
-                    if (targetItem) {
-                        targetItem.locationCode = locationCode;
-                        targetItem.inventoryStatus = operation === 'receive' ? 'RECEIVED' : 'STORED';
-                        targetItem.rawInventoryStatus = targetItem.inventoryStatus;
-                        const existingStatus = operationalStatus(targetItem);
-                        if (existingStatus && !['RECEIVED', 'STORED'].includes(existingStatus)) {
-                            targetItem.currentStatus = existingStatus;
-                            targetItem.status = existingStatus;
-                        }
-                        targetItem._optimisticTimestamp = Date.now();
-                    }
-
+                    const done = await runInventoryStep(item, operation);
+                    if (!done) return;
                     showToast(
                         'Thành Công',
-                        `Bưu gửi ${cleanCode} đã ${operation === 'receive' ? 'được tiếp nhận' : 'được lưu kho'} tại ${locationCode}.`
+                        `Bưu gửi ${cleanCode} đã ${operation === 'receive' ? 'được tiếp nhận' : 'được lưu kho'} tại ${currentActionLocation.value}.`
                     );
                     scanInputCode.value = '';
                     await refreshAfterOperation();
@@ -665,19 +815,242 @@
                 }
             };
 
+            // 1-Click: tiếp nhận xong lưu kho ngay (bỏ qua bước đã hoàn tất).
+            const handleReceiveAndStore = async (item) => {
+                if (isActionRunning.value) return;
+                const cleanCode = asNonBlankString(item?.trackingCode);
+                if (!cleanCode) {
+                    showToast('Thông Báo', 'Vui lòng nhập mã bưu gửi cần xử lý', 'warning');
+                    return;
+                }
+                const locationCode = currentActionLocation.value;
+
+                isActionRunning.value = true;
+                let receivedNow = false;
+                let storedNow = false;
+                try {
+                    if (canReceive(item)) {
+                        try {
+                            receivedNow = await runInventoryStep(item, 'receive');
+                        } catch (error) {
+                            if (!isConflictError(error)) throw error;
+                        }
+                        if (receivedNow) await loadShipmentsData(true);
+                    }
+
+                    const current = shipmentsList.value.find(
+                        shipment => asCode(shipment.trackingCode) === asCode(cleanCode)
+                    ) || item;
+                    if (canStore(current)) {
+                        try {
+                            storedNow = await runInventoryStep(current, 'store');
+                        } catch (error) {
+                            if (!isConflictError(error)) throw error;
+                        }
+                    }
+
+                    if (!receivedNow && !storedNow) {
+                        showToast('Chưa Có Tác Vụ', `Bưu gửi ${cleanCode} đã ở trạng thái lưu kho, không cần cập nhật.`, 'info');
+                        return;
+                    }
+                    showToast('Thành Công', `Bưu gửi ${cleanCode} đã được tiếp nhận & lưu kho tại ${locationCode}.`);
+                    scanInputCode.value = '';
+                    await refreshAfterOperation();
+                } catch (error) {
+                    console.error('[HubOpsView] Lỗi tiếp nhận & lưu kho:', error);
+                    showOperationError(error);
+                    await refreshAfterOperation();
+                } finally {
+                    isActionRunning.value = false;
+                }
+            };
+
             const handleReceive = (item) => handleInventoryOperation(item, 'receive');
             const handleStore = (item) => handleInventoryOperation(item, 'store');
 
-            const handleQuickScan = (operation) => {
+            const selectableHubItems = computed(() => paginatedShipments.value.filter(item =>
+                isShipmentInSelectedHubScope(item) && (canReceive(item) || canStore(item))
+            ));
+            const selectedHubItems = computed(() => shipmentsList.value.filter(item =>
+                selectedTrackingCodes.value.has(asCode(item.trackingCode))
+            ));
+            const selectedHubAction = computed(() => {
+                const items = selectedHubItems.value;
+                if (!items.length) return '';
+                const actions = new Set(items.map(item => getNextHubAction(item).operation).filter(Boolean));
+                return actions.size === 1 ? [...actions][0] : '';
+            });
+            const selectedHubWeight = computed(() => selectedHubItems.value.reduce(
+                (total, item) => total + (Number(item.weight) || 0), 0
+            ));
+
+            const toggleHubSelection = (item) => {
+                const code = asCode(item?.trackingCode);
+                if (!code || (!canReceive(item) && !canStore(item)) || !isShipmentInSelectedHubScope(item)) return;
+                const next = new Set(selectedTrackingCodes.value);
+                if (next.has(code)) next.delete(code); else next.add(code);
+                selectedTrackingCodes.value = next;
+            };
+
+            const toggleAllHubSelection = () => {
+                const visible = selectableHubItems.value;
+                const next = new Set(selectedTrackingCodes.value);
+                const allSelected = visible.length > 0 && visible.every(item => next.has(asCode(item.trackingCode)));
+                visible.forEach(item => {
+                    const code = asCode(item.trackingCode);
+                    if (allSelected) next.delete(code); else next.add(code);
+                });
+                selectedTrackingCodes.value = next;
+            };
+
+            const clearHubSelection = () => {
+                selectedTrackingCodes.value = new Set();
+            };
+
+            const buildOperationGroups = (items, operation, note, locationCode) => {
+                const groups = new Map();
+                items.forEach(item => {
+                    const basePayload = makeOperationPayload(item, operation, note);
+                    if (!basePayload) return;
+                    const key = `${locationCode}|${basePayload.shipmentStatus}`;
+                    if (!groups.has(key)) groups.set(key, { basePayload, items: [] });
+                    groups.get(key).items.push(item);
+                });
+                return groups;
+            };
+
+            const runBulkOperation = async (items, operation, locationCode, note) => {
+                const methodName = operation === 'receive' ? 'receiveAtLocation' : 'storeAtLocation';
+                const groups = buildOperationGroups(items, operation, note, locationCode);
+                let processed = 0;
+                for (const group of groups.values()) {
+                    const payload = {
+                        ...group.basePayload,
+                        trackingCodes: group.items.map(item => asNonBlankString(item.trackingCode)),
+                        operationId: typeof Utils !== 'undefined' && typeof Utils.createOperationId === 'function'
+                            ? Utils.createOperationId(`hub-${operation}`)
+                            : `hub-${operation}-${Date.now()}`
+                    };
+                    const result = await RoutingService[methodName](locationCode, payload);
+                    await ensureSuccessfulOperationResult(result);
+                    processed += group.items.length;
+                }
+                return processed;
+            };
+
+            // Hàng loạt 1-Click: tiếp nhận trước, làm mới, rồi lưu kho các kiện vừa nhận.
+            const handleBulkReceiveAndStore = async (locationCode) => {
+                const items = selectedHubItems.value.filter(item =>
+                    isShipmentInSelectedHubScope(item) && canReceive(item)
+                );
+                if (!items.length) {
+                    showToast('Chưa Chọn Kiện', 'Chọn các kiện chưa được tiếp nhận để nhận & lưu kho hàng loạt.', 'warning');
+                    return 0;
+                }
+                let processed = await runBulkOperation(
+                    items, 'receive', locationCode, `Tiếp nhận hàng loạt tại hub ${locationCode}`
+                );
+                await loadShipmentsData(true);
+                const codes = new Set(items.map(item => asCode(item.trackingCode)));
+                const storeItems = shipmentsList.value.filter(item =>
+                    codes.has(asCode(item.trackingCode)) && isShipmentInSelectedHubScope(item) && canStore(item)
+                );
+                if (storeItems.length) {
+                    processed += await runBulkOperation(
+                        storeItems, 'store', locationCode, `Lưu kho hàng loạt tại hub ${locationCode}`
+                    );
+                }
+                return processed;
+            };
+
+            const handleBulkInventoryOperation = async (operation) => {
+                if (isActionRunning.value) return;
+                if (isAdmin.value && selectedHub.value === 'ALL') {
+                    showToast('Chỉ Xem Tổng Hợp', 'Hãy chọn một hub cụ thể trước khi xử lý hàng loạt.', 'warning');
+                    return;
+                }
+                const locationCode = currentActionLocation.value;
+                if (!locationCode) {
+                    showToast('Thiếu Ngữ Cảnh Trạm', 'Không xác định được trạm làm việc từ tài khoản. Vui lòng chọn đúng trạm trước khi tác nghiệp.', 'warning');
+                    return;
+                }
+
+                isActionRunning.value = true;
+                try {
+                    if (operation === 'receive-store') {
+                        const processed = await handleBulkReceiveAndStore(locationCode);
+                        if (processed === 0) {
+                            showToast('Thiếu Trạng Thái', 'Không có nhóm kiện với trạng thái vận đơn hợp lệ.', 'warning');
+                            return;
+                        }
+                        clearHubSelection();
+                        showToast('Hoàn Tất', `${processed} kiện đã được tiếp nhận & lưu kho tại ${locationCode}.`);
+                        await refreshAfterOperation();
+                        return;
+                    }
+
+                    const items = selectedHubItems.value.filter(item =>
+                        isShipmentInSelectedHubScope(item)
+                        && (operation === 'receive' ? canReceive(item) : canStore(item))
+                    );
+                    if (!items.length) {
+                        showToast('Chưa Chọn Kiện', 'Chọn các kiện cùng một thao tác hợp lệ trước khi xử lý.', 'warning');
+                        return;
+                    }
+                    const processed = await runBulkOperation(
+                        items,
+                        operation,
+                        locationCode,
+                        operation === 'receive'
+                            ? `Tiếp nhận hàng loạt tại hub ${locationCode}`
+                            : `Lưu kho hàng loạt tại hub ${locationCode}`
+                    );
+                    clearHubSelection();
+                    showToast('Hoàn Tất', `${processed} kiện đã ${operation === 'receive' ? 'được tiếp nhận' : 'được lưu kho'} tại ${locationCode}.`);
+                    await refreshAfterOperation();
+                } catch (error) {
+                    console.error('[HubOpsView] Lỗi tác nghiệp hàng loạt:', error);
+                    showOperationError(error);
+                    await refreshAfterOperation();
+                } finally {
+                    isActionRunning.value = false;
+                }
+            };
+
+            const handleQuickScan = (requestedOperation = '') => {
                 const cleanCode = asNonBlankString(scanInputCode.value);
                 if (!cleanCode) {
                     showToast('Yêu Cầu Nhập Mã', 'Vui lòng quét hoặc nhập mã vận đơn để thực hiện tác nghiệp', 'warning');
                     return;
                 }
-                const item = shipmentsList.value.find(current => current.trackingCode === cleanCode);
+                const item = scannedItem.value;
                 if (!item) {
-                    showToast('Không Tìm Thấy', `Không tìm thấy bưu gửi ${cleanCode} trong tồn kho hoặc projection hiện tại. Vui lòng làm mới dữ liệu trước khi tác nghiệp.`, 'warning');
+                    const existsOutsideScope = shipmentsList.value.some(current =>
+                        asCode(current.trackingCode) === asCode(cleanCode)
+                    );
+                    showToast(
+                        existsOutsideScope && selectedHub.value !== 'ALL'
+                            ? 'Sai Phạm Vi Hub'
+                            : 'Không Tìm Thấy',
+                        existsOutsideScope && selectedHub.value !== 'ALL'
+                            ? `Bưu gửi ${cleanCode} không thuộc hub đang chọn (${selectedHub.value}).`
+                            : `Không tìm thấy bưu gửi ${cleanCode} trong tồn kho hoặc projection hiện tại. Vui lòng làm mới dữ liệu trước khi tác nghiệp.`,
+                        'warning'
+                    );
                     return;
+                }
+                const action = getNextHubAction(item);
+                const operation = requestedOperation || action.operation;
+                if (!operation) {
+                    showToast('Chưa Có Tác Vụ', `${cleanCode}: ${action.label}. Không cần cập nhật tồn kho tại hub.`, 'info');
+                    return;
+                }
+                if (requestedOperation && requestedOperation !== action.operation) {
+                    showToast('Sai Trình Tự', `${cleanCode} đang ở bước “${action.label}”. Hãy thực hiện đúng hành động được đề xuất.`, 'warning');
+                    return;
+                }
+                if (operation === 'receive') {
+                    return handleReceiveAndStore(item);
                 }
                 return handleInventoryOperation(item, operation);
             };
@@ -690,9 +1063,12 @@
 
             onMounted(async () => {
                 stationContext.value = resolveStationContext();
-                if (!isAdmin.value && stationContext.value.code) {
-                    selectedHub.value = stationContext.value.code;
-                }
+                // Mỗi lần vào trang đều trả bộ lọc về mặc định thay vì bám mã tài khoản.
+                selectedHub.value = resolveDefaultHub();
+                selectedStatusFilter.value = 'ALL';
+                searchQuery.value = '';
+                currentPage.value = 1;
+                selectedTrackingCodes.value = new Set();
                 await Promise.all([
                     loadHubsData(),
                     loadShipmentsData()
@@ -720,19 +1096,34 @@
                 currentActionLocation,
                 kpiTotalInHub,
                 kpiAwaitingIntake,
+                kpiAwaitingStore,
                 kpiInTransit,
                 getStationName,
                 getInventoryStatus,
+                getNextHubAction,
+                scannedItem,
+                scannedAction,
                 getTransportLeg,
                 getTripCode,
                 locationForDisplay,
                 operationalStatus,
                 canReceive,
                 canStore,
+                isShipmentInSelectedHubScope,
+                selectableHubItems,
+                selectedHubItems,
+                selectedHubAction,
+                selectedHubWeight,
+                selectedTrackingCodes,
+                toggleHubSelection,
+                toggleAllHubSelection,
+                clearHubSelection,
+                handleBulkInventoryOperation,
                 loadShipmentsData,
                 handleQuickScan,
                 handleReceive,
                 handleStore,
+                handleReceiveAndStore,
                 viewTrackingDetail,
                 Utils
             };
@@ -771,6 +1162,10 @@
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[72px]">
                             <div class="text-sm sm:text-base font-bold leading-tight">{{ kpiTotalInHub }}</div>
                             <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Tồn Bãi</div>
+                        </div>
+                        <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-amber-200/40 text-center min-w-[72px]">
+                            <div class="text-sm sm:text-base font-bold leading-tight text-amber-300">{{ kpiAwaitingStore }}</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Chờ Lưu Kho</div>
                         </div>
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[72px]">
                             <div class="text-sm sm:text-base font-bold leading-tight">{{ kpiAwaitingIntake }}</div>
@@ -819,7 +1214,12 @@
                 </button>
             </div>
 
-            <div v-if="currentSubtab === 'scan'" class="b2b-card bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div v-if="isAdmin && selectedHub === 'ALL'" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 flex items-center justify-between gap-2">
+                <span><strong>Chỉ xem tổng hợp:</strong> chọn một hub cụ thể trước khi tiếp nhận hoặc lưu kho.</span>
+                <span class="font-mono font-bold">{{ filteredShipments.length }} kiện</span>
+            </div>
+
+            <div v-if="currentSubtab === 'scan'" class="b2b-card operation-action-bar bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div>
                     <div class="flex items-center space-x-2">
                         <span class="w-2 h-2 rounded-full bg-blue-600"></span>
@@ -832,26 +1232,22 @@
                 <div class="flex flex-wrap items-center gap-2">
                     <input
                         v-model="scanInputCode"
-                        @keyup.enter="handleQuickScan('receive')"
+                        @keyup.enter="handleQuickScan()"
                         type="text"
-                        placeholder="Nhập hoặc quét mã bưu gửi..."
+                        placeholder="Quét mã để nhận hành động kế tiếp..."
                         class="pl-3 pr-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono font-bold text-blue-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none w-56 transition"
                     />
+                    <span v-if="scanInputCode" class="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-600">
+                        {{ scannedItem ? 'Đề xuất: ' + scannedAction.label : 'Đang tra cứu mã...' }}
+                    </span>
                     <button
                         type="button"
-                        @click="handleQuickScan('receive')"
-                        :disabled="isActionRunning || !currentActionLocation"
-                        class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg text-xs transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        @click="handleQuickScan()"
+                        :disabled="isActionRunning || !currentActionLocation || !scannedItem || !scannedAction.operation"
+                        :class="scannedAction.key === 'RECEIVE' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'"
+                        class="px-3.5 py-1.5 text-white font-semibold rounded-lg text-xs transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        Tiếp Nhận
-                    </button>
-                    <button
-                        type="button"
-                        @click="handleQuickScan('store')"
-                        :disabled="isActionRunning || !currentActionLocation"
-                        class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Lưu Kho
+                        {{ scannedAction.operation ? (scannedAction.operation === 'receive' ? 'Tiếp nhận & Lưu kho' : scannedAction.label) : 'Chỉ theo dõi' }}
                     </button>
                 </div>
             </div>
@@ -864,28 +1260,34 @@
                         placeholder="Tìm mã vận đơn, chuyến, vị trí..."
                         class="w-56 sm:w-64 pl-3 pr-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                     />
-                    <select
-                        v-model="selectedHub"
-                        :disabled="!isAdmin"
-                        class="px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-xs font-bold text-blue-900 focus:bg-white focus:border-blue-600 outline-none transition disabled:opacity-80 disabled:cursor-not-allowed"
-                    >
-                        <option v-if="isAdmin" value="ALL">Tất cả trạm</option>
-                        <option v-for="station in availableStations" :key="station.code" :value="station.code">
-                            {{ station.code }} - {{ station.name }}
-                        </option>
-                    </select>
+                    <div class="relative">
+                        <select
+                            v-model="selectedHub"
+                            :disabled="!isAdmin && Boolean(stationContext.code)"
+                            aria-label="Chọn kho tổng"
+                            class="px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-xs font-bold text-blue-900 focus:bg-white focus:border-blue-600 outline-none transition disabled:opacity-80 disabled:cursor-not-allowed"
+                        >
+                            <option value="ALL">Tất cả trạm tổng kho (ALL)</option>
+                            <optgroup label="Danh Sách Siêu Hub Khai Thác">
+                                <option v-for="station in availableStations" :key="station.code" :value="station.code">
+                                    {{ station.code }} - {{ station.name }}
+                                </option>
+                            </optgroup>
+                        </select>
+                    </div>
                     <select
                         v-model="selectedStatusFilter"
                         class="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:border-blue-600 outline-none transition"
                     >
                         <option value="ALL">Tất cả trạng thái</option>
-                        <option value="ROUTE_ASSIGNED">ROUTE_ASSIGNED</option>
-                        <option value="PENDING_ROUTING">PENDING_ROUTING</option>
-                        <option value="RECEIVED">RECEIVED</option>
-                        <option value="STORED">STORED</option>
-                        <option value="PICKED_UP">PICKED_UP</option>
-                        <option value="IN_TRANSIT">IN_TRANSIT</option>
-                        <option value="ARRIVED_DEST_HUB">ARRIVED_DEST_HUB</option>
+                        <option value="WAITING_INTAKE">Chờ nhập kho</option>
+                        <option value="RECEIVED">Đã tiếp nhận</option>
+                        <option value="STORED">Đang lưu kho</option>
+                        <option value="IN_TRANSIT">Đang luân chuyển</option>
+                        <option value="ARRIVED_DEST_HUB">Đã đến hub đích</option>
+                        <option value="HANDED_TO_COURIER">Đã bàn giao bưu tá</option>
+                        <option value="PICKED_UP">Đã lấy hàng (chưa nhập hub)</option>
+                        <option value="CANCELLED">Đã hủy</option>
                     </select>
                     <select
                         v-model.number="pageSize"
@@ -910,14 +1312,29 @@
                 <div v-else-if="paginatedShipments.length === 0" class="p-8 text-center text-slate-400">
                     <span>Không tìm thấy bưu gửi nào phù hợp với bộ lọc.</span>
                 </div>
-                <div v-else class="overflow-x-auto">
+                <div v-else>
+                    <div v-if="selectedHubItems.length" class="selection-summary-bar mx-3 mt-3 px-3 py-2 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div>
+                            <strong>{{ selectedHubItems.length }} kiện</strong>
+                            <span class="text-slate-500 ml-1">({{ selectedHubWeight.toFixed(1) }} kg)</span>
+                            <span v-if="!selectedHubAction" class="text-amber-700 ml-2">Chỉ chọn các kiện cùng thao tác.</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                                                        <button type="button" @click="handleBulkInventoryOperation('store')" :disabled="isActionRunning || selectedHubAction !== 'store' || (isAdmin && selectedHub === 'ALL')" class="px-2.5 py-1 rounded-md bg-blue-100 text-blue-800 border border-blue-200 font-bold disabled:opacity-50">Lưu kho</button>
+                            <button type="button" @click="clearHubSelection" class="px-2.5 py-1 rounded-md border border-slate-200 bg-white text-slate-600 font-semibold">Bỏ chọn</button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-50/70 text-slate-600 font-bold border-b border-slate-200 text-[11px] uppercase tracking-wider">
+                                <th class="py-2.5 px-3 w-10">
+                                    <input type="checkbox" :checked="selectableHubItems.length > 0 && selectableHubItems.every(item => selectedTrackingCodes.has(String(item.trackingCode || '').trim().toUpperCase()))" @change="toggleAllHubSelection" :disabled="isActionRunning || (isAdmin && selectedHub === 'ALL')" aria-label="Chọn tất cả kiện có thể tác nghiệp" />
+                                </th>
                                 <th class="py-2.5 px-3">Mã Vận Đơn</th>
                                 <th class="py-2.5 px-3">Người Nhận</th>
-                                <th class="py-2.5 px-3">Trạng Thái Vận Đơn</th>
-                                <th class="py-2.5 px-3">Tồn Kho (Raw)</th>
+                                <th class="py-2.5 px-3 whitespace-nowrap w-28">Trạng Thái Vận Đơn</th>
+                                <th class="py-2.5 px-3">Trạng Thái Tồn Kho</th>
                                 <th class="py-2.5 px-3">Transport Leg / Trip</th>
                                 <th class="py-2.5 px-3">Location</th>
                                 <th class="py-2.5 px-3 text-right">Tác Nghiệp</th>
@@ -925,11 +1342,14 @@
                         </thead>
                         <tbody class="divide-y divide-slate-100 font-medium">
                             <tr v-for="item in paginatedShipments" :key="item.id || item.trackingCode" class="hover:bg-blue-50/30 transition">
-                                <td class="py-2.5 px-3">
-                                    <button
+                                <td class="py-2.5 px-3 align-top">
+                                    <input type="checkbox" :checked="selectedTrackingCodes.has(String(item.trackingCode || '').trim().toUpperCase())" @change="toggleHubSelection(item)" :disabled="isActionRunning || (isAdmin && selectedHub === 'ALL') || !canReceive(item) && !canStore(item) || !isShipmentInSelectedHubScope(item)" :aria-label="'Chọn ' + item.trackingCode" />
+                                </td>
+                                <td class="py-2.5 px-3 align-top">
+                                    <button 
                                         type="button"
                                         @click="viewTrackingDetail(item.trackingCode)"
-                                        class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group text-left transition-colors"
+                                        class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group text-left transition-colors whitespace-nowrap"
                                         title="Click để xem chi tiết hành trình & bản đồ"
                                     >
                                         <span>{{ item.trackingCode }}</span>
@@ -937,46 +1357,49 @@
                                     </button>
                                     <div v-if="item.senderName" class="text-[10px] text-slate-500 mt-1">Gửi: {{ item.senderName }}</div>
                                 </td>
-                                <td class="py-2.5 px-3 text-slate-800 max-w-xs">
+                                <td class="py-2.5 px-3 align-top text-slate-800 max-w-xs">
                                     <div class="font-bold truncate">{{ item.receiverName || 'Chưa cập nhật' }}</div>
                                     <div class="text-[10.5px] text-slate-500 truncate">{{ item.receiverAddress || 'Chưa có địa chỉ' }}</div>
                                 </td>
-                                <td class="py-2.5 px-3">
-                                    <span :class="['px-2.5 py-0.5 rounded-md text-[10.5px] font-bold border inline-block', Utils.getStatusBadgeClass(operationalStatus(item))]">
-                                        {{ operationalStatus(item) || '—' }}
+                                <td class="py-2.5 px-3 align-top whitespace-nowrap">
+                                    <span :class="['px-2 py-0.5 rounded-md text-[10.5px] font-bold border inline-flex items-center whitespace-nowrap', Utils.getStatusBadgeClass(operationalStatus(item))]">
+                                        {{ Utils.formatStatusText(operationalStatus(item), locationForDisplay(item)) || '—' }}
                                     </span>
-                                    <div v-if="operationalStatus(item)" class="text-[10px] text-slate-500 mt-1">{{ Utils.formatStatusText(operationalStatus(item)) }}</div>
                                 </td>
-                                <td class="py-2.5 px-3 align-top">
-                                    <span v-if="getInventoryStatus(item)" class="font-mono font-bold text-slate-800" :title="getInventoryStatus(item)">
-                                        {{ getInventoryStatus(item) }}
+                                <td class="py-2.5 px-3 align-top whitespace-nowrap">
+                                    <span v-if="getInventoryStatus(item)" 
+                                        :class="String(getInventoryStatus(item) || '').toUpperCase() === 'RECEIVED' ? 'bg-amber-50 text-amber-700 border-amber-200' : (String(getInventoryStatus(item) || '').toUpperCase() === 'STORED' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-700 border-slate-200')"
+                                        class="px-2 py-0.5 rounded text-[10.5px] font-bold border inline-flex items-center whitespace-nowrap"
+                                        :title="getInventoryStatus(item)">
+                                        {{ Utils.formatInventoryStatus(getInventoryStatus(item)) }}
                                     </span>
                                     <span v-else class="text-slate-400">—</span>
                                 </td>
                                 <td class="py-2.5 px-3 align-top text-[10.5px]">
-                                    <div v-if="getTransportLeg(item)" class="font-mono text-slate-700">{{ getTransportLeg(item) }}</div>
+                                    <div v-if="getTransportLeg(item)" class="text-slate-700">{{ Utils.formatTransportLeg(getTransportLeg(item)) }}</div>
                                     <div v-if="getTripCode(item)" class="font-mono font-bold text-indigo-700 mt-0.5">Trip: {{ getTripCode(item) }}</div>
                                     <span v-if="!getTransportLeg(item) && !getTripCode(item)" class="text-slate-400">—</span>
                                 </td>
                                 <td class="py-2.5 px-3 align-top">
-                                    <span v-if="locationForDisplay(item)" class="font-mono text-slate-700">{{ locationForDisplay(item) }}</span>
+                                    <span v-if="locationForDisplay(item)" class="font-mono text-slate-700">{{ Utils.formatLocationCode(locationForDisplay(item)) }}</span>
                                     <span v-else class="text-slate-400">—</span>
                                 </td>
-                                <td class="py-2.5 px-3 text-right whitespace-nowrap">
+                                <td class="py-2.5 px-3 align-top text-right whitespace-nowrap">
                                     <button
                                         v-if="canReceive(item)"
                                         type="button"
-                                        @click="handleReceive(item)"
-                                        :disabled="isActionRunning"
+                                        @click="handleReceiveAndStore(item)"
+                                        :disabled="isActionRunning || (isAdmin && selectedHub === 'ALL') || !isShipmentInSelectedHubScope(item)"
                                         class="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-md font-bold hover:bg-amber-100 transition shadow-sm disabled:opacity-50"
+                                        title="Tiếp nhận vào hub và lưu kho ngay trong 1 lần bấm"
                                     >
-                                        Tiếp Nhận
+                                        Tiếp nhận &amp; Lưu kho
                                     </button>
                                     <button
                                         v-else-if="canStore(item)"
                                         type="button"
                                         @click="handleStore(item)"
-                                        :disabled="isActionRunning"
+                                        :disabled="isActionRunning || (isAdmin && selectedHub === 'ALL') || !isShipmentInSelectedHubScope(item)"
                                         class="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-md font-bold hover:bg-blue-100 transition shadow-sm disabled:opacity-50"
                                     >
                                         Lưu Kho

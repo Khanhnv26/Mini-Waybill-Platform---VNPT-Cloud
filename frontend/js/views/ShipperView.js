@@ -464,18 +464,28 @@
                 }
             };
 
-            // 2. Lọc danh sách bưu gửi của bưu tá
+            // 2. Danh sách nền: chỉ gồm bưu gửi chặng cuối (không lộ hàng trung tuyến)
             const deliveryShipments = computed(() => {
-                // A shipper view is final-mile only; do not expose pre-routing and
-                // origin/linehaul cargo merely because ShipmentService returns all rows.
                 const finalMileStatuses = new Set([
                     'ARRIVED_DEST_HUB', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED',
                     'DELIVERED', 'RETURNING', 'RETURNED'
                 ]);
-                let list = shipmentsList.value.filter(item => finalMileStatuses.has(getShipmentStatus(item)));
+                return shipmentsList.value.filter(item => finalMileStatuses.has(getShipmentStatus(item)));
+            });
 
-                if (selectedStatusFilter.value !== 'ALL') {
-                    list = list.filter(s => getShipmentStatus(s) === selectedStatusFilter.value);
+            // 3. Lọc theo trạng thái + tìm kiếm. "Chờ nhận đi phát" chỉ gồm kiện đã
+            // thực sự về bưu cục phát, khớp đúng KPI kpiAwaitingDispatch.
+            const filteredShipments = computed(() => {
+                let list = deliveryShipments.value;
+
+                const statusFilter = String(selectedStatusFilter.value || 'ALL').toUpperCase();
+                if (statusFilter !== 'ALL') {
+                    if (statusFilter === 'ARRIVED_DEST_HUB') {
+                        list = list.filter(s => getShipmentStatus(s) === 'ARRIVED_DEST_HUB'
+                            && isAtDestinationPostOffice(s));
+                    } else {
+                        list = list.filter(s => getShipmentStatus(s) === statusFilter);
+                    }
                 }
 
                 if (searchQuery.value.trim()) {
@@ -491,16 +501,16 @@
                 return list;
             });
 
-            // 3. Phân trang
+            // 4. Phân trang
             const totalPages = computed(() => {
                 if (pageSize.value === -1) return 1;
-                return Math.ceil(deliveryShipments.value.length / pageSize.value) || 1;
+                return Math.ceil(filteredShipments.value.length / pageSize.value) || 1;
             });
 
             const paginatedShipments = computed(() => {
-                if (pageSize.value === -1) return deliveryShipments.value;
+                if (pageSize.value === -1) return filteredShipments.value;
                 const start = (currentPage.value - 1) * pageSize.value;
-                return deliveryShipments.value.slice(start, start + pageSize.value);
+                return filteredShipments.value.slice(start, start + pageSize.value);
             });
 
             watch([selectedStatusFilter, searchQuery, pageSize], () => {
@@ -813,6 +823,7 @@
                 pageSize,
                 totalPages,
                 deliveryShipments,
+                filteredShipments,
                 paginatedShipments,
                 kpiAwaitingDispatch,
                 kpiOutForDelivery,
@@ -936,7 +947,7 @@
                             <input 
                                 v-model="searchQuery"
                                 type="text" 
-                                placeholder="Tìm người nhận, SĐT, địa chỉ phát..."
+                                placeholder="Tìm mã vận đơn, người nhận, SĐT, địa chỉ..."
                                 class="w-full pl-3 pr-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                             />
                         </div>
@@ -952,7 +963,6 @@
                             <option value="DELIVERY_FAILED">Phát Không Thành Công</option>
                             <option value="RETURNING">Đang Chuyển Hoàn</option>
                             <option value="RETURNED">Đã Hoàn Về Người Gửi</option>
-                            <option value="IN_TRANSIT">Đang Trên Xe Luân Chuyển</option>
                         </select>
 
                         <select 
@@ -966,7 +976,7 @@
                     </div>
 
                     <div class="text-[11px] text-slate-500 font-medium">
-                        Tổng số: <strong class="text-slate-800">{{ deliveryShipments.length }}</strong> bưu gửi
+                        Tổng số: <strong class="text-slate-800">{{ filteredShipments.length }}</strong> bưu gửi
                     </div>
                 </div>
 
@@ -989,7 +999,7 @@
                                     <th class="py-2.5 px-3">Người Nhận &amp; Điện Thoại</th>
                                     <th class="py-2.5 px-3">Địa Chỉ Phát Tận Nơi</th>
                                     <th class="py-2.5 px-3">Tiền Thu Hộ COD</th>
-                                    <th class="py-2.5 px-3">Trạng Thái</th>
+                                    <th class="py-2.5 px-3 whitespace-nowrap w-28">Trạng Thái</th>
                                     <th class="py-2.5 px-3 text-right">Tác Nghiệp Bưu Tá</th>
                                 </tr>
                             </thead>
@@ -999,7 +1009,7 @@
                                         <button 
                                             type="button"
                                             @click="viewTrackingDetail(item.trackingCode)"
-                                            class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group text-left transition-colors"
+                                            class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group text-left transition-colors whitespace-nowrap"
                                             title="Click để xem chi tiết hành trình & bản đồ"
                                         >
                                             <span>{{ item.trackingCode }}</span>
@@ -1016,8 +1026,8 @@
                                     <td class="py-2.5 px-3 font-mono font-bold text-emerald-700">
                                         {{ Utils.formatCurrency(item.codAmount) }}
                                     </td>
-                                    <td class="py-2.5 px-3">
-                                        <span :class="['px-2.5 py-0.5 rounded-md text-[10.5px] font-bold border inline-block', getShipmentStatusBadgeClass(getShipmentStatus(item))]">
+                                    <td class="py-2.5 px-3 whitespace-nowrap">
+                                        <span :class="['px-2 py-0.5 rounded-md text-[10.5px] font-bold border inline-flex items-center whitespace-nowrap', getShipmentStatusBadgeClass(getShipmentStatus(item))]">
                                             {{ formatShipmentStatus(getShipmentStatus(item)) }}
                                         </span>
                                     </td>
@@ -1116,7 +1126,7 @@
                     <!-- Phân trang bưu tá -->
                     <div class="px-4 py-2.5 bg-slate-50/50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                         <div class="text-slate-500">
-                            Hiển thị trang {{ currentPage }} / {{ totalPages }} (Tổng số {{ deliveryShipments.length }} kết quả)
+                            Hiển thị trang {{ currentPage }} / {{ totalPages }} (Tổng số {{ filteredShipments.length }} kết quả)
                         </div>
                         <div class="flex items-center space-x-1">
                             <button 
@@ -1184,7 +1194,7 @@
                                     <button 
                                         type="button"
                                         @click="viewTrackingDetail(item.trackingCode)"
-                                        class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group text-left transition-colors"
+                                        class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group text-left transition-colors whitespace-nowrap"
                                         title="Click để xem chi tiết hành trình & bản đồ"
                                     >
                                         <span>{{ item.trackingCode }}</span>
@@ -1219,7 +1229,7 @@
                     <div class="border-b border-slate-100 pb-3 flex justify-between items-center">
                         <div>
                             <h3 class="font-bold text-slate-900 text-sm">Ghi Nhận Phát Không Thành Công</h3>
-                            <p class="text-slate-500 font-mono text-[11px] mt-0.5">Bưu gửi: {{ failedTargetShipment?.trackingCode }}</p>
+                            <p class="text-slate-500 font-mono text-[11px] mt-0.5 whitespace-nowrap">Bưu gửi: {{ failedTargetShipment?.trackingCode }}</p>
                         </div>
                         <button @click="showFailedModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
                     </div>

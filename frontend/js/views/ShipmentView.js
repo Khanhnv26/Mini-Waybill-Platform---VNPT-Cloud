@@ -1630,7 +1630,7 @@
                                     <option value="PICKED_UP">Đã lấy hàng từ người gửi</option>
                                     <option value="IN_TRANSIT">Đang vận chuyển liên tỉnh</option>
                                     <option value="ARRIVED_DEST_HUB">Đã đến bưu cục phát</option>
-                                    <option value="OUT_FOR_DELIVERY">Đang chuyển phát</option>
+                                    <option value="OUT_FOR_DELIVERY">Đang phát</option>
                                     <option value="DELIVERED">Phát thành công</option>
                                     <option value="DELIVERY_FAILED">Giao không thành công</option>
                                 </select>
@@ -1697,7 +1697,7 @@
                                                 <button 
                                                     type="button"
                                                     @click="viewTracking(s.trackingCode)"
-                                                    class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group text-left transition-colors tracking-tight"
+                                                    class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group text-left transition-colors tracking-tight whitespace-nowrap"
                                                     title="Click để xem chi tiết hành trình & bản đồ"
                                                 >
                                                     <span>{{ s.trackingCode }}</span>
@@ -1901,7 +1901,7 @@
                                     <span>Lưu ý nghiệp vụ:</span>
                                 </div>
                                 <p class="text-[11px] text-amber-800 leading-relaxed">
-                                    Vận đơn <span class="font-mono font-bold">{{ selectedShipmentToCancel?.trackingCode }}</span> sẽ chuyển sang trạng thái <strong>ĐÃ HỦY (CANCELLED)</strong>. Nếu kiện đang nằm trong chuyến xe trục, hệ thống sẽ tự động gỡ kiện và hoàn trả tải trọng cho xe.
+                                    Vận đơn <span class="font-mono font-bold whitespace-nowrap">{{ selectedShipmentToCancel?.trackingCode }}</span> sẽ chuyển sang trạng thái <strong>ĐÃ HỦY (CANCELLED)</strong>. Nếu kiện đang nằm trong chuyến xe trục, hệ thống sẽ tự động gỡ kiện và hoàn trả tải trọng cho xe.
                                 </p>
                             </div>
 
