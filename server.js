@@ -4,7 +4,7 @@ const path = require('path');
 
 const PORT = 3000;
 const GATEWAY_HOST = '127.0.0.1';
-const GATEWAY_PORT = 8080;
+const GATEWAY_PORT = 80;
 const FRONTEND_DIR = path.join(__dirname, 'frontend');
 
 // Bảng MIME types hỗ trợ phục vụ các file tĩnh
@@ -53,13 +53,13 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // 2. Phục vụ các file tĩnh trong thư mục frontend/ (index.html, login.html, js/auth.js, js/api.js...)
+
     let urlPath = req.url.split('?')[0];
     if (urlPath === '/' || urlPath === '') {
         urlPath = '/index.html';
     }
 
-    // Chống tấn công Directory Traversal (../)
+
     const safePath = path.normalize(urlPath).replace(/^(\.\.[\/\\])+/, '');
     let filePath = path.join(FRONTEND_DIR, safePath);
 
@@ -68,7 +68,7 @@ const server = http.createServer((req, res) => {
         filePath = filePath + '.html';
     }
 
-    // Đọc và trả về file
+
     fs.stat(filePath, (err, stats) => {
         if (err || !stats.isFile()) {
             res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -89,10 +89,6 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-    console.log('\n=================================================================');
-    console.log(' 🚚 VNPT WAYBILL FRONTEND SERVER ĐANG CHẠY TẠI: http://localhost:' + PORT);
-    console.log(' 🌐 Trang chính Dashboard: http://localhost:' + PORT + '/index.html');
-    console.log(' 🔑 Trang Đăng nhập:      http://localhost:' + PORT + '/login.html');
-    console.log(' 🔗 Reverse Proxy: Chuyển tiếp /api/** sang Gateway :8080');
-    console.log('=================================================================\n');
+    console.log('VNPT WAYBILL FRONTEND SERVER ĐANG CHẠY TẠI: http://localhost:' + PORT);
+    console.log('Trang chính: http://localhost:' + PORT + '/index.html');
 });
