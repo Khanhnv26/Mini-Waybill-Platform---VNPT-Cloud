@@ -90,9 +90,9 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
     console.log('\n=================================================================');
-    console.log(' 🚚 VNPT WAYBILL FRONTEND SERVER ĐANG CHẠY TẠI: http://localhost:' + PORT);
-    console.log(' 🌐 Trang chính Dashboard: http://localhost:' + PORT + '/index.html');
-    console.log(' 🔑 Trang Đăng nhập:      http://localhost:' + PORT + '/login.html');
-    console.log(' 🔗 Reverse Proxy: Chuyển tiếp /api/** sang Gateway :8080');
+    console.log('VNPT WAYBILL FRONTEND SERVER ĐANG CHẠY TẠI: http://localhost:' + PORT);
+    console.log('Trang chính Dashboard: http://localhost:' + PORT + '/index.html');
+    console.log('Trang Đăng nhập:      http://localhost:' + PORT + '/login.html');
+    console.log('Reverse Proxy: Chuyển tiếp /api/** sang Gateway :8080');
     console.log('=================================================================\n');
 });
