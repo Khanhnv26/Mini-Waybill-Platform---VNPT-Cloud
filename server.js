@@ -2,7 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = 3000;
+const PORT = process.argv[2] || 3000;
 const GATEWAY_HOST = '127.0.0.1';
 const GATEWAY_PORT = 80;
 const FRONTEND_DIR = path.join(__dirname, 'frontend');
