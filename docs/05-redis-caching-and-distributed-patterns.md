@@ -167,20 +167,20 @@ public class GenericCacheService {
         try {
             Object cachedValue = redisTemplate.opsForValue().get(key);
             if (cachedValue != null) {
-                log.info("🎯 [CACHE HIT] Tìm thấy dữ liệu trong Redis với Key: [{}]", key);
+                log.info("[CACHE HIT] Tìm thấy dữ liệu trong Redis với Key: [{}]", key);
                 return (T) cachedValue;
             }
         } catch (Exception e) {
-            log.warn("⚠️ Lỗi kết nối Redis, fallback đọc trực tiếp từ CSDL: {}", e.getMessage());
+            log.warn("Lỗi kết nối Redis, fallback đọc trực tiếp từ CSDL: {}", e.getMessage());
         }
 
-        log.warn("💨 [CACHE MISS] Không có trong Redis, đang truy vấn CSDL cho Key: [{}]", key);
+        log.warn("[CACHE MISS] Không có trong Redis, đang truy vấn CSDL cho Key: [{}]", key);
         T dbData = dbFallback.get();
 
         if (dbData != null) {
             try {
                 redisTemplate.opsForValue().set(key, dbData, ttl);
-                log.info("💾 Đã nạp dữ liệu mới vào Redis thành công với TTL: {}s", ttl.toSeconds());
+                log.info("Đã nạp dữ liệu mới vào Redis thành công với TTL: {}s", ttl.toSeconds());
             } catch (Exception e) {
                 log.error("Không thể ghi dữ liệu vào Redis: {}", e.getMessage());
             }
@@ -195,7 +195,7 @@ public class GenericCacheService {
     public void evict(String key) {
         try {
             redisTemplate.delete(key);
-            log.info("🗑️ Đã xóa cache Key: [{}]", key);
+            log.info("Đã xóa cache Key: [{}]", key);
         } catch (Exception e) {
             log.error("Lỗi khi xóa cache: {}", e.getMessage());
         }
@@ -238,7 +238,7 @@ public class DistributedLockService {
         String currentValue = stringRedisTemplate.opsForValue().get(lockKey);
         if (lockValue.equals(currentValue)) {
             stringRedisTemplate.delete(lockKey);
-            log.info("🔓 Đã mở khóa thành công cho Key: [{}]", lockKey);
+            log.info("Đã mở khóa thành công cho Key: [{}]", lockKey);
         }
     }
 }

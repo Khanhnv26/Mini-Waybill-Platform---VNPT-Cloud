@@ -219,7 +219,7 @@ public class DeadLetterQueueListener {
 
     @KafkaListener(topics = "shipment-events.DLT", groupId = "dlt-monitoring-group")
     public void handleDltMessages(ConsumerRecord<String, Object> record) {
-        log.warn("🚨 [CẢNH BÁO CRITICAL] Nhận tin nhắn từ DLT! Key: {}, Payload: {}, Nguyên nhân thất bại",
+        log.warn("[CẢNH BÁO CRITICAL] Nhận tin nhắn từ DLT! Key: {}, Payload: {}, Nguyên nhân thất bại",
                 record.key(), record.value());
         // Ghi vào bảng 'failed_messages' để admin kiểm tra thủ công
     }

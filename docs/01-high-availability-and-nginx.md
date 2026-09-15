@@ -18,23 +18,23 @@
 ### 2.1. Sơ Đồ Kiến Trúc Luồng Nginx Load Balancer & Eureka Peer Replication
 ```mermaid
 flowchart TD
-    Client([Client / Trình Duyệt / Máy Quét POS]) -->|HTTP Port 80| Nginx[Nginx Reverse Proxy & Load Balancer]
+    Client([Client / Trình Duyệt / Máy Quét POS]) -->|"HTTP Port 80"| Nginx[Nginx Reverse Proxy & Load Balancer]
     
     subgraph Upstream_Gateway [" Upstream Gateway Cluster (Active - Active) "]
         GW1["API Gateway 1 (Port 8080)"]
         GW2["API Gateway 2 (Port 8088)"]
     end
     
-    Nginx -->|Upstream Round-Robin /api/| GW1
-    Nginx -.->|Failover on error, timeout, 502, 503| GW2
+    Nginx -->|"Upstream Round-Robin /api/"| GW1
+    Nginx -.->|"Failover on error, timeout, 502, 503"| GW2
     
     subgraph Eureka_Cluster [" Service Discovery Peer-to-Peer Replication "]
         E1["Eureka Server 1 (Port 8761 - peer1)"]
         E2["Eureka Server 2 (Port 8762 - peer2)"]
-        E1 <-->|Heartbeat & Bi-directional Sync| E2
+        E1 <-->|"Heartbeat & Bi-directional Sync"| E2
     end
     
-    GW1 & GW2 <-->|Fetch Registry & Heartbeat| E1 & E2
+    GW1 & GW2 -->|"Fetch Registry & Heartbeat"| E1 & E2
 ```
 
 ### 2.2. Cấu hình thực tế trong dự án (`nginx/nginx.conf`)

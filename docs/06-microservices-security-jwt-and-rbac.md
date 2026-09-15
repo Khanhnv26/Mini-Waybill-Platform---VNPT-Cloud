@@ -49,7 +49,7 @@ sequenceDiagram
     GW->>GW: Thêm X-User-Id, X-User-Roles, X-User-Location-Code
 
     GW->>Svc: Chuyển tiếp Request đã làm sạch
-    Svc->>Svc: Đọc @RequestHeader("X-User-Location-Code")<br/>Kiểm tra quyền truy cập trạm
+    Svc->>Svc: Đọc Header X-User-Location-Code<br/>Kiểm tra quyền truy cập trạm
     Svc-->>GW: Trả về kết quả nghiệp vụ (HTTP 200 OK)
     GW-->>Client: HTTP 200 OK
 ```
@@ -199,7 +199,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String blacklistKey = "auth:blacklist:user:" + userId;
                 Boolean isBanned = redisTemplate.hasKey(blacklistKey);
                 if (Boolean.TRUE.equals(isBanned)) {
-                    log.warn("🚨 Tài khoản UserId [{}] nằm trong danh sách đen Redis!", userId);
+                    log.warn("Tài khoản UserId [{}] nằm trong danh sách đen Redis!", userId);
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.setContentType("application/json;charset=UTF-8");
                     response.getWriter().write("{\"error\": \"Tài khoản đã bị vô hiệu hóa hoặc đăng xuất.\"}");

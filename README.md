@@ -13,7 +13,7 @@
 
 ---
 
-## 📌 1. Giới Thiệu Tổng Quan
+## 1. Giới Thiệu Tổng Quan
 
 **VNPT Waybill Platform** là hệ thống Microservices chuẩn Enterprise mô phỏng chuỗi cung ứng chuyển phát bưu chính toàn trình: từ tiếp nhận bưu phẩm tại quầy / Shop B2B, quản lý chuyến xe trục liên tỉnh (Trips Management), phân luồng tại 5 Siêu Hub trọng điểm toàn quốc (Hà Nội, Hải Phòng, Đà Nẵng, TP.HCM, Cần Thơ), cho đến điều phối bưu tá phát hàng chặng cuối và quyết toán tiền thu hộ COD.
 
@@ -21,9 +21,38 @@ Hệ thống được thiết kế theo tiêu chuẩn **High Availability (HA - 
 
 ---
 
-## 🏛️ 2. Kiến Trúc Hệ Thống (System & HA Architecture)
+## 2. Bối Cảnh Vận Hành & Nghiệp Vụ Bưu Chính Toàn Trình (Core Business Domain)
 
-Hệ thống kết hợp giữa **Spring Cloud Microservices**, **Apache Kafka KRaft Event-Driven Streaming**, và cơ chế **Database Read-Write Splitting**:
+Khác với các ứng dụng giao hàng nội thành đơn chặng, hệ thống bưu chính quy mô quốc gia vận hành theo mô hình phân tầng đa chặng với mạng lưới kho bãi phức tạp. Nền tảng mô phỏng và giải quyết triệt để 4 trụ cột nghiệp vụ trọng yếu:
+
+### 2.1. Mô Hình Mạng Lưới Hub-and-Spoke & 5 Siêu Hub Toàn Quốc
+* **Quy trình luân chuyển đa tầng:** Bưu gửi từ Người gửi tại quầy hoặc Shop B2B được tiếp nhận tại **Bưu cục gửi (Origin Post Office)** -> xe gom Feeder chở về **Siêu Hub gửi** -> xe tải trục liên tỉnh (**Trunk Trip**) chạy đường dài tới **Siêu Hub nhận** -> xe gom Feeder chuyển về **Bưu cục phát (Dest Post Office)** -> **Bưu tá (Shipper) phát hàng tận nơi (Last-Mile)** tới Người nhận.
+* **Mạng lưới 5 Siêu Hub trọng điểm:** Phân bổ chiến lược trên toàn quốc gồm Hà Nội (`HUB_HAN`), Hải Phòng (`HUB_HPH`), Đà Nẵng (`HUB_DAD`), TP.HCM (`HUB_SGN`), và Cần Thơ (`HUB_VCA`), đóng vai trò cửa ngõ gom tải và định tuyến hàng hóa liên vùng.
+* *Tài liệu chi tiết:* Xem sơ đồ phân cấp mạng lưới bưu chính tại [Cẩm nang 04 - Mô Hình Hub-and-Spoke](docs/04-logistics-domain-and-rbac-station-context.md#1-bản-đồ-nghiệp-vụ-vận-tải-bưu-chính-thực-tế).
+
+### 2.2. Vòng Đời Vận Đơn & Máy Trạng Thái 11 Bước (State Machine)
+* **Luân chuyển trạng thái tuần tự:** Vận đơn trải qua 11 mốc trạng thái chuẩn: `CREATED` -> `PENDING_ROUTING` -> `ROUTE_ASSIGNED` -> `PICKED_UP` -> `IN_TRANSIT` -> `ARRIVED_DEST_HUB` -> `OUT_FOR_DELIVERY` -> `DELIVERED`.
+* **Cơ chế Tự động Chuyển hoàn (Auto-Returning):** Khi bưu tá báo phát thất bại (`DELIVERY_FAILED` do khách hẹn lại hoặc sai địa chỉ), hệ thống cho phép phát lại tối đa 3 lần. Khi phát hiện số lần thất bại đạt mốc 3, hệ thống tự động kích hoạt trạng thái `RETURNING` để chuyển hoàn bưu phẩm về người gửi, giải phóng sức chứa kho bãi.
+* **Tính Bất Biến (Immutable Terminal States):** Các trạng thái kết thúc gồm `DELIVERED` (Giao thành công & Thu tiền COD), `RETURNED` (Đã hoàn hàng về Shop) và `CANCELLED` (Hủy hợp lệ) là bất biến tuyệt đối nhằm bảo đảm tính toàn vẹn chứng từ tài chính và kế toán.
+* *Tài liệu chi tiết:* Xem mã nguồn Java State Machine và logic tự động chuyển hoàn tại [Cẩm nang 04 - Máy Trạng Thái Bưu Gửi](docs/04-logistics-domain-and-rbac-station-context.md#3-máy-trạng-thái-bưu-gửi-11-bước--tự-động-chuyển-hoàn-auto-returning) và kiến trúc phát sự kiện bất đồng bộ tại [Cẩm nang 03 - Kafka KRaft Cluster](docs/03-kafka-kraft-cluster-and-event-streaming.md).
+
+### 2.3. Điều Phối Chuyến Xe Trục (Trips), Kiểm Soát Tải Trọng & Niêm Phong Seal
+* **Kiểm soát tải trọng theo thời gian thực (Load Capacity Bar):** Hệ thống tự động cộng dồn khối lượng thực tế và thể tích quy đổi của từng kiện hàng khi xếp lên chuyến xe. Giao diện trực quan hóa mức tải xe (Xanh lá < 80%, Vàng 80-99%, Đỏ >= 100% cảnh báo/chặn xếp thêm đơn) giúp doanh nghiệp tuân thủ nghiêm ngặt quy định tải trọng đường bộ.
+* **Niêm phong bảo an (Seal Number):** Trước khi xe tải xuất bến rời Hub, điều phối viên bắt buộc phải chốt mã số niêm chì (Seal). Khi xe cập bến Hub đích, thủ kho bắt buộc đối soát mã Seal thực tế trùng khớp với bảng kê điện tử (Manifest) mới được phép dỡ hàng.
+* **Chống xung đột đa luồng:** Áp dụng khóa phân tán Redis (`SETNX`) đảm bảo khi 2 bưu tá cùng quét một kiện hàng trên thiết bị cầm tay, chỉ duy nhất 1 người giành được quyền xử lý, tránh race condition trong môi trường đồng thời cao.
+* *Tài liệu chi tiết:* Xem thuật toán tính tải và quy trình niêm phong tại [Cẩm nang 04 - Quản Lý Chuyến Xe Trục](docs/04-logistics-domain-and-rbac-station-context.md#2-quản-lý-chuyến-xe-trục-đa-chặng-multi-leg-trips--manifests) và boilerplate khóa phân tán tại [Cẩm nang 05 - Redis Distributed Lock](docs/05-redis-caching-and-distributed-patterns.md#23-luồng-khóa-phân-tán-redis-distributed-lock---tránh-race-condition).
+
+### 2.4. Quyết Toán Tài Chính COD & Bảo Mật Ngữ Cảnh Trạm (Station Context Binding)
+* **Quản trị dòng tiền COD minh bạch:** Tách biệt rõ ranh giới giữa tiền thu hộ COD và tiền cước vận chuyển B2B. Khi bưu tá hoàn tất ca phát, tiền mặt được nộp về quỹ trạm, hệ thống kích hoạt luồng đối soát và gửi thông báo biến động số dư.
+* **Ràng buộc ngữ cảnh trạm làm việc (Station Context Binding):** Ngăn chặn triệt để lỗ hổng nhân viên có vai trò `ROLE_POST_OFFICE_STAFF` tại trạm Hà Nội cố tình hoặc vô ý thao tác đơn hàng thuộc địa bàn TP.HCM. Thông tin trạm (`X-User-Station-Id`) được Gateway trích xuất từ JWT và kiểm tra chéo tại tầng Business Service.
+* **Thu hồi quyền tức thời qua Redis Blacklist:** Khi phát hiện nhân viên vi phạm hoặc đăng xuất, Gateway kiểm tra Redis Blacklist trong thời gian < 0.5ms để chặn đứng truy cập ngay lập tức mà không cần chờ JWT hết hạn.
+* *Tài liệu chi tiết:* Xem giải pháp Station Context Binding tại [Cẩm nang 04 - Bảo Mật Ngữ Cảnh Trạm](docs/04-logistics-domain-and-rbac-station-context.md#4-bảo-mật-ngữ-cảnh-trạm-station-context-rbac) và kiến trúc bảo mật Gateway tại [Cẩm nang 06 - Microservices Security & Redis Blacklist](docs/06-microservices-security-jwt-and-rbac.md).
+
+---
+
+## 3. Kiến Trúc Hệ Thống (System & HA Architecture)
+
+Hệ thống kết hợp giữa **Spring Cloud Microservices**, **Apache Kafka KRaft Event-Driven Streaming**, và cơ chế **Database Read-Write Splitting** (Xem thêm chi tiết triển khai tại [Cẩm nang 01 - Cấu Hình HA & Nginx Failover](docs/01-high-availability-and-nginx.md) và [Cẩm nang 02 - Database Read-Write Splitting](docs/02-database-read-write-splitting-boilerplate.md)):
 
 ```mermaid
 flowchart TB
@@ -44,7 +73,7 @@ flowchart TB
     subgraph RegistryLayer [" Service Discovery HA Cluster (Peer-to-Peer) "]
         Eureka1["Eureka Server 1 (Port 8761 - peer1)"]
         Eureka2["Eureka Server 2 (Port 8762 - peer2)"]
-        Eureka1 <-->|Peer Replication| Eureka2
+        Eureka1 <-->|"Đồng bộ Peer Replication"| Eureka2
     end
 
     subgraph ServiceLayer [" Business Microservices Layer "]
@@ -58,7 +87,7 @@ flowchart TB
     end
 
     subgraph EventAndCache [" Message Broker HA & Caching Layer "]
-        KafkaCluster[("Apache Kafka 3-Broker KRaft Cluster (Quorum)\n• kafka-1 (9092) | kafka-2 (9094) | kafka-3 (9096)\n• RF=3, MinISR=2\n• Quorum Voters (1@kafka-1, 2@kafka-2, 3@kafka-3)")]
+        KafkaCluster[("Apache Kafka 3-Broker KRaft Cluster (Quorum)\n• kafka-1 (9092), kafka-2 (9094), kafka-3 (9096)\n• RF=3, MinISR=2\n• Quorum Voters (Broker 1, 2, 3)")]
         Redis[("Redis In-Memory (Port 6379)\n• shipment-status Cache\n• Rate Limit Buckets (Bucket4j)\n• OTP & Station Cache")]
         KafkaUI["Kafka UI Dashboard (Port 8090)"]
     end
@@ -76,16 +105,16 @@ flowchart TB
         DB_Audit[(audit_db - 1433)]
     end
 
-    UI & Scanner -->|HTTP Port 80| Nginx
-    Nginx -->|Upstream /api/| GW1 & GW2
-    Nginx -->|Upstream /| UI
-    GW1 & GW2 <--> Eureka1 & Eureka2
+    UI & Scanner -->|"HTTP Port 80"| Nginx
+    Nginx -->|"Upstream /api/"| GW1 & GW2
+    Nginx -->|"Upstream /"| UI
+    GW1 & GW2 --> Eureka1 & Eureka2
     GW1 & GW2 --> AuthSvc & CustSvc & ShipSvc & RouteSvc & TrackSvc & NotiSvc & AuditSvc
 
-    TrackSvc -->|@Transactional WRITE| DB_Track_Primary
-    TrackSvc -->|@Transactional readOnly=true| DB_Track_Replica
-    TrackSvc -->|Publish: tracking-replica-sync| KafkaCluster
-    KafkaCluster -->|Consumer: ReplicaSyncConsumer| DB_Track_Replica
+    TrackSvc -->|"Ghi: Primary DB"| DB_Track_Primary
+    TrackSvc -->|"Đọc: Replica DB"| DB_Track_Replica
+    TrackSvc -->|"Publish: tracking-replica-sync"| KafkaCluster
+    KafkaCluster -->|"Consumer: ReplicaSyncConsumer"| DB_Track_Replica
 
     GW1 & GW2 -.-> Redis
     TrackSvc <--> Redis
@@ -107,22 +136,22 @@ flowchart TB
 
 ---
 
-## 📚 3. Cẩm Nang Kỹ Thuật Chuyên Sâu & Boilerplate (Documentation Deep-Dive)
+## 4. Cẩm Nang Kỹ Thuật Chuyên Sâu & Boilerplate (Documentation Deep-Dive)
 
-Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, mã nguồn boilerplate Java và checklist câu hỏi phỏng vấn được lưu trữ trong thư mục [`docs/`](file:///c:/Users/LENOVO/Desktop/microservice/mini-waybill-platform/docs/):
+Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, mã nguồn boilerplate Java và checklist câu hỏi phỏng vấn được lưu trữ trong thư mục [`docs/`](docs/):
 
 | STT | Tài Liệu Chuyên Sâu | Nội Dung Trọng Tâm & Boilerplate Code |
 | :---: | :--- | :--- |
-| **01** | [**Kiến Trúc HA & Nginx Load Balancing**](file:///c:/Users/LENOVO/Desktop/microservice/mini-waybill-platform/docs/01-high-availability-and-nginx.md) | Cấu hình Nginx Edge Reverse Proxy Upstream Failover, thiết lập cụm Eureka Server Peer-to-Peer Replication (`peer1`/`peer2`) và template `docker-compose` mẫu. |
-| **02** | [**Database Read-Write Splitting & Boilerplate**](file:///c:/Users/LENOVO/Desktop/microservice/mini-waybill-platform/docs/02-database-read-write-splitting-boilerplate.md) | Kỹ thuật tách luồng Đọc/Ghi qua Spring `AbstractRoutingDataSource`, xử lý `ThreadLocal`, cấu hình Hikari Pool, đồng bộ ngầm qua Kafka và **Bộ Template Generic độc lập** để copy vào dự án công ty. |
-| **03** | [**Kafka KRaft Cluster & Event Streaming HA**](file:///c:/Users/LENOVO/Desktop/microservice/mini-waybill-platform/docs/03-kafka-kraft-cluster-and-event-streaming.md) | Sơ đồ luồng Kafka toàn trình, KRaft Quorum, Producer bất đồng bộ (`whenComplete`), Consumer Error Handling & Dead Letter Topic (`.DLT`), Idempotent Producer. |
-| **04** | [**Nghiệp Vụ Logistics & Station Context RBAC**](file:///c:/Users/LENOVO/Desktop/microservice/mini-waybill-platform/docs/04-logistics-domain-and-rbac-station-context.md) | Logic Chuyến xe trục (Trips), thanh tải trọng (Load Bar), niêm phong Seal, dỡ hàng tại cổng Hub, tự động chuyển hoàn lần thứ 3 và bảo mật ngữ cảnh trạm làm việc. |
-| **05** | [**Redis Caching, Rate Limiter & Distributed Lock**](file:///c:/Users/LENOVO/Desktop/microservice/mini-waybill-platform/docs/05-redis-caching-and-distributed-patterns.md) | Sơ đồ luồng Cache-Aside (< 2ms), Token Bucket chống DDoS (Bucket4j), Distributed Lock (`SETNX`) chống race condition và Generic `RedisCacheService` độc lập. |
-| **06** | [**Bảo Mật Microservices: Stateless JWT & RBAC**](file:///c:/Users/LENOVO/Desktop/microservice/mini-waybill-platform/docs/06-microservices-security-jwt-and-rbac.md) | Sơ đồ luồng Gateway Auth, Blacklist tức thời qua Redis (< 0.5ms), chống Header Spoofing (`HeaderMapRequestWrapper`), Spring Security 6.x và `UserContextHolder` boilerplate. |
+| **01** | [**Kiến Trúc HA & Nginx Load Balancing**](docs/01-high-availability-and-nginx.md) | Cấu hình Nginx Edge Reverse Proxy Upstream Failover, thiết lập cụm Eureka Server Peer-to-Peer Replication (`peer1`/`peer2`) và template `docker-compose` mẫu. |
+| **02** | [**Database Read-Write Splitting & Boilerplate**](docs/02-database-read-write-splitting-boilerplate.md) | Kỹ thuật tách luồng Đọc/Ghi qua Spring `AbstractRoutingDataSource`, xử lý `ThreadLocal`, cấu hình Hikari Pool, đồng bộ ngầm qua Kafka và **Bộ Template Generic độc lập** để copy vào dự án công ty. |
+| **03** | [**Kafka KRaft Cluster & Event Streaming HA**](docs/03-kafka-kraft-cluster-and-event-streaming.md) | Sơ đồ luồng Kafka toàn trình, KRaft Quorum, Producer bất đồng bộ (`whenComplete`), Consumer Error Handling & Dead Letter Topic (`.DLT`), Idempotent Producer. |
+| **04** | [**Nghiệp Vụ Logistics & Station Context RBAC**](docs/04-logistics-domain-and-rbac-station-context.md) | Logic Chuyến xe trục (Trips), thanh tải trọng (Load Bar), niêm phong Seal, dỡ hàng tại cổng Hub, tự động chuyển hoàn lần thứ 3 và bảo mật ngữ cảnh trạm làm việc. |
+| **05** | [**Redis Caching, Rate Limiter & Distributed Lock**](docs/05-redis-caching-and-distributed-patterns.md) | Sơ đồ luồng Cache-Aside (< 2ms), Token Bucket chống DDoS (Bucket4j), Distributed Lock (`SETNX`) chống race condition và Generic `RedisCacheService` độc lập. |
+| **06** | [**Bảo Mật Microservices: Stateless JWT & RBAC**](docs/06-microservices-security-jwt-and-rbac.md) | Sơ đồ luồng Gateway Auth, Blacklist tức thời qua Redis (< 0.5ms), chống Header Spoofing (`HeaderMapRequestWrapper`), Spring Security 6.x và `UserContextHolder` boilerplate. |
 
 ---
 
-## ⚡ 4. Hướng Dẫn Khởi Chạy Nhanh (Quickstart - 5 Phút)
+## 5. Hướng Dẫn Khởi Chạy Nhanh (Quickstart - 5 Phút)
 
 ### Bước 1: Khởi động Hạ tầng Docker HA
 ```bash
@@ -136,8 +165,8 @@ docker compose up -d
 ### Bước 2: Chuẩn bị CSDL Primary (SQL Server Port 1433)
 1. Tạo 7 database: `auth_db`, `customer_db`, `shipment_db`, `routing_db`, `tracking_db`, `notification_db`, `audit_db`.
 2. Chạy 2 script seed dữ liệu nền trong thư mục `database/`:
-   * [`database/HubSeed.sql`](file:///c:/Users/LENOVO/Desktop/microservice/mini-waybill-platform/database/HubSeed.sql) (Nạp 5 Siêu Hub vào `routing_db`).
-   * [`database/seed_rbac_data.sql`](file:///c:/Users/LENOVO/Desktop/microservice/mini-waybill-platform/database/seed_rbac_data.sql) (Nạp vai trò, quyền hạn vào `auth_db`).
+   * [`database/HubSeed.sql`](database/HubSeed.sql) (Nạp 5 Siêu Hub vào `routing_db`).
+   * [`database/seed_rbac_data.sql`](database/seed_rbac_data.sql) (Nạp vai trò, quyền hạn vào `auth_db`).
 
 ### Bước 3: Biên dịch Backend
 ```bash
@@ -173,7 +202,7 @@ node server.js
 
 ---
 
-## 👥 5. Tài Khoản Kiểm Thử Mẫu (Demo Accounts)
+## 6. Tài Khoản Kiểm Thử Mẫu (Demo Accounts)
 
 Mật khẩu mặc định cho toàn bộ tài khoản: `123456`
 
@@ -187,7 +216,7 @@ Mật khẩu mặc định cho toàn bộ tài khoản: `123456`
 
 ---
 
-## 📁 6. Cấu Trúc Thư Mục Dự Án (Project Structure)
+## 7. Cấu Trúc Thư Mục Dự Án (Project Structure)
 
 ```plaintext
 mini-waybill-platform/
@@ -199,7 +228,9 @@ mini-waybill-platform/
 │   ├── 01-high-availability-and-nginx.md
 │   ├── 02-database-read-write-splitting-boilerplate.md
 │   ├── 03-kafka-kraft-cluster-and-event-streaming.md
-│   └── 04-logistics-domain-and-rbac-station-context.md
+│   ├── 04-logistics-domain-and-rbac-station-context.md
+│   ├── 05-redis-caching-and-distributed-patterns.md
+│   └── 06-microservices-security-jwt-and-rbac.md
 │
 ├── nginx/                     # Cấu hình Nginx Edge Load Balancer (nginx.conf)
 ├── api-gateway/               # Spring Cloud Gateway HA (Port 8080 & 8088)
@@ -217,5 +248,5 @@ mini-waybill-platform/
 
 ---
 
-## ⚖️ Tuyên Bố Miễn Trừ Trách Nhiệm (Disclaimer)
+## 8. Tuyên Bố Miễn Trừ Trách Nhiệm (Disclaimer)
 Dự án được xây dựng và phát triển với mục đích học tập, nghiên cứu và mô phỏng kiến trúc hệ thống Microservices (Simulation / Pet Project). Mọi thông tin thương hiệu, tên gọi bưu cục và dữ liệu vận đơn trong dự án đều mang tính chất minh họa kỹ thuật và phi thương mại.

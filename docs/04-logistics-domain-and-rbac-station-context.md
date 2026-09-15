@@ -10,11 +10,11 @@ Khác với các ứng dụng giao đồ ăn đơn chặng (Point-to-point), h�
 
 ```mermaid
 flowchart TD
-    Sender([Người Gửi Tại Quầy / Shop B2B]) -->|Gửi hàng| OriginPO["Bưu Cục Gửi (Origin Post Office)"]
-    OriginPO -->|Xe gom Feeder| OriginHub["Siêu Hub Gửi (Origin Mega Hub)"]
-    OriginHub -->|Xe tải trục liên tỉnh - Trunk Trip| DestHub["Siêu Hub Nhận (Dest Mega Hub)"]
-    DestHub -->|Xe gom Feeder| DestPO["Bưu Cục Phát (Dest Post Office)"]
-    DestPO -->|Bưu tá xe máy - Last Mile| Receiver([Người Nhận Tận Nhà])
+    Sender([Người Gửi Tại Quầy / Shop B2B]) -->|"Gửi hàng"| OriginPO["Bưu Cục Gửi (Origin Post Office)"]
+    OriginPO -->|"Xe gom Feeder"| OriginHub["Siêu Hub Gửi (Origin Mega Hub)"]
+    OriginHub -->|"Xe tải trục liên tỉnh: Trunk Trip"| DestHub["Siêu Hub Nhận (Dest Mega Hub)"]
+    DestHub -->|"Xe gom Feeder"| DestPO["Bưu Cục Phát (Dest Post Office)"]
+    DestPO -->|"Bưu tá xe máy: Last Mile"| Receiver([Người Nhận Tận Nhà])
 
     classDef station fill:#f0fdf4,stroke:#16a34a,stroke-width:2px;
     class OriginPO,OriginHub,DestHub,DestPO station;
