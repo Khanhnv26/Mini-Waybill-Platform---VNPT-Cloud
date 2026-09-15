@@ -3312,9 +3312,6 @@
                     </div>
 
                     <div class="flex flex-col items-end gap-1 text-[11px]">
-                        <div class="text-emerald-700 font-semibold flex items-center space-x-1">
-                            <span>✓ Đã đồng bộ: Chỉ hiển thị kiện đã cập bến Kho Tổng đích và được thủ kho xác nhận lưu kho (STORED)</span>
-                        </div>
                         <div v-if="incomingFeederPendingStoreCount > 0" class="px-2 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-800 font-semibold">
                             {{ incomingFeederPendingStoreCount }} kiện đang chờ lưu kho tại Kho Tổng — vào "Khai Thác Kho Tổng" để xác nhận trước khi lập xe phát
                         </div>

@@ -15,6 +15,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -30,6 +32,7 @@ public class TrackingServiceImpl implements TrackingService {
     private final TrackingHistoryRepository trackingHistoryRepository;
     private final StringRedisTemplate redisTemplate;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final ObjectMapper objectMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -70,9 +73,31 @@ public class TrackingServiceImpl implements TrackingService {
     @Override
     @Transactional(readOnly = true)
     public List<TrackingHistory> getTrackingHistory(String trackingCode) {
+
+        String redisKey = "shipment-history:" + trackingCode;
+        String cachedJson = redisTemplate.opsForValue().get(redisKey);
+        if (cachedJson != null && !cachedJson.isBlank()) {
+            try {
+                log.info(">>> [CACHE HIT] Đọc lịch sử đơn '{}' từ RAM REDIS", trackingCode);
+                return objectMapper.readValue(cachedJson, new TypeReference<List<TrackingHistory>>() {});
+            } catch (Exception e) {
+                log.warn("Lỗi deserialize lịch sử từ Redis, sẽ fallback đọc DB: {}", e.getMessage());
+            }
+        }
+
+        log.warn(">>> [CACHE MISS] Đọc lịch sử đơn '{}' từ REPLICA DB", trackingCode);
+
+
         List<TrackingHistory> list = trackingHistoryRepository.findByTrackingCodeOrderByOccurredAtAsc(trackingCode);
         if (list.isEmpty()) {
             throw new ShipmentNotFoundException(trackingCode);
+        }
+
+        try {
+            String json = objectMapper.writeValueAsString(list);
+            redisTemplate.opsForValue().set(redisKey, json, Duration.ofDays(7));
+        } catch (Exception e) {
+            log.warn("Không thể lưu cache lịch sử vào Redis: {}", e.getMessage());
         }
         return list;
     }
@@ -163,6 +188,7 @@ public class TrackingServiceImpl implements TrackingService {
         redisTemplate.opsForValue().set(redisKey, newStatus.name(), Duration.ofDays(7));
         String redisLocKey = "shipment-location:" + trackingCode;
         redisTemplate.opsForValue().set(redisLocKey, saved.getLocationCode() != null ? saved.getLocationCode() : "", Duration.ofDays(7));
+        redisTemplate.delete("shipment-history:" + trackingCode);
 
         ShipmentStatusUpdatedEvent event = ShipmentStatusUpdatedEvent.builder()
                 .trackingCode(trackingCode)
