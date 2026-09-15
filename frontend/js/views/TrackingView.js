@@ -1741,13 +1741,7 @@
                                 đã gộp {{ mergedMilestoneCount }} mốc trùng
                             </span>
                         </div>
-                        <button
-                            type="button"
-                            @click="historyExpanded = !historyExpanded"
-                            class="px-2.5 py-1 rounded-md border border-slate-200 text-[10.5px] font-semibold text-slate-600 hover:bg-slate-50 transition"
-                        >
-                            {{ historyExpanded ? 'Thu gọn ghi chú' : 'Xem đầy đủ' }}
-                        </button>
+                        
                     </div>
 
                     <!-- VERTICAL TIMELINE WITH SMART ICONS -->

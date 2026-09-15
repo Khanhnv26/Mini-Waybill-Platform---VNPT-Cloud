@@ -24,14 +24,14 @@ flowchart TB
     KafkaTopic[("Kafka Topic: tracking-replica-sync")]
     SyncConsumer["ReplicaSyncConsumer (Ngầm)"]
 
-    Service -->|Thực thi Query| Proxy
+    Service -->|"Thực thi Query"| Proxy
     Proxy --> Router
-    Router -->|@Transactional WRITE| PrimaryPool
-    Router -->|@Transactional readOnly=true| ReplicaPool
+    Router -->|"Ghi: Primary DB"| PrimaryPool
+    Router -->|"Đọc: Replica DB"| ReplicaPool
 
-    PrimaryPool -.->|Lưu thành công| KafkaTopic
-    KafkaTopic -->|Consume event| SyncConsumer
-    SyncConsumer -->|DataSourceContextHolder = REPLICA| ReplicaPool
+    PrimaryPool -.->|"Lưu thành công"| KafkaTopic
+    KafkaTopic -->|"Consume event"| SyncConsumer
+    SyncConsumer -->|"Chuyển Context sang REPLICA"| ReplicaPool
 ```
 
 ### 1.1. Sơ Đồ Trình Tự Thực Thi & Đồng Bộ Bất Đồng Bộ
@@ -46,7 +46,7 @@ sequenceDiagram
     participant Consumer as ReplicaSyncConsumer
     participant Replica as Replica DB (Port 2433)
 
-    alt Luồng Ghi: Cập Nhật Trạng Thái (@Transactional)
+    alt Luồng Ghi: Cập Nhật Trạng Thái (Ghi Primary)
         Client->>Svc: updateStatus(trackingCode, status)
         Svc->>Router: Yêu cầu Connection (readOnly = false)
         Router-->>Primary: Mượn kết nối từ Primary Pool
@@ -61,7 +61,7 @@ sequenceDiagram
             Consumer->>Replica: INSERT tracking_history
             Replica-->>Consumer: Đồng bộ thành công!
         end
-    else Luồng Đọc: Tra Cứu Lịch Sử Đơn (@Transactional readOnly=true)
+    else Luồng Đọc: Tra Cứu Lịch Sử Đơn (Đọc Replica)
         Client->>Svc: getTrackingHistory(trackingCode)
         Svc->>Router: Yêu cầu Connection (readOnly = true)
         Router-->>Replica: Mượn kết nối từ Replica Pool
@@ -287,13 +287,13 @@ public class ReplicaSyncConsumer {
 
 Khi đi làm tại công ty sau này, bạn chỉ cần copy 4 file sau vào package `config.datasource` của bất kỳ dự án nào (chỉ cần đổi tên database):
 
-📁 `common/datasource/`
+Thư mục `common/datasource/`:
 * `DatabaseEnvironment.java` (Enum chứa `MASTER`, `SLAVE`)
 * `RoutingContext.java` (Class chứa `ThreadLocal`)
 * `DynamicRoutingDataSource.java` (Class kế thừa `AbstractRoutingDataSource`)
 * `DynamicDataSourceConfiguration.java` (Configuration Bean cấu hình 2 Pool + `LazyConnectionDataSourceProxy`)
 
-> 💡 **Quy tắc sử dụng trong Service:**
+> **Quy tắc sử dụng trong Service:**
 > * Muốn ĐỌC từ Slave/Replica: Gắn `@Transactional(readOnly = true)` trên đầu phương thức Service.
 > * Muốn GHI vào Master/Primary: Gắn `@Transactional` trên đầu phương thức Service.
 
