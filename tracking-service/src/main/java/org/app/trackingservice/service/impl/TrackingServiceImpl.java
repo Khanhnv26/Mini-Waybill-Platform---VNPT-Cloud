@@ -14,6 +14,7 @@ import org.app.trackingservice.service.TrackingService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -31,6 +32,7 @@ public class TrackingServiceImpl implements TrackingService {
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Override
+    @Transactional(readOnly = true)
     public Map<String, String> getCurrentStatus(String trackingCode) {
         String redisKey = "shipment-status:" + trackingCode;
         String cacheStatus = redisTemplate.opsForValue().get(redisKey);
@@ -66,6 +68,7 @@ public class TrackingServiceImpl implements TrackingService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<TrackingHistory> getTrackingHistory(String trackingCode) {
         List<TrackingHistory> list = trackingHistoryRepository.findByTrackingCodeOrderByOccurredAtAsc(trackingCode);
         if (list.isEmpty()) {
@@ -75,6 +78,7 @@ public class TrackingServiceImpl implements TrackingService {
     }
 
     @Override
+    @Transactional
     public TrackingHistory updateStatus(String trackingCode, UpdateStatusRequest request, String roles, String permission) {
         log.info("[TRACKING] Cập nhật trạng thái cho đơn: {} -> {} | Roles: {}", trackingCode, request.getStatus(), roles);
 
@@ -154,7 +158,7 @@ public class TrackingServiceImpl implements TrackingService {
                 .build();
 
         TrackingHistory saved = trackingHistoryRepository.save(history);
-
+        kafkaTemplate.send("tracking-replica-sync", saved.getTrackingCode(), saved);
         String redisKey = "shipment-status:" + trackingCode;
         redisTemplate.opsForValue().set(redisKey, newStatus.name(), Duration.ofDays(7));
         String redisLocKey = "shipment-location:" + trackingCode;
