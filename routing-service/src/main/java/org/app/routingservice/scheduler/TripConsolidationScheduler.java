@@ -2,6 +2,7 @@ package org.app.routingservice.scheduler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.app.routingservice.entity.SchedulerConfig;
 import org.app.routingservice.repository.SchedulerConfigRepository;
 import org.app.routingservice.service.TripService;
@@ -25,10 +26,10 @@ public class TripConsolidationScheduler {
     private final SchedulerConfigRepository schedulerConfigRepository;
     private volatile boolean enabled = true;
     private volatile long intervalSeconds = 300;
-    private LocalDateTime lastRunTime;
     private int lastConsolidatedCount = 0;
 
     @Scheduled(fixedDelay = 30000)
+    @SchedulerLock(name = "tripConsolidation", lockAtMostFor = "15m", lockAtLeastFor = "5s")
     public void scheduleConsolidation() {
         SchedulerConfig config = schedulerConfigRepository.findAll().stream().findFirst().orElse(null);
         if (config != null) {
@@ -44,7 +45,8 @@ public class TripConsolidationScheduler {
         LocalDateTime now = LocalDateTime.now();
         boolean shouldRun = false;
 
-        if (lastRunTime == null || Duration.between(lastRunTime, now).getSeconds() >= intervalSeconds) {
+        LocalDateTime lastRun = config != null ? config.getLastRunTime() : null;
+        if (lastRun == null || Duration.between(lastRun, now).getSeconds() >= intervalSeconds) {
             shouldRun = true;
         }
 
@@ -54,7 +56,7 @@ public class TripConsolidationScheduler {
                     .map(String::trim)
                     .toList();
             if (fixedTimes.contains(currentHourMinute)) {
-                if (lastRunTime == null || Duration.between(lastRunTime, now).getSeconds() >= 60) {
+                if (lastRun == null || Duration.between(lastRun, now).getSeconds() >= 60) {
                     shouldRun = true;
                 }
             }
@@ -67,7 +69,6 @@ public class TripConsolidationScheduler {
         log.info("[TRIP-SCHEDULER] Bắt đầu chu kỳ quét tự động gom đơn lên các chuyến xe chờ xuất bến...");
         try {
             int consolidatedCount = tripService.consolidateAllScheduledTrips();
-            this.lastRunTime = now;
             this.lastConsolidatedCount = consolidatedCount;
 
             if (config != null) {
@@ -96,10 +97,6 @@ public class TripConsolidationScheduler {
 
     public void setIntervalSeconds(long intervalSeconds) {
         this.intervalSeconds = intervalSeconds;
-    }
-
-    public LocalDateTime getLastRunTime() {
-        return lastRunTime;
     }
 
     public int getLastConsolidatedCount() {
