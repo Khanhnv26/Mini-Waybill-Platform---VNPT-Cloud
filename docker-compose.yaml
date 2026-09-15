@@ -84,3 +84,21 @@ services:
       - "host.docker.internal:host-gateway"
     restart: always
 
+  redis:
+      image: redis:alpine
+      container_name: redis
+      ports:
+        - "6379:6379"
+      restart: always
+
+  sqlserver-replica:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: waybill-sqlserver-replica
+    ports:
+      - "2433:1433"
+    environment:
+      SA_PASSWORD: "Replica@123456"
+      ACCEPT_EULA: "Y"
+    restart: always
+
+
