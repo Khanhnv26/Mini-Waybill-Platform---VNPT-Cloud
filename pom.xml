@@ -33,6 +33,7 @@
         <module>notification-service</module>
         <module>audit-service</module>
         <module>shared-events</module>
+        <module>shipper-service</module>
     </modules>
 
     <dependencyManagement>

@@ -29,7 +29,7 @@ public class TripConsolidationScheduler {
     private int lastConsolidatedCount = 0;
 
     @Scheduled(fixedDelay = 30000)
-    @SchedulerLock(name = "tripConsolidation", lockAtMostFor = "15m", lockAtLeastFor = "5s")
+    @SchedulerLock(name = "tripConsolidation", lockAtMostFor = "15m", lockAtLeastFor = "25s")
     public void scheduleConsolidation() {
         SchedulerConfig config = schedulerConfigRepository.findAll().stream().findFirst().orElse(null);
         if (config != null) {

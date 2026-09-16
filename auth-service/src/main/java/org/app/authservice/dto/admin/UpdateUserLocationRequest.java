@@ -11,10 +11,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 public class UpdateUserLocationRequest {
-    /**
-     * A concrete POST-* or HUB-* station code. Null/blank clears the
-     * assignment so the account cannot perform station-scoped operations.
-     */
+
     @Size(max = 50)
     private String locationCode;
 }

@@ -42,3 +42,9 @@ build/
 *.artifact
 report.html
 report.json
+
+# Environment & Secrets
+.env
+*.env
+application-local.properties
+application-secret.properties

@@ -15,6 +15,7 @@
         <option value="$PROJECT_DIR$/audit-service/pom.xml" />
         <option value="$PROJECT_DIR$/auth-service/pom.xml" />
         <option value="$PROJECT_DIR$/shared-events/pom.xml" />
+        <option value="$PROJECT_DIR$/shipper-service/pom.xml" />
       </list>
     </option>
   </component>

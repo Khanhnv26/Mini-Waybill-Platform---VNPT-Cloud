@@ -11,6 +11,7 @@
     <file url="file://$PROJECT_DIR$/service-registry/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/shared-events/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/shipment-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/shipper-service/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/tracking-service/src/main/java" charset="UTF-8" />
