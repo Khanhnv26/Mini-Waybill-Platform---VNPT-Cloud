@@ -314,6 +314,24 @@
                 }
             };
 
+            const loadRoutingAssignment = async (code) => {
+                let routingService;
+                try {
+                    routingService = typeof RoutingService !== 'undefined'
+                        ? RoutingService
+                        : (typeof window !== 'undefined' ? window.RoutingService : null);
+                    if (routingService && typeof routingService.then === 'function') {
+                        routingService = await routingService;
+                    }
+                    if (routingService && typeof routingService.getAssignment === 'function') {
+                        return await routingService.getAssignment(code);
+                    }
+                } catch (e) {
+                    return null;
+                }
+                return null;
+            };
+
             const safeFormatHistoryNote = (historyItem) => {
                 const fallback = firstValue(historyItem?.note, historyItem?.node, historyItem?.status, '');
                 const nodeText = firstValue(historyItem?.node, historyItem?.note);
@@ -828,20 +846,38 @@
                     // Nạp trạng thái, chi tiết đơn và lịch sử định tuyến song song để tránh làm chậm
                     // timeline khi routing service chỉ là một wrapper tùy chọn.
                     const routingHistoryPromise = loadRoutingOperationHistory(code);
-                    const [data, detail, routingHistory] = await Promise.all([
+                    const routingAssignmentPromise = loadRoutingAssignment(code);
+                    const [data, detail, routingHistory, assignment] = await Promise.all([
                         Promise.resolve(TrackingService.getFullTracking(code)),
                         loadShipmentDetail(code),
-                        routingHistoryPromise
+                        routingHistoryPromise,
+                        routingAssignmentPromise
                     ]);
 
                     currentShipment.value = {
                         ...(detail || {}),
+                        ...(assignment || {}),
                         trackingCode: code,
                         status: data.currentStatus,
                         source: data.source
                     };
+
+                    let rawHistory = data.history || data.lifecycleHistory || data.trackingHistory || data.events || [];
+                    if (assignment && assignment.routeCode && !rawHistory.some(h => String(h.status || '').includes('ROUTE_ASSIGNED') || String(h.node || '').includes('ROUTE-'))) {
+                        rawHistory = [
+                            ...rawHistory,
+                            {
+                                trackingCode: code,
+                                status: 'ROUTE_ASSIGNED',
+                                locationCode: assignment.originPostOffice || assignment.sourceHub,
+                                node: `Đã phân tuyến vận chuyển: ${assignment.routeCode} (${assignment.originPostOffice || assignment.sourceHub} ➔ ${assignment.sourceHub} ➔ ${assignment.destinationHub} ➔ ${assignment.destPostOffice || assignment.destinationHub})`,
+                                occurredAt: assignment.assignedAt || new Date().toISOString()
+                            }
+                        ];
+                    }
+
                     trackingHistory.value = mergeHistory(
-                        data.history || data.lifecycleHistory || data.trackingHistory || data.events || [],
+                        rawHistory,
                         routingHistory
                     );
                     if (isFinalState.value) {
@@ -1143,7 +1179,8 @@
                         @click="$emit('back-previous')"
                         class="px-3 py-1.5 rounded-lg bg-white border border-blue-300 text-blue-700 font-bold hover:bg-blue-600 hover:text-white hover:border-blue-600 transition flex items-center space-x-1.5 shadow-sm flex-shrink-0"
                     >
-                        <span>← Quay lại {{ previousTab.name }}</span>
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                        <span>Quay lại {{ previousTab.name }}</span>
                     </button>
                 </div>
 
@@ -1219,9 +1256,10 @@
                                 <button 
                                     v-if="searchCode" 
                                     @click="searchCode = ''; validationError = ''; currentShipment = null; isNotFound = false; animateNumbers()" 
-                                    class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
+                                    class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                                    aria-label="Xóa"
                                 >
-                                    ✕
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                 </button>
                             </div>
 
@@ -1620,10 +1658,11 @@
                                     <button 
                                         v-if="searchCode" 
                                         @click="searchCode = ''; validationError = ''; currentShipment = null; isNotFound = false; animateNumbers()" 
-                                        class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
+                                        class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
                                         title="Xóa mã &amp; về trang chủ"
+                                        aria-label="Xóa"
                                     >
-                                        ✕
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                     </button>
                                 </div>
 

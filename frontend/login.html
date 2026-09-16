@@ -714,9 +714,9 @@
                             email: loginForm.email.trim(),
                             password: loginForm.password
                         });
-                        const data = await res.json();
+                        const data = await res.json().catch(() => ({}));
                         if (!res.ok) {
-                            throw new Error(data.message || data.error || 'Đăng nhập không thành công!');
+                            throw new Error(data.message || data.error || `Đăng nhập không thành công (Mã lỗi ${res.status})!`);
                         }
                         Auth.setSession(data.accessToken, data);
                         showAlert('Đăng nhập thành công! Đang chuyển hướng...', true);
@@ -749,9 +749,9 @@
                             email: registerForm.email.trim(),
                             password: registerForm.password
                         });
-                        const data = await res.json();
+                        const data = await res.json().catch(() => ({}));
                         if (!res.ok) {
-                            throw new Error(data.message || data.error || 'Đăng ký không thành công!');
+                            throw new Error(data.message || data.error || `Đăng ký không thành công (Mã lỗi ${res.status})!`);
                         }
                         Auth.setSession(data.accessToken, data);
                         showAlert('Đăng ký tài khoản thành công! Đang chuyển hướng...', true);
@@ -836,9 +836,9 @@
                         const res = await Api.post('/api/auth/google', {
                             idToken: googleResponse.credential
                         });
-                        const data = await res.json();
+                        const data = await res.json().catch(() => ({}));
                         if (!res.ok) {
-                            throw new Error(data.message || data.error || 'Xác thực Google thất bại!');
+                            throw new Error(data.message || data.error || `Xác thực Google thất bại (Mã lỗi ${res.status})!`);
                         }
                         Auth.setSession(data.accessToken, data);
                         showAlert('Đăng nhập Google thành công! Đang chuyển hướng...', true);

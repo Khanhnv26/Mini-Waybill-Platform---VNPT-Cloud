@@ -22,12 +22,12 @@
             return response.json();
         },
 
-        async getShipments(customerId) {
+        async getShipments(customerId, options = {}) {
             let url = '/api/shipments';
             if (customerId) {
                 url += `?customerId=${customerId}`;
             }
-            const response = await Api.get(url);
+            const response = await Api.get(url, {}, options);
             if (!response.ok) {
                 const errData = await response.json().catch(() => ({}));
                 throw new Error(errData.error || errData.message || 'Không thể tải danh sách vận đơn');
@@ -35,8 +35,8 @@
             return response.json();
         },
 
-        async getAll() {
-            return this.getShipments();
+        async getAll(options = {}) {
+            return this.getShipments(null, options);
         },
 
         /**

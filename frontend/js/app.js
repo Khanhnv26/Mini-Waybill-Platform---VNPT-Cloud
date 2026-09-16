@@ -203,14 +203,14 @@
                 },
                 { 
                     id: 'hub-ops', 
-                    name: 'Khai Thác Kho Tổng', 
+                    name: 'Khai Thác Hub Chia Chọn', 
                     component: 'HubOpsView', 
                     permission: 'tracking:update_hub', // Thủ kho Hub & Admin
                     icon: 'M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z'
                 },
                 { 
                     id: 'shipper', 
-                    name: 'Bưu Tá Giao Vận', 
+                    name: 'Bưu Tá Phát Hàng', 
                     component: 'ShipperView', 
                     permission: 'tracking:update_delivery', // Bưu tá & Admin
                     icon: 'M13 10V3L4 14h7v7l9-11h-7z'

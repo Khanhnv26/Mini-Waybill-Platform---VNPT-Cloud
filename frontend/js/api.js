@@ -57,14 +57,16 @@ const Api = {
             // 3. HTTP 403 Forbidden: Bị từ chối bởi cơ chế phân quyền RBAC
             if (response.status === 403) {
                 console.warn('[API 403] Truy cập bị từ chối do không đủ quyền hạn RBAC.');
-                if (window.Utils && window.Utils.showToast) {
-                    window.Utils.showToast(
-                        'Truy Cập Bị Từ Chối (403)', 
-                        'Tài khoản của bạn không có quyền thực hiện chức năng này!', 
-                        'error'
-                    );
-                } else {
-                    alert('Quyền truy cập bị từ chối: Bạn không có quyền thực hiện thao tác này!');
+                if (!options.skip403Toast && !options.silent) {
+                    if (window.Utils && window.Utils.showToast) {
+                        window.Utils.showToast(
+                            'Truy Cập Bị Từ Chối (403)', 
+                            'Tài khoản của bạn không có quyền thực hiện chức năng này!', 
+                            'error'
+                        );
+                    } else {
+                        alert('Quyền truy cập bị từ chối: Bạn không có quyền thực hiện thao tác này!');
+                    }
                 }
                 return response;
             }
@@ -164,8 +166,8 @@ const Api = {
         return error;
     },
 
-    get(endpoint, headers = {}) {
-        return this.request(endpoint, { method: 'GET', headers });
+    get(endpoint, headers = {}, options = {}) {
+        return this.request(endpoint, { method: 'GET', headers, ...options });
     },
 
     post(endpoint, body, headers = {}) {

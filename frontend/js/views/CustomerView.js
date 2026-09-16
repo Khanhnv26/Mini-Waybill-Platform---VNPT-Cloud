@@ -295,9 +295,10 @@
                             <button 
                                 v-if="searchQuery" 
                                 @click="searchQuery = ''" 
-                                class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                                class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 p-0.5"
+                                aria-label="Xóa tìm kiếm"
                             >
-                                ✕
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                             </button>
                         </div>
 
@@ -317,7 +318,8 @@
                             @click="resetFilters" 
                             class="px-2.5 py-1.5 text-xs text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg font-medium transition flex items-center space-x-1"
                         >
-                            <span>✕ Xóa lọc</span>
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            <span>Xóa lọc</span>
                         </button>
                     </div>
 

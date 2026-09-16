@@ -1701,7 +1701,6 @@
                                                     title="Click để xem chi tiết hành trình & bản đồ"
                                                 >
                                                     <span>{{ s.trackingCode }}</span>
-                                                    <span class="text-[11px] text-blue-500 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all">↗</span>
                                                 </button>
                                             </div>
                                             <div class="flex items-center space-x-1.5 mt-0.5">

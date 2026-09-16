@@ -94,20 +94,28 @@ const Auth = {
         return [];
     },
 
+    // Chuẩn hóa tên Role (hỗ trợ cả 'ADMIN' và 'ROLE_ADMIN', dạng chuỗi hoặc object)
+    normalizeRole(role) {
+        if (!role) return '';
+        const name = typeof role === 'string' ? role : (role.name || role.authority || '');
+        const upper = String(name).trim().toUpperCase();
+        return upper.startsWith('ROLE_') ? upper : `ROLE_${upper}`;
+    },
+
     // 7. Kiểm tra xem người dùng có Role cụ thể hay không
-    // Ví dụ: Auth.hasRole('ROLE_ADMIN')
+    // Ví dụ: Auth.hasRole('ROLE_ADMIN') hoặc Auth.hasRole('ADMIN')
     hasRole(roleName) {
         if (!roleName) return false;
-        const roles = this.getRoles();
-        return roles.includes(roleName);
+        const target = this.normalizeRole(roleName);
+        const roles = this.getRoles().map(r => this.normalizeRole(r));
+        return roles.includes(target);
     },
 
     // 8. Kiểm tra xem người dùng có ít nhất một trong các Roles
     // Ví dụ: Auth.hasAnyRole(['ROLE_ADMIN', 'ROLE_CS'])
     hasAnyRole(roleNames) {
         if (!Array.isArray(roleNames) || roleNames.length === 0) return false;
-        const roles = this.getRoles();
-        return roleNames.some(role => roles.includes(role));
+        return roleNames.some(role => this.hasRole(role));
     },
 
     // 9. Lấy danh sách Quyền Hạn Chi Tiết (Granular Permissions)

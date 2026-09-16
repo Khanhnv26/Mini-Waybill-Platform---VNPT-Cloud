@@ -2089,7 +2089,7 @@
                         Utils.showToast(
                             'Cập Bến & Dỡ Hàng Thành Công',
                             isHubStop
-                                ? `Chuyến xe ${trip.tripCode} đã đến ${stopCode}. Hàng đã về khu tiếp nhận — vào "Khai Thác Kho Tổng" để xác nhận lưu kho.`
+                                ? `Chuyến xe ${trip.tripCode} đã đến ${stopCode}. Hàng đã về khu tiếp nhận — vào "Khai Thác Hub Chia Chọn" để xác nhận nhập kho.`
                                 : `Chuyến xe ${trip.tripCode} đã đến ${stopCode}. Kiện hàng đã dỡ vào kho an toàn!`,
                             'success'
                         );
@@ -2738,9 +2738,9 @@
                             </span>
                         </div>
                         <div class="font-extrabold text-xs sm:text-sm mt-0.5 truncate" :class="currentStep === 1 ? 'text-blue-900' : 'text-slate-800'">
-                            Bưu Cục ➔ Kho Tổng
+                            Bưu Cục → Hub Chia Chọn
                         </div>
-                        <div class="text-[11px] text-slate-500 mt-0.5">Xe tải 1.5T gom hàng quầy</div>
+                        <div class="text-[11px] text-slate-500 mt-0.5">Xe tải gom bưu phẩm tại quầy</div>
                     </div>
                 </button>
 
@@ -2765,9 +2765,9 @@
                             </span>
                         </div>
                         <div class="font-extrabold text-xs sm:text-sm mt-0.5 truncate" :class="currentStep === 2 ? 'text-blue-900' : 'text-slate-800'">
-                            Xe Container Liên Tỉnh
+                            Vận Chuyển Trục Liên Tỉnh
                         </div>
-                        <div class="text-[11px] text-slate-500 mt-0.5">Đầu kéo 30T kết nối 5 Kho Tổng</div>
+                        <div class="text-[11px] text-slate-500 mt-0.5">Đầu kéo 30T kết nối các Hub trung tâm</div>
                     </div>
                 </button>
 
@@ -2792,9 +2792,9 @@
                             </span>
                         </div>
                         <div class="font-extrabold text-xs sm:text-sm mt-0.5 truncate" :class="currentStep === 3 ? 'text-blue-900' : 'text-slate-800'">
-                            Kho Tổng ➔ Bưu Cục Phát
+                            Hub Chia Chọn → Bưu Cục Phát
                         </div>
-                        <div class="text-[11px] text-slate-500 mt-0.5">Xe tải 1.5T dỡ hàng cho shipper</div>
+                        <div class="text-[11px] text-slate-500 mt-0.5">Xe tải trung chuyển bưu gửi về bưu cục phát</div>
                     </div>
                 </button>
             </div>
@@ -2909,76 +2909,76 @@
                                         <input type="checkbox" :checked="selectedOriginFeederCodes.has(String(item.trackingCode || '').trim().toUpperCase())" @change="toggleOriginFeederSelection(item)" :disabled="isFeederActionRunning" class="rounded text-blue-600" :aria-label="'Chọn ' + item.trackingCode" />
                                     </td>
                                     <td class="py-3 px-3.5 font-mono font-bold text-blue-600 whitespace-nowrap">
-                                        <button type="button" @click="viewTracking(item.trackingCode)" class="hover:underline cursor-pointer">
-                                            {{ item.trackingCode }} ↗
-                                        </button>
-                                    </td>
-                                    <td class="py-3 px-3.5 text-slate-700">
-                                        <div class="font-bold text-slate-800">{{ getOriginPostOfficeInfo(item).name }}</div>
-                                        <div class="text-[10.5px] font-mono text-slate-400">{{ getOriginPostOfficeInfo(item).code }}</div>
-                                    </td>
-                                    <td class="py-3 px-3.5 font-bold text-slate-800">
-                                        {{ item.sourceHub || 'HUB-HN-01' }}
-                                    </td>
-                                    <td class="py-3 px-3.5 font-mono text-slate-600 text-[11px]">
-                                        {{ formatDateTime(item.createdAt || item.updatedAt) }}
-                                    </td>
-                                    <td class="py-3 px-3.5 text-slate-700">
-                                        <div class="font-bold text-slate-800">{{ item.receiverName }}</div>
-                                        <div class="text-[10.5px] text-slate-500 truncate max-w-xs">{{ item.receiverAddress }}</div>
-                                    </td>
-                                    <td class="py-3 px-3.5 font-mono text-slate-700">
-                                        {{ item.weight || 0 }} kg
-                                    </td>
-                                    <td class="py-3 px-3.5 whitespace-nowrap">
-                                        <span class="px-2 py-0.5 rounded text-[10.5px] font-semibold border inline-flex items-center whitespace-nowrap bg-blue-50 text-blue-700 border-blue-200">
-                                            Đã Lưu Kho
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3.5 text-right whitespace-nowrap">
-                                        <button 
-                                            type="button"
-                                            @click="handleDispatchFeederItem(item)"
-                                            :disabled="isFeederActionRunning"
-                                            class="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white border border-blue-200 rounded text-[11px] font-semibold transition shadow-xs disabled:opacity-50 cursor-pointer"
-                                        >
-                                            Lên Xe Gom
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                                         <button type="button" @click="viewTracking(item.trackingCode)" class="hover:underline cursor-pointer">
+                                             {{ item.trackingCode }}
+                                         </button>
+                                     </td>
+                                     <td class="py-3 px-3.5 text-slate-700">
+                                         <div class="font-bold text-slate-800">{{ getOriginPostOfficeInfo(item).name }}</div>
+                                         <div class="text-[10.5px] font-mono text-slate-400">{{ getOriginPostOfficeInfo(item).code }}</div>
+                                     </td>
+                                     <td class="py-3 px-3.5 font-bold text-slate-800">
+                                         {{ item.sourceHub || 'HUB-HN-01' }}
+                                     </td>
+                                     <td class="py-3 px-3.5 font-mono text-slate-600 text-[11px]">
+                                         {{ formatDateTime(item.createdAt || item.updatedAt) }}
+                                     </td>
+                                     <td class="py-3 px-3.5 text-slate-700">
+                                         <div class="font-bold text-slate-800">{{ item.receiverName }}</div>
+                                         <div class="text-[10.5px] text-slate-500 truncate max-w-xs">{{ item.receiverAddress }}</div>
+                                     </td>
+                                     <td class="py-3 px-3.5 font-mono text-slate-700">
+                                         {{ item.weight || 0 }} kg
+                                     </td>
+                                     <td class="py-3 px-3.5 whitespace-nowrap">
+                                         <span class="px-2 py-0.5 rounded text-[10.5px] font-semibold border inline-flex items-center whitespace-nowrap bg-blue-50 text-blue-700 border-blue-200">
+                                             Đã Lưu Kho
+                                         </span>
+                                     </td>
+                                     <td class="py-3 px-3.5 text-right whitespace-nowrap">
+                                         <button 
+                                             type="button"
+                                             @click="handleDispatchFeederItem(item)"
+                                             :disabled="isFeederActionRunning"
+                                             class="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white border border-blue-200 rounded text-[11px] font-semibold transition shadow-xs disabled:opacity-50 cursor-pointer"
+                                         >
+                                             Xếp Lên Xe Gom
+                                         </button>
+                                     </td>
+                                 </tr>
+                             </tbody>
+                         </table>
+                     </div>
+                 </div>
 
-                <!-- Bảng 1.2: Chuyến xe gom bưu cục vận hành (Enterprise Table) -->
-                <div v-else class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden text-xs">
-                    <div v-if="filteredOriginFeederTrips.length === 0" class="p-12 text-center text-slate-400">
-                        Chưa có chuyến xe gom nào được khởi tạo cho bưu cục đang chọn. Nhấn "Xuất Xe Gom Đã Chọn" hoặc "+ Lập Chuyến Xe Gom" để tạo chuyến.
-                    </div>
+                 <!-- Bảng 1.2: Chuyến xe gom bưu cục vận hành (Enterprise Table) -->
+                 <div v-else class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden text-xs">
+                     <div v-if="filteredOriginFeederTrips.length === 0" class="p-12 text-center text-slate-400">
+                         Chưa có chuyến xe gom nào được khởi tạo cho bưu cục đang chọn. Nhấn "Xuất Xe Gom Đã Chọn" hoặc "+ Lập Chuyến Xe Gom" để tạo chuyến.
+                     </div>
 
-                    <div v-else class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-slate-50/80 text-slate-600 font-bold border-b border-slate-200 text-[11px] uppercase tracking-wider">
-                                    <th class="py-3 px-3.5">Mã Chuyến Xe</th>
-                                    <th class="py-3 px-3.5">Tuyến Lộ Trình Gom</th>
-                                    <th class="py-3 px-3.5">Biển Số &amp; Tài Xế</th>
-                                    <th class="py-3 px-3.5">Tải Trọng / Kiện</th>
-                                    <th class="py-3 px-3.5">Lịch Khởi Hành</th>
-                                    <th class="py-3 px-3.5 whitespace-nowrap w-28">Trạng Thái</th>
-                                    <th class="py-3 px-3.5 text-right whitespace-nowrap">Tác Nghiệp</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100 font-medium">
-                                <tr v-for="trip in filteredOriginFeederTrips" :key="trip.id" class="hover:bg-slate-50/60 transition">
-                                    <td class="py-3 px-3.5 font-mono font-bold text-blue-600 hover:underline cursor-pointer" @click="openTripDetail(trip.id)">
-                                        {{ trip.tripCode }} ↗
-                                    </td>
-                                    <td class="py-3 px-3.5 text-slate-700">
-                                        <div class="font-bold text-slate-800">{{ trip.routeName || 'Tuyến gom bưu cục' }}</div>
-                                        <div class="text-[10.5px] text-slate-500 font-mono">{{ getTripEndpoint(trip, 'origin') }} ➔ {{ getTripEndpoint(trip, 'destination') }}</div>
-                                    </td>
+                     <div v-else class="overflow-x-auto">
+                         <table class="w-full text-left border-collapse">
+                             <thead>
+                                 <tr class="bg-slate-50/80 text-slate-600 font-bold border-b border-slate-200 text-[11px] uppercase tracking-wider">
+                                     <th class="py-3 px-3.5">Mã Chuyến Xe</th>
+                                     <th class="py-3 px-3.5">Tuyến Lộ Trình Gom</th>
+                                     <th class="py-3 px-3.5">Biển Số &amp; Tài Xế</th>
+                                     <th class="py-3 px-3.5">Tải Trọng / Kiện</th>
+                                     <th class="py-3 px-3.5">Lịch Khởi Hành</th>
+                                     <th class="py-3 px-3.5 whitespace-nowrap w-28">Trạng Thái</th>
+                                     <th class="py-3 px-3.5 text-right whitespace-nowrap">Tác Nghiệp</th>
+                                 </tr>
+                             </thead>
+                             <tbody class="divide-y divide-slate-100 font-medium">
+                                 <tr v-for="trip in filteredOriginFeederTrips" :key="trip.id" class="hover:bg-slate-50/60 transition">
+                                     <td class="py-3 px-3.5 font-mono font-bold text-blue-600 hover:underline cursor-pointer" @click="openTripDetail(trip.id)">
+                                         {{ trip.tripCode }}
+                                     </td>
+                                     <td class="py-3 px-3.5 text-slate-700">
+                                         <div class="font-bold text-slate-800">{{ trip.routeName || 'Tuyến gom bưu cục' }}</div>
+                                         <div class="text-[10.5px] text-slate-500 font-mono">{{ getTripEndpoint(trip, 'origin') }} → {{ getTripEndpoint(trip, 'destination') }}</div>
+                                     </td>
                                     <td class="py-3 px-3.5 text-slate-700">
                                         <div class="font-mono font-bold text-slate-800">{{ trip.vehiclePlate || '29C-556.12' }}</div>
                                         <div class="text-[10.5px] text-slate-500">{{ trip.driverName || 'Vũ Văn Gom' }}</div>
@@ -3143,11 +3143,11 @@
                             <tbody class="divide-y divide-slate-100 font-medium">
                                 <tr v-for="trip in paginatedTrips" :key="trip.id" class="hover:bg-slate-50/60 transition">
                                     <td class="py-3 px-3.5 font-mono font-bold text-blue-600 hover:underline cursor-pointer" @click="openTripDetail(trip.id)">
-                                        {{ trip.tripCode }} ↗
+                                        {{ trip.tripCode }}
                                     </td>
                                     <td class="py-3 px-3.5 text-slate-700">
                                         <div class="font-bold text-slate-800">{{ trip.routeName || 'Trục Bắc Nam QL1A' }}</div>
-                                        <div class="text-[10.5px] text-slate-500 font-mono">{{ getTripEndpoint(trip, 'origin') }} ➔ {{ getTripEndpoint(trip, 'destination') }}</div>
+                                        <div class="text-[10.5px] text-slate-500 font-mono">{{ getTripEndpoint(trip, 'origin') }} → {{ getTripEndpoint(trip, 'destination') }}</div>
                                     </td>
                                     <td class="py-3 px-3.5 text-slate-700">
                                         <div class="font-mono font-bold text-slate-800">{{ trip.vehiclePlate || '29H-999.88' }}</div>
@@ -3166,7 +3166,7 @@
                                         <div class="flex items-center space-x-1 flex-wrap">
                                             <span v-for="(stop, idx) in trip.stops" :key="stop.hubCode || idx">
                                                 <span class="font-mono text-xs" :class="stop.status === 'ARRIVED' ? 'text-emerald-700 font-bold' : stop.status === 'IN_TRANSIT' ? 'text-blue-700 underline font-bold' : 'text-slate-600'">{{ stop.hubCode }}</span>
-                                                <span v-if="idx < trip.stops.length - 1" class="text-slate-300 mx-1">➔</span>
+                                                <span v-if="idx < trip.stops.length - 1" class="text-slate-300 mx-1">→</span>
                                             </span>
                                         </div>
                                         <div class="text-[10px] text-slate-400 mt-0.5">Tiến độ: <strong class="text-blue-600">{{ formatProgress(trip.progressPercent) }}</strong></div>
@@ -3313,7 +3313,7 @@
 
                     <div class="flex flex-col items-end gap-1 text-[11px]">
                         <div v-if="incomingFeederPendingStoreCount > 0" class="px-2 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-800 font-semibold">
-                            {{ incomingFeederPendingStoreCount }} kiện đang chờ lưu kho tại Kho Tổng — vào "Khai Thác Kho Tổng" để xác nhận trước khi lập xe phát
+                            {{ incomingFeederPendingStoreCount }} kiện đang chờ nhập kho tại Hub — vào "Khai Thác Hub Chia Chọn" để xác nhận trước khi lập xe phát
                         </div>
                     </div>
                 </div>
@@ -3348,7 +3348,7 @@
                                     </td>
                                     <td class="py-3 px-3.5 font-mono font-bold text-emerald-600 whitespace-nowrap">
                                         <button type="button" @click="viewTracking(item.trackingCode)" class="hover:underline cursor-pointer">
-                                            {{ item.trackingCode }} ↗
+                                            {{ item.trackingCode }}
                                         </button>
                                     </td>
                                     <td class="py-3 px-3.5 text-slate-800 font-bold">
@@ -3411,11 +3411,11 @@
                             <tbody class="divide-y divide-slate-100 font-medium">
                                 <tr v-for="trip in filteredDestinationFeederTrips" :key="trip.id" class="hover:bg-slate-50/60 transition">
                                     <td class="py-3 px-3.5 font-mono font-bold text-blue-600 hover:underline cursor-pointer" @click="openTripDetail(trip.id)">
-                                        {{ trip.tripCode }} ↗
+                                        {{ trip.tripCode }}
                                     </td>
                                     <td class="py-3 px-3.5 text-slate-700">
                                         <div class="font-bold text-slate-800">{{ trip.routeName || 'Tuyến phát về bưu cục' }}</div>
-                                        <div class="text-[10.5px] text-slate-500 font-mono">{{ getTripEndpoint(trip, 'origin') }} ➔ {{ getTripEndpoint(trip, 'destination') }}</div>
+                                        <div class="text-[10.5px] text-slate-500 font-mono">{{ getTripEndpoint(trip, 'origin') }} → {{ getTripEndpoint(trip, 'destination') }}</div>
                                     </td>
                                     <td class="py-3 px-3.5 text-slate-700">
                                         <div class="font-mono font-bold text-slate-800">{{ trip.vehiclePlate || '29C-556.12' }}</div>
@@ -3497,7 +3497,9 @@
                             <h3 class="font-bold text-sm text-slate-900 uppercase tracking-wider">Khởi Tạo {{ getTripTypeLabel(tripForm.tripType) }}</h3>
                             <p class="text-xs text-slate-500 mt-0.5">Lập kế hoạch vận chuyển đa điểm theo đúng chặng nghiệp vụ</p>
                         </div>
-                        <button @click="showCreateModal = false" class="text-slate-400 hover:text-slate-600 font-bold text-sm p-1 rounded-md">✕</button>
+                        <button @click="showCreateModal = false" class="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition" aria-label="Đóng">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
                     </div>
 
                     <form @submit.prevent="submitCreateTrip" class="p-5 space-y-4 text-xs">
@@ -3768,7 +3770,9 @@
                             >
                                 In Bảng Kê (A4)
                             </button>
-                            <button @click="showDetailModal = false" class="text-slate-400 hover:text-slate-600 font-bold text-sm p-1 rounded-md cursor-pointer">✕</button>
+                            <button @click="showDetailModal = false" class="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition cursor-pointer" aria-label="Đóng">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
                         </div>
                     </div>
 
