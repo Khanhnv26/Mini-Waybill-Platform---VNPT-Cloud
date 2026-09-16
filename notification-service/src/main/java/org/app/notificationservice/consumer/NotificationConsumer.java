@@ -91,6 +91,15 @@ public class NotificationConsumer {
        String status = event.getStatus();
         log.info("[NOTIFICATION] Nhận event cập nhật trạng thái: {} -> {}", event.getTrackingCode(), status);
 
+        if (status != null && Set.of("DELIVERY_FAILED", "RETURNING").contains(status)) {
+            String assignedCourier = stringRedisTemplate.opsForValue().get("shipper:assigned:" + event.getTrackingCode());
+            if (assignedCourier != null && !assignedCourier.isBlank()) {
+                notifyShipperOnFailure(event.getTrackingCode(), assignedCourier, status, event.getNote());
+            } else {
+                log.warn("[NOTIFICATION] Không tìm thấy bưu tá được gán cho đơn {} ({}). Bỏ qua Telegram.", event.getTrackingCode(), status);
+            }
+        }
+
         Set<String> notifyStatues = Set.of("OUT_FOR_DELIVERY", "DELIVERED", "DELIVERY_FAILED");
         if (!notifyStatues.contains(status)) {
             log.info("[NOTIFICATION] Bỏ qua gửi email cho trạng thái trung gian: {}", status);
@@ -163,6 +172,9 @@ public class NotificationConsumer {
             return;
         }
 
+        stringRedisTemplate.opsForValue()
+                .set("shipper:assigned:" + trackingCode, courierCode, Duration.ofDays(30));
+
         try {
             ShipperLookupResponse shipper = shipperClient.findByCourierCode(courierCode);
             if(shipper == null || !shipper.isFound() || shipper.getTelegramChatId() == null || shipper.getTelegramChatId().isBlank()) {
@@ -229,6 +241,35 @@ public class NotificationConsumer {
                 .sentAt(LocalDateTime.now())
                 .build();
         notificationRepository.save(noti);
+    }
+
+    private void notifyShipperOnFailure(String trackingCode, String courierCode, String status, String note) {
+        try {
+            ShipperLookupResponse shipper = shipperClient.findByCourierCode(courierCode);
+            if (shipper == null || !shipper.isFound()) {
+                log.warn("[NOTIFICATION] Không tìm thấy hồ sơ bưu tá {} cho đơn {}", courierCode, trackingCode);
+                return;
+            }
+            if (shipper.getTelegramChatId() == null || shipper.getTelegramChatId().isBlank()) {
+                log.warn("[NOTIFICATION] Bưu tá {} chưa liên kết Telegram. Bỏ qua đơn {}", courierCode, trackingCode);
+                return;
+            }
+
+            String message = "DELIVERY_FAILED".equals(status)
+                    ? "<b>⚠️ PHÁT THẤT BẠI</b>\n"
+                        + "Mã đơn: <code>" + trackingCode + "</code>\n"
+                        + (note != null && !note.isBlank() ? "Lý do: " + note + "\n" : "")
+                        + "Vui lòng xử lý phát lại hoặc chuyển hoàn."
+                    : "<b>🔁 CHUYỂN HOÀN</b>\n"
+                        + "Mã đơn: <code>" + trackingCode + "</code>\n"
+                        + "Đơn đã tự động chuyển hoàn về người gửi.";
+
+            telegramService.sendMessage(shipper.getTelegramChatId(), message);
+            saveTelegramLog(trackingCode, shipper.getTelegramChatId(), "SENT",
+                    "Thông báo " + status + " cho bưu tá " + courierCode);
+        } catch (Exception e) {
+            log.error("[NOTIFICATION] Lỗi gửi Telegram ({}) cho đơn {}: {}", status, trackingCode, e.getMessage());
+        }
     }
 
 }
