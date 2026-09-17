@@ -90,7 +90,14 @@
             const getWsEndpoint = () => {
                 const host = window.location.hostname || 'localhost';
                 const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-                return `${protocol}//${host}:8085/ws`;
+                if (typeof API_BASE_URL !== 'undefined' && API_BASE_URL.startsWith('http')) {
+                    return `${API_BASE_URL}/api/notifications/ws`;
+                }
+                const port = window.location.port;
+                if (!port || port === '80' || port === '443') {
+                    return `${protocol}//${host}/api/notifications/ws`;
+                }
+                return `${protocol}//${host}:8080/api/notifications/ws`;
             };
 
             const disconnectWebSocket = () => {
