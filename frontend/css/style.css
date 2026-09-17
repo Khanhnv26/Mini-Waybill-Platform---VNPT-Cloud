@@ -368,36 +368,58 @@ body {
    Chuẩn 60fps Enterprise: Fade & Slide-up nhẹ nhàng, không gây gián đoạn mắt
    ========================================================================== */
 
-/* 1. Chuyển đổi giữa các trang chính (Main Page Transition) */
+/* 1. Chuyển đổi giữa các trang chính (Main Page Transition) - 60fps Enterprise Motion */
 .page-enter-active,
-.page-leave-active {
-    transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+.page-appear-active {
+    transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: transform, opacity;
+    backface-visibility: hidden;
 }
 
-.page-enter-from {
+.page-leave-active {
+    transition: opacity 0.16s cubic-bezier(0.4, 0, 1, 1), transform 0.16s cubic-bezier(0.4, 0, 1, 1);
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+}
+
+.page-enter-from,
+.page-appear-from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(12px) scale(0.995);
 }
 
 .page-leave-to {
     opacity: 0;
-    transform: translateY(-6px);
+    transform: translateY(-8px);
 }
 
-/* 2. Chuyển đổi giữa các Subtab con bên trong view (Subtab Transition) */
-.subtab-enter-active,
-.subtab-leave-active {
+/* 2. Chuyển đổi giữa các Subtab con bên trong view (Subtab Transition) - 60fps Micro-motion */
+.subtab-enter-active {
     transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+}
+
+.subtab-leave-active {
+    transition: opacity 0.12s cubic-bezier(0.4, 0, 1, 1), transform 0.12s cubic-bezier(0.4, 0, 1, 1);
+    will-change: transform, opacity;
+    backface-visibility: hidden;
 }
 
 .subtab-enter-from {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(6px);
 }
 
 .subtab-leave-to {
     opacity: 0;
     transform: translateY(-4px);
+}
+
+/* Badge số lượng trên subtab nảy nhẹ khi tương tác */
+.subtab-badge-active {
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    transform: scale(1.02);
 }
 
 /* 3. Modal Popup Transition (Fade + Scale 300ms) */
@@ -454,4 +476,255 @@ body {
         padding-right: 8px;
     }
 }
+
+/* ==========================================================================
+   ANIMATION ĐỘNG CHUẨN ENTERPRISE CHO MÀN HÌNH THÔNG BÁO LỖI (ERROR VIEW)
+   ========================================================================== */
+
+/* 1. Hiệu ứng trôi nhẹ Card từ dưới lên (Entrance Animation) */
+@keyframes errorCardEntrance {
+    0% {
+        opacity: 0;
+        transform: translateY(18px) scale(0.985);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.error-card-entrance {
+    animation: errorCardEntrance 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 2. Hiệu ứng bay bổng nhẹ nhàng cho hộp icon */
+@keyframes errorIconFloat {
+    0%, 100% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-6px);
+    }
+}
+
+.error-icon-float {
+    animation: errorIconFloat 3.2s ease-in-out infinite;
+}
+
+/* 3. Hiệu ứng hào quang nền mờ dịu mắt (Aura Pulse) */
+@keyframes errorAuraPulse {
+    0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.18;
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.15);
+        opacity: 0.32;
+    }
+}
+
+.error-aura-pulse {
+    animation: errorAuraPulse 3.6s ease-in-out infinite;
+}
+
+/* 4. Mã 404: Kính lúp di chuyển quét chậm & hạt tín hiệu nhấp nháy */
+@keyframes scanMagnifier {
+    0%, 100% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+    25% {
+        transform: translate(-2.5px, -2px) rotate(-6deg);
+    }
+    50% {
+        transform: translate(2px, -2px) rotate(4deg);
+    }
+    75% {
+        transform: translate(2.5px, 2px) rotate(7deg);
+    }
+}
+
+.anim-404-glass {
+    transform-origin: 30% 30%;
+    animation: scanMagnifier 3s ease-in-out infinite;
+}
+
+@keyframes dotSignalPulse {
+    0%, 100% {
+        opacity: 0.2;
+        transform: scale(0.85);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.2);
+    }
+}
+
+.anim-404-dot {
+    animation: dotSignalPulse 1.5s ease-in-out infinite;
+}
+
+/* 5. Mã 403: Ổ khóa lắc cảnh báo an ninh chu kỳ 2.8s */
+@keyframes lockWarningShake {
+    0%, 75%, 100% {
+        transform: rotate(0deg);
+    }
+    78% {
+        transform: rotate(-6deg);
+    }
+    82% {
+        transform: rotate(6deg);
+    }
+    86% {
+        transform: rotate(-4deg);
+    }
+    90% {
+        transform: rotate(4deg);
+    }
+    94% {
+        transform: rotate(0deg);
+    }
+}
+
+.anim-403-lock {
+    transform-origin: 50% 70%;
+    animation: lockWarningShake 2.8s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite;
+}
+
+.anim-403-badge {
+    animation: dotSignalPulse 2s ease-in-out infinite;
+}
+
+/* 6. Mã 503: Cụm bánh răng kép xoay nhịp nhàng ngược chiều */
+@keyframes spinGearCW {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes spinGearCCW {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(-360deg);
+    }
+}
+
+.anim-503-gear-main {
+    transform-origin: center;
+    animation: spinGearCW 7s linear infinite;
+}
+
+.anim-503-gear-sub {
+    transform-origin: center;
+    animation: spinGearCCW 4.8s linear infinite;
+}
+
+/* 7. Mã 502: Tia sét kết nối nhấp nháy phát xung điện */
+@keyframes pulseZap {
+    0%, 100% {
+        opacity: 0.85;
+        filter: drop-shadow(0 0 1px rgba(249, 115, 22, 0.3));
+        transform: scale(1);
+    }
+    48% {
+        opacity: 0.9;
+        transform: scale(1.02);
+    }
+    50% {
+        opacity: 1;
+        filter: drop-shadow(0 0 8px rgba(249, 115, 22, 0.85));
+        transform: scale(1.08) translateY(-1px);
+    }
+    54% {
+        opacity: 0.85;
+        filter: drop-shadow(0 0 2px rgba(249, 115, 22, 0.4));
+        transform: scale(1);
+    }
+}
+
+.anim-502-zap {
+    transform-origin: center;
+    animation: pulseZap 2.2s ease-in-out infinite;
+}
+
+/* 8. Mã 429: Kim đồng hồ quay mượt mà 360 độ */
+@keyframes clockMinuteHand {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.anim-429-hand {
+    transform-origin: 12px 12px;
+    animation: clockMinuteHand 3s linear infinite;
+}
+
+/* 9. Nút bấm tương tác êm dịu khi hover */
+.error-btn-interactive {
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.error-btn-interactive:hover {
+    transform: translateY(-1.5px);
+    box-shadow: 0 6px 16px -2px rgba(0, 0, 0, 0.08);
+}
+
+.error-btn-interactive:active {
+    transform: translateY(0) scale(0.97);
+}
+
+/* ==========================================================================
+   NOTIFICATION BELL & DROPDOWN POPOVER STYLES
+   ========================================================================== */
+
+/* Hiệu ứng trượt mở Popover thông báo */
+.dropdown-enter-active,
+.dropdown-leave-active {
+    transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+}
+
+/* Hiệu ứng rung chuông khi có thông báo mới */
+@keyframes bellRing {
+    0%, 100% {
+        transform: rotate(0deg);
+    }
+    10%, 30% {
+        transform: rotate(14deg);
+    }
+    20%, 40% {
+        transform: rotate(-14deg);
+    }
+    50% {
+        transform: rotate(8deg);
+    }
+    60% {
+        transform: rotate(-6deg);
+    }
+    70% {
+        transform: rotate(2deg);
+    }
+    80% {
+        transform: rotate(0deg);
+    }
+}
+
+.bell-ring-active {
+    animation: bellRing 2.5s ease-in-out infinite;
+    transform-origin: top center;
+}
+
+
 

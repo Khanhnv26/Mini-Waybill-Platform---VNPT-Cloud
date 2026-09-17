@@ -53,6 +53,7 @@
             const corporateCount = computed(() => {
                 const corpKeywords = ['công ty', 'tnhh', 'cp', 'tập đoàn', 'chi nhánh', 'doanh nghiệp', 'vnpt', 'bưu điện'];
                 return customers.value.filter(c => {
+                    if (c.customerCode === 'CUS_RETAIL') return false;
                     const name = (c.fullName || '').toLowerCase();
                     return corpKeywords.some(kw => name.includes(kw));
                 }).length;
@@ -377,8 +378,9 @@
                                                 <div class="font-bold text-slate-800 text-xs leading-tight">
                                                     {{ c.fullName }}
                                                 </div>
-                                                <div class="text-[10px] text-slate-400 mt-0.5 font-medium">
-                                                    Khách hàng thành viên bưu chính
+                                                <div class="text-[10px] mt-0.5 font-medium">
+                                                    <span v-if="c.customerCode === 'CUS_RETAIL'" class="text-amber-600 font-bold">Hệ Thống - Khách Vãng Lai Tại Quầy</span>
+                                                    <span v-else class="text-slate-400">Khách hàng thành viên bưu chính</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -428,8 +430,9 @@
                                                 <span>Tạo Đơn</span>
                                             </button>
 
-                                            <!-- Nút Kích hoạt / Tạm dừng -->
+                                            <!-- Nút Kích hoạt / Tạm dừng (Không cho phép tạm dừng tài khoản CUS_RETAIL hệ thống) -->
                                             <button 
+                                                v-if="c.customerCode !== 'CUS_RETAIL'"
                                                 @click="toggleCustomerStatus(c)"
                                                 type="button"
                                                 :class="[

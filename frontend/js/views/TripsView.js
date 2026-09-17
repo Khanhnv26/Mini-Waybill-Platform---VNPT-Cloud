@@ -1600,11 +1600,13 @@
             const switchDetailTab = (tab) => {
                 detailActiveTab.value = tab;
                 if (tab === 'route') {
-                    nextTick(() => {
-                        if (leafletMap) {
+                    setTimeout(() => {
+                        if (activeTripDetail.value) {
+                            renderLeafletMap(activeTripDetail.value);
+                        } else if (leafletMap) {
                             leafletMap.invalidateSize();
                         }
-                    });
+                    }, 150);
                 }
             };
 
@@ -2802,7 +2804,8 @@
             <!-- ========================================================================= -->
             <!-- NỘI DUNG: BƯỚC 1 - GOM HÀNG VỀ KHO TỔNG (ORIGIN FEEDER)                   -->
             <!-- ========================================================================= -->
-            <div v-if="currentStep === 1" class="space-y-3">
+            <transition name="subtab" mode="out-in">
+            <div v-if="currentStep === 1" key="step-1" class="space-y-3">
                 <!-- Subtabs chuyển đổi: Kiện chờ xếp vs Chuyến xe đang chạy -->
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                     <div class="flex space-x-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200 w-fit text-xs font-bold">
@@ -3039,7 +3042,7 @@
             <!-- ========================================================================= -->
             <!-- NỘI DUNG: BƯỚC 2 - XE CONTAINER TRỤC LIÊN TỈNH (LINEHAUL)                 -->
             <!-- ========================================================================= -->
-            <div v-else-if="currentStep === 2" class="space-y-3">
+            <div v-else-if="currentStep === 2" key="step-2" class="space-y-3">
                 <!-- Hướng xe: Xuất bến vs Cập bến & Chế độ Lập lịch -->
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                     <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg border border-slate-200 w-fit text-xs font-bold">
@@ -3231,7 +3234,7 @@
             <!-- ========================================================================= -->
             <!-- NỘI DUNG: BƯỚC 3 - PHÁT HÀNG VỀ BƯU CỤC (DESTINATION FEEDER)              -->
             <!-- ========================================================================= -->
-            <div v-else-if="currentStep === 3" class="space-y-3">
+            <div v-else-if="currentStep === 3" key="step-3" class="space-y-3">
                 <!-- Subtabs chuyển đổi: Kiện chờ xe phát vs Chuyến xe phát đang chạy -->
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                     <div class="flex space-x-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200 w-fit text-xs font-bold">
@@ -3484,6 +3487,7 @@
                     </div>
                 </div>
             </div>
+            </transition>
 
             <!-- ================================================================= -->
             <!-- MODAL 1: LẬP CHUYẾN XE MỚI (BỐ CỤC 2 CỘT GỌN GÀNG KHÔNG TRÀN)     -->
@@ -3783,41 +3787,47 @@
                                 type="button" 
                                 @click="switchDetailTab('route')" 
                                 :class="[
-                                    'pb-2.5 pt-2.5 text-xs font-bold transition border-b-2 cursor-pointer',
+                                    'pb-2.5 pt-2.5 text-xs font-bold transition-all duration-200 border-b-2 flex items-center space-x-1.5 whitespace-nowrap cursor-pointer',
                                     detailActiveTab === 'route' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800'
                                 ]"
                             >
-                                Lộ Trình &amp; Bản Đồ
+                                <span>Lộ Trình &amp; Bản Đồ</span>
                             </button>
                             <button 
                                 type="button" 
                                 @click="switchDetailTab('manifests')" 
                                 :class="[
-                                    'pb-2.5 pt-2.5 text-xs font-bold transition border-b-2 cursor-pointer',
+                                    'pb-2.5 pt-2.5 text-xs font-bold transition-all duration-200 border-b-2 flex items-center space-x-1.5 whitespace-nowrap cursor-pointer',
                                     detailActiveTab === 'manifests' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800'
                                 ]"
                             >
-                                Kiện Hàng Trên Xe ({{ activeManifests?.length || 0 }})
+                                <span>Kiện Hàng Trên Xe</span>
+                                <span :class="[detailActiveTab === 'manifests' ? 'bg-blue-100 text-blue-700 font-bold scale-105 shadow-xs' : 'bg-slate-100 text-slate-600', 'px-1.5 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-200 inline-block']">
+                                    {{ activeManifests?.length || 0 }}
+                                </span>
                             </button>
                             <button 
                                 v-if="activeTripDetail?.status === 'SCHEDULED'"
                                 type="button" 
                                 @click="switchDetailTab('eligible')" 
                                 :class="[
-                                    'pb-2.5 pt-2.5 text-xs font-bold transition border-b-2 cursor-pointer',
+                                    'pb-2.5 pt-2.5 text-xs font-bold transition-all duration-200 border-b-2 flex items-center space-x-1.5 whitespace-nowrap cursor-pointer',
                                     detailActiveTab === 'eligible' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800'
                                 ]"
                             >
-                                Đơn Hàng Chờ Xếp Xe ({{ eligibleAssignments.length }})
+                                <span>Đơn Hàng Chờ Xếp Xe</span>
+                                <span :class="[detailActiveTab === 'eligible' ? 'bg-blue-100 text-blue-700 font-bold scale-105 shadow-xs' : 'bg-slate-100 text-slate-600', 'px-1.5 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-200 inline-block']">
+                                    {{ eligibleAssignments.length }}
+                                </span>
                             </button>
                         </div>
                     </div>
 
                     <!-- Body Modal (Chuyển Tab Chuyên Biệt Không Bị Chồng Chéo) -->
                     <div class="p-5 overflow-y-auto space-y-4 text-xs flex-1">
-                        
-                        <!-- TAB 1: LỘ TRÌNH & BẢN ĐỒ -->
-                        <div v-show="detailActiveTab === 'route'" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <transition name="subtab" mode="out-in">
+                            <!-- TAB 1: LỘ TRÌNH & BẢN ĐỒ -->
+                            <div v-if="detailActiveTab === 'route'" key="tab-route" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             <div>
                                 <div class="font-bold text-slate-700 uppercase tracking-wider text-[11px] mb-2 flex justify-between">
                                     <span>Bản Đồ Tuyến Xe</span>
@@ -3870,7 +3880,7 @@
                         </div>
 
                         <!-- TAB 2: KIỆN HÀNG TRÊN XE (MANIFESTS) -->
-                        <div v-if="detailActiveTab === 'manifests'" class="space-y-3">
+                        <div v-else-if="detailActiveTab === 'manifests'" key="tab-manifests" class="space-y-3">
                             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                 <div class="flex items-center space-x-2">
                                     <span class="text-slate-500 text-xs">
@@ -3946,7 +3956,7 @@
                         </div>
 
                         <!-- TAB 3: ĐƠN HÀNG CHỜ XẾP XE (ELIGIBLE ASSIGNMENTS) -->
-                        <div v-if="detailActiveTab === 'eligible'" class="space-y-3">
+                        <div v-else-if="detailActiveTab === 'eligible'" key="tab-eligible" class="space-y-3">
                             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                 <div class="flex-1 max-w-xs">
                                     <input 
@@ -4025,6 +4035,7 @@
                                 </table>
                             </div>
                         </div>
+                        </transition>
 
                     </div>
 

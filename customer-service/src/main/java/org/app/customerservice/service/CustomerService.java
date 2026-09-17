@@ -19,4 +19,5 @@ public interface CustomerService {
     Customer createCustomer(CreateCustomerRequest request);
     List<Customer> getAllCustomers();
     Customer updateCustomer(Long id, UpdateCustomerRequest request);
+    CustomerValidation getRetailCustomer();
 }

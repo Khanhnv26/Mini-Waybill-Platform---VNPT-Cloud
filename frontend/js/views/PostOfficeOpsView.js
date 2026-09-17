@@ -1483,14 +1483,14 @@
                     <button 
                         @click="currentSubtab = 'outbound'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center space-x-2 whitespace-nowrap',
+                            'pb-2.5 text-xs sm:text-sm font-bold transition-all duration-200 border-b-2 flex items-center space-x-2 whitespace-nowrap cursor-pointer',
                             currentSubtab === 'outbound' 
                                 ? 'border-blue-600 text-blue-600' 
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         ]"
                     >
                         <span>KHAI THÁC ĐI (CHẤP NHẬN GỬI)</span>
-                        <span :class="currentSubtab === 'outbound' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'" class="px-2 py-0.5 rounded-full text-[11px] font-semibold">
+                        <span :class="[currentSubtab === 'outbound' ? 'bg-blue-100 text-blue-700 font-bold scale-105 shadow-xs' : 'bg-slate-100 text-slate-600', 'px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all duration-200 inline-block']">
                             {{ outboundCount }}
                         </span>
                     </button>
@@ -1498,14 +1498,14 @@
                     <button 
                         @click="currentSubtab = 'inbound'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center space-x-2 whitespace-nowrap',
+                            'pb-2.5 text-xs sm:text-sm font-bold transition-all duration-200 border-b-2 flex items-center space-x-2 whitespace-nowrap cursor-pointer',
                             currentSubtab === 'inbound' 
                                 ? 'border-blue-600 text-blue-600' 
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         ]"
                     >
                         <span>KHAI THÁC ĐẾN &amp; BÀN GIAO PHÁT</span>
-                        <span :class="currentSubtab === 'inbound' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'" class="px-2 py-0.5 rounded-full text-[11px] font-semibold">
+                        <span :class="[currentSubtab === 'inbound' ? 'bg-blue-100 text-blue-700 font-bold scale-105 shadow-xs' : 'bg-slate-100 text-slate-600', 'px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all duration-200 inline-block']">
                             {{ inboundCount }}
                         </span>
                     </button>
@@ -1513,14 +1513,14 @@
                     <button 
                         @click="currentSubtab = 'inventory'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center space-x-2 whitespace-nowrap',
+                            'pb-2.5 text-xs sm:text-sm font-bold transition-all duration-200 border-b-2 flex items-center space-x-2 whitespace-nowrap cursor-pointer',
                             currentSubtab === 'inventory' 
                                 ? 'border-blue-600 text-blue-600' 
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         ]"
                     >
                         <span>KIỂM KÊ TỒN BƯU CỤC</span>
-                        <span :class="currentSubtab === 'inventory' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'" class="px-2 py-0.5 rounded-full text-[11px] font-semibold">
+                        <span :class="[currentSubtab === 'inventory' ? 'bg-blue-100 text-blue-700 font-bold scale-105 shadow-xs' : 'bg-slate-100 text-slate-600', 'px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all duration-200 inline-block']">
                             {{ inventoryCount }}
                         </span>
                     </button>
@@ -1605,91 +1605,93 @@
                     <div class="h-4 w-px bg-slate-200 hidden sm:block"></div>
 
                     <!-- HÀNG NÚT LỌC NHANH (SEGMENTED PILLS) -->
-                    <div v-if="currentSubtab === 'outbound'" class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-                        <button 
-                            @click="selectedStatusFilter = 'ALL'; currentPage = 1"
-                            :class="selectedStatusFilter === 'ALL' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Tất cả ({{ outboundCount }})
-                        </button>
-                        <button 
-                            @click="selectedStatusFilter = 'WAITING_INTAKE'; currentPage = 1"
-                            :class="selectedStatusFilter === 'WAITING_INTAKE' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Chờ chấp nhận ({{ kpiAwaitingIntake }})
-                        </button>
-                        <button 
-                            @click="selectedStatusFilter = 'STORED_OFFICE'; currentPage = 1"
-                            :class="selectedStatusFilter === 'STORED_OFFICE' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Tồn kho chờ gom xe ({{ kpiStagedInOffice }})
-                        </button>
-                        <button 
-                            @click="selectedStatusFilter = 'IN_TRANSIT'; currentPage = 1"
-                            :class="selectedStatusFilter === 'IN_TRANSIT' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Đang vận chuyển trung chuyển ({{ kpiInTransitOutbound }})
-                        </button>
-                    </div>
+                    <transition name="subtab" mode="out-in">
+                        <div v-if="currentSubtab === 'outbound'" key="pills-outbound" class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                            <button 
+                                @click="selectedStatusFilter = 'ALL'; currentPage = 1"
+                                :class="selectedStatusFilter === 'ALL' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Tất cả ({{ outboundCount }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'WAITING_INTAKE'; currentPage = 1"
+                                :class="selectedStatusFilter === 'WAITING_INTAKE' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Chờ chấp nhận ({{ kpiAwaitingIntake }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'STORED_OFFICE'; currentPage = 1"
+                                :class="selectedStatusFilter === 'STORED_OFFICE' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Tồn kho chờ gom xe ({{ kpiStagedInOffice }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'IN_TRANSIT'; currentPage = 1"
+                                :class="selectedStatusFilter === 'IN_TRANSIT' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Đang vận chuyển trung chuyển ({{ kpiInTransitOutbound }})
+                            </button>
+                        </div>
 
-                    <div v-else-if="currentSubtab === 'inbound'" class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-                        <button 
-                            @click="selectedStatusFilter = 'ALL'; currentPage = 1"
-                            :class="selectedStatusFilter === 'ALL' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Tất cả ({{ inboundCount }})
-                        </button>
-                        <button 
-                            @click="selectedStatusFilter = 'WAITING_HANDOFF'; currentPage = 1"
-                            :class="selectedStatusFilter === 'WAITING_HANDOFF' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Chờ bàn giao bưu tá ({{ kpiArrivedFromHub }})
-                        </button>
-                        <button 
-                            @click="selectedStatusFilter = 'OUT_FOR_DELIVERY'; currentPage = 1"
-                            :class="selectedStatusFilter === 'OUT_FOR_DELIVERY' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Đang phát tận nơi ({{ kpiOutForDelivery }})
-                        </button>
-                        <button 
-                            @click="selectedStatusFilter = 'DELIVERED'; currentPage = 1"
-                            :class="selectedStatusFilter === 'DELIVERED' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Phát thành công ({{ kpiDeliveredInbound }})
-                        </button>
-                    </div>
+                        <div v-else-if="currentSubtab === 'inbound'" key="pills-inbound" class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                            <button 
+                                @click="selectedStatusFilter = 'ALL'; currentPage = 1"
+                                :class="selectedStatusFilter === 'ALL' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Tất cả ({{ inboundCount }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'WAITING_HANDOFF'; currentPage = 1"
+                                :class="selectedStatusFilter === 'WAITING_HANDOFF' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Chờ bàn giao bưu tá ({{ kpiArrivedFromHub }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'OUT_FOR_DELIVERY'; currentPage = 1"
+                                :class="selectedStatusFilter === 'OUT_FOR_DELIVERY' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Đang phát tận nơi ({{ kpiOutForDelivery }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'DELIVERED'; currentPage = 1"
+                                :class="selectedStatusFilter === 'DELIVERED' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Phát thành công ({{ kpiDeliveredInbound }})
+                            </button>
+                        </div>
 
-                    <div v-else-if="currentSubtab === 'inventory'" class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-                        <button 
-                            @click="selectedStatusFilter = 'ALL'; currentPage = 1"
-                            :class="selectedStatusFilter === 'ALL' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Tất cả tồn kho ({{ inventoryCount }})
-                        </button>
-                        <button 
-                            @click="selectedStatusFilter = 'STORED_OFFICE'; currentPage = 1"
-                            :class="selectedStatusFilter === 'STORED_OFFICE' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Hàng quầy chờ gom xe ({{ inventoryStagedCount }})
-                        </button>
-                        <button 
-                            @click="selectedStatusFilter = 'WAITING_HANDOFF'; currentPage = 1"
-                            :class="selectedStatusFilter === 'WAITING_HANDOFF' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Hàng đến chờ bàn giao bưu tá ({{ inventoryWaitingHandoffCount }})
-                        </button>
-                    </div>
+                        <div v-else-if="currentSubtab === 'inventory'" key="pills-inventory" class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                            <button 
+                                @click="selectedStatusFilter = 'ALL'; currentPage = 1"
+                                :class="selectedStatusFilter === 'ALL' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Tất cả tồn kho ({{ inventoryCount }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'STORED_OFFICE'; currentPage = 1"
+                                :class="selectedStatusFilter === 'STORED_OFFICE' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Hàng quầy chờ gom xe ({{ inventoryStagedCount }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'WAITING_HANDOFF'; currentPage = 1"
+                                :class="selectedStatusFilter === 'WAITING_HANDOFF' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Hàng đến chờ bàn giao bưu tá ({{ inventoryWaitingHandoffCount }})
+                            </button>
+                        </div>
+                    </transition>
 
                     <!-- Dropdown Phân Trang (Số dòng trên trang) -->
                     <select 
@@ -1726,7 +1728,8 @@
             <!-- =============================================================== -->
             <!-- BẢNG DỮ LIỆU ĐỒNG NHẤT (CỬA GỬI ĐI, CỬA TRẢ PHÁT & TỒN KHO)    -->
             <!-- =============================================================== -->
-            <div class="space-y-3">
+            <transition name="subtab" mode="out-in">
+                <div :key="currentSubtab" class="space-y-3">
                 
                 <!-- BẢNG DANH SÁCH BƯU GỬI TẠI BƯU CỤC -->
                 <div v-if="selectedPostOfficeItems.length" class="selection-summary-bar px-3 py-2 rounded-lg bg-slate-100 border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -1954,6 +1957,7 @@
                     </div>
                 </div>
             </div>
+            </transition>
 
             <!-- =============================================================== -->
             <!-- MODAL: BÀN GIAO BƯU PHẨM CHO BƯU TÁ ĐI PHÁT (OUT_FOR_DELIVERY)   -->

@@ -1185,7 +1185,7 @@
                         type="button"
                         @click="currentSubtab = 'scan'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 whitespace-nowrap',
+                            'pb-2.5 text-xs sm:text-sm font-bold transition-all duration-200 border-b-2 whitespace-nowrap cursor-pointer',
                             currentSubtab === 'scan' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800'
                         ]"
                     >
@@ -1195,7 +1195,7 @@
                         type="button"
                         @click="currentSubtab = 'inventory'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 whitespace-nowrap',
+                            'pb-2.5 text-xs sm:text-sm font-bold transition-all duration-200 border-b-2 whitespace-nowrap cursor-pointer',
                             currentSubtab === 'inventory' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800'
                         ]"
                     >
@@ -1206,7 +1206,7 @@
                     type="button"
                     @click="loadShipmentsData()"
                     :disabled="isLoading"
-                    class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center space-x-1 border border-slate-200"
+                    class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center space-x-1 border border-slate-200 shadow-xs cursor-pointer"
                 >
                     <span v-if="isLoading" class="w-2.5 h-2.5 border-2 border-slate-600 border-t-transparent rounded-full animate-spin"></span>
                     <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
@@ -1219,6 +1219,7 @@
                 <span class="font-mono font-bold">{{ filteredShipments.length }} kiện</span>
             </div>
 
+            <transition name="subtab">
             <div v-if="currentSubtab === 'scan'" class="b2b-card operation-action-bar bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div>
                     <div class="flex items-center space-x-2">
@@ -1251,6 +1252,7 @@
                     </button>
                 </div>
             </div>
+            </transition>
 
             <div class="b2b-card bg-white border border-slate-200 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2.5 shadow-sm text-xs">
                 <div class="flex flex-wrap items-center gap-2 flex-1">

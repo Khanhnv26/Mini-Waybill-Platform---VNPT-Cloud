@@ -109,6 +109,17 @@ public class AdminServiceImpl implements AdminService {
             throw new RuntimeException("Không thể gỡ bỏ vai trò Quản trị hệ thống khỏi tài khoản này !");
         }
 
+        boolean hasInternalRole = roleNames.stream().
+                anyMatch(r -> Set.of("ROLE_ADMIN", "ROLE_SHIPPER",
+                                        "ROLE_HUB_OPERATOR", "ROLE_POST_OFFICE_OPERATOR",
+                                        "ROLE_DISPATCHER", "ROLE_CS").contains(r.toUpperCase(Locale.ROOT)));
+
+        if(hasInternalRole) {
+            roleNames.remove("ROLE_CUSTOMER");
+        }
+
+
+
         List<Role> matchedRoles = roleRepository.findByNameIn(roleNames);
         user.setRoles(new HashSet<>(matchedRoles));
         User savedUser = userRepository.save(user);

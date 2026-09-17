@@ -95,27 +95,28 @@ http {
 
 ## 3. Cấu Hình Service Registry HA (Eureka Peer-to-Peer Replication)
 
-Thay vì chạy 1 Eureka duy nhất (SPOF), ta cấu hình 2 node Eureka ngang hàng: **Node 1 (Port 8761)** và **Node 2 (Port 8762)** sao chép danh bạ dịch vụ lẫn nhau.
+Thay vì chạy 1 Eureka duy nhất (SPOF), ta cấu hình 2 node Eureka ngang hàng: **Node 1 (Port 8761)** và **Node 2 (Port 8762)** sao chép danh bạ dịch vụ lẫn nhau theo cơ chế Active - Active Bi-directional Replication.
 
-### 3.1. Cấu hình Profile Node 1 (`application-peer1.properties`)
+### 3.1. Cấu hình Profile Node 1 (`service-registry/src/main/resources/application-peer1.properties`)
 ```properties
 spring.application.name=service-registry
 server.port=8761
 eureka.instance.hostname=localhost
-eureka.instance.instance-id=localhost:8761
-# Đăng ký và lấy danh bạ từ Node 2
+eureka.instance.instance-id=service-register:8761
+# Đăng ký và lấy danh bạ từ Node 2 (dùng IP 127.0.0.1 để phân biệt hostname)
 eureka.client.register-with-eureka=true
 eureka.client.fetch-registry=true
-eureka.client.service-url.defaultZone=http://localhost:8762/eureka/
+eureka.client.service-url.defaultZone=http://127.0.0.1:8762/eureka/
 ```
 
-### 3.2. Cấu hình Profile Node 2 (`application-peer2.properties`)
+### 3.2. Cấu hình Profile Node 2 (`service-registry/src/main/resources/application-peer2.properties` & `application.properties`)
+Khi chạy cổng 8762, node 2 đặt hostname là `127.0.0.1` và trỏ peer về `localhost:8761`:
 ```properties
 spring.application.name=service-registry
 server.port=8762
-eureka.instance.hostname=localhost
-eureka.instance.instance-id=localhost:8762
-# Đăng ký và lấy danh bạ từ Node 1
+eureka.instance.hostname=127.0.0.1
+eureka.instance.instance-id=service-register:8762
+# Đăng ký và lấy danh bạ từ Node 1 (dùng hostname localhost)
 eureka.client.register-with-eureka=true
 eureka.client.fetch-registry=true
 eureka.client.service-url.defaultZone=http://localhost:8761/eureka/
@@ -127,7 +128,40 @@ Trong file `application.properties` của tất cả các service (`api-gateway`
 # Khai báo cả 2 node ngăn cách bằng dấu phẩy
 eureka.client.service-url.defaultZone=http://localhost:8761/eureka/,http://localhost:8762/eureka/
 ```
-* **Cách Eureka Client hoạt động:** Service sẽ ưu tiên gửi heartbeat và lấy danh bạ từ node đầu tiên (`8761`). Nếu node này không phản hồi sau timeout, client tự động chuyển sang node thứ hai (`8762`).
+* **Cách Eureka Client hoạt động:** Service sẽ ưu tiên gửi heartbeat và lấy danh bạ từ node đầu tiên (`8761`). Nếu node này không phản hồi sau timeout, client tự động chuyển tiếp sang node thứ hai (`8762`) mà không làm gián đoạn luồng định tuyến.
+
+### 3.4. Bẫy Kỹ Thuật: Eureka Peer Sync 1 Chiều & Cơ Chế `PeerEurekaNodes.isInstanceURL()`
+
+#### A. Bản chất lỗi trong mã nguồn Netflix Eureka
+Trong mã nguồn Eureka Server (`com.netflix.eureka.cluster.PeerEurekaNodes`):
+```java
+// Logic kiểm tra xem URL peer có phải là chính bản thân node hiện tại hay không:
+public boolean isInstanceURL(String url, InstanceInfo instance) {
+    String hostName = hostFromUrl(url); // Chỉ trích xuất HOST từ chuỗi URL (BỎ QUA PORT!)
+    String myInfoComparator = instance.getHostName(); // Lấy hostname của node hiện tại
+    return hostName.equalsIgnoreCase(myInfoComparator); // So sánh chuỗi thô
+}
+```
+> [!WARNING]
+> **Điểm mấu chốt:** Phương thức `isInstanceURL()` **hoàn toàn bỏ qua số cổng (Port)** khi so khớp. Nó chỉ so sánh chuỗi tên miền / IP giữa URL trong `defaultZone` và `eureka.instance.hostname` của chính nó!
+
+#### B. Ma trận phân tích sự cố Sync 1 chiều khi chạy trên cùng một máy (Localhost)
+
+| Node | Cấu hình lúc bị lỗi | Cơ chế nhận diện của Eureka | Hậu quả thực tế |
+| :--- | :--- | :--- | :--- |
+| **Node 1 (8761)** | `hostname = localhost`<br>`defaultZone = http://127.0.0.1:8762/eureka/` | So sánh: `localhost` vs `127.0.0.1` $\rightarrow$ **Khác nhau** | Nhận diện 8762 là **Peer hợp lệ** $\rightarrow$ Replicate 8761 sang 8762 **thành công**. |
+| **Node 2 (8762)**<br>*(khi để `localhost`)* | `hostname = localhost`<br>`defaultZone = http://localhost:8761/eureka/` | So sánh: `localhost` vs `localhost` $\rightarrow$ **Giống nhau**! | Tự coi 8761 là **chính bản thân nó** $\rightarrow$ Hủy replication $\rightarrow$ **8762 KHÔNG BAO GIỜ replicate sang 8761**! |
+
+* **Hiện tượng quan sát:** 
+  * Trên Eureka Dashboard của node 8762: Mục `DS Replicas` không có 8761, hoặc 8761 bị đánh dấu vào `unavailable-replicas`.
+  * Các microservice đăng ký vào 8761 thì 8762 nhìn thấy, nhưng service nào kết nối vào 8762 thì 8761 hoàn toàn mù tịt (Sync 1 chiều).
+
+#### C. Giải pháp giải quyết triệt để
+* Thiết lập cặp đối ứng chéo:
+  * **Node 1 (8761):** `eureka.instance.hostname=localhost` $\rightarrow$ `defaultZone=http://127.0.0.1:8762/eureka/`
+  * **Node 2 (8762):** `eureka.instance.hostname=127.0.0.1` $\rightarrow$ `defaultZone=http://localhost:8761/eureka/`
+* Cả `localhost` và `127.0.0.1` đều trỏ về máy loopback, nhưng về mặt xử lý chuỗi trong Java thì `localhost` $\ne$ `127.0.0.1`, giúp cả 2 node nhận diện đúng đối tác là một peer độc lập và thiết lập luồng replication 2 chiều hoàn chỉnh.
+* *(Ghi chú môi trường Production)*: Trong Docker/K8s hoặc production thực tế, ta sử dụng domain riêng (ví dụ `eureka-1.internal`, `eureka-2.internal`) qua DNS mạng nội bộ nên không cần mẹo IP loopback này.
 
 ---
 
@@ -158,3 +192,5 @@ services:
     * **Client-side (Spring Cloud LoadBalancer):** API Gateway hoặc Service gọi tự giữ danh sách các instance (lấy từ Eureka) và tự quyết định thuật toán Round-Robin để gọi trực tiếp tới instance đích.
 * **Q: "Tại sao Eureka không bị vấn đề Não phân liệt (Split-Brain) nghiêm trọng như ZooKeeper hay etcd?"**
   * *Trả lời:* Eureka chọn triết lý **AP (Availability & Partition Tolerance)** trong định lý CAP. Khi xảy ra chia cắt mạng, mỗi node Eureka vẫn tiếp tục phục vụ các instance đang kết nối tới nó và bật chế độ **Self-Preservation** (không vội xóa instance khi quá hạn heartbeat), ưu tiên hệ thống luôn sẵn sàng nhận truy vấn thay vì khóa chặt dữ liệu.
+* **Q: "Khi dựng cụm Eureka HA trên cùng một máy chủ (Localhost) khác port, tại sao thường bị lỗi chỉ đồng bộ 1 chiều hoặc node bị đưa vào unavailable-replicas? Cách xử lý như thế nào?"**
+  * *Trả lời:* Trong `PeerEurekaNodes.isInstanceURL()`, Eureka chỉ so sánh chuỗi `hostname` mà bỏ qua `port`. Nếu cả 2 node đều cấu hình `hostname=localhost` và trỏ `defaultZone` tới `localhost:<port_khác>`, node sẽ tự coi peer URL đó chính là bản thân nó và loại bỏ khỏi danh sách replication. Để khắc phục khi test local, ta dùng cặp đối ứng chuỗi khác nhau: một node dùng `localhost` trỏ sang `127.0.0.1`, node còn lại dùng `127.0.0.1` trỏ về `localhost` (hoặc cấu hình các alias riêng trong file `/etc/hosts` như `peer1`, `peer2`).

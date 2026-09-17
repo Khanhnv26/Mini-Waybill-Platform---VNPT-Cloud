@@ -48,19 +48,26 @@
                 return !isAdmin.value && Auth.hasRole('ROLE_CS');
             });
 
-            const isShopOwner = computed(() => {
+            const isPostOperator = computed(() => {
                 if (typeof Auth === 'undefined') return false;
-                return !isAdmin.value && !isCSStaff.value && Auth.hasRole('ROLE_CUSTOMER');
+                return Auth.hasRole('ROLE_POST_OFFICE_OPERATOR');
             });
 
-            // Kiểm tra quyền tạo đơn hộ cho khách hàng khác (CSKH & Admin)
+            // Kiểm tra quyền tạo đơn hộ cho khách hàng khác (CSKH, Bưu cục, Admin)
             const canCreateForOthers = computed(() => {
                 if (typeof Auth === 'undefined') return false;
-                return Auth.hasRole('ROLE_ADMIN') || Auth.hasRole('ROLE_CS') || Auth.hasPermission('shipment:create_for_others');
+                return Auth.hasRole('ROLE_ADMIN') || Auth.hasRole('ROLE_CS') || Auth.hasRole('ROLE_POST_OFFICE_OPERATOR') || Auth.hasPermission('shipment:create_for_others');
             });
 
-            // Chế độ tạo đơn dành cho Admin: 'self' (Nội bộ VNPT Post) hoặc 'for_customer' (Tạo hộ đối tác)
-            const adminCreateMode = ref('self');
+            const isShopOwner = computed(() => {
+                if (typeof Auth === 'undefined') return false;
+                return Auth.hasRole('ROLE_CUSTOMER') && !canCreateForOthers.value;
+            });
+
+            // Chế độ gửi cho nhân viên nội bộ:
+            // 'RETAIL': Khách lẻ vãng lai tại quầy (tự động gán CUS_RETAIL)
+            // 'B2B': Khách hàng / Shop đối tác theo hợp đồng
+            const senderMode = ref('RETAIL');
 
             // Form khởi tạo vận đơn
             const form = reactive({
@@ -295,17 +302,16 @@
                 }
             };
 
-            const setAdminCreateMode = (mode) => {
-                adminCreateMode.value = mode;
-                if (mode === 'self') {
+            const setSenderMode = (mode) => {
+                senderMode.value = mode;
+                if (mode === 'RETAIL') {
                     form.customerId = null;
-                    if (myProfile.value) {
-                        form.senderName = myProfile.value.fullName || currentUser?.fullName || 'Quản Trị Viên VNPT';
-                        form.senderPhone = myProfile.value.phoneNumber || '0913888999';
-                        form.senderDetail = myProfile.value.address || '57 Huỳnh Thúc Kháng, Đống Đa, Hà Nội';
-                        senderAddressQuery.value = form.senderDetail;
-                    }
-                } else {
+                    form.senderName = '';
+                    form.senderPhone = '';
+                    form.senderDetail = '';
+                    senderAddressQuery.value = '';
+                    clearVerifiedSenderAddress();
+                } else if (mode === 'B2B') {
                     form.customerId = null;
                     if (!customersList.value || customersList.value.length === 0) {
                         loadCustomersList();
@@ -313,8 +319,19 @@
                 }
             };
 
+            const fillCounterStationInfo = () => {
+                form.senderName = 'Điểm Tiếp Nhận Quầy Bưu Cục VNPT';
+                form.senderPhone = '1900545481';
+                form.senderDetail = 'Quầy Giao Dịch Bưu Chính VNPT';
+                senderAddressQuery.value = 'Quầy Giao Dịch Bưu Chính VNPT';
+                Utils.showToast('Đã Điền Quầy', 'Đã thiết lập thông tin bưu gửi từ quầy giao dịch', 'info');
+            };
+
             const loadMyProfile = async () => {
                 if (typeof Auth === 'undefined' || !Auth.isAuthenticated()) return;
+                // Chỉ tài khoản mang vai trò ROLE_CUSTOMER mới gọi API hồ sơ cá nhân
+                if (!Auth.hasRole('ROLE_CUSTOMER')) return;
+
                 isLoadingProfile.value = true;
                 try {
                     const prof = await CustomerService.getMyProfile();
@@ -324,10 +341,8 @@
                         profileForm.phoneNumber = prof.phoneNumber || '';
                         profileForm.address = prof.address || '';
 
-                        // Tự động điền thông tin người gửi:
-                        // 1. Nếu là Shop (ROLE_CUSTOMER): Luôn tự động điền hồ sơ của Shop
-                        // 2. Nếu là Admin (ROLE_ADMIN) ở chế độ Nội bộ (self): Tự động điền hồ sơ của Admin
-                        if (isShopOwner.value || (isAdmin.value && adminCreateMode.value === 'self')) {
+                        // Nếu là Shop (ROLE_CUSTOMER): Luôn tự động điền hồ sơ của Shop
+                        if (isShopOwner.value) {
                             if (prof.fullName) form.senderName = prof.fullName;
                             if (prof.phoneNumber) form.senderPhone = prof.phoneNumber;
                             if (prof.address) {
@@ -337,7 +352,7 @@
                         }
                     }
                 } catch (err) {
-                    console.warn('[ShipmentView] Chưa thể lấy hồ sơ khách hàng:', err.message);
+                    console.warn('[ShipmentView] Tài khoản không có hồ sơ khách hàng:', err.message);
                 } finally {
                     isLoadingProfile.value = false;
                 }
@@ -398,10 +413,10 @@
                         return;
                     }
                     currentSubtab.value = 'create';
-                    if (isAdmin.value) {
-                        adminCreateMode.value = 'for_customer';
+                    if (canCreateForOthers.value) {
+                        senderMode.value = cust.customerCode === 'CUS_RETAIL' ? 'RETAIL' : 'B2B';
                     }
-                    form.customerId = cust.id;
+                    form.customerId = cust.customerCode === 'CUS_RETAIL' ? null : cust.id;
                     form.senderName = cust.fullName || form.senderName;
                     form.senderPhone = cust.phoneNumber || form.senderPhone;
                     form.senderDetail = cust.address || form.senderDetail;
@@ -669,11 +684,16 @@
 
             // Khởi tạo đơn và tự động điều hướng sang Danh Sách Vận Đơn
             const handleSubmit = async () => {
-                // Chỉ CSKH hoặc Admin khi đang ở chế độ Tạo Hộ mới bắt buộc chọn khách hàng
-                const isCreatingForOthers = isCSStaff.value || (isAdmin.value && adminCreateMode.value === 'for_customer');
-                if (isCreatingForOthers && !form.customerId) {
-                    Utils.showToast('Chưa Chọn Khách Hàng', 'Vui lòng chọn khách hàng gửi từ danh bạ để tạo đơn hộ', 'warning');
-                    return;
+                // Kiểm tra hợp lệ người gửi theo quyền
+                if (canCreateForOthers.value) {
+                    if (senderMode.value === 'B2B' && !form.customerId) {
+                        Utils.showToast('Chưa Chọn Khách Hàng', 'Vui lòng chọn khách hàng / Shop đối tác từ danh bạ để tạo đơn', 'warning');
+                        return;
+                    }
+                    if (senderMode.value === 'RETAIL') {
+                        // Khách vãng lai: backend sẽ tự động gán CUS_RETAIL
+                        form.customerId = null;
+                    }
                 }
                 if (form.customerId && customersList.value && customersList.value.length > 0) {
                     const cust = customersList.value.find(c => c.id === form.customerId);
@@ -744,7 +764,7 @@
                         codAmount: Number(form.codAmount)
                     };
 
-                    if (isCreatingForOthers && form.customerId) {
+                    if (canCreateForOthers.value && senderMode.value === 'B2B' && form.customerId) {
                         payload.customerId = Number(form.customerId);
                     }
 
@@ -803,10 +823,12 @@
                 hasReadAllPermission,
                 isShopOwner,
                 isCSStaff,
+                isPostOperator,
                 isAdmin,
                 canCreateForOthers,
-                adminCreateMode,
-                setAdminCreateMode,
+                senderMode,
+                setSenderMode,
+                fillCounterStationInfo,
                 myProfile,
                 isLoadingProfile,
                 showProfileModal,
@@ -975,38 +997,41 @@
                                 <!-- PHẦN 1.1: ĐỊNH DANH NGƯỜI GỬI -->
                                 <div class="p-3 bg-slate-50 rounded-lg border border-slate-200/70">
                                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-tight">
-                                            <span v-if="isAdmin">
-                                                {{ adminCreateMode === 'self' ? 'Ủy Thác Vận Đơn (Nội Bộ VNPT)' : 'Tạo Đơn Hộ Khách Hàng' }}
+                                        <span class="text-[11px] font-bold text-slate-700 uppercase tracking-tight flex items-center space-x-1.5">
+                                            <span v-if="canCreateForOthers">
+                                                <span v-if="senderMode === 'RETAIL'" class="text-blue-700">Khách Lẻ Gửi Tại Quầy (Vãng Lai)</span>
+                                                <span v-else class="text-indigo-700">Khách Hàng / Shop Đối Tác B2B</span>
                                             </span>
-                                            <span v-else-if="isCSStaff">Khách Hàng Tại Quầy <span class="text-rose-500">*</span></span>
-                                            <span v-else-if="isShopOwner">Chủ Hàng Ký Gửi</span>
-                                            <span v-else>Hồ Sơ Ký Gửi</span>
+                                            <span v-else-if="isShopOwner" class="text-blue-700">Chủ Hàng Ký Gửi (Shop)</span>
+                                            <span v-else>Hồ Sơ Người Gửi</span>
                                         </span>
 
-                                        <!-- Segmented Toggle cho Admin (Gọn nhẹ, không emoji) -->
-                                        <div v-if="isAdmin" class="flex items-center bg-slate-200/80 p-0.5 rounded-lg text-xs font-semibold">
+                                        <!-- Segmented Toggle cho Nhân viên nội bộ (Admin, CSKH, Bưu cục) -->
+                                        <div v-if="canCreateForOthers" class="flex items-center bg-slate-200/80 p-0.5 rounded-lg text-xs font-semibold">
                                             <button 
                                                 type="button" 
-                                                @click="setAdminCreateMode('self')" 
-                                                :class="adminCreateMode === 'self' ? 'bg-white font-bold text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                                                class="px-2.5 py-0.5 rounded-md transition text-[11px]"
+                                                @click="setSenderMode('RETAIL')" 
+                                                :class="senderMode === 'RETAIL' ? 'bg-blue-600 font-bold text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                                class="px-2.5 py-1 rounded-md transition text-[11px]"
                                             >
-                                                Nội Bộ VNPT
+                                                Khách Vãng Lai
                                             </button>
                                             <button 
                                                 type="button" 
-                                                @click="setAdminCreateMode('for_customer')" 
-                                                :class="adminCreateMode === 'for_customer' ? 'bg-blue-600 font-bold text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                                                class="px-2.5 py-0.5 rounded-md transition text-[11px]"
+                                                @click="setSenderMode('B2B')" 
+                                                :class="senderMode === 'B2B' ? 'bg-blue-600 font-bold text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                                class="px-2.5 py-1 rounded-md transition text-[11px]"
                                             >
-                                                Tạo Hộ Khách Hàng
+                                                Shop Đối Tác
                                             </button>
                                         </div>
                                     </div>
 
-                                    <!-- A. CSKH hoặc Admin Tạo Hộ Khách Hàng -->
-                                    <div v-if="isCSStaff || (isAdmin && adminCreateMode === 'for_customer')" class="mt-2 pt-1.5 border-t border-slate-200/60">
+                                    <!-- A. Nhân viên chọn Shop Đối Tác B2B -->
+                                    <div v-if="canCreateForOthers && senderMode === 'B2B'" class="mt-2.5 pt-2 border-t border-slate-200/60 space-y-1">
+                                        <label class="block text-[11px] font-semibold text-slate-600">
+                                            Chọn Shop / Khách hàng gửi hàng: <span class="text-rose-500">*</span>
+                                        </label>
                                         <select 
                                             v-if="customersList.length > 0"
                                             v-model.number="form.customerId" 
@@ -1015,32 +1040,29 @@
                                             class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                                         >
                                             <option :value="null" disabled>-- Chọn khách hàng / đối tác từ danh bạ --</option>
-                                            <option v-for="c in customersList" :key="c.id" :value="c.id" :disabled="c.status !== 'ACTIVE'">
-                                                #{{ c.id }} - {{ c.fullName }} | {{ c.phoneNumber || 'N/A' }}{{ c.status !== 'ACTIVE' ? ' (Tạm Dừng)' : '' }}
+                                            <option v-for="c in customersList.filter(x => x.customerCode !== 'CUS_RETAIL')" :key="c.id" :value="c.id" :disabled="c.status !== 'ACTIVE'">
+                                                #{{ c.id }} - {{ c.fullName }} | SĐT: {{ c.phoneNumber || 'N/A' }}{{ c.status !== 'ACTIVE' ? ' (Tạm Dừng)' : '' }}
                                             </option>
                                         </select>
-                                        <input 
-                                            v-else
-                                            v-model.number="form.customerId" 
-                                            type="number" 
-                                            required 
-                                            placeholder="Nhập ID khách hàng: 1, 2, 3..."
-                                            class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-blue-700 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
-                                        />
+                                        <div v-else class="text-xs text-amber-600 italic py-1">
+                                            Đang tải danh bạ khách hàng...
+                                        </div>
                                     </div>
 
-                                    <!-- B. Admin Nội Bộ VNPT -->
-                                    <div v-else-if="isAdmin && adminCreateMode === 'self'" class="mt-2 flex items-center justify-between gap-2 pt-1.5 border-t border-slate-200/60 text-xs">
+                                    <!-- B. Nhân viên tạo cho Khách Vãng Lai Tại Quầy -->
+                                    <div v-else-if="canCreateForOthers && senderMode === 'RETAIL'" class="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1.5 border-t border-slate-200/60 text-xs">
                                         <div class="flex items-center space-x-2">
-                                            <span class="font-bold text-slate-800">{{ myProfile?.fullName || currentUser?.fullName || 'Quản Trị Viên VNPT' }}</span>
-                                            <span class="text-[10px] font-mono px-1.5 py-0.5 bg-slate-200/70 text-slate-700 rounded font-medium">Nội bộ</span>
+                                            <span class="text-[10px] font-mono px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded font-bold">
+                                                CUS_RETAIL
+                                            </span>
+                                            <span class="text-slate-600 text-[11px]">Đơn lẻ tại quầy, tự động gán tài khoản khách vãng lai hệ thống</span>
                                         </div>
                                         <button 
                                             type="button" 
-                                            @click="showProfileModal = true" 
-                                            class="text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline transition"
+                                            @click="fillCounterStationInfo" 
+                                            class="text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline transition self-start sm:self-auto"
                                         >
-                                            Chỉnh sửa
+                                            Điền nhanh thông tin Bưu Cục
                                         </button>
                                     </div>
 

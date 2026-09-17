@@ -74,4 +74,9 @@ public class CustomerController {
         }
         return ResponseEntity.ok(customerService.updateProfileByUserId(Long.parseLong(currentUserId), request));
     }
+
+    @GetMapping("/retail")
+    public ResponseEntity<CustomerValidation> getRetailCustomer() {
+        return ResponseEntity.ok(customerService.getRetailCustomer());
+    }
 }

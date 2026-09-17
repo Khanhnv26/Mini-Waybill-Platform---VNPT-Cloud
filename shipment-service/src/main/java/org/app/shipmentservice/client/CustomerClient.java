@@ -13,4 +13,7 @@ public interface CustomerClient {
 
     @GetMapping("/api/customers/by-user/{userId}/validation")
     CustomerValidationResponse validateCustomerByUserId(@PathVariable("userId") Long userId);
+
+    @GetMapping("/api/customers/retail/validation")
+    CustomerValidationResponse getRetailCustomer();
 }
