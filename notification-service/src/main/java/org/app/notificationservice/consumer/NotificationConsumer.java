@@ -1,9 +1,11 @@
 package org.app.notificationservice.consumer;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.app.notificationservice.client.ShipmentClient;
 import org.app.notificationservice.client.ShipperClient;
+import org.app.notificationservice.config.RedisPubSubConfig;
 import org.app.notificationservice.dto.event.*;
 import org.app.notificationservice.dto.response.ShipmentDetailResponse;
 import org.app.notificationservice.dto.response.ShipperLookupResponse;
@@ -33,6 +35,7 @@ public class NotificationConsumer {
     private final ShipperClient shipperClient;
     private final TelegramService telegramService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final ObjectMapper objectMapper;
 
     @KafkaListener(topics = "shipment-events", groupId = "notification-group")
     public void handleShipmentCreated(CreateShipmentEvent event) {
@@ -90,8 +93,7 @@ public class NotificationConsumer {
 
     @KafkaListener(topics = "tracking-status-events", groupId = "notification-group")
     public void handleStatusUpdatedEvent(ShipmentStatusUpdatedEvent event) {
-        messagingTemplate.convertAndSend("/topic/tracking/" + event.getTrackingCode(), event);
-        log.info("[WEBSOCKET] Đã phát sự kiện realtime cho đơn: {}", event.getTrackingCode());
+        publishTrackingWsEvent(event);
         String status = event.getStatus();
         log.info("[NOTIFICATION] Nhận event cập nhật trạng thái: {} -> {}", event.getTrackingCode(), status);
 
@@ -273,6 +275,17 @@ public class NotificationConsumer {
                     "Thông báo " + status + " cho bưu tá " + courierCode);
         } catch (Exception e) {
             log.error("[NOTIFICATION] Lỗi gửi Telegram ({}) cho đơn {}: {}", status, trackingCode, e.getMessage());
+        }
+    }
+
+    private void publishTrackingWsEvent(ShipmentStatusUpdatedEvent event) {
+        try {
+            String eventJson = objectMapper.writeValueAsString(event);
+            stringRedisTemplate.convertAndSend(RedisPubSubConfig.TRACKING_WS_TOPIC, eventJson);
+            log.info("[WEBSOCKET-PUBSUB] Đã đẩy sự kiện realtime lên Redis channel: {}", event.getTrackingCode());
+        } catch (Exception ex) {
+            log.error("[WEBSOCKET-PUBSUB] Lỗi publish sự kiện lên Redis, fallback sang local broker: {}", ex.getMessage(), ex);
+            messagingTemplate.convertAndSend("/topic/tracking/" + event.getTrackingCode(), event);
         }
     }
 

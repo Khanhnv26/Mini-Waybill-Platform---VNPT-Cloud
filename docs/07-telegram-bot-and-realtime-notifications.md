@@ -243,33 +243,110 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // Endpoint bắt tay kết nối WebSocket (Handshake)
         registry.addEndpoint("/ws", "/api/notifications/ws")
                 .setAllowedOriginPatterns("*")
-                .withSockJS(); // Fallback sang Polling nếu trình duyệt cũ không hỗ trợ WS
+                .withSockJS();
     }
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-        // Định tuyến tin nhắn: /topic dành cho Pub/Sub Broadcast
         registry.enableSimpleBroker("/topic");
-        // Prefix cho các request từ Client gửi lên Server
         registry.setApplicationDestinationPrefixes("/app");
     }
 }
 ```
 
-### 5.2. Luồng Phát Tán Sự Kiện (Broadcast Flow)
-Khi `NotificationConsumer` nhận được sự kiện từ Kafka:
+### 5.2. Thách Thức Khi Scale Ngang Đa Node (The Multi-Node WebSocket Problem)
+Khi scale `notification-service` lên từ 2 instance trở lên (môi trường High Availability hoặc Kubernetes Cluster):
+1. **SimpleBroker là In-Memory:** `registry.enableSimpleBroker("/topic")` duy trì phiên kết nối WebSocket hoàn toàn trong bộ nhớ RAM của từng node riêng biệt. Node A không thể biết những Client nào đang kết nối vào Node B.
+2. **Kafka Partition Distribution:** Khi có sự kiện cập nhật trạng thái đơn hàng từ topic `tracking-status-events`, do cả 2 node dùng chung `groupId = "notification-group"`, Kafka sẽ chỉ điều phối message tới **duy nhất 1 node** (ví dụ Node A).
+3. **Mất thông báo thời gian thực:** Nếu người dùng đang mở trang tra cứu và kết nối WebSocket của họ được giữ ở Node B, trong khi Node A nhận event từ Kafka và phát ra broker của nó, thì **Client tại Node B sẽ hoàn toàn không nhận được cập nhật**.
+
+```mermaid
+flowchart TD
+    subgraph Kafka [" Kafka Broker "]
+        Event["tracking-status-events\n(ShipmentStatusUpdatedEvent)"]
+    end
+
+    subgraph Cluster [" Cụm notification-service (Đa Node) "]
+        NodeA["Node 1 (Nhận Event từ Kafka)"]
+        NodeB["Node 2 (Không nhận từ Kafka)"]
+    end
+
+    subgraph RedisSync [" Redis In-Memory Pub/Sub Bridge "]
+        RedisChannel["Channel: ws-tracking-channel"]
+    end
+
+    subgraph Clients [" Trình Duyệt Người Dùng (Clients) "]
+        Client1["Client 1 (Cắm vào Node 1)"]
+        Client2["Client 2 (Cắm vào Node 2)"]
+    end
+
+    Event -->|Phân phối Partition| NodeA
+    NodeA -->|Publish Event JSON| RedisChannel
+    RedisChannel -->|Broadcast Subscriber| NodeA
+    RedisChannel -->|Broadcast Subscriber| NodeB
+    NodeA -->|STOMP Push /topic/tracking/{code}| Client1
+    NodeB -->|STOMP Push /topic/tracking/{code}| Client2
+```
+
+### 5.3. Giải Pháp: Redis Pub/Sub Message Bridge (`RedisPubSubConfig.java`)
+Thay vì cài đặt thêm các Message Broker cồng kềnh (như RabbitMQ STOMP Relay), hệ thống tận dụng trực tiếp hạ tầng Redis sẵn có để làm cầu nối phân tán (Broadcast Bridge) giữa các node:
+
 ```java
-// Đẩy real-time tới tất cả Client đang subscribe topic thông báo
-messagingTemplate.convertAndSend("/topic/notifications", NotificationPayload.builder()
-        .id(savedNotification.getId())
-        .title("Vận đơn " + event.getTrackingCode() + " đã xuất phát")
-        .message(event.getNote())
-        .trackingCode(event.getTrackingCode())
-        .sentAt(LocalDateTime.now())
-        .build());
+@Slf4j
+@Configuration
+public class RedisPubSubConfig {
+
+    public static final String TRACKING_WS_TOPIC = "ws-tracking-channel";
+
+    @Bean
+    public RedisMessageListenerContainer redisMessageListenerContainer(
+            RedisConnectionFactory connectionFactory,
+            MessageListener trackingMessageListener) {
+        RedisMessageListenerContainer container = new RedisMessageListenerContainer();
+        container.setConnectionFactory(connectionFactory);
+        container.addMessageListener(trackingMessageListener, new ChannelTopic(TRACKING_WS_TOPIC));
+        return container;
+    }
+
+    @Bean
+    public MessageListener trackingMessageListener(
+            SimpMessagingTemplate messagingTemplate,
+            ObjectMapper objectMapper) {
+        return (message, pattern) -> {
+            try {
+                ShipmentStatusUpdatedEvent event = objectMapper.readValue(message.getBody(), ShipmentStatusUpdatedEvent.class);
+                messagingTemplate.convertAndSend("/topic/tracking/" + event.getTrackingCode(), event);
+                log.info("[WEBSOCKET-CLUSTER] Node đã broadcast thành công event cho đơn: {}", event.getTrackingCode());
+            } catch (Exception e) {
+                log.error("[WEBSOCKET-CLUSTER] Lỗi parse/broadcast tin nhắn từ Redis: {}", e.getMessage(), e);
+            }
+        };
+    }
+}
+```
+
+### 5.4. Luồng Phát Tán Sự Kiện Hai Tầng (Two-Tier Event Broadcast)
+Trong `NotificationConsumer`:
+```java
+@KafkaListener(topics = "tracking-status-events", groupId = "notification-group")
+public void handleStatusUpdatedEvent(ShipmentStatusUpdatedEvent event) {
+    publishTrackingWsEvent(event);
+    String status = event.getStatus();
+    log.info("[NOTIFICATION] Nhận event cập nhật trạng thái: {} -> {}", event.getTrackingCode(), status);
+}
+
+private void publishTrackingWsEvent(ShipmentStatusUpdatedEvent event) {
+    try {
+        String eventJson = objectMapper.writeValueAsString(event);
+        stringRedisTemplate.convertAndSend(RedisPubSubConfig.TRACKING_WS_TOPIC, eventJson);
+        log.info("[WEBSOCKET-PUBSUB] Đã đẩy sự kiện realtime lên Redis channel: {}", event.getTrackingCode());
+    } catch (Exception ex) {
+        log.error("[WEBSOCKET-PUBSUB] Lỗi publish sự kiện lên Redis, fallback sang local broker: {}", ex.getMessage(), ex);
+        messagingTemplate.convertAndSend("/topic/tracking/" + event.getTrackingCode(), event);
+    }
+}
 ```
 
 ---
@@ -307,3 +384,10 @@ messagingTemplate.convertAndSend("/topic/notifications", NotificationPayload.bui
 > * **Server-Sent Events (SSE):** Chỉ hỗ trợ giao tiếp 1 chiều (Server-to-Client), hoạt động trên nền HTTP/1.1 hoặc HTTP/2 tiêu chuẩn, tự động reconnect tốt và cấu hình rất nhẹ. Rất phù hợp nếu chỉ cần bắn tin từ Server xuống màn hình.
 > * **WebSocket (STOMP):** Là giao thức 2 chiều (Full-Duplex TCP). STOMP bổ sung thêm cấu trúc khung tin nhắn (Frame) có Header, Command (`SUBSCRIBE`, `SEND`, `MESSAGE`) và hỗ trợ cơ chế Topic / Queue phân luồng chuyên nghiệp.  
 > *Lý do chọn WebSocket STOMP:* Hệ thống bưu chính cần cơ chế trao đổi 2 chiều: Client subscribe theo từng kênh bưu cục cụ thể (`/topic/post-office/{code}`), gửi ACK xác nhận đã nhận tin, và chuẩn bị cho tính năng chat hỗ trợ tác nghiệp nội bộ giữa điều phối viên và kho bãi trong tương lai.
+
+### Câu 4: Vì sao kiến trúc WebSocket với Spring `enableSimpleBroker` bị lỗi khi scale lên 2 node, và giải pháp tối ưu là gì?
+> **Câu trả lời mẫu:**  
+> `enableSimpleBroker` là In-Memory Message Broker cục bộ trong RAM của từng JVM. Khi triển khai 2 node đằng sau Load Balancer:
+> 1. Client A kết nối WebSocket tới Node 1, Client B kết nối tới Node 2.
+> 2. Sự kiện từ Kafka topic chỉ được chia cho 1 node duy nhất tiêu thụ do cùng chung một `groupId`. Nếu Node 1 nhận event, nó chỉ broadcast cho Client A trên RAM của nó; Client B ở Node 2 sẽ bị mất thông báo hoàn toàn.
+> 3. **Giải pháp:** Sử dụng **Redis Pub/Sub làm Message Bridge**. Node nhận được event từ Kafka sẽ publish bản tin lên Redis channel chung. Tất cả các node trong cluster đều đăng ký subscriber kênh này và đẩy bản tin xuống các client đang kết nối cục bộ của mình. Nhờ đó 100% client ở mọi node đều nhận được cập nhật thời gian thực mà không cần duy trì external broker phức tạp.
