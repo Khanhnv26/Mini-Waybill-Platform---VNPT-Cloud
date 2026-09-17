@@ -726,5 +726,35 @@ body {
     transform-origin: top center;
 }
 
+/* ==========================================================================
+   ẨN THANH CUỘN (SCROLLBAR) CHO CÁC KHUNG TAB / THANH ĐIỀU HƯỚNG
+   ========================================================================== */
+.no-scrollbar::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
 
+.no-scrollbar {
+    -ms-overflow-style: none !important;  /* IE and Edge */
+    scrollbar-width: none !important;  /* Firefox */
+}
 
+/* Tùy chỉnh thanh cuộn hiện đại, thanh mảnh cho toàn bộ hệ thống */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}

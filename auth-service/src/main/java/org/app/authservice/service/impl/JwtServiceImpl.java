@@ -1,5 +1,6 @@
 package org.app.authservice.service.impl;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.app.authservice.entity.User;
@@ -45,11 +46,31 @@ public class JwtServiceImpl implements JwtService {
                 .claim("roles", rolesName)
                 .claim("fullname", user.getFullName())
                 .claim("locationCode", user.getLocationCode())
+                .claim("avatarUrl", user.getAvatarUrl())
                 .claim("permissions", permissions)
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(getSigningKey())
                 .compact();
 
+    }
+
+    @Override
+    public Long extractUserId(String token) {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(getSigningKey())
+                    .build()
+                    .parseSignedClaims(token.trim())
+                    .getPayload();
+            Object uid = claims.get("userId");
+            if (uid != null) {
+                return Long.parseLong(uid.toString());
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 }

@@ -21,5 +21,6 @@ public class AuthResponse {
     private String locationCode;
     private List<String> roles;
     private List<String> permissions;
+    private Boolean googleLinked;
 }
 

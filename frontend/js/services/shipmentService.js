@@ -62,8 +62,8 @@
             }
         },
 
-        async cancelShipment(trackingCode) {
-            const response = await Api.post(`/api/shipments/${encodeURIComponent(trackingCode)}/cancel`);
+        async cancelShipment(trackingCode, payload = {}) {
+            const response = await Api.post(`/api/shipments/${encodeURIComponent(trackingCode)}/cancel`, payload);
             if (!response.ok) {
                 const errData = await response.json().catch(() => ({}));
                 throw new Error(errData.error || errData.message || 'Lỗi khi hủy vận đơn');

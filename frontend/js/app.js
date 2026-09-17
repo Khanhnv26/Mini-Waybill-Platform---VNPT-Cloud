@@ -163,7 +163,15 @@
             const stationFieldNames = ['locationCode', 'postOfficeCode', 'hubCode'];
             // Customer profile data is not an authorization source. Station
             // assignment comes from the authenticated user's JWT/response.
-            const profileStorageFields = ['fullName', 'phoneNumber', 'address'];
+            const profileStorageFields = ['fullName', 'phoneNumber', 'address', 'avatarUrl', 'googleLinked'];
+
+            const isStaffUser = computed(() => {
+                return typeof Auth !== 'undefined' && Auth.isInternalStaff();
+            });
+
+            const getRoleTitle = (role) => {
+                return typeof Auth !== 'undefined' ? Auth.getRoleDisplayName(role) : (role || 'Khách Hàng');
+            };
 
             const normalizeStationCode = (value) => {
                 if (typeof value !== 'string' && typeof value !== 'number') return '';
@@ -550,7 +558,7 @@
                 }
             };
 
-            // 6. Quản Lý Hồ Sơ Cá Nhân & Thông Tin Shop (Global Profile Modal)
+            // 6. Quản Lý Hồ Sơ Cá Nhân & Phân Định Vai Trò (Staff vs Customer Profile)
             const openUserProfileModal = async () => {
                 if (typeof Auth === 'undefined' || !Auth.isAuthenticated()) {
                     window.location.href = 'login.html';
@@ -559,17 +567,31 @@
                 showUserProfileModal.value = true;
                 isLoadingUserProfile.value = true;
                 try {
-                    const prof = await CustomerService.getMyProfile();
-                    if (prof) {
-                        userProfile.value = prof;
-                        syncProfileToCurrentUser(prof);
-                        profileFormData.fullName = prof.fullName || currentUser.value?.fullName || '';
-                        profileFormData.phoneNumber = prof.phoneNumber || '';
-                        profileFormData.address = prof.address || '';
+                    if (isStaffUser.value) {
+                        // Cán bộ / Nhân viên nội bộ: Tải thông tin từ auth-service (/api/auth/me)
+                        const prof = await Auth.getMyProfile();
+                        if (prof) {
+                            userProfile.value = prof;
+                            syncProfileToCurrentUser(prof);
+                            profileFormData.fullName = prof.fullName || currentUser.value?.fullName || '';
+                            profileFormData.phoneNumber = prof.phoneNumber || currentUser.value?.phoneNumber || '';
+                            profileFormData.address = prof.address || '';
+                        }
+                    } else {
+                        // Khách hàng / Chủ shop: Tải thông tin từ customer-service (/api/customers/me)
+                        const prof = await CustomerService.getMyProfile();
+                        if (prof) {
+                            userProfile.value = prof;
+                            syncProfileToCurrentUser(prof);
+                            profileFormData.fullName = prof.fullName || currentUser.value?.fullName || '';
+                            profileFormData.phoneNumber = prof.phoneNumber || '';
+                            profileFormData.address = prof.address || '';
+                        }
                     }
                 } catch (err) {
-                    console.warn('[app.js] Không thể tải hồ sơ khách hàng:', err);
+                    console.warn('[app.js] Không thể tải thông tin hồ sơ:', err);
                     profileFormData.fullName = currentUser.value?.fullName || '';
+                    profileFormData.phoneNumber = currentUser.value?.phoneNumber || '';
                 } finally {
                     isLoadingUserProfile.value = false;
                 }
@@ -581,30 +603,111 @@
 
             const saveUserProfile = async () => {
                 if (!profileFormData.fullName.trim()) {
-                    Utils.showToast('Thiếu Thông Tin', 'Vui lòng nhập Họ tên hoặc Tên cửa hàng', 'warning');
+                    Utils.showToast('Thiếu Thông Tin', isStaffUser.value ? 'Vui lòng nhập Họ và tên cán bộ / nhân viên' : 'Vui lòng nhập Họ tên hoặc Tên cửa hàng', 'warning');
                     return;
                 }
                 isSavingUserProfile.value = true;
                 try {
-                    const updated = await CustomerService.updateMyProfile({
-                        fullName: profileFormData.fullName.trim(),
-                        phoneNumber: profileFormData.phoneNumber.trim(),
-                        address: profileFormData.address.trim()
-                    });
-                    const updatedProfile = updated && typeof updated === 'object' ? updated : {
-                        fullName: profileFormData.fullName.trim(),
-                        phoneNumber: profileFormData.phoneNumber.trim(),
-                        address: profileFormData.address.trim()
-                    };
-                    userProfile.value = updatedProfile;
-                    syncProfileToCurrentUser(updatedProfile, true);
+                    if (isStaffUser.value) {
+                        // Cập nhật thông tin cán bộ qua auth-service
+                        const updated = await Auth.updateMyProfile({
+                            fullName: profileFormData.fullName.trim()
+                        });
+                        const updatedProfile = updated && typeof updated === 'object' ? updated : {
+                            fullName: profileFormData.fullName.trim()
+                        };
+                        userProfile.value = { ...userProfile.value, ...updatedProfile };
+                        syncProfileToCurrentUser(updatedProfile, true);
 
-                    Utils.showToast('Thành Công', 'Đã cập nhật hồ sơ tài khoản!');
-                    showUserProfileModal.value = false;
+                        Utils.showToast('Thành Công', 'Đã cập nhật hồ sơ cán bộ / nhân viên!');
+                        showUserProfileModal.value = false;
+                    } else {
+                        // Cập nhật thông tin khách hàng / shop qua customer-service
+                        const updated = await CustomerService.updateMyProfile({
+                            fullName: profileFormData.fullName.trim(),
+                            phoneNumber: profileFormData.phoneNumber.trim(),
+                            address: profileFormData.address.trim()
+                        });
+                        const updatedProfile = updated && typeof updated === 'object' ? updated : {
+                            fullName: profileFormData.fullName.trim(),
+                            phoneNumber: profileFormData.phoneNumber.trim(),
+                            address: profileFormData.address.trim()
+                        };
+                        userProfile.value = updatedProfile;
+                        syncProfileToCurrentUser(updatedProfile, true);
+
+                        Utils.showToast('Thành Công', 'Đã cập nhật hồ sơ thông tin Shop!');
+                        showUserProfileModal.value = false;
+                    }
                 } catch (err) {
                     Utils.showToast('Lỗi Cập Nhật', err.message || 'Không thể lưu hồ sơ', 'error');
                 } finally {
                     isSavingUserProfile.value = false;
+                }
+            };
+
+            // 7. Liên kết tài khoản Google từ Modal Hồ Sơ Cá Nhân
+            const isLinkingGoogle = ref(false);
+            const GOOGLE_CLIENT_ID = "530674460360-7q1qf5lchbkj7sp7kslvttf7mqt92klg.apps.googleusercontent.com";
+
+            const handleGoogleLinkCallback = async (googleResponse) => {
+                if (!googleResponse || !googleResponse.credential) {
+                    if (window.Utils) Utils.showToast('Lỗi', 'Không nhận được thông tin xác thực từ Google', 'error');
+                    return;
+                }
+                isLinkingGoogle.value = true;
+                try {
+                    const res = await Api.post('/api/auth/google/link', {
+                        idToken: googleResponse.credential
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        throw new Error(data.message || data.error || 'Liên kết tài khoản Google thất bại');
+                    }
+                    if (typeof Auth !== 'undefined') {
+                        const current = Auth.getUser() || {};
+                        const nextUser = {
+                            ...current,
+                            ...data,
+                            googleLinked: true,
+                            avatarUrl: data.avatarUrl || current.avatarUrl
+                        };
+                        Auth.setSession(data.accessToken || Auth.getToken(), nextUser);
+                        currentUser.value = nextUser;
+                    }
+                    if (window.Utils) Utils.showToast('Thành Công', 'Đã liên kết tài khoản Google thành công!');
+                } catch (err) {
+                    if (window.Utils) Utils.showToast('Lỗi Liên Kết', err.message || 'Không thể liên kết Google', 'error');
+                } finally {
+                    isLinkingGoogle.value = false;
+                }
+            };
+
+            const triggerGoogleLink = () => {
+                if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) {
+                    if (window.Utils) Utils.showToast('Thông Báo', 'Thư viện Google đang tải, vui lòng thử lại sau vài giây', 'warning');
+                    return;
+                }
+                try {
+                    google.accounts.id.initialize({
+                        client_id: GOOGLE_CLIENT_ID,
+                        callback: handleGoogleLinkCallback
+                    });
+                    google.accounts.id.prompt((notification) => {
+                        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                            const container = document.getElementById('googleLinkModalBtn');
+                            if (container) {
+                                container.classList.remove('hidden');
+                                google.accounts.id.renderButton(container, {
+                                    theme: 'outline',
+                                    size: 'medium',
+                                    text: 'continue_with'
+                                });
+                            }
+                        }
+                    });
+                } catch (e) {
+                    console.error('[GoogleLink] Error initializing Google:', e);
                 }
             };
 
@@ -704,9 +807,13 @@
                 isLoadingUserProfile,
                 isSavingUserProfile,
                 profileFormData,
+                isStaffUser,
+                getRoleTitle,
                 openUserProfileModal,
                 closeUserProfileModal,
                 saveUserProfile,
+                isLinkingGoogle,
+                triggerGoogleLink,
                 toast: window.Utils ? window.Utils.toastState : { show: false },
                 getRoleBadgeInfo: window.Utils ? window.Utils.getRoleBadgeInfo : () => ({ label: 'NHÂN VIÊN', class: 'bg-slate-50' })
             };

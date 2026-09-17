@@ -111,6 +111,13 @@
             case 'PENDING_ROUTING': return 'Chờ định tuyến bưu cục';
             case 'ROUTE_ASSIGNED': return 'Đã định tuyến / Chờ chấp nhận';
             case 'PICKED_UP': return 'Đã tiếp nhận tại quầy giao dịch';
+            case 'STORED': {
+                const loc = String(locationCode || '').toUpperCase();
+                if (loc.startsWith('POST-')) {
+                    return 'Đã lưu kho bưu cục';
+                }
+                return 'Đã lưu kho';
+            }
             case 'IN_TRANSIT': return 'Đang vận chuyển trung chuyển';
             case 'ARRIVED_DEST_HUB': {
                 const loc = String(locationCode || '').toUpperCase();
@@ -138,6 +145,7 @@
                 return 'bg-amber-50 text-amber-700 border-amber-200';
             case 'ROUTE_ASSIGNED':
             case 'PICKED_UP':
+            case 'STORED':
             case 'IN_TRANSIT':
                 return 'bg-blue-50 text-blue-700 border-blue-200';
             case 'ARRIVED_DEST_HUB':

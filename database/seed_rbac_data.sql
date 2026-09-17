@@ -45,6 +45,7 @@ EXEC #UpsertPermission 'shipment:create', N'Tạo vận đơn mới', 'SHIPMENT'
 EXEC #UpsertPermission 'shipment:create_for_others', N'Tạo vận đơn hộ khách hàng', 'SHIPMENT', N'Nhập mã khách hàng bất kỳ để tạo đơn thay cho khách';
 EXEC #UpsertPermission 'shipment:read_own', N'Xem đơn của chính mình', 'SHIPMENT', N'Chỉ xem danh sách và chi tiết các đơn do mình tạo';
 EXEC #UpsertPermission 'shipment:read_all', N'Xem toàn bộ đơn hàng', 'SHIPMENT', N'Xem đơn của tất cả khách hàng trên hệ thống';
+EXEC #UpsertPermission 'shipment:cancel_all', N'Hủy bất kỳ vận đơn nào', 'SHIPMENT', N'Quyền hủy đơn của toàn bộ khách hàng trên hệ thống dành cho Quản trị viên / CSKH';
 
 -- Phân hệ TRACKING
 EXEC #UpsertPermission 'tracking:read_public', N'Tra cứu nhanh công khai', 'TRACKING', N'Tra cứu lộ trình đã che mờ thông tin cá nhân';
@@ -171,6 +172,7 @@ EXEC #AddPermissionToRole 'ROLE_CS', 'password:change';
 EXEC #AddPermissionToRole 'ROLE_CS', 'shipment:create';
 EXEC #AddPermissionToRole 'ROLE_CS', 'shipment:create_for_others';
 EXEC #AddPermissionToRole 'ROLE_CS', 'shipment:read_all';
+EXEC #AddPermissionToRole 'ROLE_CS', 'shipment:cancel_all';
 EXEC #AddPermissionToRole 'ROLE_CS', 'tracking:read_public';
 EXEC #AddPermissionToRole 'ROLE_CS', 'tracking:read_full';
 EXEC #AddPermissionToRole 'ROLE_CS', 'audit:read';

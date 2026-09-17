@@ -64,6 +64,7 @@ public class TrackingConsumer {
 
         String redisKey = "shipment-status:" + event.getTrackingCode();
         redisTemplate.opsForValue().set(redisKey,"PENDING_ROUTING", Duration.ofDays(7));
+        redisTemplate.delete("shipment-history:" + event.getTrackingCode());
     }
 
     @KafkaListener(topics = "route-assigned", groupId = "tracking-group")
@@ -113,7 +114,7 @@ public class TrackingConsumer {
         redisTemplate.opsForValue().set(redisKey,"ROUTE_ASSIGNED", Duration.ofDays(7));
         String loc = event.getOriginPostOffice() != null ? event.getOriginPostOffice() : event.getSourceHub();
         redisTemplate.opsForValue().set("shipment-location:" + event.getTrackingCode(), loc != null ? loc : "", Duration.ofDays(7));
-
+        redisTemplate.delete("shipment-history:" + event.getTrackingCode());
     }
 
     @KafkaListener(topics = "shipment-lifecycle-events", groupId = "tracking-lifecycle-group")
@@ -177,6 +178,7 @@ public class TrackingConsumer {
     }
 
     private void updateRedisProjection(String trackingCode, String status, String locationCode, LocalDateTime occurredAt) {
+        redisTemplate.delete("shipment-history:" + trackingCode);
         TrackingHistory latest = trackingRepository.findTopByTrackingCodeOrderByOccurredAtDesc(trackingCode).orElse(null);
         if (latest != null && latest.getOccurredAt() != null && latest.getOccurredAt().isAfter(occurredAt)) {
             return;

@@ -2,6 +2,7 @@ package org.app.shipmentservice.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.app.shipmentservice.dto.request.CancelShipmentRequest;
 import org.app.shipmentservice.dto.request.CreateShipmentRequest;
 import org.app.shipmentservice.entity.Shipment;
 import org.app.shipmentservice.service.ShipmentService;
@@ -49,9 +50,11 @@ public class ShipmentController {
     @PostMapping("/{code}/cancel")
     public ResponseEntity<Shipment> cancelShipment(
             @PathVariable("code") String code,
+            @RequestBody(required = false) CancelShipmentRequest cancelRequest,
             @RequestHeader(value = "X-User-Id", required = false) String currentUserId,
-            @RequestHeader(value = "X-User-Permissions",required = false) String permissions) {
-        Shipment shipment = shipmentService.cancelShipment(code, currentUserId, permissions);
+            @RequestHeader(value = "X-User-Roles", required = false) String roles,
+            @RequestHeader(value = "X-User-Permissions", required = false) String permissions) {
+        Shipment shipment = shipmentService.cancelShipment(code, currentUserId, roles, permissions, cancelRequest);
         return ResponseEntity.ok(shipment);
     }
 }

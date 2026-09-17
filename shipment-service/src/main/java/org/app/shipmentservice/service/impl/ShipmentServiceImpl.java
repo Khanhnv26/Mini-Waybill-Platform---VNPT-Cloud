@@ -7,6 +7,7 @@ import org.app.shipmentservice.client.HubClient;
 import org.app.shipmentservice.consumer.ShipmentStatusConsumer;
 import org.app.shipmentservice.dto.event.CreateShipmentEvent;
 import org.app.shipmentservice.dto.event.ShipmentStatusUpdatedEvent;
+import org.app.shipmentservice.dto.request.CancelShipmentRequest;
 import org.app.shipmentservice.dto.request.CreateShipmentRequest;
 import org.app.shipmentservice.dto.response.CustomerValidationResponse;
 import org.app.shipmentservice.dto.response.HubResponse;
@@ -273,13 +274,15 @@ public class ShipmentServiceImpl implements ShipmentService {
     }
 
     @Override
-    public Shipment cancelShipment(String trackCode, String currentUserId, String permissions) {
+    public Shipment cancelShipment(String trackCode, String currentUserId, String roles, String permissions, CancelShipmentRequest cancelRequest) {
         Shipment shipment = shipmentRepository.findShipmentByTrackingCode(trackCode)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + trackCode));
 
+        boolean hasCancelAllPermission = permissions != null && permissions.contains("shipment:cancel_all");
+        boolean isAdminRole = roles != null && roles.contains("ROLE_ADMIN");
+        boolean isCsRole = roles != null && roles.contains("ROLE_CS");
+        boolean hasAdminPermission = hasCancelAllPermission || isAdminRole || isCsRole;
 
-        boolean hasAdminPermission = permissions != null &&
-                (permissions.contains("shipment:cancel_all") || permissions.contains("ROLE_ADMIN") || permissions.contains("ROLE_CS"));
         if (!hasAdminPermission) {
             Long myCustomerId = resolveCustomerId(currentUserId);
             if (!shipment.getCustomerId().equals(myCustomerId)) {
@@ -298,22 +301,50 @@ public class ShipmentServiceImpl implements ShipmentService {
 
         shipment.setCurrentStatus(ShipmentStatus.CANCELLED);
         Shipment updatedShipment = shipmentRepository.save(shipment);
-        log.info("[SHIPMENT] Đơn hàng {} đã được hủy bởi userId: {} (permissions: {})", trackCode, currentUserId, permissions);
+        log.info("[SHIPMENT] Đơn hàng {} đã được hủy bởi userId: {} (roles: {}, permissions: {})",
+                trackCode, currentUserId, roles, permissions);
 
         String redisKey = "shipment-status:" + trackCode;
-        redisTemplate.opsForValue().set(redisKey,ShipmentStatus.CANCELLED.name(), Duration.ofDays(7));
+        redisTemplate.opsForValue().set(redisKey, ShipmentStatus.CANCELLED.name(), Duration.ofDays(7));
+
+        String actorType;
+        String locationDesc;
+        if (isAdminRole) {
+            actorType = "ADMIN_CANCEL";
+            locationDesc = "Quản trị viên hệ thống yêu cầu hủy vận đơn";
+        } else if (isCsRole) {
+            actorType = "CS_CANCEL";
+            locationDesc = "Nhân viên CSKH yêu cầu hủy vận đơn";
+        } else if (hasCancelAllPermission) {
+            actorType = "STAFF_CANCEL";
+            locationDesc = "Nhân sự quản lý yêu cầu hủy vận đơn";
+        } else {
+            actorType = "CUSTOMER_CANCEL";
+            locationDesc = "Người gửi yêu cầu hủy vận đơn";
+        }
+
+        String reasonDetail = "";
+        if (cancelRequest != null) {
+            if (cancelRequest.getReasonNote() != null && !cancelRequest.getReasonNote().isBlank()) {
+                reasonDetail = " - " + cancelRequest.getReasonNote().trim();
+            } else if (cancelRequest.getReasonCode() != null && !cancelRequest.getReasonCode().isBlank()) {
+                reasonDetail = " (" + cancelRequest.getReasonCode().trim() + ")";
+            }
+        }
+
+        String note = "[" + actorType + "]" + reasonDetail;
 
         ShipmentStatusUpdatedEvent event = ShipmentStatusUpdatedEvent.builder()
                 .trackingCode(updatedShipment.getTrackingCode())
                 .status(ShipmentStatus.CANCELLED.name())
-                .note("CUSTOMER_CANCEL")
-                .locationCode("Người gửi yêu cầu hủy vận đơn")
+                .note(note)
+                .locationCode(locationDesc)
                 .updateAt(LocalDateTime.now())
                 .build();
 
         kafkaTemplate.send("tracking-status-events", updatedShipment.getTrackingCode(), event);
 
-        log.info("[SHIPMENT] Đã hủy thành công đơn hàng: {}", trackCode);
+        log.info("[SHIPMENT] Đã hủy thành công đơn hàng: {} với ghi chú: {}", trackCode, note);
 
         return updatedShipment;
     }

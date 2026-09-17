@@ -55,6 +55,19 @@ Khác với các ứng dụng giao hàng nội thành đơn chặng, hệ thốn
 * **Cụm Service Registry HA 2 chiều:** Khắc phục triệt để lỗi so khớp hostname `PeerEurekaNodes.isInstanceURL()` bằng cơ chế đan xen `localhost` và `127.0.0.1`, đảm bảo 100% dữ liệu microservice được nhân bản 2 chiều giữa các node Eureka.
 * *Tài liệu chi tiết:* Xem phân tích chuyên sâu tại [Cẩm nang 01 - Cấu Hình HA & Eureka Replication](docs/01-high-availability-and-nginx.md#34-bẫy-kỹ-thuật-eureka-peer-sync-1-chiều--cơ-chế-peereurekanodesisinstanceurl) và [Cẩm nang 05 - Redis Caching & Rate Limiter](docs/05-redis-caching-and-distributed-patterns.md#34-bộ-lọc-rate-limiting-phân-tầng-theo-http-method--xử-lý-an-toàn-cors).
 
+### 2.6. Điều Phối Bưu Tá Qua Telegram Bot & Thông Báo Thời Gian Thực (WebSocket / STOMP)
+* **Kênh điều phối di động tức thời (Telegram Bot):** Bưu tá hiện trường nhận thông báo lệnh phát hàng mới ngay trên ứng dụng Telegram di động mà không cần treo web portal. Tin nhắn điều phối gồm định dạng HTML trực quan: Mã vận đơn, thông tin người nhận, địa chỉ phát hàng, tiền thu hộ COD và ghi chú bưu gửi.
+* **Cơ chế Long-Polling linh hoạt:** Cho phép `notification-service` kết nối nhận lệnh điều phối `/link` từ máy chủ Telegram Cloud mà không yêu cầu Public IP tĩnh, chứng chỉ SSL công khai hay mở cổng Inbound qua tường lửa doanh nghiệp.
+* **WebSocket STOMP Broker (< 50ms):** Đẩy thông báo sự kiện bưu gửi thời gian thực tới chuông Notification Center và Toast pop-up trên Web Portal, giải phóng 100% tải HTTP Polling dư thừa từ Client.
+* *Tài liệu chi tiết:* Xem chi tiết cơ chế tại [Cẩm nang 07 - Telegram Bot & Realtime Notifications](docs/07-telegram-bot-and-realtime-notifications.md).
+
+### 2.7. Quản Trị Đội Ngũ Bưu Tá (shipper-service), Google Identity & Chống Quét Đúp (Idempotency)
+* **Phân tách vi dịch vụ Bưu tá độc lập (`shipper-service`):** Định nghĩa bưu tá là tài nguyên vận hành giao vận theo Domain-Driven Design (DDD), gắn với ca làm việc thực địa (`ACTIVE`/`INACTIVE`), địa bàn bưu cục (`stationCode`) và kênh nhận tin (`telegram_chat_id`), độc lập hoàn toàn với tài khoản người dùng (`auth-service`) và khách hàng B2B (`customer-service`).
+* **Xác thực đa nguồn Google OAuth2 & Avatar Stateless JWT:** Hỗ trợ xác thực Google ID Token qua Google API Client, nhúng trực tiếp claim `avatarUrl` vào JWT Payload giúp giao diện hiển thị ảnh đại diện với độ trễ 0ms mà không phát sinh thêm HTTP roundtrip.
+* **Mô hình Idempotency & OperationId trong Logistics:** Xử lý triệt để bài toán công nhân bóp cò máy quét barcode 2 lần liên tiếp (Double-Scanning) hoặc mạng 4G chập chờn gây gửi đúp request, đảm bảo 100% tính toàn vẹn trạng thái kiện hàng và bảng kê COD.
+* **Bộ lập lịch gom đơn tự động (Automated Consolidator) & Mốc Cut-off Buffer:** Tự động hóa gom kiện đạt ngưỡng tải trọng ($80\%$) và đóng sổ chuyến xe trước giờ xuất bến 30 phút để in bảng kê Manifest và niêm phong chì (Seal).
+* *Tài liệu chi tiết:* Xem chi tiết kiến trúc tại [Cẩm nang 08 - Shipper Service, Google Identity & Idempotency](docs/08-shipper-service-identity-and-idempotency.md).
+
 ---
 
 ## 3. Kiến Trúc Hệ Thống (System & HA Architecture)
@@ -89,8 +102,9 @@ flowchart TB
         ShipSvc["shipment-service (8082)\n• Quản lý vận đơn\n• Tính cước phí B2B"]
         RouteSvc["routing-service (8083)\n• Multi-leg Trips Management\n• Inventory Operations & Hub Dispatch"]
         TrackSvc["tracking-service (8084 / 8094)\n• Dynamic RoutingDataSource\n• State Machine & Quét barcode"]
-        NotiSvc["notification-service (8085)\n• Email / SMS / In-app"]
+        NotiSvc["notification-service (8085)\n• Telegram Bot / WebSocket STOMP\n• Email / SMS / In-app"]
         AuditSvc["audit-service (8086)\n• Nhật ký kiểm toán toàn mạng"]
+        ShipperSvc["shipper-service (8089)\n• Quản lý đội ngũ bưu tá\n• Phân trạm & liên kết Telegram"]
     end
 
     subgraph EventAndCache [" Message Broker HA & Caching Layer "]
@@ -110,13 +124,14 @@ flowchart TB
         end
         DB_Noti[(notification_db - 1433)]
         DB_Audit[(audit_db - 1433)]
+        DB_Shipper[(shipper_db - 1433)]
     end
 
     UI & Scanner -->|"HTTP Port 80"| Nginx
     Nginx -->|"Upstream /api/"| GW1 & GW2
     Nginx -->|"Upstream /"| UI
     GW1 & GW2 --> Eureka1 & Eureka2
-    GW1 & GW2 --> AuthSvc & CustSvc & ShipSvc & RouteSvc & TrackSvc & NotiSvc & AuditSvc
+    GW1 & GW2 --> AuthSvc & CustSvc & ShipSvc & RouteSvc & TrackSvc & NotiSvc & AuditSvc & ShipperSvc
 
     TrackSvc -->|"Ghi: Primary DB"| DB_Track_Primary
     TrackSvc -->|"Đọc: Replica DB"| DB_Track_Replica
@@ -130,8 +145,10 @@ flowchart TB
     ShipSvc --> KafkaCluster
     RouteSvc --> KafkaCluster
     TrackSvc --> KafkaCluster
-    KafkaCluster --> RouteSvc & TrackSvc & ShipSvc & NotiSvc & AuditSvc
+    KafkaCluster --> RouteSvc & TrackSvc & ShipSvc & NotiSvc & AuditSvc & ShipperSvc
     KafkaCluster -.-> KafkaUI
+
+    NotiSvc -.->|"Feign: /internal/link-telegram"| ShipperSvc
 
     AuthSvc --> DB_Auth
     CustSvc --> DB_Cust
@@ -139,6 +156,7 @@ flowchart TB
     RouteSvc --> DB_Route
     NotiSvc --> DB_Noti
     AuditSvc --> DB_Audit
+    ShipperSvc --> DB_Shipper
 ```
 
 ---
@@ -155,6 +173,8 @@ Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, m�
 | **04** | [**Nghiệp Vụ Logistics & Station Context RBAC**](docs/04-logistics-domain-and-rbac-station-context.md) | Logic Chuyến xe trục (Trips), thanh tải trọng (Load Bar), niêm phong Seal, dỡ hàng tại cổng Hub, tự động chuyển hoàn lần thứ 3 và bảo mật ngữ cảnh trạm làm việc. |
 | **05** | [**Redis Caching, Rate Limiter & Distributed Lock**](docs/05-redis-caching-and-distributed-patterns.md) | Sơ đồ luồng Cache-Aside (< 2ms), Token Bucket phân tầng Read/Write chống DDoS (Bucket4j), xử lý an toàn CORS Preflight (`OPTIONS`), Distributed Lock (`SETNX`) chống race condition và Generic `RedisCacheService` độc lập. |
 | **06** | [**Bảo Mật Microservices: Stateless JWT & RBAC**](docs/06-microservices-security-jwt-and-rbac.md) | Sơ đồ luồng Gateway Auth, Blacklist tức thời qua Redis (< 0.5ms), chống Header Spoofing (`HeaderMapRequestWrapper`), Spring Security 6.x và `UserContextHolder` boilerplate. |
+| **07** | [**Telegram Bot & Realtime Notification (WebSocket/STOMP)**](docs/07-telegram-bot-and-realtime-notifications.md) | Phân tích sâu Long-Polling vs Webhook, luồng liên kết bưu tá qua Feign Client, kiến trúc WebSocket STOMP Message Broker (< 50ms), HTML notification templates và xử lý lỗi Telegram API rate limit. |
+| **08** | [**Quản Trị Bưu Tá, Google Identity & Idempotency**](docs/08-shipper-service-identity-and-idempotency.md) | Phân tách vi dịch vụ `shipper-service` theo DDD, xác thực Google Identity & Avatar Stateless JWT, cơ chế Idempotent OperationId chống lỗi quét đúp mã vạch (Double-Scanning) và thuật toán Scheduler gom đơn có Cut-off buffer. |
 
 ---
 
@@ -170,7 +190,7 @@ docker compose up -d
 * **SQL Server Replica:** Port `2433` (`sa` / `Replica@123456`).
 
 ### Bước 2: Chuẩn bị CSDL Primary (SQL Server Port 1433)
-1. Tạo 7 database: `auth_db`, `customer_db`, `shipment_db`, `routing_db`, `tracking_db`, `notification_db`, `audit_db`.
+1. Tạo 8 database: `auth_db`, `customer_db`, `shipment_db`, `routing_db`, `tracking_db`, `notification_db`, `audit_db`, `shipper_db`.
 2. Chạy 2 script seed dữ liệu nền trong thư mục `database/`:
    * [`database/HubSeed.sql`](database/HubSeed.sql) (Nạp 5 Siêu Hub vào `routing_db`).
    * [`database/seed_rbac_data.sql`](database/seed_rbac_data.sql) (Nạp vai trò, quyền hạn vào `auth_db`).
@@ -198,6 +218,7 @@ cd routing-service && ./mvnw spring-boot:run
 cd tracking-service && ./mvnw spring-boot:run
 cd notification-service && ./mvnw spring-boot:run
 cd audit-service && ./mvnw spring-boot:run
+cd shipper-service && ./mvnw spring-boot:run
 ```
 
 ### Bước 5: Khởi chạy Frontend Portal
