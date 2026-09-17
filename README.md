@@ -167,71 +167,7 @@ flowchart TB
 
 ---
 
-## 4. Hệ Sinh Thái & Danh Mục Công Nghệ Chuyên Sâu (Technology Stack & Technical Patterns)
-
-Hệ thống được thiết kế theo chuẩn kiến trúc phân tán Enterprise High Availability (HA), chia tách theo 8 tầng kiến trúc (Architectural Layers) với sự phối hợp chặt chẽ giữa các công nghệ, thư viện lõi và các kỹ thuật/design pattern đặc thù:
-
-### 4.1. Ma Trận Công Nghệ Theo Tầng Kiến Trúc (Architectural Tech Stack Matrix)
-
-| Tầng Kiến Trúc | Công Nghệ / Thư Viện | Phiên Bản | Vai Trò Kỹ Thuật | Kỹ Thuật & Design Pattern Áp Dụng |
-| :--- | :--- | :---: | :--- | :--- |
-| **Edge & Ingress Layer** | **Nginx** (Alpine) | `latest` | Reverse Proxy & Edge Load Balancer tiếp nhận toàn bộ traffic cổng 80 | Upstream Failover (`proxy_next_upstream` khi gặp 502/503/timeout), Tắt IPv6 (`disable_ipv6=1`) chống timeout 30s |
-| | **Spring Cloud Gateway (WebMVC)** | `2025.1.3` | Cửa ngõ định tuyến API HA đa instance (Port 8080 & 8088) | Dynamic Service Discovery Routing qua Eureka, StripPrefix, Header Enrichment, Gateway Filter |
-| | **Bucket4j Core & Redis** | `8.10.1` | Phòng thủ Brute-Force & chống spam request, bảo vệ tài nguyên | Tiered Token Bucket (Phân tầng `GET`: 200 req/30s, `POST/PUT/DELETE`: 30 req/30s), Bypass CORS Preflight (`OPTIONS`) |
-| | **Spring Security & JJWT** | `6.x` / `0.12.5` | Xác thực phân tán và phân quyền RBAC đa cấp | Stateless JWT, Token Blacklist thu hồi tức thời qua Redis (< 0.5ms), `HeaderMapRequestWrapper` chống Header Spoofing |
-| **Service Discovery & Mesh** | **Netflix Eureka Server & Client** | `2025.1.3` | Quản lý vòng đời, đăng ký và phát hiện vị trí các microservice | Peer-to-Peer Replication HA 2 chiều (`peer1: 8761` <-> `peer2: 8762`), xử lý bẫy so khớp `PeerEurekaNodes.isInstanceURL` |
-| | **Spring Cloud OpenFeign** | `2025.1.3` | Khách thể HTTP khai báo (Declarative REST Client) giữa các service | Inter-service sync communication (`notification-service` -> `shipper-service`), Service Virtual Host resolution |
-| | **Spring Cloud LoadBalancer** | `2025.1.3` | Cân bằng tải phía Client (Client-side Load Balancing) | Round-Robin / Reactive load distribution giữa các instance dịch vụ |
-| **Core Business Microservices** | **Java** | `21 LTS` | Ngôn ngữ nền tảng xử lý logic phía máy chủ | Record Classes (DTO bất biến), Pattern Matching, Virtual Threads, Sequenced Collections |
-| | **Spring Boot** | `4.1.1` | Khung ứng dụng backend Microservices | Dependency Injection, Auto-Configuration, Profiles (`peer1`, `peer2`) |
-| | **Spring Data JPA / Hibernate** | `6.x` | Tầng tương tác đối tượng - CSDL (Object-Relational Mapping) | Repository Pattern, Transactional Management (`@Transactional`), Custom Projection |
-| | **Domain-Driven Design (DDD)** | Kiến trúc | Chuẩn hóa mô hình nghiệp vụ chuỗi cung ứng chuyển phát | Phân định ranh giới Bounded Contexts độc lập (`shipper`, `shipment`, `routing`, `customer`, `tracking`, `audit`) |
-| | **Finite State Machine (FSM)** | Thuật toán | Quản lý vòng đời vận đơn 11 bước chuẩn hóa | Strict State Transitions, Immutable Terminal States (`DELIVERED`, `RETURNED`, `CANCELLED`), Auto-Returning sau 3 lần phát thất bại |
-| | **Spring Retry** | `2.x` | Khôi phục hoạt động khi xảy ra lỗi gián đoạn tạm thời | Declarative Retry Template, Exponential Backoff |
-| | **Jakarta Bean Validation** | `3.x` | Kiểm tra tính hợp lệ dữ liệu đầu vào | Contract-first Request Validation (`@NotNull`, `@Size`, `@Pattern`) |
-| | **Google API Client (OAuth2)** | `2.2.0` | Xác thực Google ID Token & Single Sign-On (SSO) | `GoogleIdTokenVerifier`, giải mã ID Token Google, nhúng claim `avatarUrl` vào Stateless JWT |
-| | **Project Lombok** | `latest` | Giảm thiểu mã nguồn lặp lại | Data transfer objects, Builder Pattern, Slf4j Logger injection |
-| **Data Persistence & Migration** | **Microsoft SQL Server** | `2022` | Hệ quản trị CSDL quan hệ chính thức (RDBMS) | Database-per-service (8 CSDL độc lập), Primary (Port 1433) & Replica (Port 2433) |
-| | **Dynamic RoutingDataSource** | Spring Core | Tách luồng Đọc/Ghi tự động (Read-Write Splitting) | `AbstractRoutingDataSource` kết hợp `ThreadLocal ContextHolder` và 2 HikariCP Pool độc lập |
-| | **Flyway & Redgate Compare** | `10.x` / `SQLServer` | Tự động hóa tiến hóa lược đồ CSDL (Schema Migration) | Versioned Migration Scripts (`V1__...`), Checksum Verification, Idempotent DDL Execution |
-| **Event Streaming & Caching** | **Apache Kafka (KRaft HA)** | `3.x` | Nền tảng truyền tải luồng sự kiện phân tán dung lượng lớn | 3-Broker Quorum Controller (`RF=3`, `MinISR=2`), loại bỏ Zookeeper, High Throughput Partitioning |
-| | **Spring Kafka** | `3.x` | Tích hợp Kafka Producer & Consumer hướng sự kiện | Asynchronous Non-blocking Producer (`CompletableFuture/whenComplete`), ErrorHandler, Dead Letter Topic (`.DLT`) |
-| | **Redis** (Alpine) | `7.x` | Bộ nhớ đệm In-Memory tốc độ siêu cao (< 2ms) | Cache-Aside Pattern, Khóa phân tán (`SETNX`) chống race condition khi quét mã vạch, Rate Limit Storage, JWT Blacklist |
-| | **Kafka-UI Dashboard** | `latest` | Giám sát và quản trị trực quan cụm Kafka | Cluster Health Monitoring, Topic Inspection, Consumer Lag Tracking, Message Replay |
-| **Realtime & Field Operations** | **Telegram Bot Java SDK** | `6.9.7.1` | Kênh điều phối đơn hàng trực tiếp tới di động bưu tá | Long-Polling Client (không đòi hỏi Public IP/Webhook SSL), HTML Message Formatting, Command Router (`/link`, `/active`, `/status`) |
-| | **Spring WebSocket & STOMP** | `4.1.1` | Kênh thông báo tức thời tới Web Portal (< 50ms) | SockJS fallback, In-Memory Message Broker, Destination Prefix (`/topic/notifications`), Push Event Driven |
-| | **Spring Mail (JavaMailSender)** | `4.1.1` | Gửi email thông báo xác nhận và tài liệu bưu chính | Asynchronous SMTP Mail Dispatcher, MIME HTML Email Templates |
-| **Frontend & GIS Visualization** | **Vue.js 3** | `3.x` | Khung giao diện điều hành Single Page Application (SPA) | Reactive Data Binding, Component Lifecycle, `<keep-alive>` Client-side Caching (0ms Tab Switching) |
-| | **Tailwind CSS** | `3.x` | Thiết kế giao diện phong cách B2B Enterprise Logistics | Custom VNPT Color Palette, Responsive Utility Classes, Dynamic Load Capacity Bars |
-| | **Leaflet JS & OpenStreetMap** | `1.9.4` | Hệ thống thông tin địa lý & bản đồ số (GIS) | Multi-Hub Polyline Routing, Hub Pin Custom Icons, Realtime Trip Tracking Simulator |
-| | **Google Identity Services (GIS)** | `v1` | Xác thực đăng nhập một chạm (Google Sign-In SSO) | Google One-Tap SDK, IdToken Verification qua Google API Client, Stateless Avatar Embedding |
-| | **Node.js** | `LTS` | Máy chủ phục vụ tĩnh giao diện Web (Development/Staging) | Native HTTP Module, MIME Type Mapping, Reverse Proxy friendly |
-| **API Docs & Observability** | **Springdoc OpenAPI / Swagger UI** | `3.1.0` | Đặc tả và thử nghiệm API trực quan theo chuẩn OpenAPI 3 | Interactive Swagger UI (`/swagger-ui.html`), OpenAPI JSON Schema Spec |
-| | **Docker & Docker Compose** | `v2` | Đóng gói và điều phối hạ tầng phụ trợ môi trường đồng nhất | Containerized Multi-Services, Healthchecks, Inter-Container Networking, Port Mapping |
-| | **Postman Collections** | `v2.1` | Bộ kịch bản kiểm thử API đầu-cuối tự động | Chained Request Testing, Environment Variables, Automated Pre-request Scripts |
-
----
-
-### 4.2. Các Kỹ Thuật & Mẫu Thiết Kế Trọng Điểm (Core Architectural Design Patterns)
-1. **Database Read-Write Splitting (Dynamic RoutingDataSource):**
-   * Tách biệt 100% kết nối: Mọi thao tác ghi (`INSERT`, `UPDATE`, `DELETE`) đi vào `tracking_db` Primary (1433), mọi thao tác đọc dữ liệu màn hình (`SELECT`) điều hướng về `tracking_db` Replica (2433).
-   * Cơ chế chuyển mạch mềm qua Spring `AbstractRoutingDataSource` kết hợp `ThreadLocal ContextHolder` và tự động giải phóng tài nguyên sau khi kết thúc request.
-2. **Khóa Phân Tán Redis (Distributed Lock with SETNX):**
-   * Ngăn chặn race condition khi nhiều bưu tá hoặc công nhân quét đồng thời cùng một mã kiện hàng hoặc xếp hàng vượt quá tải trọng chuyến xe trục ($100\%$).
-   * Tự động giải phóng khóa (TTL Safe Release) qua Lua Script để tránh Deadlock nếu tiến trình gặp sự cố đột ngột.
-3. **Bộ Lập Lịch Gom Đơn Tự Động & Chống Quét Đúp (Scheduler & Idempotency):**
-   * Cơ chế `OperationId` đảm bảo bưu tá hoặc công nhân Hub lỡ bóp cò máy quét barcode 2 lần liên tiếp (Double-Scanning) sẽ không làm nhân đôi số lượng kiện hay sai lệch số liệu COD.
-   * Background Scheduler tự động tính toán tổng tải trọng ($80\%$) và mốc đệm xuất bến (Cut-off Buffer 30 phút) để đóng bảng kê Manifest và niêm chì (Seal Number).
-4. **Bảo Mật Ngữ Cảnh Trạm (Station Context Binding) & Token Blacklist:**
-   * Gateway trích xuất claim `stationId` và `roles` từ JWT, gắn vào Header nội bộ an toàn `X-User-Station-Id` thông qua `HeaderMapRequestWrapper` (chống client giả mạo header).
-   * Cơ chế Redis Blacklist kiểm tra tức thì (< 0.5ms) khi bưu tá đăng xuất hoặc bị khóa quyền, bảo đảm an toàn mà không cần lưu trữ session tập trung.
-5. **Xác Thực Đa Nguồn Google OAuth2 & Avatar Stateless JWT:**
-   * Hỗ trợ người dùng đăng nhập một chạm qua Google Identity Services (GIS). Phía máy chủ (`auth-service`) sử dụng thư viện `GoogleIdTokenVerifier` để xác thực chữ ký token trực tiếp với Google API Server.
-   * Nhúng thẳng thuộc tính `avatarUrl` vào payload JWT giúp Frontend hiển thị ảnh đại diện với độ trễ 0ms mà không làm tăng tải truy vấn CSDL hay HTTP roundtrip.
-
----
-
-## 5. Cẩm Nang Kỹ Thuật Chuyên Sâu & Boilerplate (Documentation Deep-Dive)
+## 4. Cẩm Nang Kỹ Thuật Chuyên Sâu & Boilerplate (Documentation Deep-Dive)
 
 Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, mã nguồn boilerplate Java và checklist câu hỏi phỏng vấn được lưu trữ trong thư mục [`docs/`](docs/):
 
@@ -248,7 +184,7 @@ Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, m�
 
 ---
 
-## 6. Hướng Dẫn Khởi Chạy Nhanh (Quickstart - 5 Phút)
+## 5. Hướng Dẫn Khởi Chạy Nhanh (Quickstart - 5 Phút)
 
 ### Bước 1: Khởi động Hạ tầng Docker HA
 ```bash
@@ -300,7 +236,7 @@ node server.js
 
 ---
 
-## 7. Tài Khoản Kiểm Thử Mẫu (Demo Accounts)
+## 6. Tài Khoản Kiểm Thử Mẫu (Demo Accounts)
 
 Mật khẩu mặc định cho toàn bộ tài khoản: `123456`
 
@@ -314,7 +250,7 @@ Mật khẩu mặc định cho toàn bộ tài khoản: `123456`
 
 ---
 
-## 8. Cấu Trúc Thư Mục Dự Án (Project Structure)
+## 7. Cấu Trúc Thư Mục Dự Án (Project Structure)
 
 ```plaintext
 mini-waybill-platform/
@@ -350,5 +286,5 @@ mini-waybill-platform/
 
 ---
 
-## 9. Tuyên Bố Miễn Trừ Trách Nhiệm (Disclaimer)
+## 8. Tuyên Bố Miễn Trừ Trách Nhiệm (Disclaimer)
 Dự án được xây dựng và phát triển với mục đích học tập, nghiên cứu và mô phỏng kiến trúc hệ thống Microservices (Simulation / Pet Project). Mọi thông tin thương hiệu, tên gọi bưu cục và dữ liệu vận đơn trong dự án đều mang tính chất minh họa kỹ thuật và phi thương mại.
