@@ -21,7 +21,7 @@ Hệ thống được thiết kế theo tiêu chuẩn **High Availability (HA - 
 
 ---
 
-## 2. Bối Cảnh Vận Hành & Nghiệp Vụ Bưu Chính Toàn Trình (Core Business Domain)
+## 2. Bối Cảnh Vận Hành & Nghiệp Vụ Bưu Chính Toàn Trình
 
 Khác với các ứng dụng giao hàng nội thành đơn chặng, hệ thống bưu chính quy mô quốc gia vận hành theo mô hình phân tầng đa chặng với mạng lưới kho bãi phức tạp. Nền tảng mô phỏng và giải quyết triệt để 4 trụ cột nghiệp vụ trọng yếu:
 
@@ -47,6 +47,13 @@ Khác với các ứng dụng giao hàng nội thành đơn chặng, hệ thốn
 * **Ràng buộc ngữ cảnh trạm làm việc (Station Context Binding):** Ngăn chặn triệt để lỗ hổng nhân viên có vai trò `ROLE_POST_OFFICE_STAFF` tại trạm Hà Nội cố tình hoặc vô ý thao tác đơn hàng thuộc địa bàn TP.HCM. Thông tin trạm (`X-User-Station-Id`) được Gateway trích xuất từ JWT và kiểm tra chéo tại tầng Business Service.
 * **Thu hồi quyền tức thời qua Redis Blacklist:** Khi phát hiện nhân viên vi phạm hoặc đăng xuất, Gateway kiểm tra Redis Blacklist trong thời gian < 0.5ms để chặn đứng truy cập ngay lập tức mà không cần chờ JWT hết hạn.
 * *Tài liệu chi tiết:* Xem giải pháp Station Context Binding tại [Cẩm nang 04 - Bảo Mật Ngữ Cảnh Trạm](docs/04-logistics-domain-and-rbac-station-context.md#4-bảo-mật-ngữ-cảnh-trạm-station-context-rbac) và kiến trúc bảo mật Gateway tại [Cẩm nang 06 - Microservices Security & Redis Blacklist](docs/06-microservices-security-jwt-and-rbac.md).
+
+### 2.5. Tối Ưu Hóa Trải Nghiệm Giao Diện & Phòng Thủ Cửa Ngõ (Performance & Gateway Defense)
+* **Client-side Caching với Vue 3 `<keep-alive>`:** Toàn bộ giao diện SPA áp dụng cơ chế lưu trữ các component vào RAM khi chuyển đổi menu sidebar. Triệt tiêu 100% các request `GET` dư thừa, tốc độ chuyển tab đạt tức thì (0ms latency), đồng thời bảo toàn nguyên vẹn bộ lọc tìm kiếm, phân trang và trạng thái checkbox đang chọn.
+* **Bộ lọc Rate Limiting phân tầng (Tiered Token Bucket):** Tại API Gateway, tách biệt hạn mức độc lập giữa thao tác đọc (`GET`: 200 req / 30s) và thao tác ghi (`POST/PUT/DELETE`: 30 req / 30s). Giúp người dùng lướt web mượt mà không lo chạm ngưỡng 429, trong khi các luồng nhạy cảm vẫn được bảo vệ nghiêm ngặt chống spam và brute-force.
+* **Xử lý an toàn CORS Preflight (`OPTIONS`):** Tự động bypass các request `OPTIONS` của trình duyệt trước khi trừ token rate limit, triệt tiêu hoàn toàn hiện tượng sập CORS giả lập trên Developer Console.
+* **Cụm Service Registry HA 2 chiều:** Khắc phục triệt để lỗi so khớp hostname `PeerEurekaNodes.isInstanceURL()` bằng cơ chế đan xen `localhost` và `127.0.0.1`, đảm bảo 100% dữ liệu microservice được nhân bản 2 chiều giữa các node Eureka.
+* *Tài liệu chi tiết:* Xem phân tích chuyên sâu tại [Cẩm nang 01 - Cấu Hình HA & Eureka Replication](docs/01-high-availability-and-nginx.md#34-bẫy-kỹ-thuật-eureka-peer-sync-1-chiều--cơ-chế-peereurekanodesisinstanceurl) và [Cẩm nang 05 - Redis Caching & Rate Limiter](docs/05-redis-caching-and-distributed-patterns.md#34-bộ-lọc-rate-limiting-phân-tầng-theo-http-method--xử-lý-an-toàn-cors).
 
 ---
 
@@ -142,11 +149,11 @@ Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, m�
 
 | STT | Tài Liệu Chuyên Sâu | Nội Dung Trọng Tâm & Boilerplate Code |
 | :---: | :--- | :--- |
-| **01** | [**Kiến Trúc HA & Nginx Load Balancing**](docs/01-high-availability-and-nginx.md) | Cấu hình Nginx Edge Reverse Proxy Upstream Failover, thiết lập cụm Eureka Server Peer-to-Peer Replication (`peer1`/`peer2`) và template `docker-compose` mẫu. |
+| **01** | [**Kiến Trúc HA & Nginx Load Balancing**](docs/01-high-availability-and-nginx.md) | Cấu hình Nginx Edge Reverse Proxy Upstream Failover, khắc phục bẫy Eureka Peer Sync 1 chiều (`PeerEurekaNodes.isInstanceURL`), thiết lập cụm Eureka Server Peer-to-Peer Replication (`peer1`/`peer2`) và template `docker-compose` mẫu. |
 | **02** | [**Database Read-Write Splitting & Boilerplate**](docs/02-database-read-write-splitting-boilerplate.md) | Kỹ thuật tách luồng Đọc/Ghi qua Spring `AbstractRoutingDataSource`, xử lý `ThreadLocal`, cấu hình Hikari Pool, đồng bộ ngầm qua Kafka và **Bộ Template Generic độc lập** để copy vào dự án công ty. |
 | **03** | [**Kafka KRaft Cluster & Event Streaming HA**](docs/03-kafka-kraft-cluster-and-event-streaming.md) | Sơ đồ luồng Kafka toàn trình, KRaft Quorum, Producer bất đồng bộ (`whenComplete`), Consumer Error Handling & Dead Letter Topic (`.DLT`), Idempotent Producer. |
 | **04** | [**Nghiệp Vụ Logistics & Station Context RBAC**](docs/04-logistics-domain-and-rbac-station-context.md) | Logic Chuyến xe trục (Trips), thanh tải trọng (Load Bar), niêm phong Seal, dỡ hàng tại cổng Hub, tự động chuyển hoàn lần thứ 3 và bảo mật ngữ cảnh trạm làm việc. |
-| **05** | [**Redis Caching, Rate Limiter & Distributed Lock**](docs/05-redis-caching-and-distributed-patterns.md) | Sơ đồ luồng Cache-Aside (< 2ms), Token Bucket chống DDoS (Bucket4j), Distributed Lock (`SETNX`) chống race condition và Generic `RedisCacheService` độc lập. |
+| **05** | [**Redis Caching, Rate Limiter & Distributed Lock**](docs/05-redis-caching-and-distributed-patterns.md) | Sơ đồ luồng Cache-Aside (< 2ms), Token Bucket phân tầng Read/Write chống DDoS (Bucket4j), xử lý an toàn CORS Preflight (`OPTIONS`), Distributed Lock (`SETNX`) chống race condition và Generic `RedisCacheService` độc lập. |
 | **06** | [**Bảo Mật Microservices: Stateless JWT & RBAC**](docs/06-microservices-security-jwt-and-rbac.md) | Sơ đồ luồng Gateway Auth, Blacklist tức thời qua Redis (< 0.5ms), chống Header Spoofing (`HeaderMapRequestWrapper`), Spring Security 6.x và `UserContextHolder` boilerplate. |
 
 ---

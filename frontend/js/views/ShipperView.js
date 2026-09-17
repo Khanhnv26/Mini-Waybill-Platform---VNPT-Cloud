@@ -878,15 +878,15 @@
                     <div class="flex items-center space-x-2 self-start sm:self-auto">
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[76px]">
                             <div class="text-sm sm:text-base font-bold leading-tight text-amber-300">{{ kpiAwaitingDispatch }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Chờ Đi Phát</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Chờ Bàn Giao Phát</div>
                         </div>
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[76px]">
                             <div class="text-sm sm:text-base font-bold leading-tight">{{ kpiOutForDelivery }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Đang Đi Phát</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Đang Phát Tận Nơi</div>
                         </div>
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[76px]">
                             <div class="text-sm sm:text-base font-bold leading-tight">{{ kpiDeliveredCount }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Đã Giao Xong</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Phát Thành Công</div>
                         </div>
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[84px]">
                             <div class="text-xs sm:text-sm font-bold leading-tight font-mono text-emerald-300">{{ Utils.formatCurrency(kpiTotalDeliveredCod) }}</div>
@@ -957,8 +957,8 @@
                             class="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:border-blue-600 outline-none transition"
                         >
                             <option value="ALL">Tất cả trạng thái</option>
-                            <option value="ARRIVED_DEST_HUB">Chờ Nhận Đi Phát</option>
-                            <option value="OUT_FOR_DELIVERY">Đang Đi Phát</option>
+                            <option value="ARRIVED_DEST_HUB">Chờ Bàn Giao Phát</option>
+                            <option value="OUT_FOR_DELIVERY">Đang Phát Tận Nơi</option>
                             <option value="DELIVERED">Phát Thành Công</option>
                             <option value="DELIVERY_FAILED">Phát Không Thành Công</option>
                             <option value="RETURNING">Đang Chuyển Hoàn</option>
@@ -1013,7 +1013,6 @@
                                             title="Click để xem chi tiết hành trình & bản đồ"
                                         >
                                             <span>{{ item.trackingCode }}</span>
-                                            <span class="text-[11px] text-blue-500 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all">↗</span>
                                         </button>
                                     </td>
                                     <td class="py-2.5 px-3">
@@ -1039,14 +1038,14 @@
                                                 :disabled="isActionRunning"
                                                 class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold transition shadow-sm"
                                             >
-                                                Phát Thành Công
+                                                Xác Nhận Phát Thành Công
                                             </button>
                                             <button
                                                 @click="openFailedModal(item)"
                                                 :disabled="isActionRunning"
                                                 class="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 rounded-md font-bold transition"
                                             >
-                                                Báo Thất Bại
+                                                Báo Phát Không Thành Công
                                             </button>
                                         </template>
                                         <template v-else-if="getShipmentStatus(item) === 'OUT_FOR_DELIVERY'">
@@ -1064,7 +1063,7 @@
                                                 class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold transition shadow-sm"
                                                 :title="'Đã xác nhận tại ' + getDestinationPostOfficeInfo(item).name + '. Bàn giao tồn kho cho bưu tá để xuất phát giao tận tay khách.'"
                                             >
-                                                Nhận Hàng Đi Phát
+                                                Tiếp Nhận Đi Phát
                                             </button>
                                         </template>
                                         <template v-else-if="getShipmentStatus(item) === 'ARRIVED_DEST_HUB'">
@@ -1084,7 +1083,7 @@
                                                 :disabled="isActionRunning"
                                                 class="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 rounded-md font-bold transition"
                                             >
-                                                Nhận Đi Phát Lại
+                                                Tiếp Nhận Tái Phát
                                             </button>
                                         </template>
                                         <template v-else-if="getShipmentStatus(item) === 'DELIVERY_FAILED'">
@@ -1198,7 +1197,6 @@
                                         title="Click để xem chi tiết hành trình & bản đồ"
                                     >
                                         <span>{{ item.trackingCode }}</span>
-                                        <span class="text-[11px] text-blue-500 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all">↗</span>
                                     </button>
                                 </td>
                                 <td class="py-2.5 px-3 font-bold text-slate-800">{{ item.receiverName }}</td>
@@ -1231,7 +1229,9 @@
                             <h3 class="font-bold text-slate-900 text-sm">Ghi Nhận Phát Không Thành Công</h3>
                             <p class="text-slate-500 font-mono text-[11px] mt-0.5 whitespace-nowrap">Bưu gửi: {{ failedTargetShipment?.trackingCode }}</p>
                         </div>
-                        <button @click="showFailedModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+                        <button @click="showFailedModal = false" class="text-slate-400 hover:text-slate-600 p-1 rounded hover:bg-slate-100 transition" aria-label="Đóng">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
                     </div>
 
                     <div class="space-y-3">
@@ -1256,7 +1256,7 @@
                             Hủy Bỏ
                         </button>
                         <button @click="handleDeliverFailed()" :disabled="isActionRunning" class="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold shadow-sm transition disabled:opacity-50">
-                            Xác Nhận Báo Thất Bại
+                            Xác Nhận Phát Không Thành Công
                         </button>
                     </div>
                 </div>

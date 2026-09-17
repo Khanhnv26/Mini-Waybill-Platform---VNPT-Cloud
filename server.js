@@ -71,6 +71,15 @@ const server = http.createServer((req, res) => {
 
     fs.stat(filePath, (err, stats) => {
         if (err || !stats.isFile()) {
+            const errorHtmlPath = path.join(FRONTEND_DIR, 'error.html');
+            if (fs.existsSync(errorHtmlPath)) {
+                res.writeHead(404, {
+                    'Content-Type': 'text/html; charset=utf-8',
+                    'Access-Control-Allow-Origin': '*'
+                });
+                fs.createReadStream(errorHtmlPath).pipe(res);
+                return;
+            }
             res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
             res.end('404 Not Found: Không tìm thấy tệp yêu cầu ' + urlPath);
             return;
@@ -81,7 +90,10 @@ const server = http.createServer((req, res) => {
 
         res.writeHead(200, {
             'Content-Type': contentType,
-            'Access-Control-Allow-Origin': '*'
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
         });
 
         fs.createReadStream(filePath).pipe(res);
@@ -89,6 +101,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-    console.log('VNPT WAYBILL FRONTEND SERVER ĐANG CHẠY TẠI: http://localhost:' + PORT);
-    console.log('Trang chính: http://localhost:' + PORT + '/index.html');
+    console.log('VNPT WAYBILL FRONTEND SERVER ĐANG CHẠY TẠI: http://localhost');
 });

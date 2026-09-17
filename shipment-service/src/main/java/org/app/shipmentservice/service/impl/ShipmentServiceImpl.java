@@ -97,13 +97,21 @@ public class ShipmentServiceImpl implements ShipmentService {
         boolean canCreateForOthers = permissions != null && permissions.contains("shipment:create_for_others");
         Long targetCustomerId;
 
-        if (canCreateForOthers && request.getCustomerId() != null) {
-            targetCustomerId = request.getCustomerId();
-            log.info("[SHIPMENT] Admin/CSKH {} đang tạo đơn hộ cho customerId {}", currentUserId, targetCustomerId);
-            CustomerValidationResponse validationResponse = customerClient.validateCustomer(targetCustomerId);
-            if (validationResponse == null || !validationResponse.isValid()) {
-                throw new RuntimeException("Không xác thực được khách hàng (ID: " + targetCustomerId + ")!" +
-                        " Lí do: " + (validationResponse != null ? validationResponse.getReason() : "Unknown"));
+        if(canCreateForOthers) {
+            //tao ho khach hang
+            if (request.getCustomerId() != null) {
+                targetCustomerId = request.getCustomerId();
+                log.info("[SHIPMENT] Nhân viên {} đang tạo đơn hộ cho customerId {}", currentUserId, targetCustomerId);
+                CustomerValidationResponse validationResponse = customerClient.validateCustomer(targetCustomerId);
+                if (validationResponse == null || !validationResponse.isValid()) {
+                    throw new RuntimeException("Không xác thực được khách hàng với ID: " + targetCustomerId);
+                }
+            } else {
+                log.info("[SHIPMENT] Nhân viên {} tạo đơn khách vãng lai, tự động gán CUS_RETAIL", currentUserId);
+                CustomerValidationResponse retailCustomer = customerClient.getRetailCustomer();
+                targetCustomerId = retailCustomer != null ? retailCustomer.getCustomerId() : 1L;
+
+
             }
         } else {
             targetCustomerId = resolveCustomerId(currentUserId);

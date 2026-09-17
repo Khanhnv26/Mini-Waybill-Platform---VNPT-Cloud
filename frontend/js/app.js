@@ -6,16 +6,151 @@
  */
 
 (function () {
-    const { createApp, ref, reactive, computed, onMounted } = Vue;
+    const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
 
     const app = createApp({
         setup() {
+            // Đọc thông số lỗi hoặc tham số URL (nếu có)
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialCodeParam = parseInt(urlParams.get('code'), 10);
+            const rawPath = window.location.pathname.toLowerCase();
+            const isKnownAppPath = rawPath === '/' || rawPath === '' || rawPath.endsWith('/index.html');
+            const isInitialErrorPage = rawPath.includes('error.html');
+            const isUnknownRoute = !isKnownAppPath && !isInitialErrorPage;
+            const hasInitialError = !isNaN(initialCodeParam) || isInitialErrorPage || isUnknownRoute;
+
             const currentUser = ref(null);
-            const currentTab = ref('tracking');
+            const currentTab = ref(hasInitialError ? 'error' : 'tracking');
             const currentTrackingCode = ref('');
+            const currentErrorCode = ref(!isNaN(initialCodeParam) ? initialCodeParam : 404);
+            const currentErrorTitle = ref(urlParams.get('title') || (isUnknownRoute ? 'Không Tìm Thấy Trang Yêu Cầu' : ''));
+            const currentErrorMessage = ref(urlParams.get('message') || (isUnknownRoute ? `Đường dẫn "${window.location.pathname}" không tồn tại trên hệ thống máy chủ bưu chính VNPT.` : ''));
             const previousTab = ref(null);
             const selectedCustomerForShipment = ref(null);
-            const isSidebarCollapsed = ref(true);
+            const isSidebarCollapsed = ref(false);
+
+            const showError = (code = 404, title = '', message = '') => {
+                currentErrorCode.value = code;
+                currentErrorTitle.value = title;
+                currentErrorMessage.value = message;
+                currentTab.value = 'error';
+            };
+
+            // Quản lý Trung Tâm Thông Báo Hệ Thống (Notification Center Dữ Liệu Thật)
+            const showNotificationDropdown = ref(false);
+            const notifications = ref([]);
+
+            const formatNotificationTime = (sentAt) => {
+                if (!sentAt) return 'Vừa xong';
+                try {
+                    const date = new Date(sentAt);
+                    if (isNaN(date.getTime())) return String(sentAt);
+                    const diffSeconds = Math.floor((Date.now() - date.getTime()) / 1000);
+                    if (diffSeconds < 60) return 'Vừa xong';
+                    if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)} phút trước`;
+                    if (diffSeconds < 86400) return `${Math.floor(diffSeconds / 3600)} giờ trước`;
+                    return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                } catch {
+                    return 'Vừa xong';
+                }
+            };
+
+            const getNotificationVisuals = (title = '', message = '') => {
+                const text = (title + ' ' + message).toUpperCase();
+                if (text.includes('DELIVERED') || text.includes('THÀNH CÔNG')) {
+                    return {
+                        icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+                        iconBg: 'bg-emerald-600'
+                    };
+                }
+                if (text.includes('FAILED') || text.includes('THẤT BẠI') || text.includes('HỦY') || text.includes('RETURNING')) {
+                    return {
+                        icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
+                        iconBg: 'bg-rose-600'
+                    };
+                }
+                if (text.includes('OUT_FOR_DELIVERY') || text.includes('BƯU TÁ') || text.includes('GIAO HÀNG')) {
+                    return {
+                        icon: 'M13 10V3L4 14h7v7l9-11h-7z',
+                        iconBg: 'bg-amber-600'
+                    };
+                }
+                if (text.includes('PHÂN TUYẾN') || text.includes('HUB') || text.includes('CHUYẾN XE') || text.includes('ROUTE')) {
+                    return {
+                        icon: 'M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z',
+                        iconBg: 'bg-purple-600'
+                    };
+                }
+                return {
+                    icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
+                    iconBg: 'bg-blue-600'
+                };
+            };
+
+            const fetchNotifications = async () => {
+                if (typeof NotificationService === 'undefined' || !NotificationService.getMyNotifications) return;
+                try {
+                    const list = await NotificationService.getMyNotifications();
+                    if (Array.isArray(list)) {
+                        notifications.value = list.map(item => {
+                            const visuals = getNotificationVisuals(item.title, item.message);
+                            return {
+                                id: item.id,
+                                title: item.title || 'Thông báo hệ thống',
+                                message: item.message || '',
+                                trackingCode: item.trackingCode || null,
+                                time: formatNotificationTime(item.sentAt),
+                                isRead: !!item.isRead,
+                                icon: visuals.icon,
+                                iconBg: visuals.iconBg
+                            };
+                        });
+                    }
+                } catch (err) {
+                    console.warn('[Notifications] Lỗi khi tải thông báo thực tế:', err);
+                }
+            };
+
+            const unreadNotificationsCount = computed(() => {
+                return notifications.value.filter(item => !item.isRead).length;
+            });
+
+            const toggleNotificationDropdown = (e) => {
+                if (e) e.stopPropagation();
+                showNotificationDropdown.value = !showNotificationDropdown.value;
+            };
+
+            const closeNotificationDropdown = () => {
+                showNotificationDropdown.value = false;
+            };
+
+            const markAllNotificationsAsRead = async () => {
+                notifications.value.forEach(item => {
+                    item.isRead = true;
+                });
+                if (typeof NotificationService !== 'undefined' && NotificationService.markAllAsRead) {
+                    NotificationService.markAllAsRead();
+                }
+                if (window.Utils && window.Utils.showToast) {
+                    window.Utils.showToast('Thông Báo', 'Đã đánh dấu tất cả thông báo là đã đọc!', 'success');
+                }
+            };
+
+            const handleNotificationClick = async (item) => {
+                item.isRead = true;
+                if (typeof NotificationService !== 'undefined' && NotificationService.markAsRead) {
+                    NotificationService.markAsRead(item.id);
+                }
+                showNotificationDropdown.value = false;
+                if (item.trackingCode) {
+                    if (!isKnownAppPath) {
+                        window.location.href = 'index.html?tracking=' + encodeURIComponent(item.trackingCode);
+                        return;
+                    }
+                    handleViewTracking(item.trackingCode);
+                }
+            };
+
             const showUserProfileModal = ref(false);
             const userProfile = ref(null);
             const isLoadingUserProfile = ref(false);
@@ -203,14 +338,14 @@
                 },
                 { 
                     id: 'hub-ops', 
-                    name: 'Khai Thác Kho Tổng', 
+                    name: 'Khai Thác Hub Chia Chọn', 
                     component: 'HubOpsView', 
                     permission: 'tracking:update_hub', // Thủ kho Hub & Admin
                     icon: 'M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z'
                 },
                 { 
                     id: 'shipper', 
-                    name: 'Bưu Tá Giao Vận', 
+                    name: 'Bưu Tá Phát Hàng', 
                     component: 'ShipperView', 
                     permission: 'tracking:update_delivery', // Bưu tá & Admin
                     icon: 'M13 10V3L4 14h7v7l9-11h-7z'
@@ -275,6 +410,9 @@
 
             // Tiêu đề tab hiện tại hiển thị trên Breadcrumb
             const currentTabTitle = computed(() => {
+                if (currentTab.value === 'error') {
+                    return currentErrorTitle.value || `Mã Trạng Thái ${currentErrorCode.value}`;
+                }
                 const foundNav = allNavigationTabs.find(t => t.id === currentTab.value);
                 if (foundNav) return foundNav.name;
                 const foundGuest = publicGuestTabs.find(t => t.id === currentTab.value);
@@ -287,6 +425,10 @@
 
             // Xử lý khi khách vãng lai bấm các tiện ích ở sidebar (Hướng B)
             const handleGuestTabClick = (tab) => {
+                if (!isKnownAppPath) {
+                    window.location.href = 'index.html#' + tab.id;
+                    return;
+                }
                 if (tab.id === 'tracking') {
                     activateTab('tracking');
                 } else {
@@ -295,13 +437,20 @@
                 }
             };
 
-            // Quay lại trang Tra Cứu chính từ màn hình Đang Phát Triển
+            // Quay lại trang Tra Cứu chính từ màn hình Đang Phát Triển hoặc Màn Hình Lỗi
             const handleBackToHome = () => {
-                activateTab('tracking');
+                if (!isKnownAppPath) {
+                    window.location.href = 'index.html';
+                } else {
+                    activateTab('tracking');
+                }
             };
 
             // 3. View Component động tương ứng với tab được chọn
             const activeComponent = computed(() => {
+                if (currentTab.value === 'error') {
+                    return 'ErrorView';
+                }
                 if (['network', 'calculator', 'guide', 'support'].includes(currentTab.value)) {
                     return 'UnderDevelopmentView';
                 }
@@ -316,37 +465,25 @@
 
                 if (targetTab.role) {
                     if (typeof Auth === 'undefined' || !Auth.hasRole(targetTab.role)) {
-                        if (window.Utils && window.Utils.showToast) {
-                            window.Utils.showToast(
-                                'Truy Cập Bị Chặn (403)', 
-                                'Chức năng này chỉ dành riêng cho Quản trị viên hệ thống!', 
-                                'error'
-                            );
-                        } else {
-                            alert('Quyền truy cập bị từ chối: Dành riêng cho Quản trị viên!');
-                        }
+                        showError(403, 'Quyền Truy Cập Bị Chặn (403)', 'Chức năng này chỉ dành riêng cho Quản trị viên hệ thống!');
                         return;
                     }
                 }
 
-                // Nếu tab yêu cầu quyền mà tài khoản không có -> Chặn ngay lập tức
+                // Nếu tab yêu cầu quyền mà tài khoản không có -> Chặn ngay lập tức và hiển thị màn hình lỗi 403
                 if (targetTab.permission) {
                     if (typeof Auth === 'undefined' || !Auth.hasPermission(targetTab.permission)) {
-                        if (window.Utils && window.Utils.showToast) {
-                            window.Utils.showToast(
-                                'Truy Cập Bị Chặn (403)', 
-                                'Tài khoản của bạn không có quyền truy cập tab này!', 
-                                'error'
-                            );
-                        } else {
-                            alert('Quyền truy cập bị từ chối: Bạn không có quyền vào tab này!');
-                        }
+                        showError(403, 'Truy Cập Bị Chặn (403)', 'Tài khoản của bạn không có quyền truy cập tab này!');
                         return;
                     }
                 }
                 previousTab.value = null; // Người dùng chủ động chuyển tab từ sidebar -> xóa lịch sử quay lại
                 if (tabId !== 'shipment') {
                     selectedCustomerForShipment.value = null;
+                }
+                if (!isKnownAppPath) {
+                    window.location.href = 'index.html#' + tabId;
+                    return;
                 }
                 activateTab(tabId);
             };
@@ -373,6 +510,9 @@
             // Khi tạo vận đơn thành công ở ShipmentView, nhận sự kiện và chuyển sang Tra Cứu
             const handleShipmentCreated = (trackingCode) => {
                 selectedCustomerForShipment.value = null;
+                // Đồng bộ thông báo thực tế từ server
+                fetchNotifications();
+                setTimeout(fetchNotifications, 1500);
                 handleViewTracking(trackingCode, 'shipment');
             };
 
@@ -473,12 +613,52 @@
                 if (typeof Auth !== 'undefined') {
                     currentUser.value = Auth.getUser();
 
-                    // Đảm bảo tab ban đầu hợp lệ với quyền của người dùng
-                    const currentTabObj = allNavigationTabs.find(t => t.id === currentTab.value);
-                    if (currentTabObj && currentTabObj.permission && !Auth.hasPermission(currentTabObj.permission)) {
-                        currentTab.value = 'tracking';
+                    // Đảm bảo tab ban đầu hợp lệ với quyền của người dùng (trừ khi đang ở tab error)
+                    if (currentTab.value !== 'error') {
+                        const currentTabObj = allNavigationTabs.find(t => t.id === currentTab.value);
+                        if (currentTabObj && currentTabObj.permission && !Auth.hasPermission(currentTabObj.permission)) {
+                            currentTab.value = 'tracking';
+                        }
                     }
                 }
+
+                // Hỗ trợ hash URL khi chuyển từ error.html sang index.html#...
+                const hash = window.location.hash.replace('#', '');
+                if (hash && currentTab.value !== 'error') {
+                    const foundNav = allNavigationTabs.find(t => t.id === hash);
+                    const foundGuest = publicGuestTabs.find(t => t.id === hash);
+                    if (foundNav && (!foundNav.permission || (typeof Auth !== 'undefined' && Auth.hasPermission(foundNav.permission)))) {
+                        currentTab.value = hash;
+                    } else if (foundGuest) {
+                        currentTab.value = hash;
+                        currentFeatureId.value = hash;
+                    }
+                }
+
+                // Tự động đóng dropdown thông báo khi click ra ngoài
+                const handleDocumentClick = (e) => {
+                    const dropdownEl = document.getElementById('notification-bell-dropdown');
+                    if (dropdownEl && !dropdownEl.contains(e.target)) {
+                        showNotificationDropdown.value = false;
+                    }
+                };
+                document.addEventListener('click', handleDocumentClick);
+
+                // Tải thông báo thực tế và thiết lập định kỳ đồng bộ (mỗi 30 giây)
+                let pollTimer = null;
+                if (typeof Auth !== 'undefined' && Auth.getToken()) {
+                    fetchNotifications();
+                    pollTimer = setInterval(() => {
+                        if (Auth.getToken()) {
+                            fetchNotifications();
+                        }
+                    }, 30000);
+                }
+
+                onUnmounted(() => {
+                    document.removeEventListener('click', handleDocumentClick);
+                    if (pollTimer) clearInterval(pollTimer);
+                });
             });
 
             return {
@@ -505,6 +685,19 @@
                 handleLogout,
                 currentFeatureId,
                 handleBackToHome,
+                // Notification Center
+                showNotificationDropdown,
+                notifications,
+                unreadNotificationsCount,
+                toggleNotificationDropdown,
+                closeNotificationDropdown,
+                markAllNotificationsAsRead,
+                handleNotificationClick,
+                // Error State Management
+                currentErrorCode,
+                currentErrorTitle,
+                currentErrorMessage,
+                showError,
                 // Profile Modal Global
                 showUserProfileModal,
                 userProfile,
@@ -531,6 +724,7 @@
     if (window.CustomerView) app.component('CustomerView', window.CustomerView);
     if (window.AdminRbacView) app.component('AdminRbacView', window.AdminRbacView);
     if (window.UnderDevelopmentView) app.component('UnderDevelopmentView', window.UnderDevelopmentView);
+    if (window.ErrorView) app.component('ErrorView', window.ErrorView);
 
     // Gắn ứng dụng vào DOM
     app.mount('#app');

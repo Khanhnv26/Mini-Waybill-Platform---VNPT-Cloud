@@ -1141,7 +1141,7 @@
                             <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
                         </div>
                         <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
-                            Khai Thác &amp; Quản Lý Tồn Bãi Tại Hub
+                            Khai Thác &amp; Quản Lý Tồn Kho Tại Hub Chia Chọn
                         </h1>
                         <p class="text-xs text-blue-100/90 mt-0.5 leading-normal">
                             Dữ liệu tồn kho từ RoutingService, tác nghiệp theo đúng trạm làm việc và giữ nguyên thông tin vận tải của từng bưu gửi.
@@ -1161,15 +1161,15 @@
                     <div class="flex items-center space-x-2 self-start sm:self-auto">
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[72px]">
                             <div class="text-sm sm:text-base font-bold leading-tight">{{ kpiTotalInHub }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Tồn Bãi</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Tồn Kho Hub</div>
                         </div>
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-amber-200/40 text-center min-w-[72px]">
                             <div class="text-sm sm:text-base font-bold leading-tight text-amber-300">{{ kpiAwaitingStore }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Chờ Lưu Kho</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Chờ Nhập Kho</div>
                         </div>
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[72px]">
                             <div class="text-sm sm:text-base font-bold leading-tight">{{ kpiAwaitingIntake }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Chờ Nhập</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Chờ Tiếp Nhận</div>
                         </div>
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[72px]">
                             <div class="text-sm sm:text-base font-bold leading-tight">{{ kpiInTransit }}</div>
@@ -1185,31 +1185,31 @@
                         type="button"
                         @click="currentSubtab = 'scan'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 whitespace-nowrap',
+                            'pb-2.5 text-xs sm:text-sm font-bold transition-all duration-200 border-b-2 whitespace-nowrap cursor-pointer',
                             currentSubtab === 'scan' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800'
                         ]"
                     >
-                        QUÉT TÁC NGHIỆP KHO
+                        QUÉT TIẾP NHẬN &amp; NHẬP KHO
                     </button>
                     <button
                         type="button"
                         @click="currentSubtab = 'inventory'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 whitespace-nowrap',
+                            'pb-2.5 text-xs sm:text-sm font-bold transition-all duration-200 border-b-2 whitespace-nowrap cursor-pointer',
                             currentSubtab === 'inventory' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800'
                         ]"
                     >
-                        QUẢN LÝ TỒN BÃI
+                        QUẢN LÝ TỒN KHO HUB
                     </button>
                 </div>
                 <button
                     type="button"
                     @click="loadShipmentsData()"
                     :disabled="isLoading"
-                    class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center space-x-1 border border-slate-200"
+                    class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center space-x-1 border border-slate-200 shadow-xs cursor-pointer"
                 >
                     <span v-if="isLoading" class="w-2.5 h-2.5 border-2 border-slate-600 border-t-transparent rounded-full animate-spin"></span>
-                    <span v-else>↻</span>
+                    <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                     <span>Làm Mới</span>
                 </button>
             </div>
@@ -1219,6 +1219,7 @@
                 <span class="font-mono font-bold">{{ filteredShipments.length }} kiện</span>
             </div>
 
+            <transition name="subtab">
             <div v-if="currentSubtab === 'scan'" class="b2b-card operation-action-bar bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div>
                     <div class="flex items-center space-x-2">
@@ -1247,10 +1248,11 @@
                         :class="scannedAction.key === 'RECEIVE' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'"
                         class="px-3.5 py-1.5 text-white font-semibold rounded-lg text-xs transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {{ scannedAction.operation ? (scannedAction.operation === 'receive' ? 'Tiếp nhận & Lưu kho' : scannedAction.label) : 'Chỉ theo dõi' }}
+                        {{ scannedAction.operation ? (scannedAction.operation === 'receive' ? 'Tiếp Nhận & Nhập Kho' : scannedAction.label) : 'Chỉ theo dõi' }}
                     </button>
                 </div>
             </div>
+            </transition>
 
             <div class="b2b-card bg-white border border-slate-200 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2.5 shadow-sm text-xs">
                 <div class="flex flex-wrap items-center gap-2 flex-1">
@@ -1320,7 +1322,7 @@
                             <span v-if="!selectedHubAction" class="text-amber-700 ml-2">Chỉ chọn các kiện cùng thao tác.</span>
                         </div>
                         <div class="flex items-center gap-1.5">
-                                                        <button type="button" @click="handleBulkInventoryOperation('store')" :disabled="isActionRunning || selectedHubAction !== 'store' || (isAdmin && selectedHub === 'ALL')" class="px-2.5 py-1 rounded-md bg-blue-100 text-blue-800 border border-blue-200 font-bold disabled:opacity-50">Lưu kho</button>
+                            <button type="button" @click="handleBulkInventoryOperation('store')" :disabled="isActionRunning || selectedHubAction !== 'store' || (isAdmin && selectedHub === 'ALL')" class="px-2.5 py-1 rounded-md bg-blue-100 text-blue-800 border border-blue-200 font-bold disabled:opacity-50">Nhập Kho Hub</button>
                             <button type="button" @click="clearHubSelection" class="px-2.5 py-1 rounded-md border border-slate-200 bg-white text-slate-600 font-semibold">Bỏ chọn</button>
                         </div>
                     </div>
@@ -1353,7 +1355,6 @@
                                         title="Click để xem chi tiết hành trình & bản đồ"
                                     >
                                         <span>{{ item.trackingCode }}</span>
-                                        <span class="text-[11px] text-blue-500 opacity-60 group-hover:opacity-100 transition-all">↗</span>
                                     </button>
                                     <div v-if="item.senderName" class="text-[10px] text-slate-500 mt-1">Gửi: {{ item.senderName }}</div>
                                 </td>
@@ -1393,7 +1394,7 @@
                                         class="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-md font-bold hover:bg-amber-100 transition shadow-sm disabled:opacity-50"
                                         title="Tiếp nhận vào hub và lưu kho ngay trong 1 lần bấm"
                                     >
-                                        Tiếp nhận &amp; Lưu kho
+                                        Tiếp Nhận &amp; Nhập Kho
                                     </button>
                                     <button
                                         v-else-if="canStore(item)"
@@ -1402,7 +1403,7 @@
                                         :disabled="isActionRunning || (isAdmin && selectedHub === 'ALL') || !isShipmentInSelectedHubScope(item)"
                                         class="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-md font-bold hover:bg-blue-100 transition shadow-sm disabled:opacity-50"
                                     >
-                                        Lưu Kho
+                                        Nhập Kho Hub
                                     </button>
                                     <span v-else class="text-slate-400 text-[11px]">Theo dõi</span>
                                 </td>

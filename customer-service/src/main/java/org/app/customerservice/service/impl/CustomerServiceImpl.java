@@ -5,6 +5,7 @@ import org.app.customerservice.dto.request.CreateCustomerRequest;
 import org.app.customerservice.dto.request.UpdateCustomerRequest;
 import org.app.customerservice.dto.response.CustomerValidation;
 import org.app.customerservice.entity.Customer;
+import org.app.customerservice.entity.CustomerStatus;
 import org.app.customerservice.repository.CustomerRepository;
 import org.app.customerservice.service.CustomerService;
 import org.springframework.stereotype.Service;
@@ -179,6 +180,17 @@ public class CustomerServiceImpl implements CustomerService {
         }
 
         return customerRepository.save(customer);
+    }
+
+    @Override
+    public CustomerValidation getRetailCustomer() {
+        Customer retail = customerRepository.findCustomerByCustomerCode("CUS_RETAIL")
+                .orElseThrow(() -> new RuntimeException("Chưa khởi tạo tài khoản CUS_RETAIL trong database!"));
+        return CustomerValidation.builder()
+                .isValid(true)
+                .customerId(retail.getId())
+                .email(retail.getEmail())
+                .build();
     }
 }
 

@@ -14,6 +14,7 @@ import org.springframework.kafka.annotation.BackOff;
 import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ import java.util.UUID;
 public class TrackingConsumer {
     private final TrackingHistoryRepository trackingRepository;
     private final StringRedisTemplate redisTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @KafkaListener(topics = "shipment-events", groupId = "tracking-group")
     @RetryableTopic(attempts = "3", backOff = @BackOff(delay = 1000, multiplier = 2))
@@ -53,7 +55,12 @@ public class TrackingConsumer {
                 .node("Đơn hàng đã được khởi tạo và đang chờ phân tuyến")
                 .occurredAt(LocalDateTime.now())
                 .build();
-        trackingRepository.save(history);
+        TrackingHistory saved = trackingRepository.save(history);
+        try {
+            kafkaTemplate.send("tracking-replica-sync", event.getTrackingCode(), saved);
+        } catch (Exception e) {
+            log.warn("[TRACKING-SERVICE] Không thể bắn event sync sang Replica: {}", e.getMessage());
+        }
 
         String redisKey = "shipment-status:" + event.getTrackingCode();
         redisTemplate.opsForValue().set(redisKey,"PENDING_ROUTING", Duration.ofDays(7));
@@ -94,7 +101,12 @@ public class TrackingConsumer {
                     .node(nodeText)
                     .occurredAt(LocalDateTime.now())
                     .build();
-            trackingRepository.save(history);
+            TrackingHistory saved = trackingRepository.save(history);
+            try {
+                kafkaTemplate.send("tracking-replica-sync", event.getTrackingCode(), saved);
+            } catch (Exception e) {
+                log.warn("[TRACKING-SERVICE] Không thể bắn event sync sang Replica: {}", e.getMessage());
+            }
         }
 
         String redisKey = "shipment-status:" + event.getTrackingCode();
@@ -152,7 +164,12 @@ public class TrackingConsumer {
         history.setTransportLeg(event.getTransportLeg());
         history.setTripCode(event.getTripCode());
         history.setActorId(event.getActorId());
-        trackingRepository.save(history);
+        TrackingHistory saved = trackingRepository.save(history);
+        try {
+            kafkaTemplate.send("tracking-replica-sync", trackingCode, saved);
+        } catch (Exception e) {
+            log.warn("[TRACKING-SERVICE] Không thể bắn event sync sang Replica: {}", e.getMessage());
+        }
 
         updateRedisProjection(trackingCode, status, locationCode, occurredAt);
         log.info("[TRACKING-SERVICE] Đã lưu lifecycle {} cho {} tại {}",

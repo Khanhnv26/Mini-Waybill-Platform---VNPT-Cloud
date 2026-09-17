@@ -57,28 +57,44 @@ const Api = {
             // 3. HTTP 403 Forbidden: Bị từ chối bởi cơ chế phân quyền RBAC
             if (response.status === 403) {
                 console.warn('[API 403] Truy cập bị từ chối do không đủ quyền hạn RBAC.');
-                if (window.Utils && window.Utils.showToast) {
-                    window.Utils.showToast(
-                        'Truy Cập Bị Từ Chối (403)', 
-                        'Tài khoản của bạn không có quyền thực hiện chức năng này!', 
-                        'error'
-                    );
-                } else {
-                    alert('Quyền truy cập bị từ chối: Bạn không có quyền thực hiện thao tác này!');
+                if (!options.skip403Toast && !options.silent) {
+                    if (window.Utils && window.Utils.showToast) {
+                        window.Utils.showToast(
+                            'Truy Cập Bị Từ Chối (403)', 
+                            'Tài khoản của bạn không có quyền thực hiện chức năng này!', 
+                            'error'
+                        );
+                    } else {
+                        alert('Quyền truy cập bị từ chối: Bạn không có quyền thực hiện thao tác này!');
+                    }
                 }
                 return response;
             }
 
             // 4. HTTP 429 Too Many Requests: Bị giới hạn tần suất yêu cầu (Rate Limiting)
             if (response.status === 429) {
-                console.warn('[API 429] Vượt quá giới hạn tần suất yêu cầu (Rate Limiting).');
-                const retryAfter = response.headers.get('Retry-After') || 'vài';
-                if (window.Utils && window.Utils.showToast) {
-                    window.Utils.showToast(
-                        'Thao Tác Quá Nhanh (429)', 
-                        `Bạn đã gửi quá nhiều yêu cầu liên tiếp. Vui lòng chờ ${retryAfter} giây rồi thử lại!`, 
-                        'warning'
-                    );
+                console.warn('[API 429] Vượt quá giới hạn tần suất yêu cầu (Rate Limiting). Chuyển hướng sang màn hình lỗi 429...');
+                const retryAfter = response.headers.get('Retry-After') || '10';
+                
+                // Tránh lặp chuyển hướng nếu đang ở trang error.html
+                if (!window.location.pathname.includes('error.html')) {
+                    const fromUrl = encodeURIComponent(window.location.href);
+                    window.location.href = `error.html?code=429&retryAfter=${retryAfter}&from=${fromUrl}`;
+                }
+                return response;
+            }
+
+            // 5. HTTP 502 / 503: Cụm dịch vụ Gateway hoặc Microservices gián đoạn
+            if (response.status === 502 || response.status === 503) {
+                console.warn(`[API ${response.status}] Cụm dịch vụ Gateway hoặc Microservices tạm thời không khả dụng.`);
+                if (!options.silent) {
+                    if (window.Utils && window.Utils.showToast) {
+                        window.Utils.showToast(
+                            `Dịch Vụ Gián Đoạn (${response.status})`,
+                            'Máy chủ đang bảo trì hoặc tạm thời mất kết nối. Vui lòng thử lại sau!',
+                            'error'
+                        );
+                    }
                 }
                 return response;
             }
@@ -164,36 +180,39 @@ const Api = {
         return error;
     },
 
-    get(endpoint, headers = {}) {
-        return this.request(endpoint, { method: 'GET', headers });
+    get(endpoint, headers = {}, options = {}) {
+        return this.request(endpoint, { method: 'GET', headers, ...options });
     },
 
-    post(endpoint, body, headers = {}) {
+    post(endpoint, body, headers = {}, options = {}) {
         return this.request(endpoint, {
             method: 'POST',
             body: typeof body === 'string' ? body : JSON.stringify(body),
-            headers
+            headers,
+            ...options
         });
     },
 
-    put(endpoint, body, headers = {}) {
+    put(endpoint, body, headers = {}, options = {}) {
         return this.request(endpoint, {
             method: 'PUT',
             body: typeof body === 'string' ? body : JSON.stringify(body),
-            headers
+            headers,
+            ...options
         });
     },
 
-    patch(endpoint, body, headers = {}) {
+    patch(endpoint, body, headers = {}, options = {}) {
         return this.request(endpoint, {
             method: 'PATCH',
             body: typeof body === 'string' ? body : JSON.stringify(body),
-            headers
+            headers,
+            ...options
         });
     },
 
-    delete(endpoint, headers = {}) {
-        return this.request(endpoint, { method: 'DELETE', headers });
+    delete(endpoint, headers = {}, options = {}) {
+        return this.request(endpoint, { method: 'DELETE', headers, ...options });
     }
 };
 

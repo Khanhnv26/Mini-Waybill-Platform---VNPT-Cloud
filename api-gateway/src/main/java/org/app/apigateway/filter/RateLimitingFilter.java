@@ -29,18 +29,26 @@ public class RateLimitingFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        String clientIP = getClientIP(request);
 
-        Bucket userBucket = rateLimitService.resolveBucket(clientIP);
+        if("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        String clientIP = getClientIP(request);
+        String method = request.getMethod();
+
+
+
+        Bucket userBucket = rateLimitService.resolveBucket(clientIP, method);
         ConsumptionProbe userProbe = userBucket.tryConsumeAndReturnRemaining(1);
 
         if (!userProbe.isConsumed()) {
-
             long waitForRefill = Math.max(1, userProbe.getNanosToWaitForRefill() / 1_000_000_000);
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setHeader("Retry-After", String.valueOf(waitForRefill));
             response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"status\": 429, \"error\": \"User Limit Exceeded\", \"message\": \"Bạn đã gửi quá nhiều yêu cầu cá nhân. Vui lòng thử lại sau!\"}");
+            response.getWriter().write("{\"status\": 429, \"error\": \"User Limit Exceeded\", \"message\": \"Bạn đã gửi quá nhiều yêu cầu (" + method + "). Vui lòng thử lại sau!\"}");
             return;
         }
 
@@ -48,7 +56,6 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         ConsumptionProbe globalProbe = globalBucket.tryConsumeAndReturnRemaining(1);
 
         if (!globalProbe.isConsumed()) {
-
             long waitForRefill = Math.max(1, globalProbe.getNanosToWaitForRefill() / 1_000_000_000);
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setHeader("Retry-After", String.valueOf(waitForRefill));

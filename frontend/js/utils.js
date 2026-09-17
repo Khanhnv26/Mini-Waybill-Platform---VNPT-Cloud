@@ -109,20 +109,23 @@
         switch (status) {
             case 'CREATED': return 'Tiếp nhận đơn hàng';
             case 'PENDING_ROUTING': return 'Chờ định tuyến bưu cục';
-            case 'ROUTE_ASSIGNED': return 'Đã định tuyến luân chuyển';
-            case 'PICKED_UP': return 'Đã lấy hàng từ người gửi';
-            case 'IN_TRANSIT': return 'Đang vận chuyển liên tỉnh';
+            case 'ROUTE_ASSIGNED': return 'Đã định tuyến / Chờ chấp nhận';
+            case 'PICKED_UP': return 'Đã tiếp nhận tại quầy giao dịch';
+            case 'IN_TRANSIT': return 'Đang vận chuyển trung chuyển';
             case 'ARRIVED_DEST_HUB': {
                 const loc = String(locationCode || '').toUpperCase();
                 if (loc.startsWith('POST-')) {
-                    return 'Đã đến bưu cục phát';
+                    return 'Đã đến bưu cục phát / Chờ bàn giao';
                 }
-                return 'Đã đến Kho Tổng đích';
+                return 'Đã đến trung tâm khai thác đích';
             }
-            case 'OUT_FOR_DELIVERY': return 'Đang phát';
+            case 'OUT_FOR_DELIVERY': return 'Đang phát tận nơi';
             case 'DELIVERED': return 'Phát thành công';
             case 'FAILED':
             case 'DELIVERY_FAILED': return 'Phát không thành công';
+            case 'RETURNING': return 'Đang chuyển hoàn về người gửi';
+            case 'RETURNED': return 'Đã hoàn trả người gửi';
+            case 'CANCELLED': return 'Đã hủy bưu gửi';
             default: return status || 'N/A';
         }
     };
@@ -146,6 +149,12 @@
             case 'FAILED':
             case 'DELIVERY_FAILED':
                 return 'bg-rose-50 text-rose-700 border-rose-200';
+            case 'RETURNING':
+                return 'bg-orange-50 text-orange-800 border-orange-200';
+            case 'RETURNED':
+                return 'bg-slate-100 text-slate-700 border-slate-300';
+            case 'CANCELLED':
+                return 'bg-gray-100 text-gray-500 border-gray-200';
             default:
                 return 'bg-slate-50 text-slate-600 border-slate-200';
         }

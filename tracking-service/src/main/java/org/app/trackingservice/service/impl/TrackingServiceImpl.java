@@ -2,6 +2,8 @@ package org.app.trackingservice.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.app.trackingservice.config.DBType;
+import org.app.trackingservice.config.DataSourceContextHolder;
 import org.app.trackingservice.dto.event.ShipmentStatusUpdatedEvent;
 import org.app.trackingservice.dto.request.UpdateStatusRequest;
 import org.app.trackingservice.entity.ShipmentStatus;
@@ -15,8 +17,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -55,6 +57,15 @@ public class TrackingServiceImpl implements TrackingService {
         log.warn("Cache MISS cho đơn: {}, đang đọc từ SQL Server...", trackingCode);
 
         TrackingHistory latestHistory = trackingHistoryRepository.findTopByTrackingCodeOrderByOccurredAtDesc(trackingCode).orElse(null);
+        if (latestHistory == null) {
+            try {
+                DataSourceContextHolder.set(DBType.PRIMARY);
+                latestHistory = trackingHistoryRepository.findTopByTrackingCodeOrderByOccurredAtDesc(trackingCode).orElse(null);
+            } finally {
+                DataSourceContextHolder.clear();
+            }
+        }
+
         if (latestHistory != null) {
             redisTemplate.opsForValue().set(redisKey, latestHistory.getStatus(), Duration.ofDays(7));
             String loc = latestHistory.getLocationCode() != null ? latestHistory.getLocationCode() : "";
@@ -87,8 +98,18 @@ public class TrackingServiceImpl implements TrackingService {
 
         log.warn(">>> [CACHE MISS] Đọc lịch sử đơn '{}' từ REPLICA DB", trackingCode);
 
-
         List<TrackingHistory> list = trackingHistoryRepository.findByTrackingCodeOrderByOccurredAtAsc(trackingCode);
+        if (list.isEmpty()) {
+            // Fallback đọc từ PRIMARY nếu Replica chưa kịp đồng bộ (replication lag)
+            try {
+                log.info(">>> [REPLICA EMPTY/LAG] Fallback đọc lịch sử đơn '{}' từ PRIMARY DB", trackingCode);
+                DataSourceContextHolder.set(DBType.PRIMARY);
+                list = trackingHistoryRepository.findByTrackingCodeOrderByOccurredAtAsc(trackingCode);
+            } finally {
+                DataSourceContextHolder.clear();
+            }
+        }
+
         if (list.isEmpty()) {
             throw new ShipmentNotFoundException(trackingCode);
         }

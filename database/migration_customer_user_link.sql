@@ -74,7 +74,7 @@ WHERE c.user_id IS NULL;
 PRINT N'[4/5] Bước 4.2: Đã backfill user_id theo email trùng khớp.';
 GO
 
--- Bước 4.3: Tự động thêm bản ghi customer cho các user trong auth_db chưa có hồ sơ
+-- Bước 4.3: Tự động thêm bản ghi customer cho các user mang vai trò ROLE_CUSTOMER trong auth_db chưa có hồ sơ
 INSERT INTO customers (customer_code, full_name, email, phone_number, address, status, created_at, user_id)
 SELECT 
     'CUS' + RIGHT('000000' + CAST(u.id AS VARCHAR(10)), 6),
@@ -86,8 +86,11 @@ SELECT
     GETDATE(),
     u.id
 FROM auth_db.dbo.users u
-WHERE u.id NOT IN (SELECT user_id FROM customers WHERE user_id IS NOT NULL);
-PRINT N'[4/5] Bước 4.3: Đã tạo hồ sơ customer mới cho các user trong auth_db chưa có.';
+INNER JOIN auth_db.dbo.user_roles ur ON u.id = ur.user_id
+INNER JOIN auth_db.dbo.roles r ON ur.role_id = r.id
+WHERE r.name = 'ROLE_CUSTOMER'
+  AND u.id NOT IN (SELECT user_id FROM customers WHERE user_id IS NOT NULL);
+PRINT N'[4/5] Bước 4.3: Đã tạo hồ sơ customer mới cho các user có ROLE_CUSTOMER trong auth_db chưa có.';
 GO
 
 -- 5. Tạo Filtered Unique Indexes trên SQL Server (chỉ bắt buộc duy nhất khi NOT NULL)

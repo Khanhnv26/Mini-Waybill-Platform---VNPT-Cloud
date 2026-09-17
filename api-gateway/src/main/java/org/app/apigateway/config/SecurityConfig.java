@@ -1,5 +1,6 @@
 package org.app.apigateway.config;
 
+import jakarta.servlet.DispatcherType;
 import org.springframework.http.HttpMethod;
 import lombok.RequiredArgsConstructor;
 import org.app.apigateway.filter.JwtAuthenticationFilter;
@@ -27,6 +28,7 @@ public class SecurityConfig {
                    .cors(Customizer.withDefaults())
                    .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(
                         "/api/auth/login",
                         "/api/auth/register",
@@ -37,9 +39,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,"/api/shipments/*").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/notifications/*").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/routing/hubs").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/audits/**").hasAnyRole("CS", "ADMIN")
-                        .requestMatchers("/api/shippers/**").hasAnyRole( "ADMIN")
+                        .requestMatchers(HttpMethod.GET,"/api/routing/shipments/**").permitAll()
+                        .requestMatchers("/api/admin", "/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/audits", "/api/audits/**").hasAnyRole("CS", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/shippers", "/api/shippers/**").hasAnyRole("ADMIN", "POST_OFFICE_OPERATOR", "POST_OFFICE_STAFF", "DISPATCHER")
+                        .requestMatchers("/api/shippers", "/api/shippers/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                         .addFilterBefore(jwtAuthenticationFilter,UsernamePasswordAuthenticationFilter.class)
                         .build();

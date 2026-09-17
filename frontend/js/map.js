@@ -365,6 +365,29 @@
             return null;
         },
 
+        // Xác định Kho Tổng Cấp 1 phù hợp với địa chỉ tỉnh/thành phố
+        getCentralHubForAddress(address) {
+            if (!address) return null;
+            const addrLower = address.toLowerCase();
+            for (const [code, h] of Object.entries(this.hubCoordinates)) {
+                if (h.level === 1 && h.province) {
+                    if (addrLower.includes(h.province.toLowerCase())) {
+                        return { code, ...h };
+                    }
+                }
+            }
+            // unaccent fallback
+            const addrUnaccent = (typeof Utils !== 'undefined' && Utils.unaccent) 
+                ? Utils.unaccent(address) 
+                : addrLower.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd');
+            if (addrUnaccent.includes('ha noi') || addrUnaccent.includes('hn')) return { code: 'HUB-HN-01', ...this.hubCoordinates['HUB-HN-01'] };
+            if (addrUnaccent.includes('ho chi minh') || addrUnaccent.includes('hcm') || addrUnaccent.includes('sai gon') || addrUnaccent.includes('tphcm')) return { code: 'HUB-HCM-01', ...this.hubCoordinates['HUB-HCM-01'] };
+            if (addrUnaccent.includes('da nang') || addrUnaccent.includes('dn')) return { code: 'HUB-DN-01', ...this.hubCoordinates['HUB-DN-01'] };
+            if (addrUnaccent.includes('hai phong') || addrUnaccent.includes('hp')) return { code: 'HUB-HP-01', ...this.hubCoordinates['HUB-HP-01'] };
+            if (addrUnaccent.includes('can tho') || addrUnaccent.includes('ct')) return { code: 'HUB-CT-01', ...this.hubCoordinates['HUB-CT-01'] };
+            return null;
+        },
+
         // Xây dựng danh sách trạm mốc hành lang giao thông đường bộ Việt Nam (QL1A & Cao tốc Bắc - Nam CT01)
         buildVietnamWaypoints(sourceCoord, destCoord) {
             const isNorthToSouth = sourceCoord.lat > destCoord.lat;
@@ -1541,35 +1564,80 @@
             let destPostOffice = null;
             let routeCode = null;
 
+            // 0. Bổ sung từ metadata đơn hàng (assignment hoặc shipment)
+            if (extraMeta) {
+                sourceHub = extraMeta.sourceHub || extraMeta.originHubCode || extraMeta.sourceHubCode || null;
+                destHub = extraMeta.destinationHub || extraMeta.destHub || extraMeta.destHubCode || null;
+                originPostOffice = extraMeta.originPostOffice || extraMeta.originPostCode || null;
+                destPostOffice = extraMeta.destPostOffice || extraMeta.destinationPostOffice || extraMeta.destPostCode || null;
+                routeCode = extraMeta.routeCode || null;
+            }
+
             // 1. Phân tích từ lịch sử tracking
             (Array.isArray(history) ? history : []).forEach(item => {
-                const text = item && (item.node || item.note);
-                if (text && text.includes('ROUTE-')) {
-                    const match = text.match(/ROUTE-([A-Z0-9-]+)-TO-([A-Z0-9-]+)/);
-                    if (match) {
-                        sourceHub = match[1];
-                        destHub = match[2];
-                        routeCode = match[0];
+                const text = item && (item.node || item.note || '');
+                if (text) {
+                    if (text.includes('ROUTE-')) {
+                        const match = text.match(/ROUTE-([A-Z0-9-]+)-TO-([A-Z0-9-]+)/);
+                        if (match) {
+                            if (!sourceHub) sourceHub = match[1];
+                            if (!destHub) destHub = match[2];
+                            if (!routeCode) routeCode = match[0];
+                        }
                     }
-                    const postMatch = text.match(/(POST-[A-Z0-9-]+).*?(POST-[A-Z0-9-]+)/);
-                    if (postMatch) {
-                        originPostOffice = postMatch[1];
-                        destPostOffice = postMatch[2];
+                    const postMatches = [...text.matchAll(/POST-[A-Z0-9-]+/g)].map(m => m[0]);
+                    if (postMatches.length >= 2) {
+                        if (!originPostOffice) originPostOffice = postMatches[0];
+                        if (!destPostOffice) destPostOffice = postMatches[1];
+                    } else if (postMatches.length === 1 && !originPostOffice) {
+                        originPostOffice = postMatches[0];
+                    }
+                    const hubMatches = [...text.matchAll(/HUB-[A-Z0-9-]+/g)].map(m => m[0]);
+                    if (hubMatches.length >= 2) {
+                        if (!sourceHub) sourceHub = hubMatches[0];
+                        if (!destHub) destHub = hubMatches[1];
+                    } else if (hubMatches.length === 1 && !sourceHub) {
+                        sourceHub = hubMatches[0];
                     }
                 }
             });
 
-            // 2. Bổ sung từ metadata đơn hàng nếu lịch sử chưa có
-            if (!originPostOffice && extraMeta?.originPostOffice) originPostOffice = extraMeta.originPostOffice;
-            if (!destPostOffice && extraMeta?.destPostOffice) destPostOffice = extraMeta.destPostOffice;
-
+            // 2. Tự động xác định Bưu cục và Hub từ địa chỉ người gửi và người nhận
             if (!originPostOffice && extraMeta?.senderAddress) {
                 const found = this.getPostOfficeForAddress(extraMeta.senderAddress, sourceHub);
-                if (found) originPostOffice = found.code;
+                if (found) {
+                    originPostOffice = found.code;
+                    if (!sourceHub && found.parent) sourceHub = found.parent;
+                }
             }
             if (!destPostOffice && extraMeta?.receiverAddress) {
                 const found = this.getPostOfficeForAddress(extraMeta.receiverAddress, destHub);
-                if (found) destPostOffice = found.code;
+                if (found) {
+                    destPostOffice = found.code;
+                    if (!destHub && found.parent) destHub = found.parent;
+                }
+            }
+
+            if (!sourceHub && originPostOffice) {
+                const poCoord = this.getHubCoord(originPostOffice);
+                if (poCoord?.parent) sourceHub = poCoord.parent;
+            }
+            if (!destHub && destPostOffice) {
+                const poCoord = this.getHubCoord(destPostOffice);
+                if (poCoord?.parent) destHub = poCoord.parent;
+            }
+
+            if (!sourceHub && extraMeta?.senderAddress) {
+                const foundHub = this.getCentralHubForAddress(extraMeta.senderAddress);
+                if (foundHub) sourceHub = foundHub.code;
+            }
+            if (!destHub && extraMeta?.receiverAddress) {
+                const foundHub = this.getCentralHubForAddress(extraMeta.receiverAddress);
+                if (foundHub) destHub = foundHub.code;
+            }
+
+            if (!routeCode && sourceHub && destHub) {
+                routeCode = `ROUTE-${sourceHub}-TO-${destHub}`;
             }
 
             const sourceCoord = this.getHubCoord(sourceHub);

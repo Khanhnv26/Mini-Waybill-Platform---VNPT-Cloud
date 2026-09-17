@@ -105,9 +105,12 @@ public class RoutingConsumer {
         kafkaTemplate.send("route-assigned", event.getTrackingCode(), routeEvent);
         log.info("[ROUTING-SERVICE] Đã bắn event RouteAssignedEvent lên topic 'route-assigned'");
 
-        String initialNote = hasSeparateOriginPo
-                ? String.format("Đã phân tuyến: Bưu cục gốc [%s] tiếp nhận ➔ Chờ xe gom lên Kho Tổng [%s].", originPostOffice, sourceHub)
-                : "Đã phân tuyến vận chuyển: " + routeCode;
+        String initialNote = String.format("Đã phân tuyến vận chuyển: %s (%s ➔ %s ➔ %s ➔ %s)",
+                routeCode,
+                originPostOffice != null ? originPostOffice : sourceHub,
+                sourceHub,
+                destinationHub,
+                destPostOffice != null ? destPostOffice : destinationHub);
 
         ShipmentStatusUpdatedEvent statusEvent = ShipmentStatusUpdatedEvent.builder()
                 .trackingCode(trackingCode)

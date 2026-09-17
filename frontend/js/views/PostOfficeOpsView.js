@@ -494,7 +494,7 @@
                 const shipmentService = getShipmentService();
                 if (!shipmentService || typeof shipmentService.getAll !== 'function') return [];
                 try {
-                    return unwrapCollection(await shipmentService.getAll())
+                    return unwrapCollection(await shipmentService.getAll({ skip403Toast: true }))
                         .map(normalizeInventoryItem)
                         .filter(Boolean);
                 } catch (error) {
@@ -1002,32 +1002,67 @@
                 );
             };
 
-            // Danh mục bưu tá giao hàng mẫu phân theo bưu cục
+            // Danh mục bưu tá giao hàng dự phòng phân theo bưu cục
             const COURIER_PRESETS = [
                 // Hà Nội
-                { code: 'BT-HN-CG-01', name: 'Nguyễn Văn Nam', phone: '0912.345.678', station: 'POST-HN-CG', area: 'Cầu Giấy' },
-                { code: 'BT-HN-CG-02', name: 'Đỗ Văn Hùng', phone: '0912.345.679', station: 'POST-HN-CG', area: 'Dịch Vọng' },
-                { code: 'BT-HN-DDA-01', name: 'Lê Văn Cường', phone: '0912.345.680', station: 'POST-HN-DDA', area: 'Đống Đa' },
-                { code: 'BT-HN-HBT-01', name: 'Trần Văn Mạnh', phone: '0912.345.681', station: 'POST-HN-HBT', area: 'Hai Bà Trưng' },
-                { code: 'BT-HN-TX-01', name: 'Vũ Văn Long', phone: '0912.345.682', station: 'POST-HN-TX', area: 'Thanh Xuân' },
-                { code: 'BT-HN-HD-01', name: 'Bùi Văn Tuấn', phone: '0912.345.683', station: 'POST-HN-HD', area: 'Hà Đông' },
+                { code: 'BT-HN-CG-01', name: 'Nguyễn Văn Nam', phone: '0912.345.678', station: 'POST-HN-CG', area: 'Cầu Giấy', hasLinkedTelegram: false },
+                { code: 'BT-HN-CG-02', name: 'Đỗ Văn Hùng', phone: '0912.345.679', station: 'POST-HN-CG', area: 'Dịch Vọng', hasLinkedTelegram: false },
+                { code: 'BT-HN-DDA-01', name: 'Lê Văn Cường', phone: '0912.345.680', station: 'POST-HN-DDA', area: 'Đống Đa', hasLinkedTelegram: false },
+                { code: 'BT-HN-HBT-01', name: 'Trần Văn Mạnh', phone: '0912.345.681', station: 'POST-HN-HBT', area: 'Hai Bà Trưng', hasLinkedTelegram: false },
+                { code: 'BT-HN-TX-01', name: 'Vũ Văn Long', phone: '0912.345.682', station: 'POST-HN-TX', area: 'Thanh Xuân', hasLinkedTelegram: false },
+                { code: 'BT-HN-HD-01', name: 'Bùi Văn Tuấn', phone: '0912.345.683', station: 'POST-HN-HD', area: 'Hà Đông', hasLinkedTelegram: false },
 
                 // Đà Nẵng
-                { code: 'BT-DN-HC-01', name: 'Phan Văn Sơn', phone: '0913.456.789', station: 'POST-DN-HC', area: 'Hải Châu' },
-                { code: 'BT-DN-TK-01', name: 'Ngô Văn Đức', phone: '0913.456.790', station: 'POST-DN-TK', area: 'Thanh Khê' },
-                { code: 'BT-DN-ST-01', name: 'Hoàng Văn Thái', phone: '0913.456.791', station: 'POST-DN-ST', area: 'Sơn Trà' },
+                { code: 'BT-DN-HC-01', name: 'Phan Văn Sơn', phone: '0913.456.789', station: 'POST-DN-HC', area: 'Hải Châu', hasLinkedTelegram: false },
+                { code: 'BT-DN-TK-01', name: 'Ngô Văn Đức', phone: '0913.456.790', station: 'POST-DN-TK', area: 'Thanh Khê', hasLinkedTelegram: false },
+                { code: 'BT-DN-ST-01', name: 'Hoàng Văn Thái', phone: '0913.456.791', station: 'POST-DN-ST', area: 'Sơn Trà', hasLinkedTelegram: false },
 
                 // TP.HCM
-                { code: 'BT-HCM-Q1-01', name: 'Nguyễn Văn Phát', phone: '0918.765.432', station: 'POST-HCM-Q1', area: 'Bến Nghé - Bến Thành (Quận 1)' },
-                { code: 'BT-HCM-Q1-02', name: 'Trần Thanh Bình', phone: '0918.765.433', station: 'POST-HCM-Q1', area: 'Đa Kao - Tân Định (Quận 1)' },
-                { code: 'BT-HCM-TB-01', name: 'Phạm Văn Minh', phone: '0918.765.434', station: 'POST-HCM-TB', area: 'Tân Bình' },
-                { code: 'BT-HCM-BT-01', name: 'Đặng Văn Khoa', phone: '0918.765.435', station: 'POST-HCM-BT', area: 'Bình Thạnh' },
-                { code: 'BT-HCM-TD-01', name: 'Trịnh Văn Sang', phone: '0918.765.436', station: 'POST-HCM-TD', area: 'Thủ Đức' },
-                { code: 'BT-HCM-Q7-01', name: 'Lý Văn Hải', phone: '0918.765.437', station: 'POST-HCM-Q7', area: 'Quận 7' },
+                { code: 'BT-HCM-Q1-01', name: 'Nguyễn Văn Phát', phone: '0918.765.432', station: 'POST-HCM-Q1', area: 'Bến Nghé - Bến Thành (Quận 1)', hasLinkedTelegram: false },
+                { code: 'BT-HCM-Q1-02', name: 'Trần Thanh Bình', phone: '0918.765.433', station: 'POST-HCM-Q1', area: 'Đa Kao - Tân Định (Quận 1)', hasLinkedTelegram: false },
+                { code: 'BT-HCM-TB-01', name: 'Phạm Văn Minh', phone: '0918.765.434', station: 'POST-HCM-TB', area: 'Tân Bình', hasLinkedTelegram: false },
+                { code: 'BT-HCM-BT-01', name: 'Đặng Văn Khoa', phone: '0918.765.435', station: 'POST-HCM-BT', area: 'Bình Thạnh', hasLinkedTelegram: false },
+                { code: 'BT-HCM-TD-01', name: 'Trịnh Văn Sang', phone: '0918.765.436', station: 'POST-HCM-TD', area: 'Thủ Đức', hasLinkedTelegram: false },
+                { code: 'BT-HCM-Q7-01', name: 'Lý Văn Hải', phone: '0918.765.437', station: 'POST-HCM-Q7', area: 'Quận 7', hasLinkedTelegram: false },
 
                 // Toàn quốc / Tài khoản mẫu hệ thống
-                { code: 'shipper@waybill.vn', name: 'Bưu Tá Hệ Thống (Mẫu RBAC)', phone: '0909.000.999', station: 'ALL', area: 'Toàn Mạng Lưới' }
+                { code: 'shipper@waybill.vn', name: 'Bưu Tá Hệ Thống (Mẫu RBAC)', phone: '0909.000.999', station: 'ALL', area: 'Toàn Mạng Lưới', hasLinkedTelegram: false }
             ];
+
+            // Danh bạ bưu tá nạp động từ shipper-service
+            const shippersList = ref([]);
+            const isShippersLoading = ref(false);
+
+            const loadShippers = async (silent = false) => {
+                if (!silent) isShippersLoading.value = true;
+                try {
+                    if (typeof Api !== 'undefined' && Api.get) {
+                        const res = await Api.get('/api/shippers', {}, { skip403Toast: true });
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (Array.isArray(data) && data.length > 0) {
+                                shippersList.value = data.map(s => ({
+                                    code: s.courierCode,
+                                    name: s.fullName,
+                                    phone: s.phone,
+                                    station: s.stationCode,
+                                    area: s.stationCode || 'Khu vực bưu cục',
+                                    hasLinkedTelegram: Boolean(s.hasLinkedTelegram),
+                                    status: s.status
+                                }));
+                                return;
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.warn('[PostOfficeOpsView] Không nạp được danh bạ từ shipper-service, dùng danh bạ dự phòng:', err);
+                } finally {
+                    if (!silent) isShippersLoading.value = false;
+                }
+                if (shippersList.value.length === 0) {
+                    shippersList.value = [...COURIER_PRESETS];
+                }
+            };
 
             const showHandoffModal = ref(false);
             const handoffForm = reactive({
@@ -1046,9 +1081,15 @@
 
             const availableCouriers = computed(() => {
                 const po = (handoffForm.postOfficeCode || selectedPostOffice.value || '').toUpperCase();
-                const matched = COURIER_PRESETS.filter(c => c.station === po);
-                const others = COURIER_PRESETS.filter(c => c.station !== po);
+                const source = shippersList.value.length > 0 ? shippersList.value : COURIER_PRESETS;
+                const matched = source.filter(c => (c.station || '').toUpperCase() === po || (c.station || '').toUpperCase() === 'ALL');
+                const others = source.filter(c => (c.station || '').toUpperCase() !== po && (c.station || '').toUpperCase() !== 'ALL');
                 return [...matched, ...others];
+            });
+
+            const selectedCourierInfo = computed(() => {
+                if (!handoffForm.selectedCourier || handoffForm.selectedCourier === 'CUSTOM') return null;
+                return availableCouriers.value.find(c => c.code === handoffForm.selectedCourier) || null;
             });
 
             const openHandoffModal = (item) => {
@@ -1064,8 +1105,8 @@
                 handoffForm.codAmount = item.codAmount || 0;
                 handoffForm.weight = item.weight || 0;
 
-                const matched = COURIER_PRESETS.find(c => c.station === poCode);
-                handoffForm.selectedCourier = matched ? matched.code : (COURIER_PRESETS[0]?.code || 'shipper@waybill.vn');
+                const matched = availableCouriers.value.find(c => (c.station || '').toUpperCase() === String(poCode).toUpperCase());
+                handoffForm.selectedCourier = matched ? matched.code : (availableCouriers.value[0]?.code || 'shipper@waybill.vn');
                 handoffForm.customCourierId = '';
                 handoffForm.note = `Bưu cục [${poInfo.name || poCode}] bàn giao bưu gửi cho bưu tá đi phát chặng cuối`;
                 showHandoffModal.value = true;
@@ -1312,6 +1353,7 @@
                     selectedPostOffice.value = stationCode.value || 'ALL';
                 }
                 loadShipmentsData();
+                loadShippers(true);
             });
 
             return {
@@ -1373,6 +1415,10 @@
                 showHandoffModal,
                 handoffForm,
                 availableCouriers,
+                shippersList,
+                isShippersLoading,
+                loadShippers,
+                selectedCourierInfo,
                 openHandoffModal,
                 openBulkHandoffModal,
                 confirmHandoff,
@@ -1409,23 +1455,23 @@
                         </p>
                     </div>
 
-                    <!-- 4 Khối KPI Tinh Gọn Màu Trắng Bán Trong Suốt -->
+                    <!-- 4 Khối KPI Tinh Gọn Chuẩn Nghiệp Vụ Bưu Chính -->
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 self-start sm:self-auto">
                         <div class="px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[85px]">
                             <div class="text-base sm:text-lg font-bold leading-tight text-white">{{ kpiAwaitingIntake }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Chờ Nhận Quầy</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Chờ Chấp Nhận</div>
                         </div>
                         <div class="px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[85px]">
                             <div class="text-base sm:text-lg font-bold leading-tight text-white">{{ kpiStagedInOffice }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Tồn Chờ Gom</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Tồn Chờ Gom Xe</div>
                         </div>
                         <div class="px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[85px]">
                             <div class="text-base sm:text-lg font-bold leading-tight text-white">{{ kpiArrivedFromHub }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Đã Về Bưu Cục</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Chờ Giao Bưu Tá</div>
                         </div>
                         <div class="px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[85px]">
                             <div class="text-base sm:text-lg font-bold leading-tight text-white">{{ kpiOutForDelivery }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Đang Đi Phát</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Đang Phát Tận Nơi</div>
                         </div>
                     </div>
                 </div>
@@ -1437,14 +1483,14 @@
                     <button 
                         @click="currentSubtab = 'outbound'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center space-x-2 whitespace-nowrap',
+                            'pb-2.5 text-xs sm:text-sm font-bold transition-all duration-200 border-b-2 flex items-center space-x-2 whitespace-nowrap cursor-pointer',
                             currentSubtab === 'outbound' 
                                 ? 'border-blue-600 text-blue-600' 
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         ]"
                     >
-                        <span>CỬA GỬI ĐI TẠI QUẦY</span>
-                        <span :class="currentSubtab === 'outbound' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'" class="px-2 py-0.5 rounded-full text-[11px] font-semibold">
+                        <span>KHAI THÁC ĐI (CHẤP NHẬN GỬI)</span>
+                        <span :class="[currentSubtab === 'outbound' ? 'bg-blue-100 text-blue-700 font-bold scale-105 shadow-xs' : 'bg-slate-100 text-slate-600', 'px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all duration-200 inline-block']">
                             {{ outboundCount }}
                         </span>
                     </button>
@@ -1452,14 +1498,14 @@
                     <button 
                         @click="currentSubtab = 'inbound'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center space-x-2 whitespace-nowrap',
+                            'pb-2.5 text-xs sm:text-sm font-bold transition-all duration-200 border-b-2 flex items-center space-x-2 whitespace-nowrap cursor-pointer',
                             currentSubtab === 'inbound' 
                                 ? 'border-blue-600 text-blue-600' 
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         ]"
                     >
-                        <span>CỬA TRẢ HÀNG PHÁT</span>
-                        <span :class="currentSubtab === 'inbound' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'" class="px-2 py-0.5 rounded-full text-[11px] font-semibold">
+                        <span>KHAI THÁC ĐẾN &amp; BÀN GIAO PHÁT</span>
+                        <span :class="[currentSubtab === 'inbound' ? 'bg-blue-100 text-blue-700 font-bold scale-105 shadow-xs' : 'bg-slate-100 text-slate-600', 'px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all duration-200 inline-block']">
                             {{ inboundCount }}
                         </span>
                     </button>
@@ -1467,14 +1513,14 @@
                     <button 
                         @click="currentSubtab = 'inventory'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center space-x-2 whitespace-nowrap',
+                            'pb-2.5 text-xs sm:text-sm font-bold transition-all duration-200 border-b-2 flex items-center space-x-2 whitespace-nowrap cursor-pointer',
                             currentSubtab === 'inventory' 
                                 ? 'border-blue-600 text-blue-600' 
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         ]"
                     >
-                        <span>QUẢN LÝ TỒN KHO BƯU CỤC</span>
-                        <span :class="currentSubtab === 'inventory' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'" class="px-2 py-0.5 rounded-full text-[11px] font-semibold">
+                        <span>KIỂM KÊ TỒN BƯU CỤC</span>
+                        <span :class="[currentSubtab === 'inventory' ? 'bg-blue-100 text-blue-700 font-bold scale-105 shadow-xs' : 'bg-slate-100 text-slate-600', 'px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all duration-200 inline-block']">
                             {{ inventoryCount }}
                         </span>
                     </button>
@@ -1515,7 +1561,7 @@
                             placeholder="Tìm mã vận đơn, người gửi, địa chỉ..."
                             class="w-full pl-3 pr-8 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                         />
-                        <span v-if="searchQuery" @click="searchQuery = ''" class="absolute right-2.5 top-1.5 text-slate-400 hover:text-slate-600 cursor-pointer">✕</span>
+                        <span v-if="searchQuery" @click="searchQuery = ''" class="absolute right-2.5 top-1.5 text-slate-400 hover:text-slate-600 cursor-pointer font-bold">X</span>
                     </div>
 
                     <!-- Lựa chọn Bưu Cục Làm Việc -->
@@ -1559,91 +1605,93 @@
                     <div class="h-4 w-px bg-slate-200 hidden sm:block"></div>
 
                     <!-- HÀNG NÚT LỌC NHANH (SEGMENTED PILLS) -->
-                    <div v-if="currentSubtab === 'outbound'" class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-                        <button 
-                            @click="selectedStatusFilter = 'ALL'; currentPage = 1"
-                            :class="selectedStatusFilter === 'ALL' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Tất cả ({{ outboundCount }})
-                        </button>
-                        <button 
-                            @click="selectedStatusFilter = 'WAITING_INTAKE'; currentPage = 1"
-                            :class="selectedStatusFilter === 'WAITING_INTAKE' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Chờ nhận quầy ({{ kpiAwaitingIntake }})
-                        </button>
-                        <button 
-                            @click="selectedStatusFilter = 'STORED_OFFICE'; currentPage = 1"
-                            :class="selectedStatusFilter === 'STORED_OFFICE' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Đã lưu kho ({{ kpiStagedInOffice }})
-                        </button>
-                        <button 
-                            @click="selectedStatusFilter = 'IN_TRANSIT'; currentPage = 1"
-                            :class="selectedStatusFilter === 'IN_TRANSIT' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Đang chuyển ({{ kpiInTransitOutbound }})
-                        </button>
-                    </div>
+                    <transition name="subtab" mode="out-in">
+                        <div v-if="currentSubtab === 'outbound'" key="pills-outbound" class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                            <button 
+                                @click="selectedStatusFilter = 'ALL'; currentPage = 1"
+                                :class="selectedStatusFilter === 'ALL' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Tất cả ({{ outboundCount }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'WAITING_INTAKE'; currentPage = 1"
+                                :class="selectedStatusFilter === 'WAITING_INTAKE' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Chờ chấp nhận ({{ kpiAwaitingIntake }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'STORED_OFFICE'; currentPage = 1"
+                                :class="selectedStatusFilter === 'STORED_OFFICE' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Tồn kho chờ gom xe ({{ kpiStagedInOffice }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'IN_TRANSIT'; currentPage = 1"
+                                :class="selectedStatusFilter === 'IN_TRANSIT' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Đang vận chuyển trung chuyển ({{ kpiInTransitOutbound }})
+                            </button>
+                        </div>
 
-                    <div v-else-if="currentSubtab === 'inbound'" class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-                        <button 
-                            @click="selectedStatusFilter = 'ALL'; currentPage = 1"
-                            :class="selectedStatusFilter === 'ALL' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Tất cả ({{ inboundCount }})
-                        </button>
-                        <button 
-                            @click="selectedStatusFilter = 'WAITING_HANDOFF'; currentPage = 1"
-                            :class="selectedStatusFilter === 'WAITING_HANDOFF' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Chờ giao bưu tá ({{ kpiArrivedFromHub }})
-                        </button>
-                        <button 
-                            @click="selectedStatusFilter = 'OUT_FOR_DELIVERY'; currentPage = 1"
-                            :class="selectedStatusFilter === 'OUT_FOR_DELIVERY' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Đang phát ({{ kpiOutForDelivery }})
-                        </button>
-                        <button 
-                            @click="selectedStatusFilter = 'DELIVERED'; currentPage = 1"
-                            :class="selectedStatusFilter === 'DELIVERED' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Đã phát ({{ kpiDeliveredInbound }})
-                        </button>
-                    </div>
+                        <div v-else-if="currentSubtab === 'inbound'" key="pills-inbound" class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                            <button 
+                                @click="selectedStatusFilter = 'ALL'; currentPage = 1"
+                                :class="selectedStatusFilter === 'ALL' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Tất cả ({{ inboundCount }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'WAITING_HANDOFF'; currentPage = 1"
+                                :class="selectedStatusFilter === 'WAITING_HANDOFF' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Chờ bàn giao bưu tá ({{ kpiArrivedFromHub }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'OUT_FOR_DELIVERY'; currentPage = 1"
+                                :class="selectedStatusFilter === 'OUT_FOR_DELIVERY' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Đang phát tận nơi ({{ kpiOutForDelivery }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'DELIVERED'; currentPage = 1"
+                                :class="selectedStatusFilter === 'DELIVERED' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Phát thành công ({{ kpiDeliveredInbound }})
+                            </button>
+                        </div>
 
-                    <div v-else-if="currentSubtab === 'inventory'" class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-                        <button 
-                            @click="selectedStatusFilter = 'ALL'; currentPage = 1"
-                            :class="selectedStatusFilter === 'ALL' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Tất cả tồn kho ({{ inventoryCount }})
-                        </button>
-                        <button 
-                            @click="selectedStatusFilter = 'STORED_OFFICE'; currentPage = 1"
-                            :class="selectedStatusFilter === 'STORED_OFFICE' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Quầy gửi chờ gom ({{ inventoryStagedCount }})
-                        </button>
-                        <button 
-                            @click="selectedStatusFilter = 'WAITING_HANDOFF'; currentPage = 1"
-                            :class="selectedStatusFilter === 'WAITING_HANDOFF' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                            class="px-2.5 py-1 rounded-md text-[11px] transition"
-                        >
-                            Hàng về chờ phát ({{ inventoryWaitingHandoffCount }})
-                        </button>
-                    </div>
+                        <div v-else-if="currentSubtab === 'inventory'" key="pills-inventory" class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                            <button 
+                                @click="selectedStatusFilter = 'ALL'; currentPage = 1"
+                                :class="selectedStatusFilter === 'ALL' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Tất cả tồn kho ({{ inventoryCount }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'STORED_OFFICE'; currentPage = 1"
+                                :class="selectedStatusFilter === 'STORED_OFFICE' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Hàng quầy chờ gom xe ({{ inventoryStagedCount }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'WAITING_HANDOFF'; currentPage = 1"
+                                :class="selectedStatusFilter === 'WAITING_HANDOFF' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Hàng đến chờ bàn giao bưu tá ({{ inventoryWaitingHandoffCount }})
+                            </button>
+                        </div>
+                    </transition>
 
                     <!-- Dropdown Phân Trang (Số dòng trên trang) -->
                     <select 
@@ -1680,7 +1728,8 @@
             <!-- =============================================================== -->
             <!-- BẢNG DỮ LIỆU ĐỒNG NHẤT (CỬA GỬI ĐI, CỬA TRẢ PHÁT & TỒN KHO)    -->
             <!-- =============================================================== -->
-            <div class="space-y-3">
+            <transition name="subtab" mode="out-in">
+                <div :key="currentSubtab" class="space-y-3">
                 
                 <!-- BẢNG DANH SÁCH BƯU GỬI TẠI BƯU CỤC -->
                 <div v-if="selectedPostOfficeItems.length" class="selection-summary-bar px-3 py-2 rounded-lg bg-slate-100 border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -1736,7 +1785,6 @@
                                             title="Xem chi tiết hành trình & bản đồ"
                                         >
                                             <span>{{ item.trackingCode }}</span>
-                                            <span class="text-[11px] text-blue-400 opacity-60 group-hover:opacity-100 transition-all">↗</span>
                                         </button>
                                     </td>
                                     <td class="py-3 px-3.5 text-slate-700">
@@ -1769,7 +1817,7 @@
                                                     class="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-semibold transition shadow-xs"
                                                     :title="'Tiếp nhận vào bưu cục ' + getOriginPostOfficeInfo(item).name"
                                                 >
-                                                    Tiếp Nhận Quầy
+                                                    Chấp Nhận Bưu Gửi
                                                 </button>
                                             </template>
 
@@ -1781,7 +1829,7 @@
                                                     class="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded text-[11px] font-semibold transition shadow-xs disabled:opacity-50"
                                                     title="Xác nhận bưu gửi đã được nhập kho bưu cục"
                                                 >
-                                                    Lưu Kho Bưu Cục
+                                                    Nhập Kho Bưu Cục
                                                 </button>
                                             </template>
 
@@ -1793,16 +1841,15 @@
 
                                         <!-- LUỒNG 2: CỬA TRẢ HÀNG PHÁT (INBOUND) -->
                                         <template v-else-if="currentSubtab === 'inbound'">
-                                            <!-- Hàng đến bưu cục phát: Bàn giao bưu tá 1-Click -->
+                                            <!-- Hàng đến bưu cục phát: Bàn giao bưu tá -->
                                             <template v-if="(item.currentStatus || item.status) === 'ARRIVED_DEST_HUB'">
                                                 <button 
                                                     @click="openHandoffModal(item)"
                                                     :disabled="isActionRunning || (isAdmin && selectedPostOffice === 'ALL')"
                                                     class="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-semibold transition shadow-xs disabled:opacity-50 inline-flex items-center gap-1"
-                                                    title="Bàn giao bưu phẩm cho bưu tá phát chặng cuối (Tự động hoàn tất lưu kho & bàn giao)"
+                                                    title="Bàn giao bưu gửi cho bưu tá phát chặng cuối"
                                                 >
                                                     <span>Bàn Giao Bưu Tá</span>
-                                                    <span class="text-[10px] opacity-80">(1-Click)</span>
                                                 </button>
                                             </template>
 
@@ -1812,9 +1859,9 @@
                                                     @click="openHandoffModal(item)"
                                                     :disabled="isActionRunning || (isAdmin && selectedPostOffice === 'ALL')"
                                                     class="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-semibold transition shadow-xs"
-                                                    title="Bàn giao bưu tá phát lại"
+                                                    title="Bàn giao bưu tá tái phát"
                                                 >
-                                                    Phát Lại
+                                                    Tái Bàn Giao Phát
                                                 </button>
                                             </template>
 
@@ -1832,7 +1879,7 @@
                                                     :disabled="isActionRunning || (isAdmin && selectedPostOffice === 'ALL')"
                                                     class="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-semibold transition shadow-xs"
                                                 >
-                                                    Tiếp Nhận
+                                                    Chấp Nhận Bưu Gửi
                                                 </button>
                                             </template>
                                             <template v-else-if="(item.currentStatus || item.status) === 'PICKED_UP' && getInventoryStatus(item) !== 'STORED'">
@@ -1841,7 +1888,7 @@
                                                     :disabled="isActionRunning || (isAdmin && selectedPostOffice === 'ALL')"
                                                     class="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded text-[11px] font-semibold transition shadow-xs"
                                                 >
-                                                    Lưu Kho
+                                                    Nhập Kho Bưu Cục
                                                 </button>
                                             </template>
                                             <template v-else-if="(item.currentStatus || item.status) === 'ARRIVED_DEST_HUB'">
@@ -1852,16 +1899,15 @@
                                                     class="px-2 py-1 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded text-[11px] font-medium transition disabled:opacity-50 mr-1 shadow-xs"
                                                     title="Chỉ dùng cho hàng chưa lưu kho (di trú); hàng về theo chuyến đã tự lưu kho"
                                                 >
-                                                    Lưu Kho
+                                                    Nhập Kho
                                                 </button>
                                                 <button 
                                                     @click="openHandoffModal(item)"
                                                     :disabled="isActionRunning || (isAdmin && selectedPostOffice === 'ALL')"
                                                     class="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-semibold transition shadow-xs inline-flex items-center gap-1"
-                                                    title="Bàn giao bưu phẩm cho bưu tá phát chặng cuối (1-Click)"
+                                                    title="Bàn giao bưu gửi cho bưu tá phát chặng cuối"
                                                 >
                                                     <span>Bàn Giao Bưu Tá</span>
-                                                    <span class="text-[10px] opacity-80">(1-Click)</span>
                                                 </button>
                                             </template>
                                             <template v-else>
@@ -1911,6 +1957,7 @@
                     </div>
                 </div>
             </div>
+            </transition>
 
             <!-- =============================================================== -->
             <!-- MODAL: BÀN GIAO BƯU PHẨM CHO BƯU TÁ ĐI PHÁT (OUT_FOR_DELIVERY)   -->
@@ -1921,14 +1968,16 @@
                         <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
                             <div>
                                 <h3 class="font-bold text-sm text-slate-900 uppercase tracking-wider">
-                                    {{ handoffForm.bulkMode ? 'Bàn Giao Bưu Tá Hàng Loạt' : 'Bàn Giao Bưu Phẩm Cho Bưu Tá' }}
+                                    {{ handoffForm.bulkMode ? 'Lập Bảng Kê Bàn Giao Bưu Tá' : 'Bàn Giao Bưu Gửi Cho Bưu Tá' }}
                                 </h3>
                                 <p class="text-xs text-slate-500 mt-0.5">
                                     <template v-if="handoffForm.bulkMode">Lô bàn giao: <span class="font-bold text-indigo-600">{{ handoffForm.bulkCodes.length }} bưu gửi</span></template>
                                     <template v-else>Mã bưu gửi: <span class="font-mono font-bold text-blue-600 whitespace-nowrap">{{ handoffForm.trackingCode }}</span></template>
                                 </p>
                             </div>
-                            <button @click="showHandoffModal = false" class="text-slate-400 hover:text-slate-600 font-bold text-sm p-1">✕</button>
+                            <button @click="showHandoffModal = false" class="text-slate-400 hover:text-slate-600 p-1 rounded hover:bg-slate-100 transition" aria-label="Đóng">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
                         </div>
 
                         <div class="py-3 space-y-3">
@@ -1954,23 +2003,54 @@
 
                             <!-- Chọn Bưu Tá -->
                             <div>
-                                <label class="block text-xs font-bold text-slate-700 mb-1">
-                                    Chọn Bưu Tá Tiếp Nhận Đi Phát:
-                                </label>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label class="block text-xs font-bold text-slate-700">
+                                        Bưu Tá Tiếp Nhận Phát:
+                                    </label>
+                                    <button 
+                                        type="button"
+                                        @click="loadShippers(true)" 
+                                        :disabled="isShippersLoading"
+                                        class="text-[11px] text-blue-600 hover:text-blue-800 font-medium inline-flex items-center gap-1 transition"
+                                        title="Làm mới danh sách bưu tá từ máy chủ"
+                                    >
+                                        <svg :class="['w-3 h-3', isShippersLoading ? 'animate-spin' : '']" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                        <span>Làm mới</span>
+                                    </button>
+                                </div>
                                 <select 
                                     v-model="handoffForm.selectedCourier"
                                     class="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-800 focus:border-blue-600 outline-none transition"
                                 >
                                     <option v-for="c in availableCouriers" :key="c.code" :value="c.code">
-                                        {{ c.code }} - {{ c.name }} ({{ c.area }})
+                                        {{ c.code }} - {{ c.name }} ({{ c.area }}) {{ c.hasLinkedTelegram ? '• [Telegram Bot]' : '' }}
                                     </option>
-                                    <option value="CUSTOM">Khác (Nhập mã bưu tá tùy ý)...</option>
+                                    <option value="CUSTOM">Khác (Chỉ định mã bưu tá thủ công)...</option>
                                 </select>
+                            </div>
+
+                            <!-- Hiển thị trạng thái Telegram Bot của Bưu tá đã chọn -->
+                            <div v-if="selectedCourierInfo && handoffForm.selectedCourier !== 'CUSTOM'" class="p-2.5 rounded-lg border text-xs" :class="selectedCourierInfo.hasLinkedTelegram ? 'bg-blue-50/70 border-blue-200 text-blue-800' : 'bg-slate-50 border-slate-200 text-slate-600'">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-semibold">Kênh thông báo Telegram Bot:</span>
+                                    <span v-if="selectedCourierInfo.hasLinkedTelegram" class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white">
+                                        Đã liên kết
+                                    </span>
+                                    <span v-else class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-200 text-slate-700">
+                                        Chưa liên kết bot
+                                    </span>
+                                </div>
+                                <p class="text-[11px] mt-1 text-slate-500" v-if="selectedCourierInfo.hasLinkedTelegram">
+                                    Bưu tá sẽ nhận được thông báo điều phối tự động kèm định vị địa chỉ người nhận qua Telegram.
+                                </p>
+                                <p class="text-[11px] mt-1 text-slate-400" v-else>
+                                    Bưu tá chưa kích hoạt Telegram Bot. Bưu tá có thể liên kết tài khoản qua mã liên kết trong trang cá nhân.
+                                </p>
                             </div>
 
                             <!-- Ô nhập mã tùy chọn nếu chọn CUSTOM -->
                             <div v-if="handoffForm.selectedCourier === 'CUSTOM'">
-                                <label class="block text-xs font-medium text-slate-600 mb-1">Nhập mã bưu tá / SĐT:</label>
+                                <label class="block text-xs font-medium text-slate-600 mb-1">Mã bưu tá / Số điện thoại:</label>
                                 <input 
                                     v-model="handoffForm.customCourierId"
                                     type="text" 
@@ -1985,7 +2065,7 @@
                                 <input 
                                     v-model="handoffForm.note"
                                     type="text" 
-                                    placeholder="Ghi chú tác nghiệp..."
+                                    placeholder="Ghi chú tác nghiệp bàn giao..."
                                     class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:border-blue-600 outline-none"
                                 />
                             </div>
