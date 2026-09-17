@@ -13,6 +13,7 @@
 [![Leaflet](https://img.shields.io/badge/Leaflet-1.9.4%20GIS%20Map-199900?style=for-the-badge&logo=leaflet&logoColor=white)](https://leafletjs.com/)
 [![WebSocket](https://img.shields.io/badge/WebSocket-STOMP%20Realtime-010101?style=for-the-badge&logo=socketdotio&logoColor=white)](https://stomp.github.io/)
 [![Telegram Bot](https://img.shields.io/badge/Telegram%20Bot-Long--Polling%20Dispatch-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://core.telegram.org/bots)
+[![Google OAuth2](https://img.shields.io/badge/Google%20OAuth2-Identity%20Services%20SSO-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://developers.google.com/identity)
 [![Docker](https://img.shields.io/badge/Docker%20Compose-Containerized%20HA-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 [![Swagger / OpenAPI](https://img.shields.io/badge/OpenAPI-Springdoc%203.1.0-85EA2D?style=for-the-badge&logo=openapiinitiative&logoColor=black)](https://springdoc.org/)
 
@@ -188,6 +189,7 @@ Hệ thống được thiết kế theo chuẩn kiến trúc phân tán Enterpri
 | | **Finite State Machine (FSM)** | Thuật toán | Quản lý vòng đời vận đơn 11 bước chuẩn hóa | Strict State Transitions, Immutable Terminal States (`DELIVERED`, `RETURNED`, `CANCELLED`), Auto-Returning sau 3 lần phát thất bại |
 | | **Spring Retry** | `2.x` | Khôi phục hoạt động khi xảy ra lỗi gián đoạn tạm thời | Declarative Retry Template, Exponential Backoff |
 | | **Jakarta Bean Validation** | `3.x` | Kiểm tra tính hợp lệ dữ liệu đầu vào | Contract-first Request Validation (`@NotNull`, `@Size`, `@Pattern`) |
+| | **Google API Client (OAuth2)** | `2.2.0` | Xác thực Google ID Token & Single Sign-On (SSO) | `GoogleIdTokenVerifier`, giải mã ID Token Google, nhúng claim `avatarUrl` vào Stateless JWT |
 | | **Project Lombok** | `latest` | Giảm thiểu mã nguồn lặp lại | Data transfer objects, Builder Pattern, Slf4j Logger injection |
 | **Data Persistence & Migration** | **Microsoft SQL Server** | `2022` | Hệ quản trị CSDL quan hệ chính thức (RDBMS) | Database-per-service (8 CSDL độc lập), Primary (Port 1433) & Replica (Port 2433) |
 | | **Dynamic RoutingDataSource** | Spring Core | Tách luồng Đọc/Ghi tự động (Read-Write Splitting) | `AbstractRoutingDataSource` kết hợp `ThreadLocal ContextHolder` và 2 HikariCP Pool độc lập |
@@ -223,6 +225,9 @@ Hệ thống được thiết kế theo chuẩn kiến trúc phân tán Enterpri
 4. **Bảo Mật Ngữ Cảnh Trạm (Station Context Binding) & Token Blacklist:**
    * Gateway trích xuất claim `stationId` và `roles` từ JWT, gắn vào Header nội bộ an toàn `X-User-Station-Id` thông qua `HeaderMapRequestWrapper` (chống client giả mạo header).
    * Cơ chế Redis Blacklist kiểm tra tức thì (< 0.5ms) khi bưu tá đăng xuất hoặc bị khóa quyền, bảo đảm an toàn mà không cần lưu trữ session tập trung.
+5. **Xác Thực Đa Nguồn Google OAuth2 & Avatar Stateless JWT:**
+   * Hỗ trợ người dùng đăng nhập một chạm qua Google Identity Services (GIS). Phía máy chủ (`auth-service`) sử dụng thư viện `GoogleIdTokenVerifier` để xác thực chữ ký token trực tiếp với Google API Server.
+   * Nhúng thẳng thuộc tính `avatarUrl` vào payload JWT giúp Frontend hiển thị ảnh đại diện với độ trễ 0ms mà không làm tăng tải truy vấn CSDL hay HTTP roundtrip.
 
 ---
 
