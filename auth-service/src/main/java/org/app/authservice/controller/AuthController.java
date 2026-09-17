@@ -13,6 +13,7 @@ import org.app.authservice.service.AdminService;
 import org.app.authservice.service.AuthService;
 import org.app.authservice.service.GoogleVerifyService;
 import org.app.authservice.service.JwtService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,6 +34,21 @@ public class AuthController {
     public ResponseEntity<AuthResponse> loginWithGoogle(@RequestBody GoogleLoginRequest loginRequest) throws Exception {
         GoogleIdToken.Payload payload = googleVerifyService.verifyToken(loginRequest.getIdToken());
         User user = authService.processGoogleUser(payload);
+        String jwt = jwtService.generateToken(user);
+        return ResponseEntity.ok(buildResponse(user, jwt));
+    }
+
+    @PostMapping("/google/link")
+    public ResponseEntity<AuthResponse> linkGoogle(
+            @RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody GoogleLoginRequest loginRequest) throws Exception {
+        Long userId = resolveUserId(userIdHeader, authHeader);
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        GoogleIdToken.Payload payload = googleVerifyService.verifyToken(loginRequest.getIdToken());
+        User user = authService.linkGoogleAccount(userId, payload);
         String jwt = jwtService.generateToken(user);
         return ResponseEntity.ok(buildResponse(user, jwt));
     }
@@ -67,6 +83,47 @@ public class AuthController {
         ));
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<AuthResponse> getMyProfile(
+            @RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        Long userId = resolveUserId(userIdHeader, authHeader);
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        User user = authService.getMyProfile(userId);
+        String token = (authHeader != null && authHeader.startsWith("Bearer "))
+                ? authHeader.substring(7)
+                : jwtService.generateToken(user);
+        return ResponseEntity.ok(buildResponse(user, token));
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<AuthResponse> updateMyProfile(
+            @RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @Valid @RequestBody UpdateMyProfileRequest request) {
+        Long userId = resolveUserId(userIdHeader, authHeader);
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        User user = authService.updateMyProfile(userId, request);
+        String token = jwtService.generateToken(user);
+        return ResponseEntity.ok(buildResponse(user, token));
+    }
+
+    private Long resolveUserId(String userIdHeader, String authHeader) {
+        if (userIdHeader != null && !userIdHeader.isBlank() && !"null".equalsIgnoreCase(userIdHeader)) {
+            try {
+                return Long.parseLong(userIdHeader.trim());
+            } catch (NumberFormatException ignored) {}
+        }
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return jwtService.extractUserId(authHeader.substring(7));
+        }
+        return null;
+    }
+
     private AuthResponse buildResponse(User user, String jwt) {
 
         List<String> permissions = user.getRoles() != null ?
@@ -87,6 +144,7 @@ public class AuthController {
                 .locationCode(user.getLocationCode())
                 .roles(user.getRoles().stream().map(Role::getName).toList())
                 .permissions(permissions)
+                .googleLinked(user.getGoogleSub() != null && !user.getGoogleSub().isBlank())
                 .build();
     }
 

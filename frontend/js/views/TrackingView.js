@@ -26,6 +26,7 @@
             const searchCode = ref(props.trackingCode || '');
             const isLoading = ref(false);
             const isLiveTracking = ref(true);
+            const isWsConnected = ref(false);
 
             const validationError = ref('');
             const isNotFound = ref(false);
@@ -82,6 +83,107 @@
                 }
             };
 
+            let stompClient = null;
+            let currentSubscription = null;
+            let activeWsTrackingCode = null;
+
+            const getWsEndpoint = () => {
+                const host = window.location.hostname || 'localhost';
+                const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+                return `${protocol}//${host}:8085/ws`;
+            };
+
+            const disconnectWebSocket = () => {
+                if (currentSubscription) {
+                    try {
+                        currentSubscription.unsubscribe();
+                    } catch (e) {}
+                    currentSubscription = null;
+                }
+                if (stompClient) {
+                    try {
+                        if (stompClient.connected) {
+                            stompClient.disconnect();
+                        }
+                    } catch (e) {}
+                    stompClient = null;
+                }
+                activeWsTrackingCode = null;
+                isWsConnected.value = false;
+            };
+
+            const subscribeTrackingTopic = (code) => {
+                if (!stompClient || !stompClient.connected) return;
+                activeWsTrackingCode = code;
+                currentSubscription = stompClient.subscribe(`/topic/tracking/${code}`, (message) => {
+                    try {
+                        const eventData = JSON.parse(message.body);
+                        console.log('[WebSocket Realtime] Nhận cập nhật trạng thái đơn:', code, eventData);
+
+                        // Đồng bộ lại dữ liệu chi tiết ngầm ngay lập tức
+                        syncStatusInBackground();
+
+                        const statusText = Utils ? Utils.formatStatusText(eventData.status, eventData.locationCode) : eventData.status;
+                        showToast('Cập Nhật Thời Gian Thực (WebSocket)', `Đơn ${code}: ${statusText}`, 'info');
+                    } catch (e) {
+                        console.error('[WebSocket] Lỗi xử lý dữ liệu realtime:', e);
+                    }
+                });
+                console.log('[WebSocket] Đã kết nối thành công! Đang lắng nghe đơn:', code);
+            };
+
+            const connectWebSocket = (trackingCode) => {
+                if (!trackingCode) return;
+                const cleanCode = trackingCode.trim().toUpperCase();
+
+                // Nếu đang kết nối đúng mã đơn này thì không cần kết nối lại
+                if (stompClient && stompClient.connected && activeWsTrackingCode === cleanCode) {
+                    return;
+                }
+
+                // Nếu đã kết nối client nhưng đổi mã đơn khác, chỉ cần chuyển subscription
+                if (stompClient && stompClient.connected) {
+                    if (currentSubscription) {
+                        currentSubscription.unsubscribe();
+                        currentSubscription = null;
+                    }
+                    subscribeTrackingTopic(cleanCode);
+                    return;
+                }
+
+                disconnectWebSocket();
+
+                try {
+                    if (typeof SockJS === 'undefined' || typeof Stomp === 'undefined') {
+                        console.warn('[WebSocket] Thư viện SockJS hoặc Stomp chưa được tải, sử dụng polling dự phòng.');
+                        return;
+                    }
+
+                    const endpoint = getWsEndpoint();
+                    const socket = new SockJS(endpoint);
+                    stompClient = Stomp.over(socket);
+                    stompClient.debug = null; // Tắt log debug console rườm rà
+
+                    stompClient.connect({}, () => {
+                        isWsConnected.value = true;
+                        subscribeTrackingTopic(cleanCode);
+                    }, (error) => {
+                        console.warn('[WebSocket] Không thể kết nối tới server, fallback sang polling:', error);
+                        isWsConnected.value = false;
+                        // Nếu WebSocket mất kết nối, tự động kích hoạt Polling dự phòng
+                        if (!livePollTimer && isLiveTracking.value && !isFinalState.value) {
+                            startLivePolling();
+                        }
+                    });
+                } catch (err) {
+                    console.warn('[WebSocket] Lỗi khởi tạo SockJS:', err);
+                    isWsConnected.value = false;
+                }
+            };
+
+
+
+
             const showToast = (...args) => callUtils('showToast', ...args);
 
             const unwrapHistoryPayload = (payload, depth = 0) => {
@@ -102,6 +204,45 @@
                     'timestamp', 'assignedAt', 'operationType', 'note', 'node'
                 ].some(key => Object.prototype.hasOwnProperty.call(payload, key));
                 return looksLikeHistoryItem ? [payload] : [];
+            };
+
+            const inferStatusFromOperationType = (opType, locationCode) => {
+                if (!opType) return null;
+                const normalized = String(opType).trim().toUpperCase();
+                switch (normalized) {
+                    case 'SHIPMENT_CREATED':
+                        return 'CREATED';
+                    case 'ROUTE_ASSIGNED':
+                        return 'ROUTE_ASSIGNED';
+                    case 'RECEIVED_AT_POST_OFFICE':
+                    case 'RECEIVE':
+                        return 'PICKED_UP';
+                    case 'STORED':
+                        return 'STORED';
+                    case 'STORED_AT_HUB':
+                    case 'RESERVED_FOR_TRIP':
+                    case 'LOADED':
+                    case 'DEPARTED':
+                    case 'ARRIVED':
+                    case 'ARRIVE':
+                        return 'IN_TRANSIT';
+                    case 'UNLOADED':
+                        return 'ARRIVED_DEST_HUB';
+                    case 'HANDED_TO_COURIER':
+                        return 'OUT_FOR_DELIVERY';
+                    case 'DELIVERED':
+                        return 'DELIVERED';
+                    case 'DELIVERY_FAILED':
+                        return 'DELIVERY_FAILED';
+                    case 'RETURNING':
+                        return 'RETURNING';
+                    case 'RETURNED':
+                        return 'RETURNED';
+                    case 'CANCELLED':
+                        return 'CANCELLED';
+                    default:
+                        return null;
+                }
             };
 
             const normalizeHistoryItem = (item, source) => {
@@ -178,7 +319,8 @@
                     item.eventStatus,
                     item.operationStatus,
                     metadata.status,
-                    operation.status
+                    operation.status,
+                    inferStatusFromOperationType(operationType, location)
                 );
                 const timestamp = firstValue(
                     item.timestamp,
@@ -393,8 +535,14 @@
                 const rawTimestamp = timestamps.length
                     ? new Date(Math.max(...timestamps)).toISOString()
                     : primary.timestamp;
+                const bestStatus = firstValue(
+                    primary?.status,
+                    group.find(item => hasValue(item?.status))?.status,
+                    inferStatusFromOperationType(primary?.operationType, primary?.location || primary?.locationCode)
+                );
                 return {
                     ...primary,
+                    status: bestStatus ?? null,
                     timestamp: rawTimestamp,
                     occurredAt: rawTimestamp,
                     mergedCount: group.length,
@@ -669,6 +817,7 @@
                 'PENDING_ROUTING': 2,
                 'ROUTE_ASSIGNED': 3,
                 'PICKED_UP': 4,
+                'STORED': 4.5,
                 'IN_TRANSIT': 5,
                 'ARRIVED_DEST_HUB': 6,
                 'OUT_FOR_DELIVERY': 7,
@@ -751,6 +900,8 @@
                         return { bg: 'bg-blue-600', icon: 'warehouse' };
                     case 'IN_TRANSIT':
                         return { bg: 'bg-blue-600', icon: 'truck' };
+                    case 'STORED':
+                        return { bg: 'bg-blue-600', icon: 'warehouse' };
                     case 'PICKED_UP':
                         return { bg: 'bg-amber-500', icon: 'package' };
                     case 'ROUTE_ASSIGNED':
@@ -882,8 +1033,12 @@
                     );
                     if (isFinalState.value) {
                         stopLivePolling();
-                    } else if (isLiveTracking.value && !livePollTimer) {
-                        startLivePolling();
+                        disconnectWebSocket();
+                    } else {
+                        connectWebSocket(code);
+                        if (!isWsConnected.value && isLiveTracking.value && !livePollTimer) {
+                            startLivePolling();
+                        }
                     }
 
                     // Vẽ bản đồ lộ trình dựa trên hành trình thật
@@ -1101,6 +1256,7 @@
 
             onUnmounted(() => {
                 if (counterAnimId) cancelAnimationFrame(counterAnimId);
+                disconnectWebSocket();
                 stopLivePolling();
                 document.removeEventListener('visibilitychange', handleVisibilityChange);
                 if (window.MapManager) window.MapManager.cancelPendingRenders();
@@ -1160,6 +1316,8 @@
                 counterInsurance,
                 animateNumbers,
                 previousTab,
+                isWsConnected,
+                isLiveTracking,
                 Utils: getUtilsApi() || {}
             };
         },
@@ -1482,6 +1640,7 @@
                                 <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 font-mono">
                                     {{ isInterProvincial ? 'Tuyến Liên Tỉnh (6 Chặng)' : 'Tuyến Nội Tỉnh (4 Chặng)' }}
                                 </span>
+                            
                             </div>
                             <div class="flex items-center space-x-2">
                                 <button 
@@ -1846,7 +2005,7 @@
                                 <!-- Tầng 2: Trạng thái & Địa điểm bưu cục -->
                                 <div class="flex flex-wrap items-center gap-2 mb-1.5">
                                     <span :class="['px-2.5 py-0.5 rounded-lg text-xs font-bold border', Utils.getStatusBadgeClass(h.status)]">
-                                        {{ Utils.formatStatusText(h.status) }}
+                                        {{ Utils.formatStatusText(h.status, h.location || h.locationCode) }}
                                     </span>
                                     <span class="text-xs font-bold text-slate-800">
                                         {{ getPostOfficeDisplayName(h.location || h.locationCode) || h.location || h.locationCode || 'Bưu Cục Trung Tâm' }}

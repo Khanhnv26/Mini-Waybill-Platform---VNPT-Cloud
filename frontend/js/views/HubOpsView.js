@@ -243,11 +243,6 @@
                         readFirstField(hub, ['hubName', 'stationName', 'locationName', 'name'])
                     );
                 });
-                shipmentsList.value.forEach(item => {
-                    addStation(item.locationCode, item.locationCode);
-                    addStation(item.sourceHub, item.sourceHub);
-                    addStation(item.destinationHub, item.destinationHub);
-                });
 
                 return Array.from(stations, ([code, name]) => ({ code, name }))
                     .sort((left, right) => left.code.localeCompare(right.code));
@@ -513,21 +508,45 @@
                 }
             };
 
-            // 1. Thống kê nhanh KPI theo cùng bucket với bộ lọc
-            const kpiTotalInHub = computed(() => shipmentsList.value.filter(item =>
+            const isShipmentInSelectedHubScope = (item, explicitHub = null) => {
+                const selected = asCode(explicitHub || currentActionLocation.value || (selectedHub.value !== 'ALL' ? selectedHub.value : ''));
+                if (!selected || !item) return false;
+
+                const location = locationForDisplay(item);
+                if (location === selected) return true;
+
+                const status = operationalStatus(item);
+                // Kiện gom từ bưu cục lên Hub: chỉ nhận nếu đã rời bưu cục và hướng tới Hub này
+                if (['ROUTE_ASSIGNED', 'PENDING_ROUTING', 'PICKED_UP'].includes(status)) {
+                    return !location.startsWith('POST-') && location !== 'DELIVERY_OFFICE' && asCode(item.sourceHub) === selected;
+                }
+                // Kiện đến từ tuyến đường trục liên tỉnh: chỉ nhận nếu xe đã cập bến Hub đích
+                if (status === 'ARRIVED_DEST_HUB') {
+                    return asCode(item.destinationHub) === selected;
+                }
+                return false;
+            };
+
+            // 1. Thống kê nhanh KPI theo cùng phạm vi Hub và bucket với bộ lọc
+            const scopedHubShipments = computed(() => {
+                if (!selectedHub.value || selectedHub.value === 'ALL') return shipmentsList.value;
+                return shipmentsList.value.filter(item => isShipmentInSelectedHubScope(item, selectedHub.value));
+            });
+
+            const kpiTotalInHub = computed(() => scopedHubShipments.value.filter(item =>
                 ['RECEIVED', 'STORED'].includes(resolveHubBucket(item))
             ).length);
 
-            const kpiAwaitingIntake = computed(() => shipmentsList.value.filter(item =>
+            const kpiAwaitingIntake = computed(() => scopedHubShipments.value.filter(item =>
                 resolveHubBucket(item) === 'WAITING_INTAKE'
             ).length);
 
             // Hàng mới dỡ xuống khu tiếp nhận, chờ thủ kho xác nhận lưu kho.
-            const kpiAwaitingStore = computed(() => shipmentsList.value.filter(item =>
+            const kpiAwaitingStore = computed(() => scopedHubShipments.value.filter(item =>
                 resolveHubBucket(item) === 'RECEIVED'
             ).length);
 
-            const kpiInTransit = computed(() => shipmentsList.value.filter(item =>
+            const kpiInTransit = computed(() => scopedHubShipments.value.filter(item =>
                 resolveHubBucket(item) === 'IN_TRANSIT'
             ).length);
 
@@ -536,21 +555,7 @@
                 let list = shipmentsList.value;
 
                 if (selectedHub.value && selectedHub.value !== 'ALL') {
-                    const station = asCode(selectedHub.value);
-                    list = list.filter(item => {
-                        const location = locationForDisplay(item);
-                        if (location === station) return true;
-
-                        // Dữ liệu di trú thường chỉ có source/destination hub.
-                        const status = operationalStatus(item);
-                        if (['ROUTE_ASSIGNED', 'PENDING_ROUTING', 'PICKED_UP'].includes(status)) {
-                            return asCode(item.sourceHub) === station;
-                        }
-                        if (['IN_TRANSIT', 'ARRIVED_DEST_HUB'].includes(status)) {
-                            return asCode(item.destinationHub) === station;
-                        }
-                        return false;
-                    });
+                    list = list.filter(item => isShipmentInSelectedHubScope(item, selectedHub.value));
                 }
 
                 if (selectedStatusFilter.value !== 'ALL') {
@@ -610,11 +615,11 @@
                 const inventory = asCode(getInventoryStatus(item));
                 if (['RECEIVED', 'STORED', 'RESERVED', 'LOADED', 'HANDED_TO_COURIER'].includes(inventory)) return false;
                 const status = operationalStatus(item);
-                // Route-assigned parcels at the origin post office belong to PO ops,
-                // not hub intake, even when migration projections are incomplete.
+                const location = locationForDisplay(item);
+                // Kiện còn ở bưu cục thuộc thẩm quyền bưu cục, Hub chưa thể tiếp nhận
+                if (location.startsWith('POST-') || location === 'DELIVERY_OFFICE') return false;
                 if (['ROUTE_ASSIGNED', 'PENDING_ROUTING'].includes(status)) {
-                    const location = locationForDisplay(item);
-                    return !location.startsWith('POST-') && asCode(item.sourceHub) === asCode(currentActionLocation.value);
+                    return asCode(item.sourceHub) === asCode(currentActionLocation.value);
                 }
                 return ['PICKED_UP', 'IN_TRANSIT', 'ARRIVED_DEST_HUB'].includes(status)
                     && inventory !== 'RECEIVED';
@@ -623,23 +628,6 @@
             const canStore = (item) => {
                 const inventory = asCode(getInventoryStatus(item));
                 return inventory === 'RECEIVED';
-            };
-
-            const isShipmentInSelectedHubScope = (item) => {
-                const selected = asCode(currentActionLocation.value);
-                if (!selected || !item) return false;
-
-                const location = locationForDisplay(item);
-                if (location === selected) return true;
-
-                const status = operationalStatus(item);
-                if (['ROUTE_ASSIGNED', 'PENDING_ROUTING', 'PICKED_UP'].includes(status)) {
-                    return asCode(item.sourceHub) === selected;
-                }
-                if (['IN_TRANSIT', 'ARRIVED_DEST_HUB'].includes(status)) {
-                    return asCode(item.destinationHub) === selected;
-                }
-                return false;
             };
 
             // UI-only resolver: ô quét luôn hướng tới thao tác vật lý kế tiếp.
@@ -1180,7 +1168,7 @@
             </div>
 
             <div class="flex items-center justify-between border-b border-slate-200">
-                <div class="flex space-x-4 sm:space-x-6 overflow-x-auto pb-px">
+                <div class="flex space-x-4 sm:space-x-6 overflow-x-auto no-scrollbar pb-px">
                     <button
                         type="button"
                         @click="currentSubtab = 'scan'"

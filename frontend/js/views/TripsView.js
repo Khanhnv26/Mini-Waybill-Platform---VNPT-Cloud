@@ -372,8 +372,18 @@
         },
         emits: ['view-tracking'],
         setup(props, { emit }) {
+            const getInitialHubs = () => Object.entries(HUB_COORDINATES).map(([code, item]) => ({
+                hubCode: code,
+                hubName: item.name,
+                address: item.address,
+                province: item.province,
+                district: item.district,
+                latitude: item.lat,
+                longitude: item.lng,
+                hubLevel: item.level || (code.startsWith('HUB-') ? 1 : 2)
+            }));
             const tripsList = ref([]);
-            const hubsList = ref([]);
+            const hubsList = ref(getInitialHubs());
             const isLoading = ref(false);
             const searchQuery = ref('');
             const selectedStatusFilter = ref('ALL');
@@ -399,6 +409,28 @@
             const hubStoredCodes = ref(new Set());
             const hubReceivedCodes = ref(new Set());
             const isLoadingHubInventory = ref(false);
+
+            // Danh sách các mã bưu gửi vừa được nạp/xếp lên chuyến xe (Optimistic UI)
+            const optimisticConsolidatedCodes = ref(new Set());
+
+            // Toàn bộ các mã bưu gửi đang nằm trên manifest các chuyến xe đang lập lịch/chạy
+            // hoặc vừa được gom lên xe (optimistic).
+            const activeLoadedTrackingCodes = computed(() => {
+                const set = new Set(optimisticConsolidatedCodes.value);
+                (tripsList.value || []).forEach(trip => {
+                    const tripStatus = String(trip?.status || '').trim().toUpperCase();
+                    if (['SCHEDULED', 'IN_TRANSIT', 'ARRIVED', 'CONSOLIDATED'].includes(tripStatus)) {
+                        (trip.manifests || []).forEach(m => {
+                            const manifestStatus = String(m?.status || '').trim().toUpperCase();
+                            const code = String(m?.trackingCode || '').trim().toUpperCase();
+                            if (code && (manifestStatus === 'LOADED' || manifestStatus === 'ASSIGNED' || !manifestStatus)) {
+                                set.add(code);
+                            }
+                        });
+                    }
+                });
+                return set;
+            });
 
             const getOriginPostOfficeInfo = (item, allowFallback = true) => {
                 if (!item) return allowFallback
@@ -450,8 +482,21 @@
             const pendingFeederItems = computed(() => {
                 return shipmentsList.value.filter(s => {
                     if (s.currentStatus !== 'PICKED_UP') return false;
+                    const code = String(s.trackingCode || '').trim().toUpperCase();
+                    if (!code) return false;
+
+                    // 1. Đã nằm trong manifest của chuyến xe đang lập lịch/vận hành hoặc vừa được nạp (optimistic)
+                    if (activeLoadedTrackingCodes.value.has(code)) return false;
+
+                    // 2. Đã gắn chuyến xe hoặc trạng thái kho đã nạp/giữ chỗ
+                    const hasActiveTrip = Boolean(s.activeTripId || s.activeTripCode || s.activeTrip || s.tripCode);
+                    const invStatus = String(s.inventoryStatus || s.inventory_status || '').trim().toUpperCase();
+                    if (hasActiveTrip || ['RESERVED', 'LOADED', 'HANDED_TO_COURIER'].includes(invStatus)) return false;
+
                     if (originFeederStation.value === 'ALL') return true;
-                    return (s.locationCode === originFeederStation.value) || (getOriginPostOfficeInfo(s).code === originFeederStation.value);
+                    const loc = String(s.locationCode || '').trim().toUpperCase();
+                    if (loc) return loc === originFeederStation.value;
+                    return getOriginPostOfficeInfo(s).code === originFeederStation.value;
                 });
             });
 
@@ -465,6 +510,10 @@
             // Tuyệt đối không cho phép nhập kho bưu cục khi xe trục container vẫn đang chạy trên đường (IN_TRANSIT)
             const incomingFeederItems = computed(() => {
                 return shipmentsList.value.filter(s => {
+                    const code = String(s.trackingCode || '').trim().toUpperCase();
+                    if (!code) return false;
+                    if (activeLoadedTrackingCodes.value.has(code)) return false;
+
                     const destPO = getDestPostOfficeInfo(s).code;
                     const isForThisPO = (destinationFeederStation.value === 'ALL') || (destPO === destinationFeederStation.value);
                     if (!isForThisPO) return false;
@@ -472,7 +521,7 @@
                     const alreadyAtPO = loc.startsWith('POST-') && s.currentStatus === 'ARRIVED_DEST_HUB';
                     if (alreadyAtPO || s.currentStatus === 'OUT_FOR_DELIVERY' || s.currentStatus === 'DELIVERED') return false;
                     const inventoryStatus = String(s.inventoryStatus || s.inventory_status || '').trim().toUpperCase();
-                    const hasActiveTrip = !!(s.activeTripId || s.activeTripCode || s.activeTrip);
+                    const hasActiveTrip = !!(s.activeTripId || s.activeTripCode || s.activeTrip || s.tripCode);
                     if (hasActiveTrip || ['RESERVED', 'LOADED', 'HANDED_TO_COURIER'].includes(inventoryStatus)) return false;
 
                     // Bưu phẩm phải thực tế đã dỡ tại Kho Tổng Đích (xe trục đã cập bến Kho Tổng)
@@ -480,7 +529,7 @@
                     const isUnloadedAtDestHub = s.currentStatus === 'ARRIVED_DEST_HUB' && (loc === targetDestHub || loc.startsWith('HUB-'));
                     if (!isUnloadedAtDestHub) return false;
                     // Chỉ kiện đã được thủ kho xác nhận lưu kho (STORED) mới được lập xe phát.
-                    return hubStoredCodes.value.has(String(s.trackingCode || '').trim().toUpperCase());
+                    return hubStoredCodes.value.has(code);
                 });
             });
 
@@ -759,6 +808,13 @@
                 }
                 const plate = feederVehiclePlate.value.trim() || '29C-556.12';
                 const driver = feederDriverName.value.trim() || 'Vũ Văn Gom';
+                const cleanCode = String(item.trackingCode || '').trim().toUpperCase();
+                // Optimistic: ẩn ngay lập tức khỏi danh sách chờ gom
+                optimisticConsolidatedCodes.value.add(cleanCode);
+                const nextSelected = new Set(selectedOriginFeederCodes.value);
+                nextSelected.delete(cleanCode);
+                selectedOriginFeederCodes.value = nextSelected;
+
                 isFeederActionRunning.value = true;
                 try {
                     const result = await dispatchFeederWithMigrationFallback({
@@ -783,8 +839,10 @@
                             : `Bưu gửi ${item.trackingCode} đã lên chuyến ${result.trip?.tripCode || ''}; chờ cập bến Kho Tổng ${targetHub}.`,
                         result.legacy ? 'warning' : 'success'
                     );
+                    await loadTrips();
                     setTimeout(() => loadShipmentsData(), 600);
                 } catch (err) {
+                    optimisticConsolidatedCodes.value.delete(cleanCode);
                     Utils.showToast('Lỗi Gom Xe', err.message, 'error');
                 } finally {
                     isFeederActionRunning.value = false;
@@ -810,6 +868,11 @@
                     confirmLabel: 'Lập & Xuất Chuyến',
                     tone: 'primary'
                 }, async () => {
+                    const batchCodes = batchItems.map(i => String(i.trackingCode || '').trim().toUpperCase()).filter(Boolean);
+                    // Optimistic: ẩn ngay lập tức các kiện khỏi danh sách chờ gom
+                    batchCodes.forEach(code => optimisticConsolidatedCodes.value.add(code));
+                    clearFeederSelections();
+
                     isFeederActionRunning.value = true;
                     let count = 0;
                     let skipped = 0;
@@ -853,10 +916,10 @@
                                 : `Đã lập và xuất các chuyến gom trung chuyển cho ${count} bưu gửi!`,
                             skipped > 0 ? 'warning' : 'success'
                         );
-                        clearFeederSelections();
                         await loadTrips();
                         setTimeout(() => loadShipmentsData(), 600);
                     } catch (err) {
+                        batchCodes.forEach(code => optimisticConsolidatedCodes.value.delete(code));
                         Utils.showToast('Lỗi', `Đã điều phối ${count} bưu gửi trước khi lỗi: ${err.message}`, 'warning');
                     } finally {
                         isFeederActionRunning.value = false;
@@ -879,6 +942,13 @@
                 }
                 const plate = feederVehiclePlate.value.trim() || '29C-556.12';
                 const driver = feederDriverName.value.trim() || 'Vũ Văn Gom';
+                const cleanCode = String(item.trackingCode || '').trim().toUpperCase();
+                // Optimistic: ẩn ngay khỏi danh sách chờ phát
+                optimisticConsolidatedCodes.value.add(cleanCode);
+                const nextSelected = new Set(selectedDestinationFeederCodes.value);
+                nextSelected.delete(cleanCode);
+                selectedDestinationFeederCodes.value = nextSelected;
+
                 isFeederActionRunning.value = true;
                 try {
                     const result = await dispatchFeederWithMigrationFallback({
@@ -903,11 +973,11 @@
                             : `Bưu gửi ${item.trackingCode} đã lên chuyến ${result.trip?.tripCode || ''}; hãy cập bến theo stop kế tiếp ${targetPO}.`,
                         result.legacy ? 'warning' : 'success'
                     );
-                    clearFeederSelections();
                     await loadTrips();
                     await loadHubInventoryState();
                     setTimeout(() => loadShipmentsData(), 600);
                 } catch (err) {
+                    optimisticConsolidatedCodes.value.delete(cleanCode);
                     Utils.showToast('Lỗi Xuất Xe Phát', err.message, 'error');
                 } finally {
                     isFeederActionRunning.value = false;
@@ -931,6 +1001,11 @@
                     confirmLabel: 'Lập & Xuất Xe Phát',
                     tone: 'primary'
                 }, async () => {
+                    const batchCodes = batchItems.map(i => String(i.trackingCode || '').trim().toUpperCase()).filter(Boolean);
+                    // Optimistic: ẩn ngay khỏi danh sách chờ phát
+                    batchCodes.forEach(code => optimisticConsolidatedCodes.value.add(code));
+                    clearFeederSelections();
+
                     isFeederActionRunning.value = true;
                     let count = 0;
                     let skipped = 0;
@@ -979,10 +1054,10 @@
                                 : `Đã lập và xuất các chuyến phát cho ${count} bưu gửi. Hãy cập bến theo stop kế tiếp.`,
                             skipped > 0 ? 'warning' : 'success'
                         );
-                        clearFeederSelections();
                         await loadTrips();
                         setTimeout(() => loadShipmentsData(), 600);
                     } catch (err) {
+                        batchCodes.forEach(code => optimisticConsolidatedCodes.value.delete(code));
                         Utils.showToast('Lỗi', `Đã điều phối ${count} bưu gửi trước khi lỗi: ${err.message}`, 'warning');
                     } finally {
                         isFeederActionRunning.value = false;
@@ -1133,12 +1208,19 @@
             const loadHubs = async () => {
                 try {
                     const data = await RoutingService.getAllHubs();
-                    hubsList.value = Array.isArray(data) ? data : [];
-                    if (window.MapManager && Array.isArray(data)) {
-                        window.MapManager.updateHubs(data);
+                    if (Array.isArray(data) && data.length > 0) {
+                        hubsList.value = data;
+                    } else if (hubsList.value.length === 0) {
+                        hubsList.value = getInitialHubs();
+                    }
+                    if (window.MapManager && Array.isArray(hubsList.value)) {
+                        window.MapManager.updateHubs(hubsList.value);
                     }
                 } catch (e) {
                     console.error('[TripsView] Không thể tải danh bạ Hubs:', e);
+                    if (hubsList.value.length === 0) {
+                        hubsList.value = getInitialHubs();
+                    }
                 }
             };
 
@@ -1436,23 +1518,43 @@
 
 
             const availableHubsToAdd = computed(() => {
-                if (normalizeTripType(tripForm.tripType) === 'LINEHAUL') {
-                    // Xe Trục Liên Tỉnh: CHỈ CHO PHÉP CHỌN 5 KHO TỔNG CẤP 1
-                    return hubsList.value.filter(h => {
-                        const isCentral = (h.hubLevel === 1) || (h.hubCode && h.hubCode.startsWith('HUB-'));
-                        return isCentral && !tripForm.stopHubCodes.includes(h.hubCode);
-                    });
-                } else {
-                    // Xe Trung Chuyển Nội Đô: Cho phép chọn Bưu Cục con và Kho Tổng
-                    return hubsList.value.filter(h => !tripForm.stopHubCodes.includes(h.hubCode));
-                }
+                const source = hubsList.value.length > 0 ? hubsList.value : getInitialHubs();
+                return source.filter(h => !tripForm.stopHubCodes.includes(h.hubCode));
             });
 
-            const addNewStop = () => {
+            const availableHubsGrouped = computed(() => {
+                const source = hubsList.value.length > 0 ? hubsList.value : getInitialHubs();
+                const unadded = source.filter(h => !tripForm.stopHubCodes.includes(h.hubCode));
+                const central = unadded.filter(h => (h.hubLevel === 1) || (h.hubCode && h.hubCode.startsWith('HUB-')));
+                const postOffices = unadded.filter(h => !((h.hubLevel === 1) || (h.hubCode && h.hubCode.startsWith('HUB-'))));
+                return {
+                    central,
+                    postOffices,
+                    total: unadded.length
+                };
+            });
+
+            const customStopCode = ref('');
+            const isManualStopInput = ref(false);
+
+            const onSelectStopChange = () => {
                 if (selectedStopToAdd.value) {
-                    addStopCode(selectedStopToAdd.value);
-                    selectedStopToAdd.value = '';
+                    addNewStop();
                 }
+            };
+
+            const addNewStop = () => {
+                const codeToAdd = (selectedStopToAdd.value || customStopCode.value || '').trim().toUpperCase();
+                if (!codeToAdd) {
+                    if (window.Utils && window.Utils.showToast) {
+                        window.Utils.showToast('Thông Báo', 'Vui lòng chọn trạm từ danh bạ hoặc nhập mã trạm!', 'warning');
+                    }
+                    return;
+                }
+                addStopCode(codeToAdd);
+                selectedStopToAdd.value = '';
+                customStopCode.value = '';
+                isManualStopInput.value = false;
             };
 
             const getHubDisplayName = (code) => {
@@ -1960,6 +2062,7 @@
                         activeTripDetail.value = updated;
                         await loadEligibleAssignments(activeTripDetail.value.id);
                     }
+                    setTimeout(() => loadShipmentsData(), 400);
                 } catch (err) {
                     Utils.showToast('Gom Đơn Thất Bại', err.message, 'error');
                 } finally {
@@ -1973,9 +2076,16 @@
                 try {
                     const res = await RoutingService.autoConsolidate(activeTripDetail.value.id);
                     activeTripDetail.value = res;
+                    const manifests = Array.isArray(res?.manifests) ? res.manifests : [];
+                    manifests.forEach(m => {
+                        const code = String(m?.trackingCode || '').trim().toUpperCase();
+                        if (code) optimisticConsolidatedCodes.value.add(code);
+                    });
                     Utils.showToast('Gom Đơn Thành Công', 'Đã quét và nạp các kiện hàng hợp lệ lên xe.', 'success');
                     await loadTrips();
                     await loadEligibleAssignments(activeTripDetail.value.id);
+                    detailActiveTab.value = 'manifests';
+                    setTimeout(() => loadShipmentsData(), 400);
                 } catch (err) {
                     Utils.showToast('Gom Đơn Thất Bại', err.message, 'error');
                 } finally {
@@ -1995,6 +2105,10 @@
                         serviceType: i.serviceType
                     }));
 
+                const codes = itemsToLoad.map(i => String(i.trackingCode || '').trim().toUpperCase()).filter(Boolean);
+                // Optimistic: ghi nhận các mã vừa nạp
+                codes.forEach(c => optimisticConsolidatedCodes.value.add(c));
+
                 isConsolidatingSelected.value = true;
                 try {
                     const res = await RoutingService.autoConsolidate(activeTripDetail.value.id, { items: itemsToLoad });
@@ -2003,7 +2117,9 @@
                     await loadTrips();
                     await loadEligibleAssignments(activeTripDetail.value.id);
                     detailActiveTab.value = 'manifests';
+                    setTimeout(() => loadShipmentsData(), 400);
                 } catch (err) {
+                    codes.forEach(c => optimisticConsolidatedCodes.value.delete(c));
                     Utils.showToast('Nạp Kiện Thất Bại', err.message, 'error');
                 } finally {
                     isConsolidatingSelected.value = false;
@@ -2013,6 +2129,7 @@
             const handleRemoveItem = async (trackingCode) => {
                 if (!activeTripDetail.value) return;
                 const tripId = activeTripDetail.value.id;
+                const cleanCode = String(trackingCode || '').trim().toUpperCase();
                 openConfirmation({
                     title: 'Gỡ Kiện Khỏi Chuyến',
                     message: `Gỡ kiện hàng ${trackingCode} khỏi chuyến xe?`,
@@ -2023,9 +2140,12 @@
                     try {
                         const res = await RoutingService.removeManifestItem(tripId, trackingCode);
                         activeTripDetail.value = res;
+                        // Xóa khỏi optimistic để kiện lập tức tái xuất hiện trong danh sách chờ
+                        optimisticConsolidatedCodes.value.delete(cleanCode);
                         Utils.showToast('Đã Gỡ Kiện Hàng', `Kiện hàng ${trackingCode} đã được gỡ và hoàn lại tải trọng xe.`, 'success');
                         await loadTrips();
                         await loadEligibleAssignments(tripId);
+                        setTimeout(() => loadShipmentsData(), 400);
                     } catch (err) {
                         Utils.showToast('Gỡ Kiện Thất Bại', err.message, 'error');
                     }
@@ -2632,7 +2752,7 @@
                 isUpdatingProgress, progressForm, canUpdateTripProgress, submitTripProgress,
                 detailActiveTab, eligibleAssignments, isLoadingEligible, eligibleSearchQuery, selectedEligibleCodes,
                 filteredEligibleAssignments, selectedEligibleWeight, isConsolidatingSelected,
-                selectedStopToAdd, availableHubsToAdd, addNewStop, getHubDisplayName, getHubAddress,
+                selectedStopToAdd, customStopCode, isManualStopInput, availableHubsToAdd, availableHubsGrouped, addNewStop, onSelectStopChange, getHubDisplayName, getHubAddress,
                 applyPresetRoute, addStopCode, removeStopCode, submitCreateTrip,
                 openTripDetail, handleAutoConsolidate, handleConsolidateSelected, toggleSelectAllEligible,
                 handleRemoveItem, handleDepartTrip, handleArriveNextStop,
@@ -2829,8 +2949,7 @@
                         </button>
                     </div>
 
-                
-                    <div v-else class="flex items-center space-x-2 text-xs">
+                    <div class="flex items-center space-x-2 text-xs">
                         <button 
                             type="button"
                             @click="openCreateTripModal('ORIGIN_FEEDER')"
@@ -3648,21 +3767,57 @@
                                             </button>
                                         </div>
                                     </div>
-                                    <div v-if="availableHubsToAdd.length > 0" class="flex items-center space-x-1.5 pt-2">
-                                        <select v-model="selectedStopToAdd" class="flex-1 rounded-lg border border-slate-200 px-2.5 py-1 bg-white text-xs outline-none">
-                                            <option value="">-- {{ tripForm.tripType === 'LINEHAUL' ? 'Chọn Kho Tổng Cấp 1 thêm vào tuyến' : 'Chọn Bưu Cục / Hub thêm vào tuyến' }} --</option>
-                                            <option v-for="h in availableHubsToAdd" :key="h.hubCode" :value="h.hubCode">
-                                                {{ (h.hubLevel === 1 || (h.hubCode && h.hubCode.startsWith('HUB-'))) ? '[Kho Tổng] ' : '[Bưu Cục] ' }}{{ h.hubName || h.hubCode }} ({{ h.hubCode }})
-                                            </option>
-                                        </select>
-                                        <button 
-                                            type="button"
-                                            @click="addNewStop"
-                                            :disabled="!selectedStopToAdd"
-                                            class="px-3 py-1 bg-slate-800 hover:bg-slate-900 disabled:opacity-40 text-white font-bold rounded-lg text-xs transition"
-                                        >
-                                            Thêm Trạm
-                                        </button>
+                                    <div class="pt-2">
+                                        <div class="flex items-center justify-between mb-1 text-[11px]">
+                                            <span class="text-slate-500 font-medium">Thêm trạm dừng tiếp theo vào lộ trình:</span>
+                                            <button 
+                                                type="button" 
+                                                @click="isManualStopInput = !isManualStopInput" 
+                                                class="text-blue-600 hover:text-blue-800 font-medium transition cursor-pointer"
+                                            >
+                                                {{ isManualStopInput ? 'Chọn từ danh bạ' : 'Nhập mã thủ công' }}
+                                            </button>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <!-- Chế độ 1: Chọn từ danh bạ Hubs / Bưu Cục -->
+                                            <select 
+                                                v-if="!isManualStopInput && availableHubsGrouped.total > 0" 
+                                                v-model="selectedStopToAdd" 
+                                                @change="onSelectStopChange"
+                                                class="flex-1 min-w-0 rounded-lg border border-slate-300 px-2.5 py-1.5 bg-white text-xs outline-none focus:border-blue-600 truncate"
+                                            >
+                                                <option value="">-- Chọn trạm dừng để thêm --</option>
+                                                <optgroup v-if="availableHubsGrouped.central.length > 0" label="Kho Tổng Trung Chuyển (Cấp 1)">
+                                                    <option v-for="h in availableHubsGrouped.central" :key="h.hubCode" :value="h.hubCode">
+                                                        [Kho Tổng] {{ h.hubName || h.hubCode }} ({{ h.hubCode }})
+                                                    </option>
+                                                </optgroup>
+                                                <optgroup v-if="availableHubsGrouped.postOffices.length > 0" label="Bưu Cục Giao Dịch &amp; Phát (Cấp 2/3)">
+                                                    <option v-for="h in availableHubsGrouped.postOffices" :key="h.hubCode" :value="h.hubCode">
+                                                        [Bưu Cục] {{ h.hubName || h.hubCode }} ({{ h.hubCode }})
+                                                    </option>
+                                                </optgroup>
+                                            </select>
+
+                                            <!-- Chế độ 2: Nhập mã trạm thủ công (hoặc khi danh bạ đã hết trạm phù hợp) -->
+                                            <input 
+                                                v-else 
+                                                v-model="customStopCode" 
+                                                type="text" 
+                                                placeholder="Nhập mã trạm (VD: HUB-CT-01, POST-HN-CG...)" 
+                                                class="flex-1 min-w-0 rounded-lg border border-slate-300 px-2.5 py-1.5 bg-white text-xs outline-none font-mono font-bold text-blue-800 focus:border-blue-600 uppercase"
+                                                @keyup.enter.prevent="addNewStop"
+                                            />
+
+                                            <!-- Nút Thêm Trạm NỔI BẬT, KHÔNG BỊ CO HAY BỊ ĐẨY MẤT -->
+                                            <button 
+                                                type="button"
+                                                @click="addNewStop"
+                                                class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs transition cursor-pointer shrink-0 shadow-xs"
+                                            >
+                                                + Thêm
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

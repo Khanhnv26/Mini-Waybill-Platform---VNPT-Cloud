@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import org.app.authservice.client.CustomerClient;
 import org.app.authservice.dto.request.InitCustomerProfileRequest;
+import org.app.authservice.dto.request.UpdateMyProfileRequest;
 
 @Slf4j
 @Service
@@ -49,7 +50,9 @@ public class AuthServiceImpl implements AuthService {
 
         User user = userRepository.findByEmail(email).map(existingUser -> {
             existingUser.setGoogleSub(googleSub);
-            if(existingUser.getAvatarUrl() == null) existingUser.setAvatarUrl(pictureUrl);
+            if (pictureUrl != null && !pictureUrl.isBlank()) {
+                existingUser.setAvatarUrl(pictureUrl);
+            }
             return userRepository.save(existingUser);
         }).orElseGet(() -> {
             Role role = getOrCreateCustomerRole();
@@ -188,6 +191,70 @@ public class AuthServiceImpl implements AuthService {
                 .build();
         kafkaTemplate.send("email-events", sendEmailEvent);
 
+    }
+
+    @Override
+    public User getMyProfile(Long userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID không hợp lệ");
+        }
+        return userRepository.findById(userId).orElseThrow(
+                () -> new RuntimeException("Không tìm thấy thông tin tài khoản!"));
+    }
+
+    @Override
+    @Transactional
+    public User updateMyProfile(Long userId, UpdateMyProfileRequest request) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID không hợp lệ");
+        }
+        User user = userRepository.findById(userId).orElseThrow(
+                () -> new RuntimeException("Không tìm thấy thông tin tài khoản!"));
+
+        if (request.getFullName() != null && !request.getFullName().trim().isBlank()) {
+            user.setFullName(request.getFullName().trim());
+        }
+
+        if (request.getAvatarUrl() != null && !request.getAvatarUrl().trim().isBlank()) {
+            user.setAvatarUrl(request.getAvatarUrl().trim());
+        }
+
+        return userRepository.save(user);
+    }
+
+    @Override
+    @Transactional
+    public User linkGoogleAccount(Long userId, GoogleIdToken.Payload payload) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID không hợp lệ");
+        }
+        User currentUser = userRepository.findById(userId).orElseThrow(
+                () -> new RuntimeException("Không tìm thấy thông tin tài khoản!"));
+
+        String googleEmail = payload.getEmail();
+        String pictureUrl = payload.get("picture") != null ? payload.get("picture").toString() : null;
+        String googleSub = payload.getSubject();
+
+
+        Optional<User> existingWithSub = userRepository.findByGoogleSub(googleSub);
+        if (existingWithSub.isPresent() && !existingWithSub.get().getId().equals(currentUser.getId())) {
+            throw new IllegalArgumentException("Tài khoản Google này đã được liên kết với tài khoản: " + existingWithSub.get().getEmail());
+        }
+
+
+        if (!currentUser.getEmail().equalsIgnoreCase(googleEmail)) {
+            Optional<User> existingWithEmail = userRepository.findByEmail(googleEmail);
+            if (existingWithEmail.isPresent() && !existingWithEmail.get().getId().equals(currentUser.getId())) {
+                throw new IllegalArgumentException("Email Google (" + googleEmail + ") đã thuộc về một tài khoản khác!");
+            }
+        }
+
+        currentUser.setGoogleSub(googleSub);
+        if (pictureUrl != null && !pictureUrl.isBlank()) {
+            currentUser.setAvatarUrl(pictureUrl);
+        }
+
+        return userRepository.save(currentUser);
     }
 
     private Role getOrCreateCustomerRole() {

@@ -898,7 +898,7 @@
 
             <!-- 2. SUBTABS ĐIỀU HƯỚNG GẠCH CHÂN CHUẨN RBAC -->
             <div class="flex items-center justify-between border-b border-slate-200">
-                <div class="flex space-x-4 sm:space-x-6 overflow-x-auto pb-px">
+                <div class="flex space-x-4 sm:space-x-6 overflow-x-auto no-scrollbar pb-px">
                     <button 
                         @click="currentSubtab = 'active'"
                         :class="[

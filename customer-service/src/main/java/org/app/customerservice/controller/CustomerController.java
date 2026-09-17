@@ -42,6 +42,11 @@ public class CustomerController {
         return ResponseEntity.ok(customerService.updateCustomer(id, request));
     }
 
+    @GetMapping({"/retail/validation", "/retail"})
+    public ResponseEntity<CustomerValidation> getRetailCustomer() {
+        return ResponseEntity.ok(customerService.getRetailCustomer());
+    }
+
     @GetMapping("/{id}/validation")
     public ResponseEntity<CustomerValidation> validateCustomer(@PathVariable Long id) {
         return ResponseEntity.ok(customerService.validateCustomer(id));
@@ -73,10 +78,5 @@ public class CustomerController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         return ResponseEntity.ok(customerService.updateProfileByUserId(Long.parseLong(currentUserId), request));
-    }
-
-    @GetMapping("/retail")
-    public ResponseEntity<CustomerValidation> getRetailCustomer() {
-        return ResponseEntity.ok(customerService.getRetailCustomer());
     }
 }

@@ -197,16 +197,31 @@
                 if (!selected || selected === 'ALL' || !item) return false;
 
                 const location = normalizeCode(item.locationCode).toUpperCase();
-                if (location === selected) return true;
+                // 1. Tồn kho bưu cục: BẮT BUỘC 100% kiện phải thực tế nằm tại kho của bưu cục này
+                if (currentSubtab.value === 'inventory') {
+                    return location === selected;
+                }
 
-                const status = normalizeCode(item.currentStatus || item.status).toUpperCase();
-                if (['ROUTE_ASSIGNED', 'PENDING_ROUTING', 'PICKED_UP'].includes(status)) {
-                    return normalizeCode(getOriginPostOfficeInfo(item).code).toUpperCase() === selected;
+                // 2. Khai thác đi: Phải xuất phát từ bưu cục này và đang tại bưu cục hoặc vừa xuất bến
+                if (currentSubtab.value === 'outbound') {
+                    const originPo = normalizeCode(getOriginPostOfficeInfo(item).code).toUpperCase();
+                    if (originPo !== selected && location !== selected) return false;
+                    return location === selected || ['ROUTE_ASSIGNED', 'PENDING_ROUTING', 'PICKED_UP', 'IN_TRANSIT'].includes(
+                        normalizeCode(item.currentStatus || item.status).toUpperCase()
+                    );
                 }
-                if (['ARRIVED_DEST_HUB', 'OUT_FOR_DELIVERY'].includes(status)) {
-                    return normalizeCode(getDestPostOfficeInfo(item).code).toUpperCase() === selected;
+
+                // 3. Khai thác đến: Phải có điểm đích là bưu cục này và đã cập bến/đang phát
+                if (currentSubtab.value === 'inbound') {
+                    const destPo = normalizeCode(getDestPostOfficeInfo(item).code).toUpperCase();
+                    if (destPo !== selected) return false;
+                    return location === selected || !location.startsWith('HUB-');
                 }
-                return false;
+
+                // Mặc định chung cho tra cứu: chỉ nhận kiện liên quan
+                const originPo = normalizeCode(getOriginPostOfficeInfo(item).code).toUpperCase();
+                const destPo = normalizeCode(getDestPostOfficeInfo(item).code).toUpperCase();
+                return location === selected || originPo === selected || destPo === selected;
             };
 
             // Bucket trạng thái là nguồn chân lý duy nhất: dùng chung cho bộ lọc,
@@ -261,19 +276,49 @@
                 return '';
             };
 
-            const isOutboundShipment = (item) => Boolean(getOutboundBucket(item));
-            const isInboundShipment = (item) => Boolean(getInboundBucket(item));
-            const isInventoryShipment = (item) => Boolean(getInventoryBucket(item));
+            // Phân định chuẩn theo luồng nghiệp vụ logistics:
+            // 1. Khai thác đi: Chỉ nhận kiện có điểm gửi thuộc trạm này
+            const isOutboundShipment = (item) => {
+                if (!item) return false;
+                const poCode = normalizeCode(selectedPostOffice.value).toUpperCase();
+                if (poCode && poCode !== 'ALL') {
+                    const originPo = normalizeCode(getOriginPostOfficeInfo(item).code).toUpperCase();
+                    const loc = normalizeCode(item.locationCode).toUpperCase();
+                    if (originPo !== poCode && loc !== poCode) return false;
+                }
+                return Boolean(getOutboundBucket(item));
+            };
 
-            // Bộ lọc phạm vi bưu cục (loc/origin/dest) dùng chung cho danh sách và KPI.
+            // 2. Khai thác đến: Chỉ nhận kiện có điểm nhận thuộc trạm này
+            const isInboundShipment = (item) => {
+                if (!item) return false;
+                const poCode = normalizeCode(selectedPostOffice.value).toUpperCase();
+                if (poCode && poCode !== 'ALL') {
+                    const destPo = normalizeCode(getDestPostOfficeInfo(item).code).toUpperCase();
+                    if (destPo !== poCode) return false;
+                }
+                return Boolean(getInboundBucket(item));
+            };
+
+            // 3. Quản lý tồn kho: BẮT BUỘC 100% kiện phải thực tế nằm tại kho bưu cục (Physical Location)
+            const isInventoryShipment = (item) => {
+                if (!item) return false;
+                const poCode = normalizeCode(selectedPostOffice.value).toUpperCase();
+                const loc = normalizeCode(item.locationCode).toUpperCase();
+                if (poCode && poCode !== 'ALL') {
+                    if (loc !== poCode) return false;
+                } else {
+                    if (!loc.startsWith('POST-') && loc !== 'DELIVERY_OFFICE') return false;
+                }
+                return Boolean(getInventoryBucket(item));
+            };
+
+            // Bộ lọc phạm vi bưu cục: Chỉ lấy kiện thuộc luồng đi, luồng đến hoặc thực tế tồn kho của trạm
             const scopedShipments = computed(() => {
                 const poCode = normalizeCode(selectedPostOffice.value).toUpperCase();
                 if (!poCode || poCode === 'ALL') return shipmentsList.value;
                 return shipmentsList.value.filter(s => {
-                    const loc = normalizeCode(s.locationCode).toUpperCase();
-                    const originPo = normalizeCode(getOriginPostOfficeInfo(s).code).toUpperCase();
-                    const destPo = normalizeCode(getDestPostOfficeInfo(s).code).toUpperCase();
-                    return loc === poCode || originPo === poCode || destPo === poCode;
+                    return isOutboundShipment(s) || isInboundShipment(s) || isInventoryShipment(s);
                 });
             });
 
@@ -658,35 +703,35 @@
 
             // Thống kê nhanh KPI Bưu Cục (cùng bucket predicate với bộ lọc)
             const kpiAwaitingIntake = computed(() =>
-                scopedShipments.value.filter(s => getOutboundBucket(s) === 'WAITING_INTAKE').length
+                scopedShipments.value.filter(s => isOutboundShipment(s) && getOutboundBucket(s) === 'WAITING_INTAKE').length
             );
 
             const kpiStagedInOffice = computed(() =>
-                scopedShipments.value.filter(s => getOutboundBucket(s) === 'STORED_OFFICE').length
+                scopedShipments.value.filter(s => isOutboundShipment(s) && getOutboundBucket(s) === 'STORED_OFFICE').length
             );
 
             const kpiInTransitOutbound = computed(() =>
-                scopedShipments.value.filter(s => getOutboundBucket(s) === 'IN_TRANSIT').length
+                scopedShipments.value.filter(s => isOutboundShipment(s) && getOutboundBucket(s) === 'IN_TRANSIT').length
             );
 
             const kpiArrivedFromHub = computed(() =>
-                scopedShipments.value.filter(s => getInboundBucket(s) === 'WAITING_HANDOFF').length
+                scopedShipments.value.filter(s => isInboundShipment(s) && getInboundBucket(s) === 'WAITING_HANDOFF').length
             );
 
             const kpiOutForDelivery = computed(() =>
-                scopedShipments.value.filter(s => getInboundBucket(s) === 'OUT_FOR_DELIVERY').length
+                scopedShipments.value.filter(s => isInboundShipment(s) && getInboundBucket(s) === 'OUT_FOR_DELIVERY').length
             );
 
             const kpiDeliveredInbound = computed(() =>
-                scopedShipments.value.filter(s => getInboundBucket(s) === 'DELIVERED').length
+                scopedShipments.value.filter(s => isInboundShipment(s) && getInboundBucket(s) === 'DELIVERED').length
             );
 
             const inventoryStagedCount = computed(() =>
-                scopedShipments.value.filter(s => getInventoryBucket(s) === 'STORED_OFFICE').length
+                scopedShipments.value.filter(s => isInventoryShipment(s) && getInventoryBucket(s) === 'STORED_OFFICE').length
             );
 
             const inventoryWaitingHandoffCount = computed(() =>
-                scopedShipments.value.filter(s => getInventoryBucket(s) === 'WAITING_HANDOFF').length
+                scopedShipments.value.filter(s => isInventoryShipment(s) && getInventoryBucket(s) === 'WAITING_HANDOFF').length
             );
 
             const currentSubtabCount = computed(() => {
@@ -1479,7 +1524,7 @@
 
             <!-- 2. SUBTABS ĐIỀU HƯỚNG TINH GỌN (CHỈ TÊN TAB + SỐ ĐẾM ĐƠN SẮC) -->
             <div class="flex items-center justify-between border-b border-slate-200">
-                <div class="flex space-x-6 overflow-x-auto pb-px">
+                <div class="flex space-x-4 sm:space-x-6 overflow-x-auto no-scrollbar pb-px flex-1 min-w-0 mr-3">
                     <button 
                         @click="currentSubtab = 'outbound'"
                         :class="[
@@ -1529,7 +1574,7 @@
                 <button 
                     @click="loadShipmentsData()" 
                     :disabled="isLoading"
-                    class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white hover:bg-slate-50 text-slate-700 transition flex items-center space-x-1 border border-slate-200 shadow-xs"
+                    class="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white hover:bg-slate-50 text-slate-700 transition flex items-center space-x-1 border border-slate-200 shadow-xs cursor-pointer"
                 >
                     <span v-if="isLoading" class="w-2.5 h-2.5 border-2 border-slate-600 border-t-transparent rounded-full animate-spin"></span>
                     <span>Làm Mới</span>

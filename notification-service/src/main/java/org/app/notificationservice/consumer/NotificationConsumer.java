@@ -14,6 +14,7 @@ import org.app.notificationservice.service.TelegramService;
 import org.app.notificationservice.util.EmailTemplateHelper;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -31,6 +32,7 @@ public class NotificationConsumer {
     private final ShipmentClient shipmentClient;
     private final ShipperClient shipperClient;
     private final TelegramService telegramService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @KafkaListener(topics = "shipment-events", groupId = "notification-group")
     public void handleShipmentCreated(CreateShipmentEvent event) {
@@ -88,7 +90,9 @@ public class NotificationConsumer {
 
     @KafkaListener(topics = "tracking-status-events", groupId = "notification-group")
     public void handleStatusUpdatedEvent(ShipmentStatusUpdatedEvent event) {
-       String status = event.getStatus();
+        messagingTemplate.convertAndSend("/topic/tracking/" + event.getTrackingCode(), event);
+        log.info("[WEBSOCKET] Đã phát sự kiện realtime cho đơn: {}", event.getTrackingCode());
+        String status = event.getStatus();
         log.info("[NOTIFICATION] Nhận event cập nhật trạng thái: {} -> {}", event.getTrackingCode(), status);
 
         if (status != null && Set.of("DELIVERY_FAILED", "RETURNING").contains(status)) {

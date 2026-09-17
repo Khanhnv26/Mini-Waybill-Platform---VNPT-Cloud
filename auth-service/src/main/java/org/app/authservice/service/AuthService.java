@@ -5,6 +5,7 @@ import org.app.authservice.dto.request.ForgotPasswordRequest;
 import org.app.authservice.dto.request.LoginRequest;
 import org.app.authservice.dto.request.RegisterRequest;
 import org.app.authservice.dto.request.ResetPasswordRequest;
+import org.app.authservice.dto.request.UpdateMyProfileRequest;
 import org.app.authservice.entity.User;
 import org.springframework.stereotype.Service;
 
@@ -15,5 +16,7 @@ public interface AuthService {
     User login(LoginRequest loginRequest);
     void resetPassword(ResetPasswordRequest resetPasswordRequest);
     void forgotPassword(ForgotPasswordRequest forgotPasswordRequest);
-
+    User getMyProfile(Long userId);
+    User updateMyProfile(Long userId, UpdateMyProfileRequest request);
+    User linkGoogleAccount(Long userId, GoogleIdToken.Payload payload);
 }

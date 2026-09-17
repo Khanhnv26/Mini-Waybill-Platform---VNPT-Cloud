@@ -319,14 +319,6 @@
                 }
             };
 
-            const fillCounterStationInfo = () => {
-                form.senderName = 'Điểm Tiếp Nhận Quầy Bưu Cục VNPT';
-                form.senderPhone = '1900545481';
-                form.senderDetail = 'Quầy Giao Dịch Bưu Chính VNPT';
-                senderAddressQuery.value = 'Quầy Giao Dịch Bưu Chính VNPT';
-                Utils.showToast('Đã Điền Quầy', 'Đã thiết lập thông tin bưu gửi từ quầy giao dịch', 'info');
-            };
-
             const loadMyProfile = async () => {
                 if (typeof Auth === 'undefined' || !Auth.isAuthenticated()) return;
                 // Chỉ tài khoản mang vai trò ROLE_CUSTOMER mới gọi API hồ sơ cá nhân
@@ -527,7 +519,10 @@
                 isCancellingShipment.value = true;
                 const code = selectedShipmentToCancel.value.trackingCode;
                 try {
-                    await ShipmentService.cancelShipment(code);
+                    await ShipmentService.cancelShipment(code, {
+                        reasonCode: cancelReasonCode.value,
+                        reasonNote: cancelReasonNote.value
+                    });
                     Utils.showToast('Hủy Đơn Thành Công', `Vận đơn ${code} đã được hủy bỏ và thông báo tới toàn hệ thống.`, 'success');
                     showCancelModal.value = false;
                     await loadShipments();
@@ -828,7 +823,6 @@
                 canCreateForOthers,
                 senderMode,
                 setSenderMode,
-                fillCounterStationInfo,
                 myProfile,
                 isLoadingProfile,
                 showProfileModal,
@@ -1050,20 +1044,11 @@
                                     </div>
 
                                     <!-- B. Nhân viên tạo cho Khách Vãng Lai Tại Quầy -->
-                                    <div v-else-if="canCreateForOthers && senderMode === 'RETAIL'" class="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1.5 border-t border-slate-200/60 text-xs">
-                                        <div class="flex items-center space-x-2">
-                                            <span class="text-[10px] font-mono px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded font-bold">
-                                                CUS_RETAIL
-                                            </span>
-                                            <span class="text-slate-600 text-[11px]">Đơn lẻ tại quầy, tự động gán tài khoản khách vãng lai hệ thống</span>
-                                        </div>
-                                        <button 
-                                            type="button" 
-                                            @click="fillCounterStationInfo" 
-                                            class="text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline transition self-start sm:self-auto"
-                                        >
-                                            Điền nhanh thông tin Bưu Cục
-                                        </button>
+                                    <div v-else-if="canCreateForOthers && senderMode === 'RETAIL'" class="mt-2 flex items-center space-x-2 pt-1.5 border-t border-slate-200/60 text-xs">
+                                        <span class="text-[10px] font-mono px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded font-bold">
+                                            CUS_RETAIL
+                                        </span>
+                                        <span class="text-slate-600 text-[11px]">Đơn lẻ tại quầy, tự động gán tài khoản khách vãng lai hệ thống</span>
                                     </div>
 
                                     <!-- C. Shop (ROLE_CUSTOMER độc lập) -->
@@ -1197,7 +1182,7 @@
                                         </div>
 
                                         <!-- Chips chọn nhanh số tiền COD (Gọn gàng) -->
-                                        <div class="flex items-center space-x-1.5 overflow-x-auto">
+                                        <div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar">
                                             <button 
                                                 type="button" 
                                                 @click="setCodAmount(0)"

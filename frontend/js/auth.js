@@ -188,6 +188,84 @@ const Auth = {
             return false;
         }
         return true;
+    },
+
+    // 15. Kiểm tra người dùng có phải là nhân viên/cán bộ vận hành nội bộ hay không
+    isInternalStaff() {
+        const staffRoles = [
+            'ROLE_ADMIN',
+            'ROLE_POST_OFFICE_STAFF',
+            'ROLE_POST_OFFICE_OPERATOR',
+            'ROLE_HUB_OPERATOR',
+            'ROLE_SHIPPER',
+            'ROLE_DISPATCHER',
+            'ROLE_CS'
+        ];
+        return this.hasAnyRole(staffRoles);
+    },
+
+    // 16. Chuyển đổi mã Role sang danh xưng tiếng Việt thân thiện
+    getRoleDisplayName(roleName) {
+        if (!roleName) return 'Khách Hàng / Đối Tác';
+        const role = this.normalizeRole(roleName);
+        const map = {
+            'ROLE_ADMIN': 'Quản Trị Hệ Thống (Admin)',
+            'ROLE_POST_OFFICE_STAFF': 'Nhân Viên Bưu Cục Tiếp Nhận',
+            'ROLE_POST_OFFICE_OPERATOR': 'Giao Dịch Viên Bưu Cục',
+            'ROLE_HUB_OPERATOR': 'Điều Phối Viên Kho Hub',
+            'ROLE_SHIPPER': 'Bưu Tá Giao Vận Chặng Cuối',
+            'ROLE_DISPATCHER': 'Điều Phối Đội Xe Vận Tải',
+            'ROLE_CS': 'Chăm Sóc Khách Hàng (CS)',
+            'ROLE_CUSTOMER': 'Khách Hàng / Chủ Shop'
+        };
+        return map[role] || role.replace('ROLE_', '');
+    },
+
+    // 17. Tải thông tin hồ sơ tài khoản hiện tại từ auth-service
+    async getMyProfile() {
+        if (typeof Api === 'undefined') {
+            throw new Error('Api client chưa sẵn sàng');
+        }
+        const response = await Api.get('/api/auth/me');
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.message || errData.error || 'Không thể tải thông tin hồ sơ tài khoản');
+        }
+        const data = await response.json();
+        if (data) {
+            const currentUser = this.getUser() || {};
+            const mergedUser = {
+                ...currentUser,
+                ...data,
+                avatarUrl: data.avatarUrl || currentUser.avatarUrl
+            };
+            this.setSession(this.getToken(), mergedUser);
+        }
+        return data;
+    },
+
+    // 18. Cập nhật thông tin hồ sơ cá nhân qua auth-service
+    async updateMyProfile(payload) {
+        if (typeof Api === 'undefined') {
+            throw new Error('Api client chưa sẵn sàng');
+        }
+        const response = await Api.put('/api/auth/me', payload);
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.message || errData.error || 'Cập nhật hồ sơ thất bại');
+        }
+        const data = await response.json();
+        if (data) {
+            const currentUser = this.getUser() || {};
+            const nextToken = data.accessToken || this.getToken();
+            const mergedUser = {
+                ...currentUser,
+                ...data,
+                avatarUrl: data.avatarUrl || currentUser.avatarUrl
+            };
+            this.setSession(nextToken, mergedUser);
+        }
+        return data;
     }
 };
 
