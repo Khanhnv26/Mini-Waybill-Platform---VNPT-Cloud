@@ -21,7 +21,7 @@ Hệ thống được thiết kế theo tiêu chuẩn **High Availability (HA - 
 
 ---
 
-## 2. Bối Cảnh Vận Hành & Nghiệp Vụ Bưu Chính Toàn Trình (Core Business Domain)
+## 2. Bối Cảnh Vận Hành & Nghiệp Vụ Bưu Chính Toàn Trình
 
 Khác với các ứng dụng giao hàng nội thành đơn chặng, hệ thống bưu chính quy mô quốc gia vận hành theo mô hình phân tầng đa chặng với mạng lưới kho bãi phức tạp. Nền tảng mô phỏng và giải quyết triệt để 4 trụ cột nghiệp vụ trọng yếu:
 
