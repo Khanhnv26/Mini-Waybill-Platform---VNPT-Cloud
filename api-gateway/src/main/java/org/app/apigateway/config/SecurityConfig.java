@@ -1,5 +1,6 @@
 package org.app.apigateway.config;
 
+import jakarta.servlet.DispatcherType;
 import org.springframework.http.HttpMethod;
 import lombok.RequiredArgsConstructor;
 import org.app.apigateway.filter.JwtAuthenticationFilter;
@@ -27,6 +28,7 @@ public class SecurityConfig {
                    .cors(Customizer.withDefaults())
                    .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(
                         "/api/auth/login",
                         "/api/auth/register",

@@ -89,6 +89,6 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-    console.log('VNPT WAYBILL FRONTEND SERVER ĐANG CHẠY TẠI: http://localhost:' + PORT);
-    console.log('Trang chính: http://localhost:' + PORT + '/index.html');
+    console.log('VNPT WAYBILL FRONTEND SERVER ĐANG CHẠY TẠI: http://localhost:');
+    console.log('Trang chính: http://localhost:');
 });
