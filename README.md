@@ -48,11 +48,12 @@ Khác với các ứng dụng giao hàng nội thành đơn chặng, hệ thốn
 * **Chống xung đột đa luồng:** Áp dụng khóa phân tán Redis (`SETNX`) đảm bảo khi 2 bưu tá cùng quét một kiện hàng trên thiết bị cầm tay, chỉ duy nhất 1 người giành được quyền xử lý, tránh race condition trong môi trường đồng thời cao.
 * *Tài liệu chi tiết:* Xem thuật toán tính tải và quy trình niêm phong tại [Cẩm nang 04 - Quản Lý Chuyến Xe Trục](docs/04-logistics-domain-and-rbac-station-context.md#2-quản-lý-chuyến-xe-trục-đa-chặng-multi-leg-trips--manifests) và boilerplate khóa phân tán tại [Cẩm nang 05 - Redis Distributed Lock](docs/05-redis-caching-and-distributed-patterns.md#23-luồng-khóa-phân-tán-redis-distributed-lock---tránh-race-condition).
 
-### 2.4. Quyết Toán Tài Chính COD & Bảo Mật Ngữ Cảnh Trạm (Station Context Binding)
-* **Quản trị dòng tiền COD minh bạch:** Tách biệt rõ ranh giới giữa tiền thu hộ COD và tiền cước vận chuyển B2B. Khi bưu tá hoàn tất ca phát, tiền mặt được nộp về quỹ trạm, hệ thống kích hoạt luồng đối soát và gửi thông báo biến động số dư.
+### 2.4. Quyết Toán Tài Chính COD 3 Pha & Báo Cáo Đối Soát Dòng Tiền (Financial Settlement & Reconciliation)
+* **Quản trị dòng tiền COD minh bạch:** Tách biệt rõ ranh giới giữa tiền thu hộ COD (tiền của Shop ủy thác) và tiền cước vận chuyển B2B. Giải quyết triệt để rủi ro thất thoát bằng máy trạng thái tài chính 3 pha độc lập với trạng thái phát hàng: `UNSETTLED` (Bưu tá tạm giữ tiền mặt, nợ quỹ trạm) -> `PENDING_SETTLEMENT` (Bưu tá nộp bảng kê ca phát, chờ thủ quỹ kiểm đếm) -> `SETTLED` (Thủ quỹ bưu cục kiểm đếm đủ và duyệt tiền nhập két trạm).
+* **Nghiệp vụ bưu tá nộp quỹ 1-Click & bưu cục duyệt quỹ:** Hỗ trợ bưu tá chọn lọc từng đơn hoặc bấm 1-click nộp toàn bộ ca phát; giao diện bưu cục đối soát tiền mặt tức thì với huy hiệu chấm tròn nhấp nháy động (`live-pulse-dot`).
 * **Ràng buộc ngữ cảnh trạm làm việc (Station Context Binding):** Ngăn chặn triệt để lỗ hổng nhân viên có vai trò `ROLE_POST_OFFICE_STAFF` tại trạm Hà Nội cố tình hoặc vô ý thao tác đơn hàng thuộc địa bàn TP.HCM. Thông tin trạm (`X-User-Station-Id`) được Gateway trích xuất từ JWT và kiểm tra chéo tại tầng Business Service.
 * **Thu hồi quyền tức thời qua Redis Blacklist:** Khi phát hiện nhân viên vi phạm hoặc đăng xuất, Gateway kiểm tra Redis Blacklist trong thời gian < 0.5ms để chặn đứng truy cập ngay lập tức mà không cần chờ JWT hết hạn.
-* *Tài liệu chi tiết:* Xem giải pháp Station Context Binding tại [Cẩm nang 04 - Bảo Mật Ngữ Cảnh Trạm](docs/04-logistics-domain-and-rbac-station-context.md#4-bảo-mật-ngữ-cảnh-trạm-station-context-rbac) và kiến trúc bảo mật Gateway tại [Cẩm nang 06 - Microservices Security & Redis Blacklist](docs/06-microservices-security-jwt-and-rbac.md).
+* *Tài liệu chi tiết:* Xem giải pháp Station Context Binding tại [Cẩm nang 04 - Bảo Mật Ngữ Cảnh Trạm](docs/04-logistics-domain-and-rbac-station-context.md#4-bảo-mật-ngữ-cảnh-trạm-station-context-rbac), kiến trúc quyết toán COD tại [Cẩm nang 09 - Quyết Toán COD & Báo Cáo Đối Soát Dòng Tiền](docs/09-cod-settlement-and-financial-reconciliation.md), và bảo mật Gateway tại [Cẩm nang 06 - Microservices Security & Redis Blacklist](docs/06-microservices-security-jwt-and-rbac.md).
 
 ### 2.5. Tối Ưu Hóa Trải Nghiệm Giao Diện & Phòng Thủ Cửa Ngõ (Performance & Gateway Defense)
 * **Client-side Caching với Vue 3 `<keep-alive>`:** Toàn bộ giao diện SPA áp dụng cơ chế lưu trữ các component vào RAM khi chuyển đổi menu sidebar. Triệt tiêu 100% các request `GET` dư thừa, tốc độ chuyển tab đạt tức thì (0ms latency), đồng thời bảo toàn nguyên vẹn bộ lọc tìm kiếm, phân trang và trạng thái checkbox đang chọn.
@@ -73,6 +74,12 @@ Khác với các ứng dụng giao hàng nội thành đơn chặng, hệ thốn
 * **Mô hình Idempotency & OperationId trong Logistics:** Xử lý triệt để bài toán công nhân bóp cò máy quét barcode 2 lần liên tiếp (Double-Scanning) hoặc mạng 4G chập chờn gây gửi đúp request, đảm bảo 100% tính toàn vẹn trạng thái kiện hàng và bảng kê COD.
 * **Bộ lập lịch gom đơn tự động (Automated Consolidator) & Mốc Cut-off Buffer:** Tự động hóa gom kiện đạt ngưỡng tải trọng ($80\%$) và đóng sổ chuyến xe trước giờ xuất bến 30 phút để in bảng kê Manifest và niêm phong chì (Seal).
 * *Tài liệu chi tiết:* Xem chi tiết kiến trúc tại [Cẩm nang 08 - Shipper Service, Google Identity & Idempotency](docs/08-shipper-service-identity-and-idempotency.md).
+
+### 2.8. Vi Dịch Vụ Báo Cáo Phân Tích (report-service) & Xuất Excel 2 Sheet Chuẩn Kiểm Toán
+* **Phân tách vi dịch vụ báo cáo độc lập (`report-service` - Port 8091):** Ứng dụng mô hình CQRS (Command Query Responsibility Segregation). Thay vì chạy các query aggregate nặng (`SUM`, `COUNT`, `GROUP BY`) làm chậm CSDL giao dịch cốt lõi `shipment_db`, `report-service` lưu trữ snapshot tối ưu (`report_db`) và nhận dữ liệu qua Kafka streaming.
+* **Xuất báo cáo tài chính Excel 2 Sheet chuẩn kiểm toán:** Sử dụng Apache POI sinh file `.xlsx` chuyên nghiệp: Sheet 1 tổng hợp KPI tài chính (doanh thu cước, COD đã vào két, COD bưu tá đang giữ, tỷ lệ giao thành công); Sheet 2 là bảng kê chi tiết toàn bộ vận đơn phục vụ đối soát và lưu trữ thuế.
+* **Tương tác vi mô 60fps (Micro-Interactions & Transitions):** Tích hợp hiệu ứng chuyển động mượt mà, phản hồi visual tức thời khi nộp quỹ / duyệt quỹ, thông báo realtime không cần reload trang.
+* *Tài liệu chi tiết:* Xem chi tiết kiến trúc CQRS và xuất báo cáo tại [Cẩm nang 09 - Quyết Toán COD & Báo Cáo Đối Soát Dòng Tiền](docs/09-cod-settlement-and-financial-reconciliation.md).
 
 ---
 
@@ -111,6 +118,7 @@ flowchart TB
         NotiSvc["notification-service (8085)\n• Telegram Bot / WebSocket STOMP\n• Email / SMS / In-app"]
         AuditSvc["audit-service (8086)\n• Nhật ký kiểm toán toàn mạng"]
         ShipperSvc["shipper-service (8089)\n• Quản lý đội ngũ bưu tá\n• Phân trạm & liên kết Telegram"]
+        ReportSvc["report-service (8091)\n• Phân tích đối soát COD & KPI\n• Xuất báo cáo tài chính Excel"]
     end
 
     subgraph EventAndCache [" Message Broker HA & Caching Layer "]
@@ -131,13 +139,14 @@ flowchart TB
         DB_Noti[(notification_db - 1433)]
         DB_Audit[(audit_db - 1433)]
         DB_Shipper[(shipper_db - 1433)]
+        DB_Report[(report_db - 1433)]
     end
 
     UI & Scanner -->|"HTTP Port 80"| Nginx
     Nginx -->|"Upstream /api/"| GW1 & GW2
     Nginx -->|"Upstream /"| UI
     GW1 & GW2 --> Eureka1 & Eureka2
-    GW1 & GW2 --> AuthSvc & CustSvc & ShipSvc & RouteSvc & TrackSvc & NotiSvc & AuditSvc & ShipperSvc
+    GW1 & GW2 --> AuthSvc & CustSvc & ShipSvc & RouteSvc & TrackSvc & NotiSvc & AuditSvc & ShipperSvc & ReportSvc
 
     TrackSvc -->|"Ghi: Primary DB"| DB_Track_Primary
     TrackSvc -->|"Đọc: Replica DB"| DB_Track_Replica
@@ -151,7 +160,7 @@ flowchart TB
     ShipSvc --> KafkaCluster
     RouteSvc --> KafkaCluster
     TrackSvc --> KafkaCluster
-    KafkaCluster --> RouteSvc & TrackSvc & ShipSvc & NotiSvc & AuditSvc & ShipperSvc
+    KafkaCluster --> RouteSvc & TrackSvc & ShipSvc & NotiSvc & AuditSvc & ShipperSvc & ReportSvc
     KafkaCluster -.-> KafkaUI
 
     NotiSvc -.->|"Feign: /internal/link-telegram"| ShipperSvc
@@ -163,6 +172,7 @@ flowchart TB
     NotiSvc --> DB_Noti
     AuditSvc --> DB_Audit
     ShipperSvc --> DB_Shipper
+    ReportSvc --> DB_Report
 ```
 
 ---
@@ -181,6 +191,7 @@ Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, m�
 | **06** | [**Bảo Mật Microservices: Stateless JWT & RBAC**](docs/06-microservices-security-jwt-and-rbac.md) | Sơ đồ luồng Gateway Auth, Blacklist tức thời qua Redis (< 0.5ms), chống Header Spoofing (`HeaderMapRequestWrapper`), Spring Security 6.x và `UserContextHolder` boilerplate. |
 | **07** | [**Telegram Bot & Realtime Notification (WebSocket/STOMP)**](docs/07-telegram-bot-and-realtime-notifications.md) | Phân tích sâu Long-Polling vs Webhook, luồng liên kết bưu tá qua Feign Client, kiến trúc WebSocket STOMP Message Broker (< 50ms), HTML notification templates và xử lý lỗi Telegram API rate limit. |
 | **08** | [**Quản Trị Bưu Tá, Google Identity & Idempotency**](docs/08-shipper-service-identity-and-idempotency.md) | Phân tách vi dịch vụ `shipper-service` theo DDD, xác thực Google Identity & Avatar Stateless JWT, cơ chế Idempotent OperationId chống lỗi quét đúp mã vạch (Double-Scanning) và thuật toán Scheduler gom đơn có Cut-off buffer. |
+| **09** | [**Quyết Toán COD & Báo Cáo Đối Soát Dòng Tiền**](docs/09-cod-settlement-and-financial-reconciliation.md) | Kiến trúc máy trạng thái quyết toán COD 3 pha (`UNSETTLED` -> `PENDING_SETTLEMENT` -> `SETTLED`), nghiệp vụ bưu tá nộp quỹ ca phát, bưu cục kiểm đếm nhập két, đồng bộ Event-Driven qua Kafka sang `report-service` (Port 8091) và xuất file Excel 2-sheet đối soát tài chính theo chuẩn kiểm toán. |
 
 ---
 
@@ -196,7 +207,7 @@ docker compose up -d
 * **SQL Server Replica:** Port `2433` (`sa` / `Replica@123456`).
 
 ### Bước 2: Chuẩn bị CSDL Primary (SQL Server Port 1433)
-1. Tạo 8 database: `auth_db`, `customer_db`, `shipment_db`, `routing_db`, `tracking_db`, `notification_db`, `audit_db`, `shipper_db`.
+1. Tạo 9 database: `auth_db`, `customer_db`, `shipment_db`, `routing_db`, `tracking_db`, `notification_db`, `audit_db`, `shipper_db`, `report_db`.
 2. Chạy 2 script seed dữ liệu nền trong thư mục `database/`:
    * [`database/HubSeed.sql`](database/HubSeed.sql) (Nạp 5 Siêu Hub vào `routing_db`).
    * [`database/seed_rbac_data.sql`](database/seed_rbac_data.sql) (Nạp vai trò, quyền hạn vào `auth_db`).
@@ -225,6 +236,7 @@ cd tracking-service && ./mvnw spring-boot:run
 cd notification-service && ./mvnw spring-boot:run
 cd audit-service && ./mvnw spring-boot:run
 cd shipper-service && ./mvnw spring-boot:run
+cd report-service && ./mvnw spring-boot:run
 ```
 
 ### Bước 5: Khởi chạy Frontend Portal
@@ -266,7 +278,8 @@ mini-waybill-platform/
 │   ├── 05-redis-caching-and-distributed-patterns.md
 │   ├── 06-microservices-security-jwt-and-rbac.md
 │   ├── 07-telegram-bot-and-realtime-notifications.md
-│   └── 08-shipper-service-identity-and-idempotency.md
+│   ├── 08-shipper-service-identity-and-idempotency.md
+│   └── 09-cod-settlement-and-financial-reconciliation.md
 │
 ├── nginx/                     # Cấu hình Nginx Edge Load Balancer (nginx.conf)
 ├── api-gateway/               # Spring Cloud Gateway HA (Port 8080 & 8088)
@@ -279,6 +292,7 @@ mini-waybill-platform/
 ├── notification-service/      # Lắng nghe Kafka gửi Email HTML & Telegram (Port 8085, notification_db)
 ├── audit-service/             # Nhật ký kiểm toán toàn mạng (Port 8086, audit_db)
 ├── shipper-service/           # Quản lý bưu tá, phân trạm & liên kết Telegram (Port 8089, shipper_db)
+├── report-service/            # Phân tích đối soát COD, KPI tài chính & xuất Excel (Port 8091, report_db)
 ├── shared-events/             # DTO Event Contracts dùng chung giữa các microservice
 ├── database/                  # Script khởi tạo 5 Siêu Hub và ma trận RBAC
 └── frontend/                  # Giao diện Web SPA (Vue 3 + Tailwind CSS + Leaflet Maps)
