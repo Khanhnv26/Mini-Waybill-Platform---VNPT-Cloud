@@ -15,6 +15,9 @@ public interface ShipmentService {
     List<Shipment> getShipments(Long customerId, String currentUserId, String permissions);
     Shipment cancelShipment(String trackCode, String currentUserId, String roles, String permissions, CancelShipmentRequest cancelRequest);
 
+    List<Shipment> submitCodSettlement(List<String> trackingCodes, String courierId);
+    List<Shipment> confirmCodSettlement(List<String> trackingCodes, String officerId);
+
     default Shipment cancelShipment(String trackCode, String currentUserId, String permissions) {
         return cancelShipment(trackCode, currentUserId, null, permissions, null);
     }

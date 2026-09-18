@@ -17,15 +17,18 @@ import org.app.shipmentservice.entity.ShipmentStatus;
 import org.app.shipmentservice.exception.DuplicateRequestException;
 import org.app.shipmentservice.exception.ForbiddenException;
 import org.app.shipmentservice.exception.UnauthorizedException;
+import org.app.shipmentservice.entity.CodSettlementStatus;
 import org.app.shipmentservice.repository.ShipmentRepository;
 import org.app.shipmentservice.service.ShipmentService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
@@ -406,6 +409,66 @@ public class ShipmentServiceImpl implements ShipmentService {
                     }
                     return false;
                 });
+    }
+
+    @Override
+    @Transactional
+    public List<Shipment> submitCodSettlement(List<String> trackingCodes, String courierId) {
+        if (trackingCodes == null || trackingCodes.isEmpty()) {
+            throw new IllegalArgumentException("Danh sách mã vận đơn nộp quỹ không được để trống!");
+        }
+        List<Shipment> updatedList = new ArrayList<>();
+        for (String code : trackingCodes) {
+            shipmentRepository.findShipmentByTrackingCode(code).ifPresent(s -> {
+                if (s.getCodAmount() != null && s.getCodAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    s.setCodSettlementStatus(CodSettlementStatus.PENDING_SETTLEMENT);
+                    Shipment saved = shipmentRepository.save(s);
+                    updatedList.add(saved);
+
+                    ShipmentStatusUpdatedEvent event = ShipmentStatusUpdatedEvent.builder()
+                            .trackingCode(saved.getTrackingCode())
+                            .status(saved.getCurrentStatus() != null ? saved.getCurrentStatus().name() : "DELIVERED")
+                            .codSettlementStatus(CodSettlementStatus.PENDING_SETTLEMENT.name())
+                            .locationCode(courierId != null && !courierId.isBlank() ? courierId : "Bưu tá nộp quỹ")
+                            .note("Bưu tá gửi yêu cầu nộp quỹ COD")
+                            .updateAt(LocalDateTime.now())
+                            .build();
+                    kafkaTemplate.send("tracking-status-events", saved.getTrackingCode(), event);
+                }
+            });
+        }
+        log.info("[SHIPMENT-COD] Bưu tá {} đã gửi nộp quỹ {} vận đơn", courierId, updatedList.size());
+        return updatedList;
+    }
+
+    @Override
+    @Transactional
+    public List<Shipment> confirmCodSettlement(List<String> trackingCodes, String officerId) {
+        if (trackingCodes == null || trackingCodes.isEmpty()) {
+            throw new IllegalArgumentException("Danh sách mã vận đơn duyệt quỹ không được để trống!");
+        }
+        List<Shipment> updatedList = new ArrayList<>();
+        for (String code : trackingCodes) {
+            shipmentRepository.findShipmentByTrackingCode(code).ifPresent(s -> {
+                s.setCodSettlementStatus(CodSettlementStatus.SETTLED);
+                s.setCodSettledAt(LocalDateTime.now());
+                s.setCodSettledBy(officerId != null && !officerId.isBlank() ? officerId : "Thủ quỹ bưu cục");
+                Shipment saved = shipmentRepository.save(s);
+                updatedList.add(saved);
+
+                ShipmentStatusUpdatedEvent event = ShipmentStatusUpdatedEvent.builder()
+                        .trackingCode(saved.getTrackingCode())
+                        .status(saved.getCurrentStatus() != null ? saved.getCurrentStatus().name() : "DELIVERED")
+                        .codSettlementStatus(CodSettlementStatus.SETTLED.name())
+                        .locationCode(officerId != null && !officerId.isBlank() ? officerId : "Thủ quỹ bưu cục")
+                        .note("Bưu cục đã xác nhận thu tiền quỹ COD")
+                        .updateAt(LocalDateTime.now())
+                        .build();
+                kafkaTemplate.send("tracking-status-events", saved.getTrackingCode(), event);
+            });
+        }
+        log.info("[SHIPMENT-COD] Thủ quỹ {} đã duyệt nộp quỹ thành công {} vận đơn", officerId, updatedList.size());
+        return updatedList;
     }
 }
 

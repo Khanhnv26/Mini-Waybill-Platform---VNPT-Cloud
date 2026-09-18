@@ -40,6 +40,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,"/api/notifications/*").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/routing/hubs").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/routing/shipments/**").permitAll()
+                        .requestMatchers(HttpMethod.GET,"/api/reports/**").permitAll()
                         .requestMatchers("/api/admin", "/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/audits", "/api/audits/**").hasAnyRole("CS", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/shippers", "/api/shippers/**").hasAnyRole("ADMIN", "POST_OFFICE_OPERATOR", "POST_OFFICE_STAFF", "DISPATCHER")

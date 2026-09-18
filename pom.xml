@@ -34,6 +34,7 @@
         <module>audit-service</module>
         <module>shared-events</module>
         <module>shipper-service</module>
+        <module>report-service</module>
     </modules>
 
     <dependencyManagement>

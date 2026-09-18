@@ -81,6 +81,16 @@ public class Shipment {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "cod_settlement_status", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private CodSettlementStatus codSettlementStatus;
+
+    @Column(name = "cod_settled_at")
+    private LocalDateTime codSettledAt;
+
+    @Column(name = "cod_settled_by")
+    private String codSettledBy;
+
     @PrePersist
     protected void onCreate() {
         if (this.codAmount == null) {
@@ -91,6 +101,9 @@ public class Shipment {
         }
         if (this.currentStatus == null) {
             this.currentStatus = ShipmentStatus.PENDING_ROUTING;
+        }
+        if (this.codSettlementStatus == null) {
+            this.codSettlementStatus = CodSettlementStatus.UNSETTLED;
         }
     }
 
