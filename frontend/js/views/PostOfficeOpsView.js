@@ -218,6 +218,13 @@
                     return location === selected || !location.startsWith('HUB-');
                 }
 
+                // 4. Quản lý quỹ COD: Phải phát sinh tiền COD và thuộc bưu cục phát / tác nghiệp này
+                if (currentSubtab.value === 'cod-settlement') {
+                    const destPo = normalizeCode(getDestPostOfficeInfo(item).code).toUpperCase();
+                    if (destPo !== selected && location !== selected) return false;
+                    return Number(item.codAmount) > 0;
+                }
+
                 // Mặc định chung cho tra cứu: chỉ nhận kiện liên quan
                 const originPo = normalizeCode(getOriginPostOfficeInfo(item).code).toUpperCase();
                 const destPo = normalizeCode(getDestPostOfficeInfo(item).code).toUpperCase();
@@ -313,12 +320,25 @@
                 return Boolean(getInventoryBucket(item));
             };
 
-            // Bộ lọc phạm vi bưu cục: Chỉ lấy kiện thuộc luồng đi, luồng đến hoặc thực tế tồn kho của trạm
+            // 4. Quản lý quỹ & đối soát COD: Kiện có phát sinh tiền COD thuộc bưu cục phát này
+            const isCodSettlementShipment = (item) => {
+                if (!item || !(Number(item.codAmount) > 0)) return false;
+                const poCode = normalizeCode(selectedPostOffice.value).toUpperCase();
+                if (poCode && poCode !== 'ALL') {
+                    const destPo = normalizeCode(getDestPostOfficeInfo(item).code).toUpperCase();
+                    const loc = normalizeCode(item.locationCode).toUpperCase();
+                    if (destPo !== poCode && loc !== poCode) return false;
+                }
+                const status = getShipmentStatusText(item);
+                return ['DELIVERED', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED'].includes(status) || Boolean(item.codSettlementStatus);
+            };
+
+            // Bộ lọc phạm vi bưu cục: Chỉ lấy kiện thuộc luồng đi, luồng đến, thực tế tồn kho hoặc đối soát COD của trạm
             const scopedShipments = computed(() => {
                 const poCode = normalizeCode(selectedPostOffice.value).toUpperCase();
                 if (!poCode || poCode === 'ALL') return shipmentsList.value;
                 return shipmentsList.value.filter(s => {
-                    return isOutboundShipment(s) || isInboundShipment(s) || isInventoryShipment(s);
+                    return isOutboundShipment(s) || isInboundShipment(s) || isInventoryShipment(s) || isCodSettlementShipment(s);
                 });
             });
 
@@ -737,7 +757,8 @@
             const currentSubtabCount = computed(() => {
                 if (currentSubtab.value === 'outbound') return outboundCount.value;
                 if (currentSubtab.value === 'inbound') return inboundCount.value;
-                return inventoryCount.value;
+                if (currentSubtab.value === 'inventory') return inventoryCount.value;
+                return codSettlementPendingCount.value;
             });
 
             // 1. Tải tồn kho từ RoutingService; ShipmentService chỉ là fallback migration.
@@ -762,32 +783,44 @@
                 }
             };
 
-            // 2. Lọc danh sách bưu gửi theo Bưu Cục & Luồng Tác Nghiệp (Dual-Stream + Inventory)
+            // 2. Lọc danh sách bưu gửi theo Bưu Cục & Luồng Tác Nghiệp (Dual-Stream + Inventory + COD)
             const filteredShipments = computed(() => {
                 let list = scopedShipments.value;
 
-                // Phân luồng Cửa Gửi Đi vs Cửa Trả Phát vs Quản Lý Tồn Kho
+                // Phân luồng Cửa Gửi Đi vs Cửa Trả Phát vs Quản Lý Tồn Kho vs Quản Lý Quỹ COD
                 if (currentSubtab.value === 'outbound') {
                     list = list.filter(s => isOutboundShipment(s));
                 } else if (currentSubtab.value === 'inbound') {
                     list = list.filter(s => isInboundShipment(s));
                 } else if (currentSubtab.value === 'inventory') {
                     list = list.filter(s => isInventoryShipment(s));
+                } else if (currentSubtab.value === 'cod-settlement') {
+                    list = list.filter(s => isCodSettlementShipment(s));
                 }
 
                 // Bộ lọc trạng thái chi tiết: so khớp đúng bucket của từng luồng,
                 // nhờ vậy số trên nút lọc luôn bằng số dòng hiển thị.
                 const sf = normalizeCode(selectedStatusFilter.value).toUpperCase();
                 if (sf && sf !== 'ALL') {
-                    list = list.filter(s => {
-                        const bucket = currentSubtab.value === 'outbound'
-                            ? getOutboundBucket(s)
-                            : currentSubtab.value === 'inbound'
-                                ? getInboundBucket(s)
-                                : getInventoryBucket(s);
-                        if (bucket) return bucket === sf;
-                        return getShipmentStatusText(s) === sf;
-                    });
+                    if (currentSubtab.value === 'cod-settlement') {
+                        if (sf === 'PENDING_SETTLEMENT') {
+                            list = list.filter(s => s.codSettlementStatus === 'PENDING_SETTLEMENT');
+                        } else if (sf === 'SETTLED') {
+                            list = list.filter(s => s.codSettlementStatus === 'SETTLED');
+                        } else if (sf === 'UNSETTLED') {
+                            list = list.filter(s => getShipmentStatusText(s) === 'DELIVERED' && (!s.codSettlementStatus || s.codSettlementStatus === 'UNSETTLED'));
+                        }
+                    } else {
+                        list = list.filter(s => {
+                            const bucket = currentSubtab.value === 'outbound'
+                                ? getOutboundBucket(s)
+                                : currentSubtab.value === 'inbound'
+                                    ? getInboundBucket(s)
+                                    : getInventoryBucket(s);
+                            if (bucket) return bucket === sf;
+                            return getShipmentStatusText(s) === sf;
+                        });
+                    }
                 }
 
                 if (searchQuery.value.trim()) {
@@ -808,6 +841,152 @@
             const inboundCount = computed(() => scopedShipments.value.filter(s => isInboundShipment(s)).length);
             const inventoryCount = computed(() => scopedShipments.value.filter(s => isInventoryShipment(s)).length);
             const allShipmentsCount = computed(() => scopedShipments.value.length);
+
+            // Quản lý Quỹ & Đối Soát Tiền Thu Hộ COD Bưu Cục
+            const allOfficeCodShipments = computed(() => scopedShipments.value.filter(s => isCodSettlementShipment(s)));
+            const codSettlementPendingShipments = computed(() => allOfficeCodShipments.value.filter(s => s.codSettlementStatus === 'PENDING_SETTLEMENT'));
+            const codSettlementPendingCount = computed(() => codSettlementPendingShipments.value.length);
+            const codSettledShipments = computed(() => allOfficeCodShipments.value.filter(s => s.codSettlementStatus === 'SETTLED'));
+            const codSettledCount = computed(() => codSettledShipments.value.length);
+            const codUnsettledShipments = computed(() => allOfficeCodShipments.value.filter(s => {
+                const st = getShipmentStatusText(s);
+                return st === 'DELIVERED' && (!s.codSettlementStatus || s.codSettlementStatus === 'UNSETTLED');
+            }));
+            const codUnsettledCount = computed(() => codUnsettledShipments.value.length);
+
+            const totalOfficeCodAmount = computed(() => allOfficeCodShipments.value.reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0));
+            const pendingCodTotalAmount = computed(() => codSettlementPendingShipments.value.reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0));
+            const settledCodTotalAmount = computed(() => codSettledShipments.value.reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0));
+            const unsettledCodTotalAmount = computed(() => codUnsettledShipments.value.reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0));
+
+            const selectedCodSettlementCodes = ref([]);
+            const isAllCodSettlementSelected = computed(() => {
+                const pendings = codSettlementPendingShipments.value;
+                if (pendings.length === 0) return false;
+                return pendings.every(s => selectedCodSettlementCodes.value.includes(s.trackingCode));
+            });
+
+            const toggleSelectAllCodSettlement = () => {
+                if (isAllCodSettlementSelected.value) {
+                    selectedCodSettlementCodes.value = [];
+                } else {
+                    selectedCodSettlementCodes.value = codSettlementPendingShipments.value.map(s => s.trackingCode);
+                }
+            };
+
+            const toggleSelectCodSettlement = (code) => {
+                const idx = selectedCodSettlementCodes.value.indexOf(code);
+                if (idx > -1) {
+                    selectedCodSettlementCodes.value.splice(idx, 1);
+                } else {
+                    selectedCodSettlementCodes.value.push(code);
+                }
+            };
+
+            const selectedCodSettlementTotalAmount = computed(() => {
+                return shipmentsList.value
+                    .filter(s => selectedCodSettlementCodes.value.includes(s.trackingCode))
+                    .reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0);
+            });
+
+            const showCodConfirmModal = ref(false);
+            const isConfirmingSettlement = ref(false);
+            const codTargetTrackingCodes = ref([]);
+
+            const codTargetTrackingTotalAmount = computed(() => {
+                return shipmentsList.value
+                    .filter(s => codTargetTrackingCodes.value.includes(s.trackingCode))
+                    .reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0);
+            });
+
+            const openCodConfirmModal = (code) => {
+                codTargetTrackingCodes.value = [code];
+                showCodConfirmModal.value = true;
+            };
+
+            const openBulkCodConfirmModal = () => {
+                if (selectedCodSettlementCodes.value.length === 0) {
+                    Utils.showToast('Chưa Chọn Đơn', 'Vui lòng chọn ít nhất 1 vận đơn để thu quỹ', 'warning');
+                    return;
+                }
+                codTargetTrackingCodes.value = [...selectedCodSettlementCodes.value];
+                showCodConfirmModal.value = true;
+            };
+
+            const openAllPendingCodConfirmModal = () => {
+                const pendings = codSettlementPendingShipments.value;
+                if (pendings.length === 0) {
+                    Utils.showToast('Không Có Đơn', 'Hiện không có đơn nào đang chờ duyệt nộp quỹ', 'info');
+                    return;
+                }
+                codTargetTrackingCodes.value = pendings.map(s => s.trackingCode);
+                showCodConfirmModal.value = true;
+            };
+
+            const executeConfirmCodSettlement = async () => {
+                if (!codTargetTrackingCodes.value || codTargetTrackingCodes.value.length === 0) return;
+                isConfirmingSettlement.value = true;
+                try {
+                    const officerId = authUser.email || authUser.fullName || stationCode.value || 'Giao dịch viên bưu cục';
+                    const targetCodes = [...codTargetTrackingCodes.value];
+                    const totalAmt = codTargetTrackingTotalAmount.value;
+                    await ShipmentService.confirmCodSettlement(targetCodes, officerId);
+
+                    targetCodes.forEach(code => {
+                        const target = shipmentsList.value.find(s => s.trackingCode === code);
+                        if (target) {
+                            target.codSettlementStatus = 'SETTLED';
+                            target.codSettledAt = new Date().toISOString();
+                            target.codSettledBy = officerId;
+                        }
+                    });
+
+                    window.dispatchEvent(new CustomEvent('system-notification-created', {
+                        detail: {
+                            title: 'Thu quỹ COD bưu cục thành công',
+                            message: `Đã xác nhận thu quỹ COD thành công cho ${targetCodes.length} đơn (${Utils.formatCurrency(totalAmt)}).`
+                        }
+                    }));
+
+                    Utils.showToast(
+                        'Thu Quỹ Thành Công',
+                        `Đã xác nhận thu quỹ ${targetCodes.length} vận đơn (${Utils.formatCurrency(totalAmt)}) vào két bưu cục.`,
+                        'success'
+                    );
+
+                    selectedCodSettlementCodes.value = [];
+                    showCodConfirmModal.value = false;
+                    await loadShipmentsData(true);
+                } catch (err) {
+                    console.error('[PostOfficeOpsView] Lỗi xác nhận thu quỹ COD:', err);
+                    Utils.showToast('Lỗi Xác Nhận Thu Quỹ', err.message || 'Không thể xác nhận thu quỹ COD', 'error');
+                } finally {
+                    isConfirmingSettlement.value = false;
+                }
+            };
+
+            const getCodSettlementVisuals = (status) => {
+                const s = (status || 'UNSETTLED').toUpperCase();
+                if (s === 'SETTLED') {
+                    return {
+                        label: 'Đã Thu Quỹ Bưu Cục',
+                        badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                        isPulse: false
+                    };
+                }
+                if (s === 'PENDING_SETTLEMENT') {
+                    return {
+                        label: 'Chờ Bưu Cục Xác Nhận',
+                        badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+                        isPulse: true
+                    };
+                }
+                return {
+                    label: 'Chưa Nộp Quỹ Bưu Cục',
+                    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
+                    isPulse: false
+                };
+            };
 
             // 3. Phân trang
             const totalPages = computed(() => {
@@ -879,17 +1058,20 @@
             watch(selectedPostOffice, () => {
                 currentPage.value = 1;
                 clearPostOfficeSelection();
+                selectedCodSettlementCodes.value = [];
             });
 
             watch(currentSubtab, () => {
                 selectedStatusFilter.value = 'ALL';
                 currentPage.value = 1;
                 clearPostOfficeSelection();
+                selectedCodSettlementCodes.value = [];
             });
 
             watch([selectedStatusFilter, searchQuery, pageSize], () => {
                 currentPage.value = 1;
                 clearPostOfficeSelection();
+                selectedCodSettlementCodes.value = [];
             });
 
 
@@ -1470,6 +1652,32 @@
                 isOutboundShipment,
                 isInboundShipment,
                 isInventoryShipment,
+                isCodSettlementShipment,
+                allOfficeCodShipments,
+                codSettlementPendingShipments,
+                codSettlementPendingCount,
+                codSettledShipments,
+                codSettledCount,
+                codUnsettledShipments,
+                codUnsettledCount,
+                totalOfficeCodAmount,
+                pendingCodTotalAmount,
+                settledCodTotalAmount,
+                unsettledCodTotalAmount,
+                selectedCodSettlementCodes,
+                isAllCodSettlementSelected,
+                toggleSelectAllCodSettlement,
+                toggleSelectCodSettlement,
+                selectedCodSettlementTotalAmount,
+                showCodConfirmModal,
+                isConfirmingSettlement,
+                codTargetTrackingCodes,
+                codTargetTrackingTotalAmount,
+                openCodConfirmModal,
+                openBulkCodConfirmModal,
+                openAllPendingCodConfirmModal,
+                executeConfirmCodSettlement,
+                getCodSettlementVisuals,
                 Utils
             };
         },
@@ -1567,6 +1775,21 @@
                         <span>KIỂM KÊ TỒN BƯU CỤC</span>
                         <span :class="[currentSubtab === 'inventory' ? 'bg-blue-100 text-blue-700 font-bold scale-105 shadow-xs' : 'bg-slate-100 text-slate-600', 'px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all duration-200 inline-block']">
                             {{ inventoryCount }}
+                        </span>
+                    </button>
+
+                    <button 
+                        @click="currentSubtab = 'cod-settlement'"
+                        :class="[
+                            'pb-2.5 text-xs sm:text-sm font-bold transition-all duration-200 border-b-2 flex items-center space-x-2 whitespace-nowrap cursor-pointer',
+                            currentSubtab === 'cod-settlement' 
+                                ? 'border-blue-600 text-blue-600' 
+                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                        ]"
+                    >
+                        <span>QUẢN LÝ QUỸ &amp; ĐỐI SOÁT COD</span>
+                        <span :class="[currentSubtab === 'cod-settlement' ? 'bg-blue-100 text-blue-700 font-bold scale-105 shadow-xs' : 'bg-slate-100 text-slate-600', 'px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all duration-200 inline-block']">
+                            {{ codSettlementPendingCount }}
                         </span>
                     </button>
                 </div>
@@ -1736,6 +1959,37 @@
                                 Hàng đến chờ bàn giao bưu tá ({{ inventoryWaitingHandoffCount }})
                             </button>
                         </div>
+
+                        <div v-else-if="currentSubtab === 'cod-settlement'" key="pills-cod" class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                            <button 
+                                @click="selectedStatusFilter = 'ALL'; currentPage = 1"
+                                :class="selectedStatusFilter === 'ALL' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Tất cả COD ({{ allOfficeCodShipments.length }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'PENDING_SETTLEMENT'; currentPage = 1"
+                                :class="selectedStatusFilter === 'PENDING_SETTLEMENT' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Chờ duyệt thu quỹ ({{ codSettlementPendingCount }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'SETTLED'; currentPage = 1"
+                                :class="selectedStatusFilter === 'SETTLED' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Đã vào quỹ bưu cục ({{ codSettledCount }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'UNSETTLED'; currentPage = 1"
+                                :class="selectedStatusFilter === 'UNSETTLED' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Bưu tá chưa nộp ({{ codUnsettledCount }})
+                            </button>
+                        </div>
                     </transition>
 
                     <!-- Dropdown Phân Trang (Số dòng trên trang) -->
@@ -1771,10 +2025,242 @@
             </div>
 
             <!-- =============================================================== -->
-            <!-- BẢNG DỮ LIỆU ĐỒNG NHẤT (CỬA GỬI ĐI, CỬA TRẢ PHÁT & TỒN KHO)    -->
+            <!-- BẢNG DỮ LIỆU ĐỒNG NHẤT (CỬA GỬI ĐI, CỬA TRẢ PHÁT, TỒN KHO, QUỸ COD) -->
             <!-- =============================================================== -->
             <transition name="subtab" mode="out-in">
-                <div :key="currentSubtab" class="space-y-3">
+                <!-- =============================================================== -->
+                <!-- LUỒNG 4: QUẢN LÝ QUỸ & ĐỐI SOÁT COD BƯU CỤC                    -->
+                <!-- =============================================================== -->
+                <div v-if="currentSubtab === 'cod-settlement'" key="cod-settlement" class="space-y-3.5">
+                    <!-- 1. KPI STRIP FOR COD SETTLEMENT -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                        <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-500 font-medium">Tổng COD Cần Quản Lý</span>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                                    {{ allOfficeCodShipments.length }} đơn
+                                </span>
+                            </div>
+                            <div class="font-mono text-lg font-bold text-slate-800 mt-1.5">
+                                {{ Utils.formatCurrency(totalOfficeCodAmount) }}
+                            </div>
+                        </div>
+
+                        <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-500 font-medium">Chờ Bưu Cục Xác Nhận</span>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 inline-flex items-center">
+                                    <span class="live-pulse-dot mr-1 inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                                    {{ codSettlementPendingCount }} đơn
+                                </span>
+                            </div>
+                            <div class="font-mono text-lg font-bold text-blue-600 mt-1.5">
+                                {{ Utils.formatCurrency(pendingCodTotalAmount) }}
+                            </div>
+                        </div>
+
+                        <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-500 font-medium">Đã Vào Quỹ Bưu Cục</span>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    {{ codSettledCount }} đơn
+                                </span>
+                            </div>
+                            <div class="font-mono text-lg font-bold text-emerald-600 mt-1.5">
+                                {{ Utils.formatCurrency(settledCodTotalAmount) }}
+                            </div>
+                        </div>
+
+                        <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-500 font-medium">Bưu Tá Chưa Nộp</span>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                    {{ codUnsettledCount }} đơn
+                                </span>
+                            </div>
+                            <div class="font-mono text-lg font-bold text-amber-600 mt-1.5">
+                                {{ Utils.formatCurrency(unsettledCodTotalAmount) }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. OPERATION ACTION BAR CHO QUẢN LÝ QUỸ COD -->
+                    <div class="operation-action-bar p-3 sm:p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                        <div class="flex items-center space-x-2 text-xs">
+                            <input 
+                                type="checkbox" 
+                                id="po-select-all-cod"
+                                :checked="isAllCodSettlementSelected" 
+                                @change="toggleSelectAllCodSettlement"
+                                :disabled="codSettlementPendingShipments.length === 0"
+                                class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40 w-4 h-4"
+                            />
+                            <label for="po-select-all-cod" class="font-semibold text-slate-700 cursor-pointer select-none">
+                                Chọn tất cả chờ duyệt ({{ codSettlementPendingCount }})
+                            </label>
+                            <span v-if="selectedCodSettlementCodes.length > 0" class="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-medium text-[11px]">
+                                Đã chọn: <strong class="font-mono font-bold">{{ selectedCodSettlementCodes.length }}</strong> đơn — <strong class="font-mono font-bold text-emerald-700">{{ Utils.formatCurrency(selectedCodSettlementTotalAmount) }}</strong>
+                            </span>
+                        </div>
+
+                        <div class="flex items-center space-x-2 w-full sm:w-auto">
+                            <button 
+                                @click="openBulkCodConfirmModal" 
+                                :disabled="selectedCodSettlementCodes.length === 0 || isConfirmingSettlement || (isAdmin && selectedPostOffice === 'ALL')"
+                                class="flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center space-x-1.5"
+                            >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span>Xác Nhận Thu Quỹ Đã Chọn ({{ selectedCodSettlementCodes.length }})</span>
+                            </button>
+                            <button 
+                                @click="openAllPendingCodConfirmModal" 
+                                :disabled="codSettlementPendingCount === 0 || isConfirmingSettlement || (isAdmin && selectedPostOffice === 'ALL')"
+                                class="flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center space-x-1.5"
+                            >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                <span>Duyệt Thu Toàn Bộ ({{ codSettlementPendingCount }})</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 3. BẢNG DỮ LIỆU ĐỐI SOÁT QUỸ COD -->
+                    <div class="b2b-card overflow-hidden text-xs shadow-xs">
+                        <div v-if="isLoading" class="p-8 text-center text-slate-400">
+                            <div class="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
+                            <span>Đang tải dữ liệu quỹ COD...</span>
+                        </div>
+
+                        <div v-else-if="paginatedShipments.length === 0" class="p-8 text-center text-slate-400">
+                            <span>Không có vận đơn COD nào phù hợp với bộ lọc hiện tại.</span>
+                        </div>
+
+                        <div v-else class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-50/80 text-slate-600 font-bold border-b border-slate-200 text-[11px] uppercase tracking-wider">
+                                        <th class="py-3 px-3.5 w-10 text-center">
+                                            <input 
+                                                type="checkbox" 
+                                                :checked="isAllCodSettlementSelected" 
+                                                @change="toggleSelectAllCodSettlement"
+                                                :disabled="codSettlementPendingShipments.length === 0"
+                                                class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40"
+                                            />
+                                        </th>
+                                        <th class="py-3 px-3.5">Mã Vận Đơn</th>
+                                        <th class="py-3 px-3.5">Bưu Cục Gửi &amp; Người Gửi</th>
+                                        <th class="py-3 px-3.5">Người Nhận &amp; Địa Chỉ</th>
+                                        <th class="py-3 px-3.5">Tiền COD Thu Hộ</th>
+                                        <th class="py-3 px-3.5 text-center">Tình Trạng Quỹ COD</th>
+                                        <th class="py-3 px-3.5 text-right">Tác Nghiệp Bưu Cục</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 font-medium">
+                                    <tr v-for="item in paginatedShipments" :key="item.id" class="hover:bg-slate-50/60 transition">
+                                        <td class="py-3 px-3.5 text-center">
+                                            <input 
+                                                v-if="item.codSettlementStatus === 'PENDING_SETTLEMENT'"
+                                                type="checkbox" 
+                                                :checked="selectedCodSettlementCodes.includes(item.trackingCode)" 
+                                                @change="toggleSelectCodSettlement(item.trackingCode)"
+                                                class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                            />
+                                            <span v-else class="text-slate-300 text-xs">—</span>
+                                        </td>
+                                        <td class="py-3 px-3.5">
+                                            <button 
+                                                type="button"
+                                                @click="viewTrackingDetail(item.trackingCode)"
+                                                class="font-mono font-bold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center space-x-1 cursor-pointer group text-left transition-colors whitespace-nowrap"
+                                                title="Xem chi tiết hành trình & bản đồ"
+                                            >
+                                                <span>{{ item.trackingCode }}</span>
+                                            </button>
+                                        </td>
+                                        <td class="py-3 px-3.5 text-slate-700">
+                                            <div class="font-bold text-slate-800">{{ item.senderName || 'Người gửi' }}</div>
+                                            <div class="text-[10.5px] text-slate-400">{{ getOriginPostOfficeInfo(item).name }}</div>
+                                        </td>
+                                        <td class="py-3 px-3.5 text-slate-700">
+                                            <div class="font-bold text-slate-800">{{ item.receiverName || 'Người nhận' }}</div>
+                                            <div class="text-[10.5px] text-slate-500 truncate max-w-xs">{{ item.receiverAddress || 'Chưa có địa chỉ' }}</div>
+                                        </td>
+                                        <td class="py-3 px-3.5 font-mono font-bold text-emerald-700 text-sm">
+                                            {{ Utils.formatCurrency(item.codAmount) }}
+                                        </td>
+                                        <td class="py-3 px-3.5 text-center whitespace-nowrap">
+                                            <span :class="['px-2.5 py-1 rounded-md text-[10.5px] font-bold border inline-flex items-center', getCodSettlementVisuals(item.codSettlementStatus).badgeClass]">
+                                                <span v-if="getCodSettlementVisuals(item.codSettlementStatus).isPulse" class="live-pulse-dot mr-1.5 inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                                                {{ getCodSettlementVisuals(item.codSettlementStatus).label }}
+                                            </span>
+                                            <div v-if="item.codSettledAt" class="text-[10px] text-slate-400 mt-0.5 font-mono">
+                                                {{ new Date(item.codSettledAt).toLocaleString('vi-VN') }}
+                                            </div>
+                                        </td>
+                                        <td class="py-3 px-3.5 text-right whitespace-nowrap">
+                                            <button 
+                                                v-if="item.codSettlementStatus === 'PENDING_SETTLEMENT'"
+                                                @click="openCodConfirmModal(item.trackingCode)"
+                                                :disabled="isConfirmingSettlement || (isAdmin && selectedPostOffice === 'ALL')"
+                                                class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-semibold transition shadow-xs inline-flex items-center space-x-1"
+                                                title="Xác nhận đã nhận đủ tiền mặt vào quỹ bưu cục"
+                                            >
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                                <span>Xác Nhận Thu Quỹ</span>
+                                            </button>
+                                            <span v-else-if="item.codSettlementStatus === 'SETTLED'" class="text-emerald-600 text-[11px] font-semibold inline-flex items-center">
+                                                <svg class="w-3.5 h-3.5 mr-1 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                                Đã thu vào quỹ
+                                            </span>
+                                            <span v-else class="text-amber-600 text-[11px] font-medium">
+                                                Bưu tá chưa nộp
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- THANH PHÂN TRANG -->
+                        <div class="px-4 py-2.5 bg-slate-50/50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                            <div class="text-slate-500">
+                                Hiển thị trang {{ currentPage }} / {{ totalPages }} (Tổng số {{ filteredShipments.length }} kết quả)
+                            </div>
+                            <div class="flex items-center space-x-1">
+                                <button 
+                                    @click="currentPage--"
+                                    :disabled="currentPage <= 1"
+                                    class="px-2.5 py-1 rounded-md text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 disabled:opacity-40"
+                                >
+                                    Trước
+                                </button>
+                                <button 
+                                    v-for="p in totalPages" 
+                                    :key="p"
+                                    @click="currentPage = p"
+                                    :class="[
+                                        'px-2.5 py-1 rounded-md text-xs font-bold transition',
+                                        currentPage === p 
+                                            ? 'bg-blue-600 text-white border border-blue-600 shadow-xs' 
+                                            : 'border border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                                    ]"
+                                >
+                                    {{ p }}
+                                </button>
+                                <button 
+                                    @click="currentPage++"
+                                    :disabled="currentPage >= totalPages"
+                                    class="px-2.5 py-1 rounded-md text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 disabled:opacity-40"
+                                >
+                                    Sau
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CÁC SUBTAB KHAI THÁC HIỆN CÓ (OUTBOUND, INBOUND, INVENTORY) -->
+                <div v-else :key="currentSubtab" class="space-y-3">
                 
                 <!-- BẢNG DANH SÁCH BƯU GỬI TẠI BƯU CỤC -->
                 <div v-if="selectedPostOfficeItems.length" class="selection-summary-bar px-3 py-2 rounded-lg bg-slate-100 border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -2134,6 +2620,70 @@
                         </div>
                     </div>
                 </div>
+            </teleport>
+
+            <!-- =============================================================== -->
+            <!-- MODAL: XÁC NHẬN THU QUỸ TIỀN MẶT COD BƯU CỤC                    -->
+            <!-- =============================================================== -->
+            <teleport to="body">
+                <Transition name="modal">
+                    <div v-if="showCodConfirmModal" class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-5 border border-slate-200 text-xs space-y-4">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-sm text-slate-900 uppercase tracking-wider">
+                                            Xác Nhận Thu Quỹ COD Bưu Cục
+                                        </h3>
+                                        <p class="text-[11px] text-slate-500 mt-0.5">Kiểm soát viên / Thủ quỹ ghi nhận tiền mặt vào két</p>
+                                    </div>
+                                </div>
+                                <button @click="showCodConfirmModal = false" class="text-slate-400 hover:text-slate-600 p-1 rounded hover:bg-slate-100 transition" aria-label="Đóng">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                </button>
+                            </div>
+
+                            <div class="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-slate-600">Số lượng vận đơn:</span>
+                                    <span class="font-mono font-bold text-slate-900 text-sm">{{ codTargetTrackingCodes.length }} kiện</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-slate-600">Tổng tiền mặt thu vào quỹ:</span>
+                                    <span class="font-mono font-extrabold text-emerald-700 text-base">{{ Utils.formatCurrency(codTargetTrackingTotalAmount) }}</span>
+                                </div>
+                                <div class="flex justify-between items-center text-[11px]">
+                                    <span class="text-slate-500">Bưu cục thu quỹ:</span>
+                                    <span class="font-semibold text-slate-700">{{ stationName }} ({{ stationCode || selectedPostOffice }})</span>
+                                </div>
+                                <div class="text-[11px] text-slate-500 border-t border-slate-200/60 pt-2 leading-relaxed">
+                                    ✅ <strong>Xác nhận:</strong> Tôi đã kiểm đếm đầy đủ và thu đúng số tiền mặt trên từ bưu tá để nhập quỹ bưu cục.
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-end space-x-2 border-t border-slate-100 pt-3">
+                                <button 
+                                    @click="showCodConfirmModal = false" 
+                                    :disabled="isConfirmingSettlement"
+                                    class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold transition"
+                                >
+                                    Hủy Bỏ
+                                </button>
+                                <button 
+                                    @click="executeConfirmCodSettlement()" 
+                                    :disabled="isConfirmingSettlement"
+                                    class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-sm disabled:opacity-50 inline-flex items-center space-x-1.5"
+                                >
+                                    <span v-if="isConfirmingSettlement" class="inline-block animate-spin mr-1">🔄</span>
+                                    <span>Xác Nhận Đã Thu Quỹ</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </Transition>
             </teleport>
         </div>
         `

@@ -69,6 +69,32 @@
                 throw new Error(errData.error || errData.message || 'Lỗi khi hủy vận đơn');
             }
             return response.json();
+        },
+
+        async submitCodSettlement(trackingCodes, courierId = '') {
+            const payload = {
+                trackingCodes: Array.isArray(trackingCodes) ? trackingCodes : [trackingCodes],
+                courierId
+            };
+            const response = await Api.post('/api/shipments/cod/submit-settlement', payload);
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || errData.message || 'Lỗi khi gửi yêu cầu nộp quỹ COD');
+            }
+            return response.json();
+        },
+
+        async confirmCodSettlement(trackingCodes, officerId = '') {
+            const payload = {
+                trackingCodes: Array.isArray(trackingCodes) ? trackingCodes : [trackingCodes],
+                officerId
+            };
+            const response = await Api.post('/api/shipments/cod/confirm-settlement', payload);
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || errData.message || 'Lỗi khi xác nhận thu quỹ COD');
+            }
+            return response.json();
         }
     };
 

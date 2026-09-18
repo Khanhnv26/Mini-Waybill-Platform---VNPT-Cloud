@@ -101,6 +101,14 @@ if (newStatus == ShipmentStatus.DELIVERY_FAILED) {
 }
 ```
 
+### 3.3. Phân Tách Trạng Thái Vận Chuyển (`DELIVERED`) & Quyết Toán Thu Hộ (`SETTLED`)
+* **Lưu ý nghiệp vụ cốt lõi:** Khi vận đơn đạt trạng thái kết thúc `DELIVERED` (Giao thành công), tiến trình vận chuyển vật lý đã hoàn tất nhưng **chu trình tài chính mới chỉ bắt đầu**.
+* Tiền mặt thu hộ COD bước vào chu trình quyết toán 3 trạng thái độc lập:
+  * `UNSETTLED`: Bưu tá đang giữ tiền mặt, nợ quỹ bưu cục (hiển thị: *"Chưa nộp quỹ bưu cục"*).
+  * `PENDING_SETTLEMENT`: Bưu tá đã nộp bảng kê ca phát, đang chờ thủ quỹ bưu cục đếm tiền mặt.
+  * `SETTLED`: Thủ quỹ bưu cục đã kiểm đếm đủ và duyệt nhập két bưu cục.
+* *Chi tiết kiến trúc:* Xem sơ đồ máy trạng thái tài chính và báo cáo đối soát tại [Cẩm Nang Kỹ Thuật 09: Quyết Toán Thu Hộ COD & Báo Cáo Đối Soát Dòng Tiền](09-cod-settlement-and-financial-reconciliation.md).
+
 ---
 
 ## 4. Bảo Mật Ngữ Cảnh Trạm (Station Context RBAC)

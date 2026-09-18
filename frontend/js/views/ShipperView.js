@@ -808,6 +808,157 @@
                 }
             };
 
+            // ===============================================================
+            // QUẢN LÝ QUYẾT TOÁN COD CUỐI CA (SETTLEMENT)
+            // ===============================================================
+            const selectedCodCodes = ref([]);
+            const isSubmittingSettlement = ref(false);
+            const showSettlementModal = ref(false);
+
+            const deliveredCodShipments = computed(() => {
+                return shipmentsList.value.filter(s => {
+                    const status = getShipmentStatus(s);
+                    const cod = Number(s.codAmount) || 0;
+                    return status === 'DELIVERED' && cod > 0;
+                });
+            });
+
+            const unsettledCodShipments = computed(() => {
+                return deliveredCodShipments.value.filter(s => {
+                    const st = s.codSettlementStatus || 'UNSETTLED';
+                    return st === 'UNSETTLED';
+                });
+            });
+
+            const pendingCodShipments = computed(() => {
+                return deliveredCodShipments.value.filter(s => s.codSettlementStatus === 'PENDING_SETTLEMENT');
+            });
+
+            const settledCodShipments = computed(() => {
+                return deliveredCodShipments.value.filter(s => s.codSettlementStatus === 'SETTLED');
+            });
+
+            const kpiSettledCodAmount = computed(() => {
+                return settledCodShipments.value.reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0);
+            });
+
+            const kpiPendingSettlementCodAmount = computed(() => {
+                return pendingCodShipments.value.reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0);
+            });
+
+            const kpiUnsettledCodAmount = computed(() => {
+                return unsettledCodShipments.value.reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0);
+            });
+
+            const isAllCodSelected = computed(() => {
+                const available = unsettledCodShipments.value;
+                if (available.length === 0) return false;
+                return available.every(s => selectedCodCodes.value.includes(s.trackingCode));
+            });
+
+            const toggleSelectAllCod = () => {
+                if (isAllCodSelected.value) {
+                    selectedCodCodes.value = [];
+                } else {
+                    selectedCodCodes.value = unsettledCodShipments.value.map(s => s.trackingCode);
+                }
+            };
+
+            const toggleSelectCod = (code) => {
+                const idx = selectedCodCodes.value.indexOf(code);
+                if (idx > -1) {
+                    selectedCodCodes.value.splice(idx, 1);
+                } else {
+                    selectedCodCodes.value.push(code);
+                }
+            };
+
+            const selectedCodTotalAmount = computed(() => {
+                return shipmentsList.value
+                    .filter(s => selectedCodCodes.value.includes(s.trackingCode))
+                    .reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0);
+            });
+
+            const openSettlementConfirmModal = () => {
+                if (selectedCodCodes.value.length === 0) {
+                    Utils.showToast('Chưa Chọn Đơn', 'Vui lòng tích chọn ít nhất 1 vận đơn để nộp quỹ', 'warning');
+                    return;
+                }
+                showSettlementModal.value = true;
+            };
+
+            const handleSelectAllAndOpenModal = () => {
+                const available = unsettledCodShipments.value;
+                if (available.length === 0) {
+                    Utils.showToast('Không Có Đơn', 'Tất cả các đơn COD trong ca đã được nộp hoặc không có đơn phát thành công', 'info');
+                    return;
+                }
+                selectedCodCodes.value = available.map(s => s.trackingCode);
+                showSettlementModal.value = true;
+            };
+
+            const executeCodSettlement = async () => {
+                if (selectedCodCodes.value.length === 0) return;
+                isSubmittingSettlement.value = true;
+                try {
+                    const user = typeof Auth !== 'undefined' && Auth.getUser ? Auth.getUser() : null;
+                    const courierId = user ? (user.email || user.fullName || String(user.userId || '')) : 'Bưu tá';
+                    await ShipmentService.submitCodSettlement(selectedCodCodes.value, courierId);
+
+                    selectedCodCodes.value.forEach(code => {
+                        const target = shipmentsList.value.find(s => s.trackingCode === code);
+                        if (target) {
+                            target.codSettlementStatus = 'PENDING_SETTLEMENT';
+                        }
+                    });
+
+                    Utils.showToast(
+                        'Nộp Quỹ Thành Công',
+                        `Đã gửi yêu cầu nộp quỹ cho ${selectedCodCodes.value.length} đơn (${Utils.formatCurrency(selectedCodTotalAmount.value)}). Vui lòng bàn giao tiền mặt cho thủ quỹ!`,
+                        'success'
+                    );
+
+                    window.dispatchEvent(new CustomEvent('system-notification-created', {
+                        detail: {
+                            title: 'Bàn giao nộp quỹ COD',
+                            message: `Bưu tá đã gửi yêu cầu nộp ${selectedCodCodes.value.length} đơn COD (${Utils.formatCurrency(selectedCodTotalAmount.value)}) vào quỹ bưu cục.`
+                        }
+                    }));
+
+                    selectedCodCodes.value = [];
+                    showSettlementModal.value = false;
+                    await loadShipmentsData(true);
+                } catch (err) {
+                    console.error('[ShipperView] Lỗi nộp quỹ COD:', err);
+                    Utils.showToast('Lỗi Nộp Quỹ', err.message || 'Không thể gửi yêu cầu nộp quỹ COD', 'error');
+                } finally {
+                    isSubmittingSettlement.value = false;
+                }
+            };
+
+            const getCodSettlementVisuals = (status) => {
+                const s = (status || 'UNSETTLED').toUpperCase();
+                if (s === 'SETTLED') {
+                    return {
+                        label: 'Đã Thu Quỹ Bưu Cục',
+                        badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                        isPulse: false
+                    };
+                }
+                if (s === 'PENDING_SETTLEMENT') {
+                    return {
+                        label: 'Chờ Bưu Cục Xác Nhận',
+                        badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+                        isPulse: true
+                    };
+                }
+                return {
+                    label: 'Chưa Nộp Quỹ Bưu Cục',
+                    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
+                    isPulse: false
+                };
+            };
+
             onMounted(() => {
                 loadShipmentsData();
             });
@@ -830,6 +981,24 @@
                 kpiDeliveredCount,
                 kpiTotalDeliveredCod,
                 kpiPendingCod,
+                kpiSettledCodAmount,
+                kpiPendingSettlementCodAmount,
+                kpiUnsettledCodAmount,
+                deliveredCodShipments,
+                unsettledCodShipments,
+                pendingCodShipments,
+                settledCodShipments,
+                selectedCodCodes,
+                isSubmittingSettlement,
+                showSettlementModal,
+                isAllCodSelected,
+                toggleSelectAllCod,
+                toggleSelectCod,
+                selectedCodTotalAmount,
+                openSettlementConfirmModal,
+                handleSelectAllAndOpenModal,
+                executeCodSettlement,
+                getCodSettlementVisuals,
                 getDestinationPostOfficeInfo,
                 isAtDestinationPostOffice,
                 canShowDeliveryActions,
@@ -1163,32 +1332,133 @@
             <!-- =============================================================== -->
             <!-- SUBTAB 2: QUYẾT TOÁN TIỀN THU HỘ COD CUỐI CA -->
             <!-- =============================================================== -->
-            <div v-else-if="currentSubtab === 'cod'" key="cod" class="space-y-3">
+            <div v-else-if="currentSubtab === 'cod'" key="cod" class="space-y-3.5">
+                <!-- 1. TIÊU ĐỀ VÀ KPI STRIP -->
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
                     <div>
                         <h2 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Quyết Toán Tiền Mặt Thu Hộ (COD)</h2>
-                        <p class="text-slate-500 text-[11px] mt-0.5">Bảng kê chi tiết các khoản tiền mặt đã thu từ người nhận cần nộp lại bưu cục</p>
+                        <p class="text-slate-500 text-[11px] mt-0.5">Bảng kê chi tiết các khoản tiền mặt đã thu từ người nhận cần nộp lại quỹ bưu cục</p>
                     </div>
 
-                    <div class="flex items-center space-x-3 bg-emerald-50 p-2.5 rounded-lg border border-emerald-200">
-                        <span class="text-emerald-800 font-bold">Tổng tiền thu hộ COD trong ca:</span>
-                        <span class="font-mono text-base font-extrabold text-emerald-700">{{ Utils.formatCurrency(kpiTotalDeliveredCod) }}</span>
+                    <div class="flex items-center space-x-3 bg-blue-50 p-2.5 rounded-lg border border-blue-200">
+                        <span class="text-blue-900 font-bold">Tổng COD đã thu trong ca:</span>
+                        <span class="font-mono text-base font-extrabold text-blue-700">{{ Utils.formatCurrency(kpiTotalDeliveredCod) }}</span>
                     </div>
                 </div>
 
+                <!-- 2. KPI BREAKDOWN CARDS -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-500 font-medium">Chưa Nộp Quỹ (Đang Giữ)</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                {{ unsettledCodShipments.length }} đơn
+                            </span>
+                        </div>
+                        <div class="font-mono text-lg font-bold text-amber-600 mt-1.5">
+                            {{ Utils.formatCurrency(kpiUnsettledCodAmount) }}
+                        </div>
+                    </div>
+
+                    <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-500 font-medium">Chờ Bưu Cục Xác Nhận</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 inline-flex items-center">
+                                <span class="live-pulse-dot mr-1 inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                                {{ pendingCodShipments.length }} đơn
+                            </span>
+                        </div>
+                        <div class="font-mono text-lg font-bold text-blue-600 mt-1.5">
+                            {{ Utils.formatCurrency(kpiPendingSettlementCodAmount) }}
+                        </div>
+                    </div>
+
+                    <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-500 font-medium">Đã Thu Quỹ Bưu Cục</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                {{ settledCodShipments.length }} đơn
+                            </span>
+                        </div>
+                        <div class="font-mono text-lg font-bold text-emerald-600 mt-1.5">
+                            {{ Utils.formatCurrency(kpiSettledCodAmount) }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. OPERATION ACTION BAR -->
+                <div class="operation-action-bar p-3 sm:p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+                    <div class="flex items-center space-x-2 text-xs">
+                        <input 
+                            type="checkbox" 
+                            id="shipper-select-all-cod"
+                            :checked="isAllCodSelected" 
+                            @change="toggleSelectAllCod"
+                            :disabled="unsettledCodShipments.length === 0"
+                            class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40 w-4 h-4"
+                        />
+                        <label for="shipper-select-all-cod" class="font-semibold text-slate-700 cursor-pointer select-none">
+                            Chọn tất cả chưa nộp ({{ unsettledCodShipments.length }})
+                        </label>
+                        <span v-if="selectedCodCodes.length > 0" class="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-medium text-[11px]">
+                            Đã chọn: <strong class="font-mono font-bold">{{ selectedCodCodes.length }}</strong> đơn — <strong class="font-mono font-bold text-emerald-700">{{ Utils.formatCurrency(selectedCodTotalAmount) }}</strong>
+                        </span>
+                    </div>
+
+                    <div class="flex items-center space-x-2 w-full sm:w-auto">
+                        <button 
+                            @click="openSettlementConfirmModal" 
+                            :disabled="selectedCodCodes.length === 0 || isSubmittingSettlement"
+                            class="flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center space-x-1.5"
+                        >
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            <span>Nộp Quỹ Đơn Đã Chọn ({{ selectedCodCodes.length }})</span>
+                        </button>
+                        <button 
+                            @click="handleSelectAllAndOpenModal" 
+                            :disabled="unsettledCodShipments.length === 0 || isSubmittingSettlement"
+                            class="flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center space-x-1.5"
+                        >
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            <span>Nộp Toàn Bộ Ca ({{ unsettledCodShipments.length }})</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4. DANH SÁCH BƯU GỬI COD -->
                 <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden text-xs">
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-50/70 text-slate-600 font-bold border-b border-slate-200 text-[11px] uppercase tracking-wider">
+                                <th class="py-2.5 px-3 w-10 text-center">
+                                    <input 
+                                        type="checkbox" 
+                                        :checked="isAllCodSelected" 
+                                        @change="toggleSelectAllCod"
+                                        :disabled="unsettledCodShipments.length === 0"
+                                        class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40"
+                                    />
+                                </th>
                                 <th class="py-2.5 px-3">Mã Vận Đơn</th>
                                 <th class="py-2.5 px-3">Người Nhận Trả Tiền</th>
                                 <th class="py-2.5 px-3">Địa Chỉ Giao</th>
-                                <th class="py-2.5 px-3">Số Tiền Thu Hộ COD Đã Thu</th>
-                                <th class="py-2.5 px-3 text-right">Tình Trạng Quyết Toán</th>
+                                <th class="py-2.5 px-3">Tiền COD Phải Nộp</th>
+                                <th class="py-2.5 px-3 text-center">Tình Trạng Quyết Toán</th>
+                                <th class="py-2.5 px-3 text-right">Thao Tác</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 font-medium">
-                            <tr v-for="item in shipmentsList.filter(s => getShipmentStatus(s) === 'DELIVERED')" :key="item.id" class="hover:bg-blue-50/30">
+                            <tr v-for="item in deliveredCodShipments" :key="item.id" class="hover:bg-blue-50/30 transition-colors">
+                                <td class="py-2.5 px-3 text-center">
+                                    <input 
+                                        v-if="!item.codSettlementStatus || item.codSettlementStatus === 'UNSETTLED'"
+                                        type="checkbox" 
+                                        :checked="selectedCodCodes.includes(item.trackingCode)"
+                                        @change="toggleSelectCod(item.trackingCode)"
+                                        class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                    />
+                                    <span v-else class="text-slate-300 text-xs">—</span>
+                                </td>
                                 <td class="py-2.5 px-3">
                                     <button 
                                         type="button"
@@ -1201,16 +1471,35 @@
                                 </td>
                                 <td class="py-2.5 px-3 font-bold text-slate-800">{{ item.receiverName }}</td>
                                 <td class="py-2.5 px-3 text-slate-600 max-w-xs truncate">{{ item.receiverAddress }}</td>
-                                <td class="py-2.5 px-3 font-mono font-bold text-emerald-700">{{ Utils.formatCurrency(item.codAmount) }}</td>
+                                <td class="py-2.5 px-3 font-mono font-bold text-emerald-700 text-sm">
+                                    {{ Utils.formatCurrency(item.codAmount) }}
+                                </td>
+                                <td class="py-2.5 px-3 text-center">
+                                    <span :class="['px-2.5 py-1 rounded-md text-[10.5px] font-bold border inline-flex items-center', getCodSettlementVisuals(item.codSettlementStatus).badgeClass]">
+                                        <span v-if="getCodSettlementVisuals(item.codSettlementStatus).isPulse" class="live-pulse-dot mr-1.5 inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                                        {{ getCodSettlementVisuals(item.codSettlementStatus).label }}
+                                    </span>
+                                </td>
                                 <td class="py-2.5 px-3 text-right">
-                                    <span class="px-2.5 py-0.5 rounded-md text-[10.5px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                        Chưa Nộp Quỹ Bưu Cục
+                                    <button 
+                                        v-if="!item.codSettlementStatus || item.codSettlementStatus === 'UNSETTLED'"
+                                        @click="selectedCodCodes = [item.trackingCode]; openSettlementConfirmModal();"
+                                        class="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold border border-blue-200 transition text-[11px]"
+                                    >
+                                        Nộp Ngay
+                                    </button>
+                                    <span v-else-if="item.codSettlementStatus === 'PENDING_SETTLEMENT'" class="text-blue-600 text-[11px] font-semibold">
+                                        Chờ thủ quỹ nhận
+                                    </span>
+                                    <span v-else-if="item.codSettlementStatus === 'SETTLED'" class="text-emerald-600 text-[11px] font-semibold inline-flex items-center">
+                                        <svg class="w-3.5 h-3.5 mr-1 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                        Đã hoàn tất
                                     </span>
                                 </td>
                             </tr>
-                            <tr v-if="shipmentsList.filter(s => getShipmentStatus(s) === 'DELIVERED').length === 0">
-                                <td colspan="5" class="py-8 text-center text-slate-400">
-                                    Chưa có đơn hàng nào phát thành công trong ca để quyết toán.
+                            <tr v-if="deliveredCodShipments.length === 0">
+                                <td colspan="7" class="py-10 text-center text-slate-400">
+                                    Chưa có đơn hàng nào phát thành công có tiền COD trong ca để quyết toán.
                                 </td>
                             </tr>
                         </tbody>
@@ -1257,6 +1546,54 @@
                         </button>
                         <button @click="handleDeliverFailed()" :disabled="isActionRunning" class="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold shadow-sm transition disabled:opacity-50">
                             Xác Nhận Phát Không Thành Công
+                        </button>
+                    </div>
+                </div>
+            </div>
+            </Transition>
+            </teleport>
+
+            <!-- MODAL XÁC NHẬN NỘP QUỸ COD -->
+            <teleport to="body">
+            <Transition name="modal">
+            <div v-if="showSettlementModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-5 space-y-4 text-xs">
+                    <div class="border-b border-slate-100 pb-3 flex justify-between items-center">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-slate-900 text-sm">Xác Nhận Nộp Quỹ Tiền Mặt COD</h3>
+                                <p class="text-slate-500 text-[11px]">Bàn giao tiền thu hộ về cho thủ quỹ bưu cục</p>
+                            </div>
+                        </div>
+                        <button @click="showSettlementModal = false" class="text-slate-400 hover:text-slate-600 p-1 rounded hover:bg-slate-100 transition" aria-label="Đóng">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
+
+                    <div class="space-y-3 bg-slate-50 p-3.5 rounded-lg border border-slate-100">
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-600">Số lượng vận đơn nộp quỹ:</span>
+                            <span class="font-mono font-bold text-slate-800 text-sm">{{ selectedCodCodes.length }} kiện</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-600">Tổng tiền mặt bàn giao:</span>
+                            <span class="font-mono font-extrabold text-emerald-700 text-base">{{ Utils.formatCurrency(selectedCodTotalAmount) }}</span>
+                        </div>
+                        <div class="text-[11px] text-slate-500 border-t border-slate-200/60 pt-2 leading-relaxed">
+                            ⚠️ <strong>Lưu ý:</strong> Sau khi gửi yêu cầu, trạng thái các đơn sẽ chuyển thành <span class="text-blue-700 font-bold">"Chờ Bưu Cục Xác Nhận"</span>. Vui lòng bàn giao tiền mặt thực tế cho Thủ quỹ / Giao dịch viên bưu cục để được xác nhận vào quỹ.
+                        </div>
+                    </div>
+
+                    <div class="border-t border-slate-100 pt-3 flex justify-end space-x-2">
+                        <button @click="showSettlementModal = false" :disabled="isSubmittingSettlement" class="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold transition">
+                            Hủy Bỏ
+                        </button>
+                        <button @click="executeCodSettlement()" :disabled="isSubmittingSettlement" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm transition disabled:opacity-50 inline-flex items-center space-x-1.5">
+                            <span v-if="isSubmittingSettlement" class="inline-block animate-spin mr-1">🔄</span>
+                            <span>Xác Nhận Nộp Quỹ</span>
                         </button>
                     </div>
                 </div>
