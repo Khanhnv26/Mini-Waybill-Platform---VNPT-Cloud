@@ -123,8 +123,11 @@
                     reportData.successRate = res.successRate || 0;
                     reportData.shipments = res.shipments || [];
 
+                    reportData.inTransitCount = res.inTransitCount || 0;
+                    reportData.cancelledCount = res.cancelledCount || 0;
+
                     pagination.totalPages = res.totalPages || 1;
-                    pagination.totalElements = res.totalOrders || 0;
+                    pagination.totalElements = res.tableTotalElements !== undefined ? res.tableTotalElements : (res.totalOrders || 0);
                     pagination.page = res.currentPage || 0;
                 } catch (err) {
                     if (window.Utils && window.Utils.showToast) {
@@ -165,12 +168,12 @@
             // 6. Tính toán Dữ Liệu Biểu Đồ (Charts)
             // Biểu đồ Donut Phân Bổ Trạng Thái
             const donutMetrics = computed(() => {
-                const total = reportData.totalOrders;
-                if (total === 0) {
+                const total = Number(reportData.totalOrders) || 0;
+                if (total <= 0) {
                     return {
-                        deliveredPct: 0,
-                        returningPct: 0,
-                        transitPct: 0,
+                        deliveredPct: '0.0',
+                        returningPct: '0.0',
+                        transitPct: '0.0',
                         dashDelivered: '0 251.3',
                         dashTransit: '0 251.3',
                         dashReturning: '0 251.3',
@@ -179,9 +182,12 @@
                     };
                 }
                 const c = 251.327; // 2 * PI * 40
-                const delivPct = (reportData.deliveredCount / total) * 100;
-                const retPct = (reportData.returningCount / total) * 100;
-                const transPct = Math.max(0, 100 - delivPct - retPct);
+                const delivered = Number(reportData.deliveredCount) || 0;
+                const returning = Number(reportData.returningCount) || 0;
+
+                const delivPct = Math.min(100, Math.max(0, (delivered / total) * 100));
+                const retPct = Math.min(100, Math.max(0, (returning / total) * 100));
+                const transPct = Math.min(100, Math.max(0, 100 - delivPct - retPct));
 
                 const lenDeliv = (delivPct / 100) * c;
                 const lenTrans = (transPct / 100) * c;
@@ -778,23 +784,18 @@
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500 tracking-wider">
-                                    <th class="py-3 px-3 w-12 text-center">STT</th>
-                                    <th class="py-3 px-3">Mã Vận Đơn</th>
-                                    <th class="py-3 px-3">Ngày Tạo</th>
-                                    <th class="py-3 px-3">Người Gửi</th>
-                                    <th class="py-3 px-3">Người Nhận</th>
-                                    <th class="py-3 px-3 text-center">Dịch Vụ</th>
-                                    <th class="py-3 px-3 text-right">Cước Phí</th>
-                                    <th class="py-3 px-3 text-right">Tiền COD</th>
-                                    <th class="py-3 px-3 text-center">Nộp Quỹ COD</th>
-                                    <th class="py-3 px-3 text-center">Trạng Thái</th>
-                                    <th class="py-3 px-3 text-center">Tác Vụ</th>
+                                    <th class="py-3 px-3.5 w-12 text-center">STT</th>
+                                    <th class="py-3 px-3.5">Mã Vận Đơn &amp; Dịch Vụ</th>
+                                    <th class="py-3 px-3.5">Người Gửi (Tiếp Nhận)</th>
+                                    <th class="py-3 px-3.5">Người Nhận (Phát Trả)</th>
+                                    <th class="py-3 px-3.5">Tài Chính &amp; COD</th>
+                                    <th class="py-3 px-3.5 text-center">Trạng Thái</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 text-xs text-slate-800">
                                 <!-- Loading skeleton -->
                                 <tr v-if="isLoading">
-                                    <td colspan="11" class="py-10 text-center text-slate-400">
+                                    <td colspan="6" class="py-10 text-center text-slate-400">
                                         <div class="flex flex-col items-center space-y-2">
                                             <span class="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
                                             <span class="text-xs font-semibold text-slate-500">Đang tải danh sách vận đơn...</span>
@@ -804,7 +805,7 @@
 
                                 <!-- Empty state -->
                                 <tr v-else-if="filteredShipments.length === 0">
-                                    <td colspan="11" class="py-12 text-center text-slate-400">
+                                    <td colspan="6" class="py-12 text-center text-slate-400">
                                         <div class="flex flex-col items-center space-y-2">
                                             <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
                                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -824,70 +825,78 @@
                                     :key="s.trackingCode || idx"
                                     class="hover:bg-slate-50 transition"
                                 >
-                                    <td class="py-2.5 px-3 text-center font-mono text-slate-400">
+                                    <!-- STT -->
+                                    <td class="py-3 px-3.5 text-center font-mono text-slate-400">
                                         {{ pagination.page * pagination.size + idx + 1 }}
                                     </td>
-                                    <td class="py-2.5 px-3">
-                                        <button 
-                                            type="button" 
-                                            @click="goToTracking(s.trackingCode)"
-                                            class="font-mono font-bold text-blue-600 hover:text-blue-800 hover:underline transition"
-                                        >
-                                            {{ s.trackingCode }}
-                                        </button>
+
+                                    <!-- Mã Vận Đơn & Dịch Vụ -->
+                                    <td class="py-3 px-3.5">
+                                        <div class="flex items-center space-x-1.5">
+                                            <button 
+                                                type="button" 
+                                                @click="goToTracking(s.trackingCode)"
+                                                class="font-mono font-bold text-blue-600 hover:text-blue-800 hover:underline transition"
+                                                title="Click để tra cứu hành trình"
+                                            >
+                                                {{ s.trackingCode }}
+                                            </button>
+                                            <span 
+                                                :class="s.serviceType === 'EXPRESS' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-700 border-slate-200'"
+                                                class="px-1.5 py-0.5 rounded text-[10px] font-bold border uppercase"
+                                            >
+                                                {{ s.serviceType === 'EXPRESS' ? 'HỎA TỐC' : (s.serviceType || 'TIÊU CHUẨN') }}
+                                            </span>
+                                        </div>
+                                        <div class="text-[11px] text-slate-400 font-mono mt-0.5 whitespace-nowrap">
+                                            {{ s.createdAt ? s.createdAt.substring(0, 16).replace('T', ' ') : '-' }}
+                                        </div>
                                     </td>
-                                    <td class="py-2.5 px-3 text-slate-500 whitespace-nowrap">
-                                        {{ s.createdAt ? s.createdAt.substring(0, 16).replace('T', ' ') : '-' }}
+
+                                    <!-- Người Gửi -->
+                                    <td class="py-3 px-3.5 max-w-[200px]">
+                                        <div class="font-bold text-slate-900 truncate">{{ s.senderName || 'Người Gửi' }}</div>
+                                        <div class="text-[11px] text-slate-400 truncate" :title="s.senderAddress">
+                                            {{ s.senderAddress || '-' }}
+                                        </div>
                                     </td>
-                                    <td class="py-2.5 px-3">
-                                        <div class="font-bold text-slate-900">{{ s.senderName || 'Người Gửi' }}</div>
-                                        <div class="text-[10.5px] text-slate-400 truncate max-w-[180px]">{{ s.senderAddress || '-' }}</div>
+
+                                    <!-- Người Nhận -->
+                                    <td class="py-3 px-3.5 max-w-[220px]">
+                                        <div class="font-bold text-slate-900 truncate">{{ s.receiverName || 'Người Nhận' }}</div>
+                                        <div class="text-[11px] text-slate-400 truncate" :title="s.receiverAddress">
+                                            {{ s.receiverAddress || '-' }}
+                                        </div>
                                     </td>
-                                    <td class="py-2.5 px-3">
-                                        <div class="font-bold text-slate-900">{{ s.receiverName || 'Người Nhận' }}</div>
-                                        <div class="text-[10.5px] text-slate-400 truncate max-w-[180px]">{{ s.receiverAddress || '-' }}</div>
+
+                                    <!-- Tài Chính & Đối Soát COD -->
+                                    <td class="py-3 px-3.5 whitespace-nowrap">
+                                        <div class="flex items-center space-x-2">
+                                            <span class="font-mono font-bold text-xs" :class="Number(s.codAmount) > 0 ? 'text-purple-700' : 'text-slate-400'">
+                                                {{ Number(s.codAmount) > 0 ? 'COD: ' + formatVnd(s.codAmount) : 'Không COD' }}
+                                            </span>
+                                            <span 
+                                                v-if="s.codAmount && Number(s.codAmount) > 0"
+                                                :class="['px-1.5 py-0.5 rounded-md text-[10px] font-bold inline-flex items-center', getCodSettlementBadge(s.codSettlementStatus).class]"
+                                            >
+                                                <span v-if="getCodSettlementBadge(s.codSettlementStatus).isPulse" class="live-pulse-dot mr-1 inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                                                {{ getCodSettlementBadge(s.codSettlementStatus).label }}
+                                            </span>
+                                        </div>
+                                        <div class="text-[11px] font-mono text-slate-500 mt-0.5">
+                                            <span class="text-slate-400">Cước:</span>
+                                            <span class="font-semibold text-slate-700 ml-1">{{ formatVnd(s.shippingFee) }}</span>
+                                        </div>
                                     </td>
-                                    <td class="py-2.5 px-3 text-center">
-                                        <span class="px-2 py-0.5 rounded text-[10.5px] font-bold uppercase bg-slate-100 text-slate-700">
-                                            {{ s.serviceType || 'EXPRESS' }}
-                                        </span>
-                                    </td>
-                                    <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-800">
-                                        {{ formatVnd(s.shippingFee) }}
-                                    </td>
-                                    <td class="py-2.5 px-3 text-right font-mono font-bold text-purple-700">
-                                        {{ formatVnd(s.codAmount) }}
-                                    </td>
-                                    <td class="py-2.5 px-3 text-center whitespace-nowrap">
-                                        <span 
-                                            v-if="s.codAmount && Number(s.codAmount) > 0"
-                                            :class="['px-2 py-0.5 rounded-md text-[10.5px] font-bold inline-flex items-center', getCodSettlementBadge(s.codSettlementStatus).class]"
-                                        >
-                                            <span v-if="getCodSettlementBadge(s.codSettlementStatus).isPulse" class="live-pulse-dot mr-1 inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
-                                            {{ getCodSettlementBadge(s.codSettlementStatus).label }}
-                                        </span>
-                                        <span v-else class="text-slate-300 font-mono text-[11px]">—</span>
-                                    </td>
-                                    <td class="py-2.5 px-3 text-center">
+
+                                    <!-- Trạng Thái -->
+                                    <td class="py-3 px-3.5 text-center whitespace-nowrap">
                                         <span 
                                             class="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold shadow-sm inline-block"
                                             :class="getStatusBadge(s.currentStatus).class"
                                         >
                                             {{ getStatusBadge(s.currentStatus).label }}
                                         </span>
-                                    </td>
-                                    <td class="py-2.5 px-3 text-center">
-                                        <button 
-                                            type="button" 
-                                            @click="goToTracking(s.trackingCode)"
-                                            class="p-1 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition"
-                                            title="Tra cứu hành trình đơn này"
-                                        >
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                        </button>
                                     </td>
                                 </tr>
                             </tbody>

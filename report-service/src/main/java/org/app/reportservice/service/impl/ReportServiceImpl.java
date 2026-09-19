@@ -119,6 +119,7 @@ public class ReportServiceImpl implements ReportService {
         BigDecimal sumCod = reportShipmentRepository.sumCodAmount(from, to, targetCustId);
         BigDecimal settledCod = reportShipmentRepository.sumSettledCodAmount(from, to, targetCustId);
         BigDecimal pendingCod = reportShipmentRepository.sumPendingCodAmount(from, to, targetCustId);
+        long totalOrders = reportShipmentRepository.countTotalOrders(from, to, targetCustId);
         long delivered = reportShipmentRepository.countByStatus(from, to, targetCustId, "DELIVERED");
         long returning = reportShipmentRepository.countByStatus(from, to, targetCustId, "RETURNING") +
                 reportShipmentRepository.countByStatus(from, to, targetCustId, "RETURNED");
@@ -126,14 +127,15 @@ public class ReportServiceImpl implements ReportService {
                 from, to, targetCustId, status, PageRequest.of(page, size)
         );
         Map<String, Object> res = new HashMap<>();
-        res.put("totalOrders", pageData.getTotalElements());
+        res.put("totalOrders", totalOrders);
+        res.put("tableTotalElements", pageData.getTotalElements());
         res.put("totalShippingFee", sumFee != null ? sumFee : BigDecimal.ZERO);
         res.put("totalCodAmount", sumCod != null ? sumCod : BigDecimal.ZERO);
         res.put("settledCodAmount", settledCod != null ? settledCod : BigDecimal.ZERO);
         res.put("pendingCodAmount", pendingCod != null ? pendingCod : BigDecimal.ZERO);
         res.put("deliveredCount", delivered);
         res.put("returningCount", returning);
-        res.put("successRate", pageData.getTotalElements() > 0 ? (delivered * 100.0 / pageData.getTotalElements()) : 0.0);
+        res.put("successRate", totalOrders > 0 ? Math.min(100.0, (delivered * 100.0 / totalOrders)) : 0.0);
         res.put("shipments", pageData.getContent());
         res.put("totalPages", pageData.getTotalPages());
         res.put("currentPage", page);

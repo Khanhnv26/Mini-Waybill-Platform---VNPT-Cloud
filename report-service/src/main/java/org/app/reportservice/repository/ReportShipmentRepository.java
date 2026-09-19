@@ -85,6 +85,17 @@ public interface ReportShipmentRepository extends JpaRepository<ReportShipmentSu
     );
 
     @Query("""
+        SELECT COUNT(r) FROM ReportShipmentSummary r
+        WHERE r.createdAt BETWEEN :from AND :to
+          AND (:customerId IS NULL OR r.customerId = :customerId)
+    """)
+    long countTotalOrders(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            @Param("customerId") Long customerId
+    );
+
+    @Query("""
         SELECT COALESCE(SUM(r.codAmount), 0) FROM ReportShipmentSummary r
         WHERE r.createdAt BETWEEN :from AND :to
           AND (:customerId IS NULL OR r.customerId = :customerId)

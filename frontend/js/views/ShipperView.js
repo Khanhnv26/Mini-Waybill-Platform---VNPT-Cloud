@@ -1591,9 +1591,8 @@
                         <button @click="showSettlementModal = false" :disabled="isSubmittingSettlement" class="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold transition">
                             Hủy Bỏ
                         </button>
-                        <button @click="executeCodSettlement()" :disabled="isSubmittingSettlement" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm transition disabled:opacity-50 inline-flex items-center space-x-1.5">
-                            <span v-if="isSubmittingSettlement" class="inline-block animate-spin mr-1">🔄</span>
-                            <span>Xác Nhận Nộp Quỹ</span>
+                        <button @click="executeCodSettlement()" :disabled="isSubmittingSettlement" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm transition disabled:opacity-50 inline-flex items-center justify-center min-w-[150px]">
+                            <span>{{ isSubmittingSettlement ? 'Đang Xử Lý...' : 'Xác Nhận Nộp Quỹ' }}</span>
                         </button>
                     </div>
                 </div>

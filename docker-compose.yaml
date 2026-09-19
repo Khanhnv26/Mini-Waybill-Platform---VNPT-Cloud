@@ -104,4 +104,263 @@ services:
       ACCEPT_EULA: "Y"
     restart: always
 
+  eureka-peer1:
+    image: khanhnv26/service-registry:1.0
+    container_name: waybill-eureka-peer1
+    ports:
+      - "8761:8761"
+    environment:
+      - EUREKA_SERVER_PORT=8761
+      - EUREKA_INSTANCE_HOSTNAME=eureka-peer1
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer2:8762/eureka/
+    restart: always
+
+  eureka-peer2:
+    image: khanhnv26/service-registry:1.0
+    container_name: waybill-eureka-peer2
+    ports:
+      - "8762:8762"
+    environment:
+      - EUREKA_SERVER_PORT=8762
+      - EUREKA_INSTANCE_HOSTNAME=eureka-peer2
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/
+    restart: always
+
+  api-gateway-1:
+    image: khanhnv26/api-gateway:1.0
+    container_name: waybill-api-gateway-1
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - SPRING_DATA_REDIS_HOST=redis
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
+    depends_on:
+      - eureka-peer1
+      - eureka-peer2
+      - redis
+    restart: always
+
+  api-gateway-2:
+    image: khanhnv26/api-gateway:1.0
+    container_name: waybill-api-gateway-2
+    ports:
+      - "8088:8088"
+    environment:
+      - SERVER_PORT=8088
+      - SPRING_DATA_REDIS_HOST=redis
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
+    depends_on:
+      - eureka-peer1
+      - eureka-peer2
+      - redis
+    restart: always
+
+  auth-service:
+    image: khanhnv26/auth-service:1.0
+    container_name: waybill-auth-service
+    ports:
+      - "8087:8087"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=auth_db;encrypt=true;trustServerCertificate=true;
+      - SPRING_DATASOURCE_USERNAME=sa
+      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    depends_on:
+      - eureka-peer1
+      - eureka-peer2
+      - redis
+      - sqlserver-replica
+      - kafka-1
+      - kafka-2
+      - kafka-3
+    restart: always
+
+  customer-service:
+    image: khanhnv26/customer-service:1.0
+    container_name: waybill-customer-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=customer_db;encrypt=true;trustServerCertificate=true;
+      - SPRING_DATASOURCE_USERNAME=sa
+      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
+    depends_on:
+      - sqlserver-replica
+      - eureka-peer1
+      - eureka-peer2
+    restart: always
+
+  shipment-service:
+    image: khanhnv26/shipment-service:1.0
+    container_name: waybill-shipment-service
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=shipment_db;encrypt=true;trustServerCertificate=true;
+      - SPRING_DATASOURCE_USERNAME=sa
+      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
+    depends_on:
+      - sqlserver-replica
+      - eureka-peer1
+      - eureka-peer2
+      - kafka-1
+      - kafka-2
+      - kafka-3
+    restart: always
+
+  routing-service:
+    image: khanhnv26/routing-service:1.0
+    container_name: waybill-routing-service
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=routing_db;encrypt=true;trustServerCertificate=true;
+      - SPRING_DATASOURCE_USERNAME=sa
+      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
+    depends_on:
+      - sqlserver-replica
+      - eureka-peer1
+      - eureka-peer2
+      - redis
+      - kafka-1
+      - kafka-2
+      - kafka-3
+    restart: always
+
+  tracking-service:
+    image: khanhnv26/tracking-service:1.0
+    container_name: waybill-tracking-service
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_DATASOURCE_PRIMARY_JDBC_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=tracking_db;encrypt=true;trustServerCertificate=true;
+      - SPRING_DATASOURCE_PRIMARY_USERNAME=sa
+      - SPRING_DATASOURCE_PRIMARY_PASSWORD=Replica@123456
+
+      - SPRING_DATASOURCE_REPLICA_JDBC_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=tracking_db;encrypt=true;trustServerCertificate=true;
+      - SPRING_DATASOURCE_REPLICA_USERNAME=sa
+      - SPRING_DATASOURCE_REPLICA_PASSWORD=Replica@123456
+
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+    depends_on:
+      - sqlserver-replica
+      - redis
+      - eureka-peer1
+      - eureka-peer2
+      - kafka-1
+      - kafka-2
+      - kafka-3
+    restart: always
+
+  notification-service:
+    image: khanhnv26/notification-service:1.0
+    container_name: waybill-notification-service
+    ports:
+      - "8085:8085"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=notification_db;encrypt=true;trustServerCertificate=true;
+      - SPRING_DATASOURCE_USERNAME=sa
+      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
+    depends_on:
+      - sqlserver-replica
+      - redis
+      - eureka-peer1
+      - eureka-peer2
+      - kafka-1
+      - kafka-2
+      - kafka-3
+    restart: always
+
+  audit-service:
+    image: khanhnv26/audit-service:1.0
+    container_name: waybill-audit-service
+    ports:
+      - "8086:8086"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=audit_db;encrypt=true;trustServerCertificate=true;
+      - SPRING_DATASOURCE_USERNAME=sa
+      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
+    depends_on:
+      - sqlserver-replica
+      - eureka-peer1
+      - eureka-peer2
+      - kafka-1
+      - kafka-2
+      - kafka-3
+    restart: always
+
+  shipper-service:
+    image: khanhnv26/shipper-service:1.0
+    container_name: waybill-shipper-service
+    ports:
+      - "8089:8089"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=shipper_db;encrypt=true;trustServerCertificate=true;
+      - SPRING_DATASOURCE_USERNAME=sa
+      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
+    depends_on:
+      - sqlserver-replica
+      - eureka-peer1
+      - eureka-peer2
+    restart: always
+
+  report-service:
+    image: khanhnv26/report-service:1.0
+    container_name: waybill-report-service
+    ports:
+      - "8091:8091"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=report_db;encrypt=true;trustServerCertificate=true;sendStringParametersAsUnicode=true
+      - SPRING_DATASOURCE_USERNAME=sa
+      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
+    depends_on:
+      - sqlserver-replica
+      - eureka-peer1
+      - eureka-peer2
+      - kafka-1
+      - kafka-2
+      - kafka-3
+    restart: always
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

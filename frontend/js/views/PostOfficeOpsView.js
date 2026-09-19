@@ -2675,10 +2675,9 @@
                                 <button 
                                     @click="executeConfirmCodSettlement()" 
                                     :disabled="isConfirmingSettlement"
-                                    class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-sm disabled:opacity-50 inline-flex items-center space-x-1.5"
+                                    class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-sm disabled:opacity-50 inline-flex items-center justify-center min-w-[160px]"
                                 >
-                                    <span v-if="isConfirmingSettlement" class="inline-block animate-spin mr-1">🔄</span>
-                                    <span>Xác Nhận Đã Thu Quỹ</span>
+                                    <span>{{ isConfirmingSettlement ? 'Đang Xử Lý...' : 'Xác Nhận Đã Thu Quỹ' }}</span>
                                 </button>
                             </div>
                         </div>
