@@ -73,6 +73,26 @@ services:
       - kafka-3
     restart: always
 
+  frontend-1:
+    image: khanhnv26/frontend:1.0
+    container_name: waybill-frontend-1
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+    command: ["node", "server.js", "3000"]
+    restart: always
+
+  frontend-2:
+    image: khanhnv26/frontend:1.0
+    container_name: waybill-frontend-2
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+    command: ["node", "server.js", "3001"]
+    restart: always
+
   nginx-gateway-lb:
     image: nginx:alpine
     container_name: waybill-nginx-gateway-lb
@@ -85,6 +105,9 @@ services:
       - "host.docker.internal:host-gateway"
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=1
+    depends_on:
+      - frontend-1
+      - frontend-2
     restart: always
 
   redis:
@@ -110,7 +133,7 @@ services:
     ports:
       - "8761:8761"
     environment:
-      - EUREKA_SERVER_PORT=8761
+      - SERVER_PORT=8761
       - EUREKA_INSTANCE_HOSTNAME=eureka-peer1
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer2:8762/eureka/
     restart: always
@@ -121,7 +144,7 @@ services:
     ports:
       - "8762:8762"
     environment:
-      - EUREKA_SERVER_PORT=8762
+      - SERVER_PORT=8762
       - EUREKA_INSTANCE_HOSTNAME=eureka-peer2
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/
     restart: always
@@ -242,10 +265,40 @@ services:
 
   tracking-service:
     image: khanhnv26/tracking-service:1.0
-    container_name: waybill-tracking-service
+    container_name: waybill-tracking-service-1
     ports:
       - "8084:8084"
     environment:
+      - SERVER_PORT=8084
+      - SPRING_DATASOURCE_PRIMARY_JDBC_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=tracking_db;encrypt=true;trustServerCertificate=true;
+      - SPRING_DATASOURCE_PRIMARY_USERNAME=sa
+      - SPRING_DATASOURCE_PRIMARY_PASSWORD=Replica@123456
+
+      - SPRING_DATASOURCE_REPLICA_JDBC_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=tracking_db;encrypt=true;trustServerCertificate=true;
+      - SPRING_DATASOURCE_REPLICA_USERNAME=sa
+      - SPRING_DATASOURCE_REPLICA_PASSWORD=Replica@123456
+
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+    depends_on:
+      - sqlserver-replica
+      - redis
+      - eureka-peer1
+      - eureka-peer2
+      - kafka-1
+      - kafka-2
+      - kafka-3
+    restart: always
+
+  tracking-service-2:
+    image: khanhnv26/tracking-service:1.0
+    container_name: waybill-tracking-service-2
+    ports:
+      - "8094:8094"
+    environment:
+      - SERVER_PORT=8094
       - SPRING_DATASOURCE_PRIMARY_JDBC_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=tracking_db;encrypt=true;trustServerCertificate=true;
       - SPRING_DATASOURCE_PRIMARY_USERNAME=sa
       - SPRING_DATASOURCE_PRIMARY_PASSWORD=Replica@123456
