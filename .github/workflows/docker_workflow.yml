@@ -69,10 +69,6 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
           cache: maven
-      # Note: Tạm comment test vì các test @SpringBootTest cần SQL Server/Kafka thật
-      # - name: Run Unit Tests for ${{ matrix.service }}
-      #   run: |
-      #     mvn test -pl ${{ matrix.service }} -am
       - name: Build JAR with Maven
         run: |
           mvn clean package -pl ${{ matrix.service }} -am -DskipTests
@@ -94,4 +90,30 @@ jobs:
               ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+  notify-telegram:
+    needs: [detect-changes, build-and-push]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Telegram Notification
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: html
+          message: |
+            <b>[CI/CD PIPELINE ALERT]</b>
+
+            <b>Du an:</b> Mini-Waybill Platform
+            <b>Developer:</b> ${{ github.actor }}
+            <b>Nhanh:</b> <code>${{ github.ref_name }}</code>
+            <b>Commit:</b> <code>${{ github.sha }}</code>
+
+            <b>Dich vu thay doi:</b>
+            <code>${{ needs.detect-changes.outputs.service-changed || 'Khong co (Skipped)' }}</code>
+
+            <b>Trang thai Build:</b> <b>${{ needs.build-and-push.result }}</b>
+
+            <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">Xem chi tiet tren GitHub</a>
+
 
