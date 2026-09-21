@@ -15,6 +15,7 @@
 [![Telegram Bot](https://img.shields.io/badge/Telegram%20Bot-Long--Polling%20Dispatch-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://core.telegram.org/bots)
 [![Google OAuth2](https://img.shields.io/badge/Google%20OAuth2-Identity%20Services%20SSO-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://developers.google.com/identity)
 [![Docker](https://img.shields.io/badge/Docker%20Compose-Containerized%20HA-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-Smart%20Monorepo%20CI%2FCD-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/features/actions)
 [![Swagger / OpenAPI](https://img.shields.io/badge/OpenAPI-Springdoc%203.1.0-85EA2D?style=for-the-badge&logo=openapiinitiative&logoColor=black)](https://springdoc.org/)
 
 ---
@@ -280,7 +281,9 @@ mini-waybill-platform/
 │   ├── 06-microservices-security-jwt-and-rbac.md
 │   ├── 07-telegram-bot-and-realtime-notifications.md
 │   ├── 08-shipper-service-identity-and-idempotency.md
-│   └── 09-cod-settlement-and-financial-reconciliation.md
+│   ├── 09-cod-settlement-and-financial-reconciliation.md
+│   ├── 10-docker-containerization-and-ha-orchestration.md
+│   └── 11-cicd-github-actions-automation.md
 │
 ├── nginx/                     # Cấu hình Nginx Edge Load Balancer (nginx.conf)
 ├── api-gateway/               # Spring Cloud Gateway HA (Port 8080 & 8088)
