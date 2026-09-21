@@ -103,38 +103,38 @@ Pipeline được chuẩn hóa trong file `.github/workflows/docker_workflow.yml
 ```mermaid
 flowchart TD
     subgraph Trigger ["1. Trigger Stage"]
-        Push["Developer Push Code (branches: main, business)"]
+        Push["Developer Push Code"]
     end
 
-    subgraph Job1 ["2. Job 1: detect-changes (Change Detection)"]
+    subgraph Job1 ["2. Job 1: detect-changes"]
         Checkout1["Checkout code (fetch-depth: 0)"]
         Filter["dorny/paths-filter@v3 (base: ref_name)"]
-        OutputJSON["Xuất mảng JSON: ['auth-service', 'customer-service', ...]"]
+        OutputJSON["Xuat mang JSON cac service thay doi"]
         Checkout1 --> Filter --> OutputJSON
     end
 
-    subgraph Job2 ["3. Job 2: build-and-push (Dynamic Parallel Matrix)"]
-        Decision{"service-changed != '[]'?"}
-        Matrix["Khởi tạo máy ảo song song (fail-fast: false)"]
+    subgraph Job2 ["3. Job 2: build-and-push"]
+        Decision{"Co service thay doi?"}
+        Matrix["Khoi tao may ao song song (fail-fast: false)"]
         
         Runner1["Runner A: auth-service"]
         Runner2["Runner B: customer-service"]
         RunnerN["Runner N: ...-service"]
 
-        MvnPkg["mvn clean package -pl <service> -am -DskipTests"]
+        MvnPkg["mvn clean package -pl service -am -DskipTests"]
         Buildx["docker/build-push-action@v5 (cache: gha)"]
         PushHub["Docker Hub: :latest & :sha"]
 
-        Decision -->|Có thay đổi| Matrix
-        Decision -->|Không đổi (Skipped)| SkipJob["Bỏ qua Job 2 (0s wasted)"]
+        Decision -->|"Co thay doi"| Matrix
+        Decision -->|"Khong doi - Skipped"| SkipJob["Bo qua Job 2 - 0s wasted"]
         Matrix --> Runner1 & Runner2 & RunnerN
         Runner1 & Runner2 & RunnerN --> MvnPkg --> Buildx --> PushHub
     end
 
-    subgraph Job3 ["4. Job 3: notify-telegram (Realtime Alerting)"]
+    subgraph Job3 ["4. Job 3: notify-telegram"]
         Always{"if: always()"}
         Bot["appleboy/telegram-action@master"]
-        Phone["Bắn tin nhắn thông báo về Telegram Dev"]
+        Phone["Ban tin nhan thong bao ve Telegram Dev"]
 
         Always --> Bot --> Phone
     end
