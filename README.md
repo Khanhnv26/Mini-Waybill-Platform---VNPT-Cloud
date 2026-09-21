@@ -195,6 +195,7 @@ Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, m�
 | **09** | [**Quyết Toán COD & Báo Cáo Đối Soát Dòng Tiền**](docs/09-cod-settlement-and-financial-reconciliation.md) | Kiến trúc máy trạng thái quyết toán COD 3 pha (`UNSETTLED` -> `PENDING_SETTLEMENT` -> `SETTLED`), nghiệp vụ bưu tá nộp quỹ ca phát, bưu cục kiểm đếm nhập két, đồng bộ Event-Driven qua Kafka sang `report-service` (Port 8091) và xuất file Excel 2-sheet đối soát tài chính theo chuẩn kiểm toán. |
 | **10** | [**Container Hóa Toàn Trình & Điều Phối HA (Docker & Compose)**](docs/10-docker-containerization-and-ha-orchestration.md) | Quy trình đóng gói Dockerfile chuẩn Java 21 / Node.js, quản trị Registry Docker Hub, xử lý bẫy mạng `SERVER_PORT` & Docker DNS, và **Bộ Boilerplate độc lập 23 Containers** (Kafka KRaft, Redis, SQL Server Volume, Eureka Peer, Nginx Failover). |
 | **11** | [**CI/CD Tự Động Hóa Với GitHub Actions (Microservices Monorepo)**](docs/11-cicd-github-actions-automation.md) | Lý thuyết nền tảng CI/CD & DevOps, kiến trúc 3-Stage Pipeline, bộ lọc thay đổi thông minh (`paths-filter`), ma trận build song song (`matrix`), kỹ thuật cách ly lỗi `fail-fast: false`, gắn nhãn Git SHA bất biến và Bot Telegram cảnh báo thời gian thực. |
+| **12** | [**Điều Phối Toàn Trình Trên Kubernetes (K8s Architecture & Troubleshooting)**](docs/12-kubernetes-orchestration-and-deployment.md) | Kiến trúc cụm K8s 16 Pods (`namespace: waybill`), lưu trữ bền vững SQL Server PVC 5GB, phân biệt ClusterIP vs LoadBalancer, giải quyết 4 bẫy kỹ thuật kinh điển (Eureka IP discovery, Gateway LoadBalancer, Redis host, Kafka consumer bootstrap) và sổ tay kubectl thực chiến. |
 
 ---
 
@@ -284,8 +285,11 @@ mini-waybill-platform/
 │   ├── 08-shipper-service-identity-and-idempotency.md
 │   ├── 09-cod-settlement-and-financial-reconciliation.md
 │   ├── 10-docker-containerization-and-ha-orchestration.md
-│   └── 11-cicd-github-actions-automation.md
+│   ├── 11-cicd-github-actions-automation.md
+│   └── 12-kubernetes-orchestration-and-deployment.md
 │
+├── k8s/                       # Manifests Kubernetes (00-namespace, 01-infrastructure, 02-services)
+├── scripts/                   # Script tự động hóa đồng bộ DB (sync-db-to-k8s.ps1)
 ├── nginx/                     # Cấu hình Nginx Edge Load Balancer (nginx.conf)
 ├── api-gateway/               # Spring Cloud Gateway HA (Port 8080 & 8088)
 ├── service-registry/          # Netflix Eureka Server Peer-to-Peer (Port 8761 & 8762)

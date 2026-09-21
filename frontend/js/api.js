@@ -5,7 +5,7 @@
  * ==============================================================================
  */
 
-const API_BASE_URL = window.location.port === '3000' ? '' : 'http://localhost:8080';
+const API_BASE_URL = (['3000', '80', ''].includes(window.location.port) && window.location.protocol.startsWith('http')) ? '' : 'http://localhost:8080';
 
 const Api = {
     /**
