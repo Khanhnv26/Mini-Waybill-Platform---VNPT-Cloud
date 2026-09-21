@@ -102,18 +102,17 @@ jobs:
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           format: html
           message: |
-            <b>[CI/CD PIPELINE ALERT]</b>
-
-            <b>Du an:</b> Mini-Waybill Platform
+            <b>Thông báo</b>
+            <b>Dự án:</b> Mini-Waybill Platform
             <b>Developer:</b> ${{ github.actor }}
-            <b>Nhanh:</b> <code>${{ github.ref_name }}</code>
+            <b>Nhánh:</b> <code>${{ github.ref_name }}</code>
             <b>Commit:</b> <code>${{ github.sha }}</code>
 
-            <b>Dich vu thay doi:</b>
-            <code>${{ needs.detect-changes.outputs.service-changed || 'Khong co (Skipped)' }}</code>
+            <b>Dịch vụ thay đổi:</b>
+            <code>${{ needs.detect-changes.outputs.service-changed || 'Không có (Skipped)' }}</code>
 
-            <b>Trang thai Build:</b> <b>${{ needs.build-and-push.result }}</b>
+            <b>Trạng thái Build:</b> <b>${{ needs.build-and-push.result }}</b>
 
-            <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">Xem chi tiet tren GitHub</a>
+            <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">Xem chi tiết trên GitHub</a>
 
 
