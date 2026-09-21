@@ -24,7 +24,8 @@ public class TelegramBot extends TelegramLongPollingBot {
     @Value("${telegram.bot.token}")
     private String botToken;
 
-
+    //test CI/CD
+    //writen by Khanhnv26
     @Override
     public void onUpdateReceived(Update update) {
         if(update.getMessage() == null || !update.getMessage().hasText()) {
