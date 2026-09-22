@@ -49,7 +49,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <!-- Custom Enterprise B2B Styles -->
-    <link rel="stylesheet" href="css/style.css?v=2.5.3" />
+    <link rel="stylesheet" href="css/style.css?v=2.5.6" />
 
     <!-- Vue 3 CDN -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -417,7 +417,7 @@
 
         <!-- MAIN VIEW CONTAINER -->
         <main class="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50">
-            <div class="max-w-7xl mx-auto">
+            <div class="max-w-7xl mx-auto relative">
                 <transition name="page" mode="out-in" appear>
                     <keep-alive>
                         <component 
@@ -426,6 +426,7 @@
                             :tracking-code="currentTrackingCode"
                             :previous-tab="previousTab"
                             :customer-prefill="selectedCustomerForShipment"
+                            :tariff-prefill="selectedTariffForShipment"
                             :feature-id="currentFeatureId"
                             :error-code="currentErrorCode"
                             :custom-title="currentErrorTitle"
@@ -435,6 +436,9 @@
                             @back-previous="handleBackToPreviousTab"
                             @created-shipment="handleShipmentCreated"
                             @create-shipment-for="handleCreateShipmentFor"
+                            @create-shipment-from-tariff="handleCreateShipmentFromTariff"
+                            @user-updated="handleUserUpdated"
+                            @switch-tab="switchTab"
                         ></component>
                     </keep-alive>
                 </transition>
@@ -678,6 +682,9 @@
         </div>
     </div>
     </Transition>
+
+    <!-- 5. TRỢ LÝ ẢO CHATBOT CSKH VNPT POST 24/7 (CHỈ HIỂN THỊ VỚI KHÁCH HÀNG & KHÁCH VÃNG LAI/GUESTS) -->
+    <chatbot-widget v-if="!isStaffUser"></chatbot-widget>
 </div>
 
 <!-- CÁC MODULE JAVASCRIPT THEO THỨ TỰ PHỤ THUỘC CHUẨN XÁC -->
@@ -696,6 +703,7 @@
 <script src="js/services/auditService.js"></script>
 <script src="js/services/adminService.js"></script>
 <script src="js/services/reportService.js"></script>
+<script src="js/services/pricingService.js"></script>
 
 <!-- 3. Tầng Giao Diện Màn Hình (Views Layer) -->
 <script src="js/views/TrackingView.js"></script>
@@ -708,8 +716,13 @@
 <script src="js/views/CustomerView.js"></script>
 <script src="js/views/AdminRbacView.js"></script>
 <script src="js/views/ReportView.js"></script>
+<script src="js/views/TariffCalculatorView.js"></script>
+<script src="js/views/NetworkView.js"></script>
+<script src="js/views/GuideView.js"></script>
 <script src="js/views/UnderDevelopmentView.js"></script>
 <script src="js/views/ErrorView.js?v=2.5.3"></script>
+<script src="js/views/ProfileView.js?v=2.5.3"></script>
+<script src="js/components/ChatbotWidget.js"></script>
 
 <!-- 4. Điểm Khởi Chạy Ứng Dụng (Master Layout Entry Point) -->
 <script src="js/app.js?v=2.5.3"></script>

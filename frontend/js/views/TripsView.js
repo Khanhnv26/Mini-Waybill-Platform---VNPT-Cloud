@@ -3193,7 +3193,7 @@
                             title="Nhấn để chuyển đổi chế độ lập lịch gom hàng tự động hoặc thủ công"
                         >
                             <span class="w-2 h-2 rounded-full" :class="schedulerConfig.enabled ? 'bg-blue-600 animate-pulse' : 'bg-slate-400'"></span>
-                            <span>Lịch Chạy: <strong>{{ schedulerConfig.enabled ? 'Tự Động (' + Math.round(schedulerConfig.intervalSeconds / 60) + 'p/chuyến)' : 'Thủ Công' }}</strong></span>
+                            <span>Lịch Chạy: <strong>{{ schedulerConfig.enabled ? 'Tự Động (mỗi ' + Math.round(schedulerConfig.intervalSeconds / 60) + ' phút)' : 'Thủ Công' }}</strong></span>
                         </div>
                         <button 
                             type="button"

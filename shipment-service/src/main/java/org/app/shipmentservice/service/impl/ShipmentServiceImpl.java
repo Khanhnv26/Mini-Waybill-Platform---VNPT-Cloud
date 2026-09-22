@@ -22,6 +22,7 @@ import org.app.shipmentservice.repository.ShipmentRepository;
 import org.app.shipmentservice.service.ShipmentService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.app.shipmentservice.client.PricingClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +46,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final StringRedisTemplate redisTemplate;
     private final KafkaTemplate<String,Object> kafkaTemplate;
     private final HubClient hubClient;
+    private final PricingClient pricingClient;
 
     private Long resolveCustomerId(String currentUserId) {
         if (currentUserId == null || currentUserId.isBlank() || "null".equalsIgnoreCase(currentUserId)) {
@@ -78,10 +80,33 @@ public class ShipmentServiceImpl implements ShipmentService {
         return customerId;
     }
 
+    private boolean hasPermission(String permissions, String code) {
+        if (permissions == null || permissions.isBlank() || code == null || code.isBlank()) {
+            return false;
+        }
+        for (String part : permissions.split(",")) {
+            if (code.equals(part.trim())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Header quyền rỗng nghĩa là không có claim RBAC (khách vãng lai, hoặc gateway
+     * gửi chuỗi rỗng khi token không kèm permissions). Tra cứu công khai và tạo đơn
+     * của chính chủ không được hiểu chuỗi rỗng thành "bị cấm".
+     */
+    private boolean lacksPermissionClaim(String permissions) {
+        return permissions == null || permissions.isBlank();
+    }
+
     @Override
     public Shipment createShipment(CreateShipmentRequest request, String currentUserId, String permissions) {
 
-        if (permissions != null && !permissions.contains("shipment:create")) {
+        if (!lacksPermissionClaim(permissions)
+                && !hasPermission(permissions, "shipment:create")
+                && !hasPermission(permissions, "shipment:create_for_others")) {
             throw new ForbiddenException("Người dùng không có quyền tạo đơn hàng!");
         }
 
@@ -98,7 +123,7 @@ public class ShipmentServiceImpl implements ShipmentService {
         }
 
 
-        boolean canCreateForOthers = permissions != null && permissions.contains("shipment:create_for_others");
+        boolean canCreateForOthers = hasPermission(permissions, "shipment:create_for_others");
         Long targetCustomerId;
 
         if(canCreateForOthers) {
@@ -113,7 +138,10 @@ public class ShipmentServiceImpl implements ShipmentService {
             } else {
                 log.info("[SHIPMENT] Nhân viên {} tạo đơn khách vãng lai, tự động gán CUS_RETAIL", currentUserId);
                 CustomerValidationResponse retailCustomer = customerClient.getRetailCustomer();
-                targetCustomerId = retailCustomer != null ? retailCustomer.getCustomerId() : 1L;
+                if (retailCustomer == null || retailCustomer.getCustomerId() == null) {
+                    throw new RuntimeException("Không tìm thấy hồ sơ khách vãng lai. Không thể tạo đơn.");
+                }
+                targetCustomerId = retailCustomer.getCustomerId();
 
 
             }
@@ -129,7 +157,7 @@ public class ShipmentServiceImpl implements ShipmentService {
         }
 
         String redisKey = "shipment:requestId:" + request.getRequestId();
-        Boolean isFirstRequest = redisTemplate.opsForValue().setIfAbsent(redisKey,"PROCESSING", Duration.ofMinutes(5));
+        Boolean isFirstRequest = redisTemplate.opsForValue().setIfAbsent(redisKey,"PROCESSING", Duration.ofHours(24));
 
         if (Boolean.FALSE.equals(isFirstRequest)) {
 
@@ -156,23 +184,63 @@ public class ShipmentServiceImpl implements ShipmentService {
                     " Lí do: " + (validationResponse != null ? validationResponse.getReason() : "Unknown"));
         }
 
-        double weight = request.getWeight();
+        double weight = request.getWeight() != null ? request.getWeight() : 1.0;
         BigDecimal baseFee;
+        BigDecimal totalFee;
 
-        if(request.getServiceType() == ServiceType.EXPRESS) {
-            baseFee = BigDecimal.valueOf(Math.max(BASE_COST_EXPRESS.doubleValue(), weight * COST_EXPRESS.doubleValue()));
-        } else {
-            baseFee = BigDecimal.valueOf(Math.max(BASE_COST_STANDARD.doubleValue(), weight * COST_STANDARD.doubleValue()));
+        try {
+            PricingClient.TariffRequest tariffRequest = PricingClient.TariffRequest.builder()
+                    .senderProvince(request.getSenderAddress())
+                    .receiverProvince(request.getReceiverAddress())
+                    .weightGram(weight * 1000.0)
+                    .codAmount(request.getCodAmount())
+                    .build();
+
+            PricingClient.TariffResponse tariffResponse = pricingClient.calculateTariff(tariffRequest);
+            String targetServiceCode = request.getServiceType() != null ? request.getServiceType().name() : "STANDARD";
+
+            PricingClient.PlanDetail matchedPlan = null;
+            if (tariffResponse != null && tariffResponse.getPlans() != null) {
+                matchedPlan = tariffResponse.getPlans().stream()
+                        .filter(p -> targetServiceCode.equalsIgnoreCase(p.getServiceCode()))
+                        .findFirst()
+                        .orElse(null);
+            }
+
+            if (matchedPlan != null) {
+                baseFee = matchedPlan.getBaseFee();
+                totalFee = matchedPlan.getTotalFee();
+            } else {
+                if (request.getServiceType() == ServiceType.EXPRESS) {
+                    baseFee = BigDecimal.valueOf(Math.max(BASE_COST_EXPRESS.doubleValue(), weight * COST_EXPRESS.doubleValue()));
+                } else if (request.getServiceType() == ServiceType.ECO) {
+                    baseFee = BigDecimal.valueOf(Math.max(15000.0, weight * 9000.0));
+                } else {
+                    baseFee = BigDecimal.valueOf(Math.max(BASE_COST_STANDARD.doubleValue(), weight * COST_STANDARD.doubleValue()));
+                }
+                BigDecimal codFee = BigDecimal.ZERO;
+                if (request.getCodAmount() != null && request.getCodAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    codFee = request.getCodAmount().multiply(COD_FEE_RATE).max(BASE_COD_COST);
+                }
+                BigDecimal fuelFee = baseFee.multiply(FUEL_FEE);
+                totalFee = baseFee.add(codFee).add(fuelFee);
+            }
+        } catch (Exception e) {
+            log.warn("[SHIPMENT] Fallback tinh cuoc: {}", e.getMessage());
+            if (request.getServiceType() == ServiceType.EXPRESS) {
+                baseFee = BigDecimal.valueOf(Math.max(BASE_COST_EXPRESS.doubleValue(), weight * COST_EXPRESS.doubleValue()));
+            } else if (request.getServiceType() == ServiceType.ECO) {
+                baseFee = BigDecimal.valueOf(Math.max(15000.0, weight * 9000.0));
+            } else {
+                baseFee = BigDecimal.valueOf(Math.max(BASE_COST_STANDARD.doubleValue(), weight * COST_STANDARD.doubleValue()));
+            }
+            BigDecimal codFee = BigDecimal.ZERO;
+            if (request.getCodAmount() != null && request.getCodAmount().compareTo(BigDecimal.ZERO) > 0) {
+                codFee = request.getCodAmount().multiply(COD_FEE_RATE).max(BASE_COD_COST);
+            }
+            BigDecimal fuelFee = baseFee.multiply(FUEL_FEE);
+            totalFee = baseFee.add(codFee).add(fuelFee);
         }
-
-        BigDecimal codFee = BigDecimal.ZERO;
-        if(request.getCodAmount() != null && request.getCodAmount().compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal calculatedCodFee = request.getCodAmount().multiply(COD_FEE_RATE);
-            codFee = calculatedCodFee.max(BASE_COD_COST);
-        }
-
-        BigDecimal fuelFee = baseFee.multiply(FUEL_FEE);
-        BigDecimal totalFee = baseFee.add(codFee).add(fuelFee);
 
 
         String trackingCode = "WB" + System.currentTimeMillis() + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
@@ -196,7 +264,7 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .totalFee(totalFee)
                 .build();
         Shipment saved = shipmentRepository.save(shipment);
-        redisTemplate.opsForValue().set(redisKey, saved.getTrackingCode(), Duration.ofMinutes(5));
+        redisTemplate.opsForValue().set(redisKey, saved.getTrackingCode(), Duration.ofHours(24));
 
         CreateShipmentEvent event = CreateShipmentEvent.builder()
                 .trackingCode(saved.getTrackingCode())
@@ -224,19 +292,31 @@ public class ShipmentServiceImpl implements ShipmentService {
         Shipment shipment =  shipmentRepository.findShipmentByTrackingCode(trackCode).orElseThrow(() ->
                 new RuntimeException("Không tìm thấy đơn hàng: " + trackCode));
 
-        if (permissions != null && !permissions.contains("shipment:read_all")) {
-            Long myCustomerId = resolveCustomerId(currentUserId);
-            if (!shipment.getCustomerId().equals(myCustomerId)) {
-                throw new ForbiddenException("Người dùng không có quyền xem thông tin đơn hàng!");
-            }
+        // Tra cứu theo mã vận đơn là chức năng công khai (gateway permitAll).
+        // Khách có tracking:read_public, hoặc token không kèm claim quyền, được xem
+        // cùng mức với khách vãng lai. Chỉ siết chủ sở hữu khi claim có quyền khác
+        // nhưng không có quyền đọc công khai / đọc toàn bộ.
+        if (canReadShipmentByCode(permissions)) {
+            return shipment;
+        }
+
+        Long myCustomerId = resolveCustomerId(currentUserId);
+        if (shipment.getCustomerId() == null || !shipment.getCustomerId().equals(myCustomerId)) {
+            throw new ForbiddenException("Người dùng không có quyền xem thông tin đơn hàng!");
         }
         return shipment;
+    }
+
+    private boolean canReadShipmentByCode(String permissions) {
+        return lacksPermissionClaim(permissions)
+                || hasPermission(permissions, "shipment:read_all")
+                || hasPermission(permissions, "tracking:read_public");
     }
 
     @Override
     public List<Shipment> getShipmentByCustomerId(Long customerId, String currentUserId, String permissions) {
 
-        if (permissions != null && !permissions.contains("shipment:read_all")) {
+        if (!lacksPermissionClaim(permissions) && !hasPermission(permissions, "shipment:read_all")) {
             Long myCustomerId = resolveCustomerId(currentUserId);
             if (!customerId.equals(myCustomerId)) {
                 throw new ForbiddenException("Bạn không được phép xem trộm danh sách đơn hàng của khách khác!");
@@ -255,7 +335,7 @@ public class ShipmentServiceImpl implements ShipmentService {
 
     @Override
     public List<Shipment> getShipments(Long customerId, String currentUserId, String permissions) {
-        boolean hasReadAllPermission = permissions != null && permissions.contains("shipment:read_all");
+        boolean hasReadAllPermission = hasPermission(permissions, "shipment:read_all");
 
         if (hasReadAllPermission) {
             if (customerId == null) {
@@ -281,7 +361,7 @@ public class ShipmentServiceImpl implements ShipmentService {
         Shipment shipment = shipmentRepository.findShipmentByTrackingCode(trackCode)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + trackCode));
 
-        boolean hasCancelAllPermission = permissions != null && permissions.contains("shipment:cancel_all");
+        boolean hasCancelAllPermission = hasPermission(permissions, "shipment:cancel_all");
         boolean isAdminRole = roles != null && roles.contains("ROLE_ADMIN");
         boolean isCsRole = roles != null && roles.contains("ROLE_CS");
         boolean hasAdminPermission = hasCancelAllPermission || isAdminRole || isCsRole;

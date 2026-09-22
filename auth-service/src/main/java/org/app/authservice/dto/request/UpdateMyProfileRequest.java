@@ -15,5 +15,7 @@ public class UpdateMyProfileRequest {
     @NotBlank(message = "Họ và tên không được để trống")
     private String fullName;
 
+    private String phoneNumber;
+
     private String avatarUrl;
 }

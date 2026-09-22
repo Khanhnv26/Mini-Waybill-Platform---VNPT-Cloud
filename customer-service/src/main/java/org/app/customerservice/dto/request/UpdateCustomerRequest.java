@@ -24,7 +24,7 @@ public class UpdateCustomerRequest {
     @Email(message = "Định dạng email không hợp lệ")
     private String email;
 
-    @Pattern(regexp = "^(0|\\+84)(3|5|7|8|9)[0-9]{8}$", message = "Số điện thoại không đúng định dạng di động Việt Nam")
+    @Pattern(regexp = "^$|^(0|\\+84)(2|3|5|7|8|9)[0-9]{8,9}$", message = "Số điện thoại không đúng định dạng Việt Nam")
     private String phoneNumber;
 
     private CustomerStatus status;

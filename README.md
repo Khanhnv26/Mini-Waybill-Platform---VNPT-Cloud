@@ -18,8 +18,10 @@
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-16%20Pods%20Orchestration-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://kubernetes.io/)
 [![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-Smart%20Monorepo%20CI%2FCD-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/features/actions)
 [![Swagger / OpenAPI](https://img.shields.io/badge/OpenAPI-Springdoc%203.1.0-85EA2D?style=for-the-badge&logo=openapiinitiative&logoColor=black)](https://springdoc.org/)
+[![Quartz Scheduler](https://img.shields.io/badge/Quartz-Enterprise%20Scheduler-007ACC?style=for-the-badge&logo=spring&logoColor=white)](https://www.quartz-scheduler.org/)
 
 ---
+
 
 ## 1. Giới Thiệu Tổng Quan
 
@@ -74,8 +76,9 @@ Khác với các ứng dụng giao hàng nội thành đơn chặng, hệ thốn
 * **Phân tách vi dịch vụ Bưu tá độc lập (`shipper-service`):** Định nghĩa bưu tá là tài nguyên vận hành giao vận theo Domain-Driven Design (DDD), gắn với ca làm việc thực địa (`ACTIVE`/`INACTIVE`), địa bàn bưu cục (`stationCode`) và kênh nhận tin (`telegram_chat_id`), độc lập hoàn toàn với tài khoản người dùng (`auth-service`) và khách hàng B2B (`customer-service`).
 * **Xác thực đa nguồn Google OAuth2 & Avatar Stateless JWT:** Hỗ trợ xác thực Google ID Token qua Google API Client, nhúng trực tiếp claim `avatarUrl` vào JWT Payload giúp giao diện hiển thị ảnh đại diện với độ trễ 0ms mà không phát sinh thêm HTTP roundtrip.
 * **Mô hình Idempotency & OperationId trong Logistics:** Xử lý triệt để bài toán công nhân bóp cò máy quét barcode 2 lần liên tiếp (Double-Scanning) hoặc mạng 4G chập chờn gây gửi đúp request, đảm bảo 100% tính toàn vẹn trạng thái kiện hàng và bảng kê COD.
-* **Bộ lập lịch gom đơn tự động (Automated Consolidator) & Mốc Cut-off Buffer:** Tự động hóa gom kiện đạt ngưỡng tải trọng ($80\%$) và đóng sổ chuyến xe trước giờ xuất bến 30 phút để in bảng kê Manifest và niêm phong chì (Seal).
+* **Bộ lập lịch gom đơn tự động (Quartz Enterprise Scheduler) & Mốc Cut-off Buffer:** Ứng dụng Quartz Scheduler (`TripConsolidationJob` & `TripScheduleManager`) thay thế hoàn toàn cơ chế Polling cũ, tự động hóa gom kiện đạt ngưỡng tải trọng ($80\%$) và đóng sổ chuyến xe trước giờ xuất bến 30 phút. Tích hợp Kafka Event Streaming (`TripConsolidatedEvent`) và WebSocket STOMP cập nhật tức thì lên Web Portal (< 50ms).
 * *Tài liệu chi tiết:* Xem chi tiết kiến trúc tại [Cẩm nang 08 - Shipper Service, Google Identity & Idempotency](docs/08-shipper-service-identity-and-idempotency.md).
+
 
 ### 2.8. Vi Dịch Vụ Báo Cáo Phân Tích (report-service) & Xuất Excel 2 Sheet Chuẩn Kiểm Toán
 * **Phân tách vi dịch vụ báo cáo độc lập (`report-service` - Port 8091):** Ứng dụng mô hình CQRS (Command Query Responsibility Segregation). Thay vì chạy các query aggregate nặng (`SUM`, `COUNT`, `GROUP BY`) làm chậm CSDL giao dịch cốt lõi `shipment_db`, `report-service` lưu trữ snapshot tối ưu (`report_db`) và nhận dữ liệu qua Kafka streaming.

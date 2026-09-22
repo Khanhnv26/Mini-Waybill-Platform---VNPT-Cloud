@@ -1,10 +1,3 @@
-/**
- * ==============================================================================
- * VNPT WAYBILL PLATFORM - VIEW: BÁO CÁO SẢN LƯỢNG & ĐỐI SOÁT DÒNG TIỀN COD
- * Phong Cách B2B Enterprise Blue, Chuẩn Hero Banner VNPT, Biểu Đồ 60fps & Xuất Excel
- * ==============================================================================
- */
-
 (function () {
     const { ref, reactive, computed, watch, onMounted } = Vue;
 
@@ -12,20 +5,17 @@
         name: 'ReportView',
         emits: ['view-tracking'],
         setup(props, { emit }) {
-            // 1. Khai báo Trạng Thái Cốt Lõi
             const isLoading = ref(false);
             const isExporting = ref(false);
-            const activeSubtab = ref('summary'); // 'summary' | 'details'
+            const activeSubtab = ref('summary');
             const liveClock = ref('');
 
-            // Kiểm tra quyền Quản trị / Chăm sóc khách hàng
             const isAdminOrCs = computed(() => {
                 if (typeof Auth === 'undefined') return false;
                 return Auth.hasRole('ADMIN') || Auth.hasRole('CS') || 
                        Auth.hasRole('ROLE_ADMIN') || Auth.hasRole('ROLE_CS');
             });
 
-            // 2. Bộ lọc & Khoảng thời gian
             const activeQuickRange = ref('7days');
             const filters = reactive({
                 fromDate: '',
@@ -34,7 +24,6 @@
                 status: 'ALL'
             });
 
-            // Phân trang
             const pagination = reactive({
                 page: 0,
                 size: 10,
@@ -42,10 +31,8 @@
                 totalElements: 0
             });
 
-            // Tìm kiếm cục bộ trong bảng chi tiết
             const tableSearchQuery = ref('');
 
-            // 3. Dữ liệu Báo cáo từ Backend
             const reportData = reactive({
                 totalOrders: 0,
                 totalShippingFee: 0,
@@ -58,7 +45,6 @@
                 shipments: []
             });
 
-            // Formatters
             const formatVnd = (val) => {
                 const num = Number(val) || 0;
                 return new Intl.NumberFormat('vi-VN').format(num) + ' đ';
@@ -77,7 +63,6 @@
                 return `${year}-${month}-${day}`;
             };
 
-            // Thiết lập khoảng ngày theo nút chọn nhanh
             const applyQuickRange = (rangeKey) => {
                 activeQuickRange.value = rangeKey;
                 const now = new Date();
@@ -100,7 +85,6 @@
                 loadReport();
             };
 
-            // 4. Tải dữ liệu Báo cáo
             const loadReport = async () => {
                 isLoading.value = true;
                 try {
@@ -124,7 +108,9 @@
                     reportData.shipments = res.shipments || [];
 
                     reportData.inTransitCount = res.inTransitCount || 0;
+                    reportData.failedCount = res.failedCount || 0;
                     reportData.cancelledCount = res.cancelledCount || 0;
+                    reportData.daily = Array.isArray(res.daily) ? res.daily : [];
 
                     pagination.totalPages = res.totalPages || 1;
                     pagination.totalElements = res.tableTotalElements !== undefined ? res.tableTotalElements : (res.totalOrders || 0);
@@ -140,7 +126,6 @@
                 }
             };
 
-            // 5. Xuất File Excel
             const handleExportExcel = async () => {
                 if (isExporting.value) return;
                 isExporting.value = true;
@@ -165,8 +150,6 @@
                 }
             };
 
-            // 6. Tính toán Dữ Liệu Biểu Đồ (Charts)
-            // Biểu đồ Donut Phân Bổ Trạng Thái
             const donutMetrics = computed(() => {
                 const total = Number(reportData.totalOrders) || 0;
                 if (total <= 0) {
@@ -174,64 +157,62 @@
                         deliveredPct: '0.0',
                         returningPct: '0.0',
                         transitPct: '0.0',
+                        cancelledPct: '0.0',
                         dashDelivered: '0 251.3',
                         dashTransit: '0 251.3',
                         dashReturning: '0 251.3',
+                        dashCancelled: '0 251.3',
                         offsetTransit: 0,
-                        offsetReturning: 0
+                        offsetReturning: 0,
+                        offsetCancelled: 0
                     };
                 }
-                const c = 251.327; // 2 * PI * 40
+                const c = 251.327;
                 const delivered = Number(reportData.deliveredCount) || 0;
                 const returning = Number(reportData.returningCount) || 0;
+                const failed = Number(reportData.failedCount) || 0;
+                const transit = Number(reportData.inTransitCount) || 0;
+                const cancelled = Number(reportData.cancelledCount) || 0;
 
                 const delivPct = Math.min(100, Math.max(0, (delivered / total) * 100));
-                const retPct = Math.min(100, Math.max(0, (returning / total) * 100));
-                const transPct = Math.min(100, Math.max(0, 100 - delivPct - retPct));
+                const transPct = Math.min(100, Math.max(0, (transit / total) * 100));
+                const retPct = Math.min(100, Math.max(0, ((returning + failed) / total) * 100));
+                const cancelPct = Math.min(100, Math.max(0, (cancelled / total) * 100));
 
                 const lenDeliv = (delivPct / 100) * c;
                 const lenTrans = (transPct / 100) * c;
                 const lenRet = (retPct / 100) * c;
+                const lenCancel = (cancelPct / 100) * c;
 
                 return {
                     deliveredPct: delivPct.toFixed(1),
                     returningPct: retPct.toFixed(1),
                     transitPct: transPct.toFixed(1),
+                    cancelledPct: cancelPct.toFixed(1),
                     dashDelivered: `${lenDeliv.toFixed(1)} ${c}`,
                     dashTransit: `${lenTrans.toFixed(1)} ${c}`,
                     dashReturning: `${lenRet.toFixed(1)} ${c}`,
+                    dashCancelled: `${lenCancel.toFixed(1)} ${c}`,
                     offsetTransit: -lenDeliv,
-                    offsetReturning: -(lenDeliv + lenTrans)
+                    offsetReturning: -(lenDeliv + lenTrans),
+                    offsetCancelled: -(lenDeliv + lenTrans + lenRet)
                 };
             });
 
-            // Biểu đồ Cột Xu Hướng 7 ngày gần nhất
             const barChartData = computed(() => {
-                const daysMap = {};
-                // Khởi tạo 7 ngày gần nhất
-                const now = new Date();
-                for (let i = 6; i >= 0; i--) {
-                    const d = new Date();
-                    d.setDate(now.getDate() - i);
-                    const key = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-                    daysMap[key] = { label: key, fee: 0, cod: 0, count: 0, isToday: i === 0 };
-                }
-
-                // Nhóm các đơn từ reportData.shipments theo ngày
-                if (Array.isArray(reportData.shipments)) {
-                    reportData.shipments.forEach(s => {
-                        if (!s.createdAt) return;
-                        const d = new Date(s.createdAt);
-                        const key = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-                        if (daysMap[key]) {
-                            daysMap[key].fee += Number(s.shippingFee) || 0;
-                            daysMap[key].cod += Number(s.codAmount) || 0;
-                            daysMap[key].count++;
-                        }
-                    });
-                }
-
-                const list = Object.values(daysMap);
+                const todayKey = formatDateStr(new Date());
+                const list = (Array.isArray(reportData.daily) ? reportData.daily : []).map(day => {
+                    const raw = String(day.date || '');
+                    const parts = raw.split('-');
+                    const label = parts.length === 3 ? `${parts[2]}/${parts[1]}` : raw;
+                    return {
+                        label,
+                        fee: Number(day.shippingFee) || 0,
+                        cod: Number(day.codAmount) || 0,
+                        count: Number(day.count) || 0,
+                        isToday: raw === todayKey
+                    };
+                });
                 const maxFee = Math.max(...list.map(x => x.fee), 100000);
                 const maxCod = Math.max(...list.map(x => x.cod), 500000);
 
@@ -244,7 +225,6 @@
                 }));
             });
 
-            // Lọc danh sách vận đơn hiển thị trên bảng
             const filteredShipments = computed(() => {
                 if (!tableSearchQuery.value.trim()) {
                     return reportData.shipments;
@@ -259,7 +239,6 @@
                 });
             });
 
-            // Helper chuyển màu sắc Badge trạng thái
             const getStatusBadge = (status) => {
                 switch (status) {
                     case 'DELIVERED':
@@ -279,7 +258,6 @@
                 }
             };
 
-            // Helper chuyển màu sắc Badge tình trạng nộp quỹ COD
             const getCodSettlementBadge = (status) => {
                 const s = String(status || 'UNSETTLED').toUpperCase();
                 if (s === 'SETTLED') {
@@ -291,14 +269,12 @@
                 return { label: 'Chưa Nộp Quỹ', class: 'bg-amber-50 text-amber-700 border border-amber-200', isPulse: false };
             };
 
-            // Điều hướng sang tra cứu vận đơn
             const goToTracking = (trackingCode) => {
                 if (trackingCode) {
                     emit('view-tracking', trackingCode);
                 }
             };
 
-            // Chuyển trang
             const changePage = (newPage) => {
                 if (newPage >= 0 && newPage < pagination.totalPages) {
                     pagination.page = newPage;
@@ -306,7 +282,6 @@
                 }
             };
 
-            // Đồng hồ thời gian thực
             const updateClock = () => {
                 const now = new Date();
                 liveClock.value = now.toLocaleTimeString('vi-VN', { hour12: false });
@@ -344,40 +319,35 @@
             };
         },
         template: `
-            <div class="space-y-4 pb-12 animate-entrance">
-                
-                <!-- ========================================================================= -->
-                <!-- 1. HERO BANNER: CHUẨN VNPT GRADIENT ĐỒNG BỘ CÁC MÀN HỆ THỐNG             -->
-                <!-- ========================================================================= -->
-                <div class="rounded-2xl vnpt-gradient text-white p-4 sm:p-5 shadow-lg shadow-blue-900/15 relative overflow-hidden transition-all duration-300">
+            <div class="space-y-4 pb-12 text-slate-800">
+                <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
 
-                    <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div class="space-y-1">
+                    <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
                             <div class="flex items-center space-x-2">
-                                <span class="px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10.5px] uppercase font-bold tracking-wider border border-white/20 shadow-sm">
+                                <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
                                     Financial &amp; Volume Reporting
                                 </span>
-                              
+                                <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
                             </div>
-                            <h2 class="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight">
+                            <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
                                 Báo Cáo Sản Lượng &amp; Đối Soát Dòng Tiền COD
-                            </h2>
-                            <p class="text-xs text-blue-100 font-medium">
-                                Nền tảng điều phối bưu chính VNPT Cloud · Tổng hợp dữ liệu theo thời gian thực · Xuất Excel 2 Sheet
+                            </h1>
+                            <p class="text-xs text-blue-100/90 mt-0.5 leading-normal">
+                                Nền tảng điều phối bưu chính VNPT Cloud • Tổng hợp dữ liệu theo thời gian thực • Xuất Excel 2 Sheet.
                             </p>
                         </div>
 
-                        <!-- Cụm nút tác vụ trên Banner -->
-                        <div class="flex items-center space-x-2.5 flex-shrink-0">
+                        <div class="flex items-center space-x-2 self-start sm:self-auto flex-shrink-0">
                             <button 
                                 type="button" 
                                 @click="loadReport" 
                                 :disabled="isLoading"
-                                class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/25 text-white text-xs font-bold transition flex items-center space-x-1.5 backdrop-blur-sm"
+                                class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/25 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-sm cursor-pointer"
                                 title="Đồng bộ lại dữ liệu"
                             >
-                                <svg class="w-4 h-4" :class="{ 'animate-spin': isLoading }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': isLoading }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                 </svg>
                                 <span>{{ isLoading ? 'Đang Tải...' : 'Làm Mới' }}</span>
@@ -387,90 +357,84 @@
                                 type="button" 
                                 @click="handleExportExcel" 
                                 :disabled="isExporting"
-                                class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/30 transition flex items-center space-x-2 disabled:opacity-50"
+                                class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold shadow-sm transition flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer"
                             >
-                                <svg v-if="!isExporting" class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg v-if="!isExporting" class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
-                                <span v-else class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                                <span>{{ isExporting ? 'Đang Xuất Excel...' : 'Xuất Báo Cáo Excel' }}</span>
+                                <span v-else class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                <span>{{ isExporting ? 'Đang Xuất...' : 'Xuất Báo Cáo Excel' }}</span>
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- ========================================================================= -->
-                <!-- 2. BỘ LỌC KỲ BÁO CÁO & ĐIỀU KIỆN TRA CỨU                                 -->
-                <!-- ========================================================================= -->
-                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                <div class="bg-white border border-slate-200 rounded-xl p-3 sm:p-3.5 shadow-sm space-y-2.5">
                     <div class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-slate-100">
-                        <!-- Nút Lọc Nhanh -->
                         <div class="flex items-center space-x-1.5">
                             <span class="text-xs font-bold text-slate-500 mr-1">Khoảng ngày:</span>
                             <button 
                                 type="button"
                                 @click="applyQuickRange('today')"
-                                :class="activeQuickRange === 'today' ? 'bg-blue-600 text-white font-bold' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'"
-                                class="px-2.5 py-1 rounded-lg text-xs transition"
+                                :class="activeQuickRange === 'today' ? 'bg-blue-600 text-white font-bold' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold'"
+                                class="px-2.5 py-1 rounded-md text-xs transition cursor-pointer"
                             >
                                 Hôm Nay
                             </button>
                             <button 
                                 type="button"
                                 @click="applyQuickRange('7days')"
-                                :class="activeQuickRange === '7days' ? 'bg-blue-600 text-white font-bold' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'"
-                                class="px-2.5 py-1 rounded-lg text-xs transition"
+                                :class="activeQuickRange === '7days' ? 'bg-blue-600 text-white font-bold' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold'"
+                                class="px-2.5 py-1 rounded-md text-xs transition cursor-pointer"
                             >
                                 7 Ngày Qua
                             </button>
                             <button 
                                 type="button"
                                 @click="applyQuickRange('30days')"
-                                :class="activeQuickRange === '30days' ? 'bg-blue-600 text-white font-bold' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'"
-                                class="px-2.5 py-1 rounded-lg text-xs transition"
+                                :class="activeQuickRange === '30days' ? 'bg-blue-600 text-white font-bold' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold'"
+                                class="px-2.5 py-1 rounded-md text-xs transition cursor-pointer"
                             >
                                 30 Ngày Qua
                             </button>
                             <button 
                                 type="button"
                                 @click="applyQuickRange('month')"
-                                :class="activeQuickRange === 'month' ? 'bg-blue-600 text-white font-bold' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'"
-                                class="px-2.5 py-1 rounded-lg text-xs transition"
+                                :class="activeQuickRange === 'month' ? 'bg-blue-600 text-white font-bold' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold'"
+                                class="px-2.5 py-1 rounded-md text-xs transition cursor-pointer"
                             >
                                 Tháng Này
                             </button>
                         </div>
 
-                        <!-- Subtab Toggle -->
-                        <div class="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs">
+                        <div class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
                             <button 
                                 type="button"
                                 @click="activeSubtab = 'summary'"
-                                :class="activeSubtab === 'summary' ? 'bg-white text-blue-600 shadow-sm font-bold' : 'text-slate-600 font-medium hover:text-slate-900'"
-                                class="px-3 py-1 rounded-lg transition"
+                                :class="activeSubtab === 'summary' ? 'bg-white text-blue-600 shadow-xs font-bold' : 'text-slate-600 font-semibold hover:text-slate-900'"
+                                class="px-3 py-1 rounded-md transition cursor-pointer"
                             >
                                 1. Tổng Hợp &amp; KPI
                             </button>
                             <button 
                                 type="button"
                                 @click="activeSubtab = 'details'"
-                                :class="activeSubtab === 'details' ? 'bg-white text-blue-600 shadow-sm font-bold' : 'text-slate-600 font-medium hover:text-slate-900'"
-                                class="px-3 py-1 rounded-lg transition"
+                                :class="activeSubtab === 'details' ? 'bg-white text-blue-600 shadow-xs font-bold' : 'text-slate-600 font-semibold hover:text-slate-900'"
+                                class="px-3 py-1 rounded-md transition cursor-pointer"
                             >
                                 2. Chi Tiết Vận Đơn ({{ formatNumber(reportData.totalOrders) }})
                             </button>
                         </div>
                     </div>
 
-                    <!-- Input Lọc Chi Tiết -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
                         <div>
                             <label class="block text-[11px] font-bold text-slate-600 mb-1">Từ Ngày</label>
                             <input 
                                 type="date" 
                                 v-model="filters.fromDate"
                                 @change="activeQuickRange = 'custom'; loadReport();"
-                                class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+                                class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                             />
                         </div>
 
@@ -480,7 +444,7 @@
                                 type="date" 
                                 v-model="filters.toDate"
                                 @change="activeQuickRange = 'custom'; loadReport();"
-                                class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+                                class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                             />
                         </div>
 
@@ -492,7 +456,7 @@
                                 :disabled="!isAdminOrCs"
                                 :placeholder="isAdminOrCs ? 'Nhập ID khách hàng hoặc để trống...' : 'Tài khoản cá nhân / Shop'"
                                 @keyup.enter="loadReport"
-                                class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                                class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition disabled:opacity-60 disabled:cursor-not-allowed"
                             />
                         </div>
 
@@ -501,7 +465,7 @@
                             <select 
                                 v-model="filters.status"
                                 @change="loadReport"
-                                class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition cursor-pointer"
+                                class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition cursor-pointer"
                             >
                                 <option value="ALL">Tất cả trạng thái</option>
                                 <option value="DELIVERED">Giao thành công (DELIVERED)</option>
@@ -515,45 +479,37 @@
                     </div>
                 </div>
 
-                <!-- ========================================================================= -->
-                <!-- 3. NỘI DUNG SUBTAB 1: TỔNG HỢP & ĐỐI SOÁT COD (MẶC ĐỊNH)                  -->
-                <!-- ========================================================================= -->
                 <div v-show="activeSubtab === 'summary'" class="space-y-4">
-                    
-                    <!-- 4 Thẻ Thống Kê KPI Chuẩn B2B (Hover Animation & JetBrains Mono) -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-                        <!-- Card 1: Tổng Vận Đơn -->
-                        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition duration-200">
-                            <div class="text-[11px] font-bold uppercase text-slate-500 tracking-wide">Tổng Sản Lượng Đơn</div>
-                            <div class="mt-2 flex items-baseline justify-between">
-                                <div class="text-2xl font-extrabold font-mono text-slate-900">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div class="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm hover:shadow-md transition space-y-1">
+                            <div class="text-[10.5px] font-bold uppercase tracking-wider text-slate-500">Tổng Sản Lượng Đơn</div>
+                            <div class="mt-1 flex items-baseline justify-between">
+                                <div class="text-xl sm:text-2xl font-bold font-mono text-slate-900">
                                     {{ formatNumber(reportData.totalOrders) }}
                                 </div>
-                                <span class="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">Kiện</span>
+                                <span class="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200/60">Kiện</span>
                             </div>
                             <div class="text-[11px] text-slate-400 mt-1">Bao gồm toàn bộ đơn phát sinh</div>
                         </div>
 
-                        <!-- Card 2: Doanh Thu Cước Phí -->
-                        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition duration-200">
-                            <div class="text-[11px] font-bold uppercase text-slate-500 tracking-wide">Doanh Thu Cước Phí</div>
-                            <div class="mt-2 flex items-baseline justify-between">
-                                <div class="text-2xl font-extrabold font-mono text-slate-900">
+                        <div class="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm hover:shadow-md transition space-y-1">
+                            <div class="text-[10.5px] font-bold uppercase tracking-wider text-slate-500">Doanh Thu Cước Phí</div>
+                            <div class="mt-1 flex items-baseline justify-between">
+                                <div class="text-xl sm:text-2xl font-bold font-mono text-slate-900">
                                     {{ formatVnd(reportData.totalShippingFee) }}
                                 </div>
-                                <span class="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">Doanh Thu</span>
+                                <span class="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200/60">Doanh Thu</span>
                             </div>
                             <div class="text-[11px] text-slate-400 mt-1">Cước dịch vụ chuyển phát</div>
                         </div>
 
-                        <!-- Card 3: Tiền COD Cần Đối Soát -->
-                        <div class="bg-white p-4 rounded-2xl border border-purple-200/80 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition duration-200 bg-purple-50/20">
-                            <div class="text-[11px] font-bold uppercase text-purple-700 tracking-wide">Tổng Tiền Thu Hộ COD</div>
-                            <div class="mt-2 flex items-baseline justify-between">
-                                <div class="text-2xl font-extrabold font-mono text-purple-700">
+                        <div class="bg-white border border-purple-200 rounded-xl p-3.5 sm:p-4 shadow-sm hover:shadow-md transition bg-purple-50/20 space-y-1">
+                            <div class="text-[10.5px] font-bold uppercase tracking-wider text-purple-700">Tổng Tiền Thu Hộ COD</div>
+                            <div class="mt-1 flex items-baseline justify-between">
+                                <div class="text-xl sm:text-2xl font-bold font-mono text-purple-700">
                                     {{ formatVnd(reportData.totalCodAmount) }}
                                 </div>
-                                <span class="text-[11px] font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-md">Quỹ Trạm</span>
+                                <span class="text-[10px] font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded border border-purple-200/60">Quỹ Trạm</span>
                             </div>
                             <div class="mt-2 pt-2 border-t border-purple-200/60 space-y-1 text-[11px]">
                                 <div class="flex justify-between items-center">
@@ -561,44 +517,40 @@
                                     <span class="font-mono font-bold text-emerald-700">{{ formatVnd(reportData.settledCodAmount) }}</span>
                                 </div>
                                 <div class="flex justify-between items-center">
-                                    <span class="text-slate-500">Bưu tá giữ / Chờ duyệt:</span>
+                                    <span class="text-slate-500">Chờ duyệt quỹ:</span>
                                     <span class="font-mono font-bold text-blue-700 inline-flex items-center">
-                                        <span class="live-pulse-dot mr-1 inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                                        <span class="mr-1 inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
                                         {{ formatVnd(reportData.pendingCodAmount) }}
                                     </span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Card 4: Tỷ Lệ Giao Thành Công -->
-                        <div class="bg-white p-4 rounded-2xl border border-emerald-200/80 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition duration-200 bg-emerald-50/20">
-                            <div class="text-[11px] font-bold uppercase text-emerald-700 tracking-wide">Tỷ Lệ Giao Thành Công</div>
-                            <div class="mt-2 flex items-baseline justify-between">
-                                <div class="text-2xl font-extrabold font-mono text-emerald-600">
+                        <div class="bg-white border border-emerald-200 rounded-xl p-3.5 sm:p-4 shadow-sm hover:shadow-md transition bg-emerald-50/20 space-y-1">
+                            <div class="text-[10.5px] font-bold uppercase tracking-wider text-emerald-700">Tỷ Lệ Giao Thành Công</div>
+                            <div class="mt-1 flex items-baseline justify-between">
+                                <div class="text-xl sm:text-2xl font-bold font-mono text-emerald-600">
                                     {{ reportData.successRate ? reportData.successRate.toFixed(1) : '0.0' }}%
                                 </div>
-                                <span class="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+                                <span class="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200/60">
                                     {{ formatNumber(reportData.deliveredCount) }} đơn
                                 </span>
                             </div>
-                            <div class="text-[11px] text-emerald-600 mt-1">
-                                Hoàn: {{ formatNumber(reportData.returningCount) }} đơn
+                            <div class="text-[11px] text-emerald-700 mt-1">
+                                Chuyển hoàn: {{ formatNumber(reportData.returningCount) }} đơn
                             </div>
                         </div>
                     </div>
 
-                    <!-- 2 BIỂU ĐỒ TRỰC QUAN (SVG CỘT & DONUT CO GIÃN ĐÀN HỒI) -->
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
-                        
-                        <!-- Biểu đồ 1: Cột Xu Hướng Doanh Thu & COD 7 Ngày (2/3 chiều ngang) -->
-                        <div class="lg:col-span-2 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                        <div class="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-3">
                             <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
                                 <div>
                                     <h4 class="text-xs font-bold uppercase text-slate-800 tracking-wide">
                                         Xu Hướng Doanh Thu Cước &amp; Tiền Thu Hộ COD Theo Ngày
                                     </h4>
                                     <p class="text-[11px] text-slate-400 mt-0.5">
-                                        Biến động sản lượng &amp; dòng tiền qua các ngày trong kỳ (Hover vào cột để xem chi tiết)
+                                        Biến động sản lượng &amp; dòng tiền qua các ngày trong kỳ
                                     </p>
                                 </div>
                                 <div class="flex items-center space-x-3 text-xs">
@@ -613,20 +565,17 @@
                                 </div>
                             </div>
 
-                            <!-- Cột biểu đồ -->
                             <div class="h-48 w-full flex items-end justify-between gap-2 pt-4 px-2 border-b border-slate-200">
                                 <div 
                                     v-for="(day, idx) in barChartData" 
                                     :key="idx" 
                                     class="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group cursor-pointer relative"
-                                    :class="{ 'bg-blue-50/50 rounded-xl pb-1': day.isToday }"
+                                    :class="{ 'bg-blue-50/50 rounded-lg pb-1': day.isToday }"
                                 >
-                                    <!-- Tooltip hover -->
                                     <div class="absolute -top-9 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-slate-900 text-white text-[10.5px] py-1 px-2.5 rounded-lg font-mono pointer-events-none z-20 whitespace-nowrap shadow-xl">
                                         {{ day.label }}: Cước {{ day.feeText }} | COD {{ day.codText }} ({{ day.count }} đơn)
                                     </div>
 
-                                    <!-- Thanh cột đôi -->
                                     <div class="w-full flex items-end justify-center gap-1.5 h-full">
                                         <div 
                                             class="w-3.5 sm:w-5 bg-blue-500 rounded-t-md group-hover:bg-blue-600 transition-all duration-500 ease-out" 
@@ -644,8 +593,7 @@
                             </div>
                         </div>
 
-                        <!-- Biểu đồ 2: SVG Donut Phân Bổ Trạng Thái (1/3 chiều ngang) -->
-                        <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-3">
+                        <div class="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm flex flex-col justify-between space-y-3">
                             <div>
                                 <h4 class="text-xs font-bold uppercase text-slate-800 tracking-wide">
                                     Cơ Cấu Trạng Thái Bưu Gửi
@@ -655,12 +603,9 @@
                                 </p>
                             </div>
 
-                            <!-- SVG Donut Chart -->
                             <div class="flex items-center justify-center relative py-2">
                                 <svg class="w-36 h-36 transform -rotate-90" viewBox="0 0 100 100">
                                     <circle cx="50" cy="50" r="40" stroke="#f1f5f9" stroke-width="12" fill="transparent"/>
-                                    
-                                    <!-- Đã Giao Thành Công -->
                                     <circle 
                                         cx="50" cy="50" r="40" 
                                         stroke="#10b981" 
@@ -670,8 +615,6 @@
                                         fill="transparent"
                                         class="transition-all duration-700 ease-out"
                                     />
-                                    
-                                    <!-- Đang Luân Chuyển / Đang Phát -->
                                     <circle 
                                         cx="50" cy="50" r="40" 
                                         stroke="#0284c7" 
@@ -681,8 +624,6 @@
                                         fill="transparent"
                                         class="transition-all duration-700 ease-out"
                                     />
-
-                                    <!-- Chuyển Hoàn -->
                                     <circle 
                                         cx="50" cy="50" r="40" 
                                         stroke="#f43f5e" 
@@ -692,9 +633,17 @@
                                         fill="transparent"
                                         class="transition-all duration-700 ease-out"
                                     />
+                                    <circle 
+                                        cx="50" cy="50" r="40" 
+                                        stroke="#94a3b8" 
+                                        stroke-width="12" 
+                                        :stroke-dasharray="donutMetrics.dashCancelled" 
+                                        :stroke-dashoffset="donutMetrics.offsetCancelled"
+                                        fill="transparent"
+                                        class="transition-all duration-700 ease-out"
+                                    />
                                 </svg>
 
-                                <!-- Tâm Donut -->
                                 <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                                     <span class="text-lg font-black font-mono text-slate-800">
                                         {{ donutMetrics.deliveredPct }}%
@@ -703,7 +652,6 @@
                                 </div>
                             </div>
 
-                            <!-- Chú thích Donut -->
                             <div class="space-y-1.5 pt-1 text-xs border-t border-slate-100">
                                 <div class="flex items-center justify-between">
                                     <span class="flex items-center text-slate-600 font-medium">
@@ -726,49 +674,47 @@
                                     </span>
                                     <span class="font-bold font-mono text-slate-800">{{ donutMetrics.returningPct }}%</span>
                                 </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="flex items-center text-slate-600 font-medium">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-slate-400 mr-2"></span>
+                                        Đã Hủy
+                                    </span>
+                                    <span class="font-bold font-mono text-slate-800">{{ donutMetrics.cancelledPct }}%</span>
+                                </div>
                             </div>
                         </div>
-
                     </div>
-
                 </div>
 
-                <!-- ========================================================================= -->
-                <!-- 4. NỘI DUNG SUBTAB 2: BẢNG CHI TIẾT VẬN ĐƠN & PHÂN TRANG                   -->
-                <!-- ========================================================================= -->
-                <div v-show="activeSubtab === 'details'" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-3">
-                    
-                    <!-- Toolbar Bảng Chi Tiết -->
-                    <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100">
+                <div v-show="activeSubtab === 'details'" class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden space-y-3">
+                    <div class="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100">
                         <div class="flex items-center space-x-2">
                             <h3 class="text-xs font-bold uppercase text-slate-800 tracking-wide">
                                 Danh Sách Vận Đơn Đối Soát
                             </h3>
-                            <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-mono text-[11px] font-bold">
+                            <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-mono text-[11px] font-bold border border-slate-200/60">
                                 {{ formatNumber(reportData.totalOrders) }} đơn
                             </span>
                         </div>
 
                         <div class="flex items-center space-x-2">
-                            <!-- Ô tìm kiếm nhanh -->
                             <div class="relative">
                                 <input 
                                     type="text" 
                                     v-model="tableSearchQuery" 
-                                    placeholder="Tìm mã đơn, người gửi/nhận..."
-                                    class="w-56 sm:w-64 pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+                                    placeholder="Tìm mã đơn, người gửi/nhận..." 
+                                    class="w-56 sm:w-64 pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                                 />
                                 <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                 </svg>
                             </div>
 
-                            <!-- Nút Xuất Excel trong Toolbar -->
                             <button 
                                 type="button" 
                                 @click="handleExportExcel" 
                                 :disabled="isExporting"
-                                class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition flex items-center space-x-1.5 disabled:opacity-50"
+                                class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer"
                             >
                                 <svg v-if="!isExporting" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -779,21 +725,19 @@
                         </div>
                     </div>
 
-                    <!-- Bảng Vận Đơn Chuẩn Enterprise -->
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500 tracking-wider">
-                                    <th class="py-3 px-3.5 w-12 text-center">STT</th>
-                                    <th class="py-3 px-3.5">Mã Vận Đơn &amp; Dịch Vụ</th>
-                                    <th class="py-3 px-3.5">Người Gửi (Tiếp Nhận)</th>
-                                    <th class="py-3 px-3.5">Người Nhận (Phát Trả)</th>
-                                    <th class="py-3 px-3.5">Tài Chính &amp; COD</th>
-                                    <th class="py-3 px-3.5 text-center">Trạng Thái</th>
+                                    <th class="py-2.5 px-3.5 w-12 text-center">STT</th>
+                                    <th class="py-2.5 px-3.5">Mã Vận Đơn &amp; Dịch Vụ</th>
+                                    <th class="py-2.5 px-3.5">Người Gửi (Tiếp Nhận)</th>
+                                    <th class="py-2.5 px-3.5">Người Nhận (Phát Trả)</th>
+                                    <th class="py-2.5 px-3.5">Tài Chính &amp; COD</th>
+                                    <th class="py-2.5 px-3.5 text-center">Trạng Thái</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 text-xs text-slate-800">
-                                <!-- Loading skeleton -->
                                 <tr v-if="isLoading">
                                     <td colspan="6" class="py-10 text-center text-slate-400">
                                         <div class="flex flex-col items-center space-y-2">
@@ -803,7 +747,6 @@
                                     </td>
                                 </tr>
 
-                                <!-- Empty state -->
                                 <tr v-else-if="filteredShipments.length === 0">
                                     <td colspan="6" class="py-12 text-center text-slate-400">
                                         <div class="flex flex-col items-center space-y-2">
@@ -818,25 +761,22 @@
                                     </td>
                                 </tr>
 
-                                <!-- Dòng dữ liệu -->
                                 <tr 
                                     v-else 
                                     v-for="(s, idx) in filteredShipments" 
                                     :key="s.trackingCode || idx"
-                                    class="hover:bg-slate-50 transition"
+                                    class="hover:bg-slate-50/80 transition"
                                 >
-                                    <!-- STT -->
-                                    <td class="py-3 px-3.5 text-center font-mono text-slate-400">
+                                    <td class="py-2.5 px-3.5 text-center font-mono text-slate-400">
                                         {{ pagination.page * pagination.size + idx + 1 }}
                                     </td>
 
-                                    <!-- Mã Vận Đơn & Dịch Vụ -->
-                                    <td class="py-3 px-3.5">
+                                    <td class="py-2.5 px-3.5">
                                         <div class="flex items-center space-x-1.5">
                                             <button 
                                                 type="button" 
                                                 @click="goToTracking(s.trackingCode)"
-                                                class="font-mono font-bold text-blue-600 hover:text-blue-800 hover:underline transition"
+                                                class="font-mono font-bold text-blue-600 hover:text-blue-800 hover:underline transition cursor-pointer"
                                                 title="Click để tra cứu hành trình"
                                             >
                                                 {{ s.trackingCode }}
@@ -853,33 +793,30 @@
                                         </div>
                                     </td>
 
-                                    <!-- Người Gửi -->
-                                    <td class="py-3 px-3.5 max-w-[200px]">
+                                    <td class="py-2.5 px-3.5 max-w-[200px]">
                                         <div class="font-bold text-slate-900 truncate">{{ s.senderName || 'Người Gửi' }}</div>
                                         <div class="text-[11px] text-slate-400 truncate" :title="s.senderAddress">
                                             {{ s.senderAddress || '-' }}
                                         </div>
                                     </td>
 
-                                    <!-- Người Nhận -->
-                                    <td class="py-3 px-3.5 max-w-[220px]">
+                                    <td class="py-2.5 px-3.5 max-w-[220px]">
                                         <div class="font-bold text-slate-900 truncate">{{ s.receiverName || 'Người Nhận' }}</div>
                                         <div class="text-[11px] text-slate-400 truncate" :title="s.receiverAddress">
                                             {{ s.receiverAddress || '-' }}
                                         </div>
                                     </td>
 
-                                    <!-- Tài Chính & Đối Soát COD -->
-                                    <td class="py-3 px-3.5 whitespace-nowrap">
+                                    <td class="py-2.5 px-3.5 whitespace-nowrap">
                                         <div class="flex items-center space-x-2">
                                             <span class="font-mono font-bold text-xs" :class="Number(s.codAmount) > 0 ? 'text-purple-700' : 'text-slate-400'">
                                                 {{ Number(s.codAmount) > 0 ? 'COD: ' + formatVnd(s.codAmount) : 'Không COD' }}
                                             </span>
                                             <span 
                                                 v-if="s.codAmount && Number(s.codAmount) > 0"
-                                                :class="['px-1.5 py-0.5 rounded-md text-[10px] font-bold inline-flex items-center', getCodSettlementBadge(s.codSettlementStatus).class]"
+                                                :class="['px-1.5 py-0.5 rounded text-[10px] font-bold inline-flex items-center', getCodSettlementBadge(s.codSettlementStatus).class]"
                                             >
-                                                <span v-if="getCodSettlementBadge(s.codSettlementStatus).isPulse" class="live-pulse-dot mr-1 inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                                                <span v-if="getCodSettlementBadge(s.codSettlementStatus).isPulse" class="mr-1 inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
                                                 {{ getCodSettlementBadge(s.codSettlementStatus).label }}
                                             </span>
                                         </div>
@@ -889,10 +826,9 @@
                                         </div>
                                     </td>
 
-                                    <!-- Trạng Thái -->
-                                    <td class="py-3 px-3.5 text-center whitespace-nowrap">
+                                    <td class="py-2.5 px-3.5 text-center whitespace-nowrap">
                                         <span 
-                                            class="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold shadow-sm inline-block"
+                                            class="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold shadow-2xs inline-block"
                                             :class="getStatusBadge(s.currentStatus).class"
                                         >
                                             {{ getStatusBadge(s.currentStatus).label }}
@@ -903,8 +839,7 @@
                         </table>
                     </div>
 
-                    <!-- Phân Trang (Pagination Footer) -->
-                    <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100 text-xs">
+                    <div class="p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100 text-xs">
                         <div class="text-slate-500">
                             Hiển thị trang <span class="font-bold text-slate-800">{{ pagination.page + 1 }}</span> / <span class="font-bold text-slate-800">{{ pagination.totalPages }}</span> 
                             (Tổng <span class="font-bold text-slate-800">{{ formatNumber(pagination.totalElements) }}</span> bản ghi)
@@ -915,7 +850,7 @@
                                 type="button" 
                                 @click="changePage(pagination.page - 1)" 
                                 :disabled="pagination.page === 0"
-                                class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition disabled:opacity-40 disabled:cursor-not-allowed font-medium"
+                                class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition disabled:opacity-40 disabled:cursor-not-allowed font-semibold cursor-pointer"
                             >
                                 Trang Trước
                             </button>
@@ -924,15 +859,13 @@
                                 type="button" 
                                 @click="changePage(pagination.page + 1)" 
                                 :disabled="pagination.page >= pagination.totalPages - 1"
-                                class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition disabled:opacity-40 disabled:cursor-not-allowed font-medium"
+                                class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition disabled:opacity-40 disabled:cursor-not-allowed font-semibold cursor-pointer"
                             >
                                 Trang Sau
                             </button>
                         </div>
                     </div>
-
                 </div>
-
             </div>
         `
     };

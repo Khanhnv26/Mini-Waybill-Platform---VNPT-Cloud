@@ -3,6 +3,7 @@ package org.app.authservice.service.impl;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import lombok.RequiredArgsConstructor;
 import org.app.authservice.dto.event.SendEmailEvent;
+import org.app.authservice.dto.request.ChangePasswordRequest;
 import org.app.authservice.dto.request.ForgotPasswordRequest;
 import org.app.authservice.dto.request.LoginRequest;
 import org.app.authservice.dto.request.RegisterRequest;
@@ -215,6 +216,17 @@ public class AuthServiceImpl implements AuthService {
             user.setFullName(request.getFullName().trim());
         }
 
+        if (request.getPhoneNumber() != null) {
+            String phone = request.getPhoneNumber().replaceAll("[\\s.\\-]", "");
+            if (phone.isBlank()) {
+                user.setPhoneNumber(null);
+            } else if (!phone.matches("^(0|\\+84)(2|3|5|7|8|9)[0-9]{8,9}$")) {
+                throw new IllegalArgumentException("Số điện thoại không đúng định dạng Việt Nam");
+            } else {
+                user.setPhoneNumber(phone);
+            }
+        }
+
         if (request.getAvatarUrl() != null && !request.getAvatarUrl().trim().isBlank()) {
             user.setAvatarUrl(request.getAvatarUrl().trim());
         }
@@ -255,6 +267,38 @@ public class AuthServiceImpl implements AuthService {
         }
 
         return userRepository.save(currentUser);
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(Long userId, ChangePasswordRequest request) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID không hợp lệ");
+        }
+        User user = userRepository.findById(userId).orElseThrow(
+                () -> new RuntimeException("Không tìm thấy thông tin tài khoản!"));
+
+        String currentPassword = request.getCurrentPassword() != null ? request.getCurrentPassword().trim() : "";
+        String newPassword = request.getNewPassword() != null ? request.getNewPassword().trim() : "";
+        String confirmPassword = request.getConfirmPassword() != null ? request.getConfirmPassword().trim() : "";
+
+        if (newPassword.length() < 6) {
+            throw new IllegalArgumentException("Mật khẩu mới phải có ít nhất 6 ký tự!");
+        }
+
+        if (!confirmPassword.isEmpty() && !newPassword.equals(confirmPassword)) {
+            throw new IllegalArgumentException("Mật khẩu xác nhận không khớp với mật khẩu mới!");
+        }
+
+        // Nếu tài khoản đã có mật khẩu trong DB, bắt buộc kiểm tra mật khẩu hiện tại
+        if (user.getPassword() != null && !user.getPassword().isBlank()) {
+            if (currentPassword.isEmpty() || !passwordEncoder.matches(currentPassword, user.getPassword())) {
+                throw new IllegalArgumentException("Mật khẩu hiện tại không chính xác!");
+            }
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
     }
 
     private Role getOrCreateCustomerRole() {

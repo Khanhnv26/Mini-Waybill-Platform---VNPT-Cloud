@@ -6,6 +6,7 @@ import org.app.routingservice.dto.event.ShipmentStatusUpdatedEvent;
 import org.app.routingservice.dto.operation.HandoffRequest;
 import org.app.routingservice.dto.operation.InventoryOperationRequest;
 import org.app.routingservice.entity.HandlingEvent;
+import org.app.routingservice.entity.RoutingAssignment;
 import org.app.routingservice.entity.WarehouseInventory;
 import org.app.routingservice.repository.HandlingEventRepository;
 import org.app.routingservice.repository.RoutingAssignmentRepository;
@@ -66,8 +67,6 @@ public class InventoryOperationServiceImpl implements InventoryOperationService 
                     throw new IllegalStateException("Bưu gửi " + trackingCode + " đã được lưu kho tại " + location);
                 }
                 if ("RECEIVED".equalsIgnoreCase(inventory.getInventoryStatus())) {
-                    // A repeated receive with a different operation ID must not
-                    // regress an already received row or emit duplicate lifecycle events.
                     result.add(inventory);
                     continue;
                 }
@@ -78,8 +77,6 @@ public class InventoryOperationServiceImpl implements InventoryOperationService 
                     ? normalizeOperationalStatus(request.getShipmentStatus())
                     : deriveReceiveStatus(previousLocation, location, inventory != null ? inventory.getInventoryStatus() : null);
             if (inventory == null) {
-                // A receive request must belong to a known routed shipment. Do not
-                // manufacture an inventory row for an arbitrary barcode.
                 if (routingAssignmentRepository.findByTrackingCode(trackingCode).isEmpty()) {
                     throw new IllegalStateException("Không tìm thấy phân tuyến cho bưu gửi " + trackingCode);
                 }
@@ -102,8 +99,6 @@ public class InventoryOperationServiceImpl implements InventoryOperationService 
                     request.getNote(), now);
             publishLifecycle(trackingCode, status, operationType, saved.getTransportLeg(), location,
                     request.getTripCode(), actorId, request.getNote(), now, operationId);
-            // Keep the shipment-service projection in sync during migration. The
-            // lifecycle event remains the authoritative physical-operation record.
             publishLegacyStatus(trackingCode, status, location, request.getNote(), now);
             result.add(saved);
             log.info("[ROUTING] Receive {} tại {} với operationId={}", trackingCode, location, handlingEvent.getOperationId());
@@ -148,11 +143,11 @@ public class InventoryOperationServiceImpl implements InventoryOperationService 
             saveHandlingEvent(operationId, trackingCode, operationType, saved.getTransportLeg(), location,
                     request.getTripCode(), actorId, request.getNote(), now);
             String publicStatus = currentShipmentStatus(request.getShipmentStatus(), saved);
-            publishLifecycle(trackingCode, publicStatus, operationType,
+            publishLifecycle(trackingCode, publicStatus != null ? publicStatus : "STORED", operationType,
                     saved.getTransportLeg(), location, request.getTripCode(), actorId, request.getNote(), now, operationId);
-            // ShipmentService still consumes the legacy status topic. Publish the
-            // unchanged public status so a physical store action is visible after refresh.
-            publishLegacyStatus(trackingCode, publicStatus, location, request.getNote(), now);
+            if (publicStatus != null && !"IN_TRANSIT".equals(publicStatus)) {
+                publishLegacyStatus(trackingCode, publicStatus, location, request.getNote(), now);
+            }
             result.add(saved);
         }
         return result;
@@ -178,6 +173,7 @@ public class InventoryOperationServiceImpl implements InventoryOperationService 
         if (!"STORED".equalsIgnoreCase(inventory.getInventoryStatus())) {
             throw new IllegalStateException("Bưu gửi " + trackingCode + " chưa được nhập kho, không thể bàn giao bưu tá");
         }
+        requireDestinationHandoff(trackingCode, location);
 
         LocalDateTime now = LocalDateTime.now();
         inventory.setInventoryStatus("HANDED_TO_COURIER");
@@ -303,14 +299,27 @@ public class InventoryOperationServiceImpl implements InventoryOperationService 
     private String currentShipmentStatus(String requested, WarehouseInventory inventory) {
         if (requested != null && !requested.isBlank()) return normalizeOperationalStatus(requested);
         if (inventory.getTransportLeg() == TransportLeg.DESTINATION_FEEDER) {
-            // The destination feeder changes physical location only; the public
-            // milestone remains ARRIVED_DEST_HUB until courier handoff.
             return "ARRIVED_DEST_HUB";
         }
         if (inventory.getLocationCode() != null && inventory.getLocationCode().startsWith("POST-")) {
             return "PICKED_UP";
         }
-        return "IN_TRANSIT";
+        return null;
+    }
+
+    private void requireDestinationHandoff(String trackingCode, String location) {
+        RoutingAssignment assignment = routingAssignmentRepository.findByTrackingCode(trackingCode)
+                .orElseThrow(() -> new IllegalStateException("Không tìm thấy phân tuyến cho bưu gửi " + trackingCode));
+        String destPost = assignment.getDestPostOffice();
+        if (destPost == null || !location.equalsIgnoreCase(destPost)) {
+            throw new IllegalStateException("Chỉ được bàn giao bưu tá tại bưu cục phát"
+                    + (destPost != null ? " " + destPost : ""));
+        }
+        String assignmentStatus = assignment.getStatus() == null
+                ? "" : assignment.getStatus().trim().toUpperCase(Locale.ROOT);
+        if (!List.of("ARRIVED_DEST_HUB", "ARRIVED_POST_OFFICE").contains(assignmentStatus)) {
+            throw new IllegalStateException("Bưu gửi chưa tới bưu cục phát, không thể bàn giao đi phát");
+        }
     }
 
     private String normalizeOperationalStatus(String status) {

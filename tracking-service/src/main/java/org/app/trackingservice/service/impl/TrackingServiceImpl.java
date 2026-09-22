@@ -160,8 +160,8 @@ public class TrackingServiceImpl implements TrackingService {
             }
 
             if(isPostStaff) {
-                if (!Set.of(ShipmentStatus.PICKED_UP, ShipmentStatus.IN_TRANSIT, ShipmentStatus.ARRIVED_DEST_HUB, ShipmentStatus.OUT_FOR_DELIVERY).contains(newStatus)) {
-                    throw new ForbiddenException("Nhân viên Bưu Cục chỉ có quyền tiếp nhận quầy, xuất/nhận xe trung chuyển hoặc bàn giao bưu tá!");
+                if (!Set.of(ShipmentStatus.PICKED_UP, ShipmentStatus.IN_TRANSIT, ShipmentStatus.ARRIVED_DEST_HUB, ShipmentStatus.OUT_FOR_DELIVERY, ShipmentStatus.RETURNED).contains(newStatus)) {
+                    throw new ForbiddenException("Nhân viên Bưu Cục chỉ có quyền tiếp nhận quầy, xuất/nhận xe trung chuyển, bàn giao bưu tá hoặc xác nhận hoàn hàng!");
                 }
                 if (newStatus == ShipmentStatus.IN_TRANSIT) {
                     if (request.getNote() == null || (!request.getNote().toLowerCase().contains("xe") && !request.getNote().toLowerCase().contains("bks"))) {
@@ -188,7 +188,7 @@ public class TrackingServiceImpl implements TrackingService {
         if (newStatus == ShipmentStatus.DELIVERY_FAILED) {
             long failedCount = trackingHistoryRepository.countByTrackingCodeAndStatus(trackingCode, ShipmentStatus.DELIVERY_FAILED.name());
 
-            if (failedCount >= 3) {
+            if (failedCount >= 2) {
                 newStatus = ShipmentStatus.RETURNING;
                 request.setStatus(ShipmentStatus.RETURNING.name());
                 request.setNote("Giao thất bại lần 3 - Hệ thống tự động chuyển hoàn về người gửi");

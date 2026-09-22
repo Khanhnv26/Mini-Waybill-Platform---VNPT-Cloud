@@ -11,7 +11,7 @@
 
     const ShipmentView = {
         name: 'ShipmentView',
-        props: ['customerPrefill'],
+        props: ['customerPrefill', 'tariffPrefill'],
         emits: ['created-shipment'],
         setup(props, { emit }) {
             // Trạng thái Subtab hiện thời: 'create' | 'list'
@@ -341,6 +341,14 @@
                                 form.senderDetail = prof.address;
                                 senderAddressQuery.value = prof.address;
                             }
+                            const user = Auth.getUser() || {};
+                            const settingsKey = 'waybill_shop_settings_' + (user.userId || user.id || 'default');
+                            try {
+                                const saved = JSON.parse(localStorage.getItem(settingsKey) || 'null');
+                                if (saved && saved.shopBrandName) {
+                                    form.senderName = saved.shopBrandName;
+                                }
+                            } catch (e) {}
                         }
                     }
                 } catch (err) {
@@ -358,9 +366,9 @@
                 isSavingProfile.value = true;
                 try {
                     const updated = await CustomerService.updateMyProfile({
-                        fullName: profileForm.fullName,
-                        phoneNumber: profileForm.phoneNumber,
-                        address: profileForm.address
+                        fullName: profileForm.fullName.trim(),
+                        phoneNumber: String(profileForm.phoneNumber || '').replace(/[\s.\-]/g, ''),
+                        address: profileForm.address.trim()
                     });
                     myProfile.value = updated;
                     form.senderName = updated.fullName;
@@ -420,6 +428,18 @@
                         }
                     }
                     Utils.showToast('Đã Điền Dữ Liệu', `Đã gắn thông tin đối tác ${cust.fullName} vào đơn gửi`);
+                }
+            }, { immediate: true });
+
+            watch(() => props.tariffPrefill, (tariff) => {
+                if (tariff) {
+                    if (tariff.senderProvince) form.senderProvince = tariff.senderProvince;
+                    if (tariff.senderDistrict) form.senderDetail = tariff.senderDistrict;
+                    if (tariff.receiverProvince) form.receiverProvince = tariff.receiverProvince;
+                    if (tariff.receiverDistrict) form.receiverDetail = tariff.receiverDistrict;
+                    if (tariff.weightKg) form.weight = Number(tariff.weightKg);
+                    if (tariff.codAmount !== undefined) form.codAmount = Number(tariff.codAmount);
+                    if (tariff.serviceType) form.serviceType = tariff.serviceType;
                 }
             }, { immediate: true });
 
@@ -589,10 +609,15 @@
             // Tính toán tạm tính cước phí thời gian thực (Live Fee Calculation)
             const baseFee = computed(() => {
                 const w = Math.max(0.1, Number(form.weight) || 1);
+                const extraKg = Math.max(0, w - 0.5);
+                const isIntra = String(form.senderProvince || '').trim().toLowerCase() === String(form.receiverProvince || '').trim().toLowerCase();
                 if (form.serviceType === 'EXPRESS') {
-                    return Math.max(35000, Math.round(w * 22000));
+                    return Math.round((isIntra ? 35000 : 55000) + extraKg * (isIntra ? 12000 : 22000));
                 }
-                return Math.max(20000, Math.round(w * 13000));
+                if (form.serviceType === 'ECO') {
+                    return Math.round((isIntra ? 15000 : 25000) + extraKg * (isIntra ? 5000 : 9000));
+                }
+                return Math.round((isIntra ? 20000 : 30000) + extraKg * (isIntra ? 7000 : 13000));
             });
 
             const codFee = computed(() => {
@@ -1077,34 +1102,32 @@
                                     <label class="block text-[11px] font-bold text-slate-700 uppercase tracking-tight">
                                         Gói Cước Dịch Vụ
                                     </label>
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                                        <!-- Gói 1: Hỏa Tốc -->
+                                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                                         <div 
-                                            @click="setServiceType('EXPRESS')"
+                                            @click="setServiceType('ECO')"
                                             :class="[
-                                                'px-3.5 py-2.5 rounded-lg border cursor-pointer transition-all flex items-center justify-between select-none',
-                                                form.serviceType === 'EXPRESS' 
+                                                'px-3 py-2 rounded-lg border cursor-pointer transition-all flex items-center justify-between select-none',
+                                                form.serviceType === 'ECO' 
                                                     ? 'border-blue-600 bg-blue-50/50 text-blue-900 font-bold shadow-xs' 
                                                     : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
                                             ]"
                                         >
                                             <div>
-                                                <div class="text-xs">VNPT Hỏa Tốc (Express)</div>
-                                                <div class="text-[11px] font-normal text-slate-500 mt-0.5">Toàn quốc trong 24h</div>
+                                                <div class="text-xs">VNPT Tiết Kiệm (Eco)</div>
+                                                <div class="text-[10.5px] font-normal text-slate-500 mt-0.5">Tiết kiệm 3 - 5 ngày</div>
                                             </div>
                                             <span 
-                                                :class="form.serviceType === 'EXPRESS' ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white'"
+                                                :class="form.serviceType === 'ECO' ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white'"
                                                 class="w-3.5 h-3.5 rounded-full border flex items-center justify-center p-0.5"
                                             >
-                                                <span v-if="form.serviceType === 'EXPRESS'" class="w-1.5 h-1.5 rounded-full bg-white"></span>
+                                                <span v-if="form.serviceType === 'ECO'" class="w-1.5 h-1.5 rounded-full bg-white"></span>
                                             </span>
                                         </div>
 
-                                        <!-- Gói 2: Tiêu Chuẩn -->
                                         <div 
                                             @click="setServiceType('STANDARD')"
                                             :class="[
-                                                'px-3.5 py-2.5 rounded-lg border cursor-pointer transition-all flex items-center justify-between select-none',
+                                                'px-3 py-2 rounded-lg border cursor-pointer transition-all flex items-center justify-between select-none',
                                                 form.serviceType === 'STANDARD' 
                                                     ? 'border-blue-600 bg-blue-50/50 text-blue-900 font-bold shadow-xs' 
                                                     : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
@@ -1112,13 +1135,34 @@
                                         >
                                             <div>
                                                 <div class="text-xs">VNPT Tiêu Chuẩn (Standard)</div>
-                                                <div class="text-[11px] font-normal text-slate-500 mt-0.5">Liên tỉnh 2 - 3 ngày</div>
+                                                <div class="text-[10.5px] font-normal text-slate-500 mt-0.5">Liên tỉnh 1 - 2 ngày</div>
                                             </div>
                                             <span 
                                                 :class="form.serviceType === 'STANDARD' ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white'"
                                                 class="w-3.5 h-3.5 rounded-full border flex items-center justify-center p-0.5"
                                             >
                                                 <span v-if="form.serviceType === 'STANDARD'" class="w-1.5 h-1.5 rounded-full bg-white"></span>
+                                            </span>
+                                        </div>
+
+                                        <div 
+                                            @click="setServiceType('EXPRESS')"
+                                            :class="[
+                                                'px-3 py-2 rounded-lg border cursor-pointer transition-all flex items-center justify-between select-none',
+                                                form.serviceType === 'EXPRESS' 
+                                                    ? 'border-blue-600 bg-blue-50/50 text-blue-900 font-bold shadow-xs' 
+                                                    : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
+                                            ]"
+                                        >
+                                            <div>
+                                                <div class="text-xs">VNPT Hỏa Tốc (Express)</div>
+                                                <div class="text-[10.5px] font-normal text-slate-500 mt-0.5">Toàn quốc trong 24h</div>
+                                            </div>
+                                            <span 
+                                                :class="form.serviceType === 'EXPRESS' ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white'"
+                                                class="w-3.5 h-3.5 rounded-full border flex items-center justify-center p-0.5"
+                                            >
+                                                <span v-if="form.serviceType === 'EXPRESS'" class="w-1.5 h-1.5 rounded-full bg-white"></span>
                                             </span>
                                         </div>
                                     </div>
@@ -1640,6 +1684,8 @@
                                     <option value="OUT_FOR_DELIVERY">Đang phát</option>
                                     <option value="DELIVERED">Phát thành công</option>
                                     <option value="DELIVERY_FAILED">Giao không thành công</option>
+                                    <option value="RETURNING">Đang chuyển hoàn</option>
+                                    <option value="RETURNED">Đã hoàn về người gửi</option>
                                 </select>
 
                                 <button 

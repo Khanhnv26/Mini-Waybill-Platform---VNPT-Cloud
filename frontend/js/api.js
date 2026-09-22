@@ -102,7 +102,7 @@ const Api = {
             return response;
         } catch (error) {
             console.error('[API Network Error]:', error);
-            if (window.Utils && window.Utils.showToast) {
+            if (!options.silent && window.Utils && window.Utils.showToast) {
                 window.Utils.showToast('Lỗi Kết Nối', 'Không thể kết nối đến máy chủ Gateway (8080)', 'error');
             }
             throw error;

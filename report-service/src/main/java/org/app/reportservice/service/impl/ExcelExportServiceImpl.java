@@ -62,10 +62,10 @@ public class ExcelExportServiceImpl implements ExcelExportService {
                 kpiHeader.getCell(col).setCellStyle(subHeaderStyle);
             }
             long totalOrders = shipments.size();
-            double successRate = totalOrders > 0 ? (deliveredCount * 100.0 / totalOrders) : 0.0;
+            double successRate = totalOrders > 0 ? Math.min(100.0, deliveredCount * 100.0 / totalOrders) : 0.0;
             addKpiRow(sheet1, r++, "1. Tổng sản lượng vận đơn phát sinh", String.format("%,d", totalOrders), "Kiện bưu gửi", "Bao gồm cả đơn B2B và quầy", centerStyle);
             addKpiRow(sheet1, r++, "2. Số đơn giao thành công (DELIVERED)", String.format("%,d", deliveredCount), String.format("%.1f%%", successRate), "Khách đã nhận hàng & thu tiền", centerStyle);
-            addKpiRow(sheet1, r++, "3. Số đơn chuyển hoàn (RETURNING / RETURNED)", String.format("%,d", returningCount), String.format("%.1f%%", (totalOrders > 0 ? (returningCount * 100.0 / totalOrders) : 0)), "Chuyển hoàn sau 3 lần phát thất bại", centerStyle);
+            addKpiRow(sheet1, r++, "3. Số đơn chuyển hoàn (RETURNING / RETURNED)", String.format("%,d", returningCount), String.format("%.1f%%", (totalOrders > 0 ? Math.min(100.0, returningCount * 100.0 / totalOrders) : 0)), "Đơn đang hoàn hoặc đã hoàn về người gửi trong bộ lọc", centerStyle);
 
             double safeShippingFee = (totalShippingFee != null) ? totalShippingFee.doubleValue() : 0.0;
             double safeCodAmount = (totalCodAmount != null) ? totalCodAmount.doubleValue() : 0.0;
@@ -90,7 +90,7 @@ public class ExcelExportServiceImpl implements ExcelExportService {
             codRow.createCell(4).setCellValue("Tiền thu hộ nộp về tài khoản quỹ trạm");
 
             addKpiRow(sheet1, r++, "  5.1. Tiền COD đã thu quỹ bưu cục", String.format("%,.0f", safeSettledCod), "VNĐ", "Đã nộp và thủ quỹ đã xác nhận vào két", centerStyle);
-            addKpiRow(sheet1, r++, "  5.2. Tiền COD bưu tá đang giữ / chờ nộp", String.format("%,.0f", safePendingCod), "VNĐ", "Bưu tá đã thu từ người nhận, chưa hoàn tất nộp quỹ", centerStyle);
+            addKpiRow(sheet1, r++, "  5.2. Tiền COD chờ bưu cục duyệt quỹ", String.format("%,.0f", safePendingCod), "VNĐ", "Bưu tá đã gửi yêu cầu nộp quỹ, bưu cục chưa xác nhận", centerStyle);
 
             for (int i = 1; i <= 4; i++) {
                 sheet1.autoSizeColumn(i);

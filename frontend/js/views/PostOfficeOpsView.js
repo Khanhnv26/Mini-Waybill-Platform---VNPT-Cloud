@@ -260,10 +260,19 @@
                 if (!item) return '';
                 const status = getShipmentStatusText(item);
                 const inventory = getInventoryStatus(item);
+                if (status === 'RETURNING') return 'RETURNING';
                 if (['CREATED', 'PENDING_ROUTING', 'ROUTE_ASSIGNED'].includes(status)) return 'WAITING_INTAKE';
                 if (isOutboundStaged(item)) return 'STORED_OFFICE';
                 if (status === 'IN_TRANSIT' || ['LOADED', 'RESERVED'].includes(inventory)) return 'IN_TRANSIT';
                 return '';
+            };
+
+            const isReturnReadyAtOrigin = (item) => {
+                const status = normalizeCode(item?.currentStatus || item?.status).toUpperCase();
+                if (status !== 'RETURNING') return false;
+                const origin = normalizeCode(getOriginPostOfficeInfo(item).code).toUpperCase();
+                const location = normalizeCode(item?.locationCode).toUpperCase();
+                return Boolean(location && origin && location === origin);
             };
 
             const getInboundBucket = (item) => {
@@ -272,7 +281,9 @@
                 if (isWaitingHandoff(item)) return 'WAITING_HANDOFF';
                 if (status === 'OUT_FOR_DELIVERY') return 'OUT_FOR_DELIVERY';
                 if (status === 'DELIVERED') return 'DELIVERED';
-                if (['DELIVERY_FAILED', 'RETURNING', 'RETURNED'].includes(status)) return 'FAILED';
+                if (status === 'DELIVERY_FAILED') return 'FAILED';
+                if (status === 'RETURNING') return 'RETURNING';
+                if (status === 'RETURNED') return 'RETURNED';
                 return '';
             };
 
@@ -350,6 +361,13 @@
                 const location = normalizeCode(item.locationCode).toUpperCase();
                 const atPostOffice = location.startsWith('POST-') || location === 'DELIVERY_OFFICE';
 
+                if (status === 'RETURNING') {
+                    const origin = normalizeCode(getOriginPostOfficeInfo(item).code).toUpperCase();
+                    const backAtOrigin = location && origin && location === origin;
+                    return backAtOrigin
+                        ? { key: 'CONFIRM_RETURN', label: 'Xác nhận đã hoàn người gửi', targetStatus: 'RETURNED' }
+                        : { key: 'WAITING', label: 'Đang chuyển hoàn về bưu cục gửi', targetStatus: '' };
+                }
                 if (['DELIVERED', 'DELIVERY_FAILED', 'CANCELLED', 'RETURNED'].includes(status)) {
                     return { key: 'DONE', label: 'Đã hoàn tất', targetStatus: '' };
                 }
@@ -1486,7 +1504,9 @@
                 }
 
                 const poCode = selectedPostOffice.value !== 'ALL' ? selectedPostOffice.value : 'bưu cục trong dữ liệu vận đơn';
-                const note = targetStatus === 'PICKED_UP'
+                const note = targetStatus === 'RETURNED'
+                    ? `Bưu cục [${poCode}] đã hoàn trả bưu gửi cho người gửi`
+                    : targetStatus === 'PICKED_UP'
                     ? `Bưu cục [${poCode}] đã tiếp nhận bưu phẩm tại quầy từ người gửi`
                     : targetStatus === 'ARRIVED_DEST_HUB'
                         ? `Bưu cục [${poCode}] đã tiếp nhận bưu phẩm đến từ xe trung chuyển / Kho Tổng`
@@ -1614,6 +1634,7 @@
                 inventoryStagedCount,
                 inventoryWaitingHandoffCount,
                 currentSubtabCount,
+                isReturnReadyAtOrigin,
                 getOriginPostOfficeInfo,
                 getDestPostOfficeInfo,
                 getInventoryStatus,
@@ -2364,6 +2385,19 @@
                                                 </button>
                                             </template>
 
+                                            <template v-else-if="isReturnReadyAtOrigin(item)">
+                                                <button
+                                                    @click="handleUpdateStatus(item.trackingCode, 'RETURNED', getOriginPostOfficeInfo(item).code, 'Bưu cục gửi đã hoàn trả bưu gửi cho người gửi')"
+                                                    :disabled="isActionRunning || (isAdmin && selectedPostOffice === 'ALL')"
+                                                    class="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded text-[11px] font-semibold transition shadow-xs"
+                                                >
+                                                    Xác Nhận Đã Hoàn Người Gửi
+                                                </button>
+                                            </template>
+                                            <template v-else-if="(item.currentStatus || item.status) === 'RETURNING'">
+                                                <span class="text-orange-700 text-[11px] font-bold">Chưa về bưu cục gửi</span>
+                                            </template>
+
                                             <!-- Đã xong tác vụ (đã lưu kho, đang vận chuyển): Hiển thị dấu gạch mờ, KHÔNG GẮN BADGE LẶP LẠI -->
                                             <template v-else>
                                                 <span class="text-slate-400 font-mono text-[11px]">—</span>
@@ -2384,8 +2418,7 @@
                                                 </button>
                                             </template>
 
-                                            <!-- Phát thất bại: Nút phát lại -->
-                                            <template v-else-if="['DELIVERY_FAILED', 'RETURNING', 'RETURNED'].includes(item.currentStatus || item.status)">
+                                            <template v-else-if="(item.currentStatus || item.status) === 'DELIVERY_FAILED'">
                                                 <button 
                                                     @click="openHandoffModal(item)"
                                                     :disabled="isActionRunning || (isAdmin && selectedPostOffice === 'ALL')"
@@ -2394,6 +2427,12 @@
                                                 >
                                                     Tái Bàn Giao Phát
                                                 </button>
+                                            </template>
+                                            <template v-else-if="(item.currentStatus || item.status) === 'RETURNING'">
+                                                <span class="text-orange-700 text-[11px] font-bold">Chờ chuyển hoàn về bưu cục gửi</span>
+                                            </template>
+                                            <template v-else-if="(item.currentStatus || item.status) === 'RETURNED'">
+                                                <span class="text-slate-500 text-[11px] font-bold">Đã hoàn người gửi</span>
                                             </template>
 
                                             <!-- Đã xong tác vụ (đang đi phát, đã phát thành công): Hiển thị dấu gạch mờ, KHÔNG GẮN BADGE LẶP LẠI -->
