@@ -1104,11 +1104,10 @@ public class TripServiceImpl implements TripService {
         inventory.setReservedAt(now);
         inventory.setUpdatedAt(now);
         warehouseInventoryRepository.save(inventory);
-        // Reserving cargo is an internal warehouse operation. A destination feeder
-        // must not regress the public ARRIVED_DEST_HUB status before departure.
-        String publicStatus = transportLeg == TransportLeg.DESTINATION_FEEDER
-                ? "ARRIVED_DEST_HUB" : "IN_TRANSIT";
-        recordLifecycle(trackingCode, publicStatus, OperationType.RESERVED_FOR_TRIP, transportLeg,
+        // Giữ chỗ chỉ là thao tác kho. Tracking giữ nguyên trạng thái công khai hiện có.
+        String reservedStatus = transportLeg == TransportLeg.DESTINATION_FEEDER
+                ? "ARRIVED_DEST_HUB" : "PICKED_UP";
+        recordLifecycle(trackingCode, reservedStatus, OperationType.RESERVED_FOR_TRIP, transportLeg,
                 pickupLocation, trip.getTripCode(), null,
                 "Đã giữ chỗ bưu gửi cho chuyến xe " + trip.getTripCode(), now,
                 "RESERVE:" + trip.getTripCode() + ":" + trackingCode);

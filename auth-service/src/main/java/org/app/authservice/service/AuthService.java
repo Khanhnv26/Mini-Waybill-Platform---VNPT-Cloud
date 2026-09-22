@@ -1,6 +1,7 @@
 package org.app.authservice.service;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import org.app.authservice.dto.request.ChangePasswordRequest;
 import org.app.authservice.dto.request.ForgotPasswordRequest;
 import org.app.authservice.dto.request.LoginRequest;
 import org.app.authservice.dto.request.RegisterRequest;
@@ -19,4 +20,6 @@ public interface AuthService {
     User getMyProfile(Long userId);
     User updateMyProfile(Long userId, UpdateMyProfileRequest request);
     User linkGoogleAccount(Long userId, GoogleIdToken.Payload payload);
+    void changePassword(Long userId, ChangePasswordRequest changePasswordRequest);
 }
+

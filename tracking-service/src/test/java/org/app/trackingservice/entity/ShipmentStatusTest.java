@@ -30,6 +30,16 @@ class ShipmentStatusTest {
         assertFalse(ShipmentStatus.DELIVERED.canTransitionTo(ShipmentStatus.IN_TRANSIT), "Không được lùi về IN_TRANSIT");
         assertFalse(ShipmentStatus.DELIVERED.canTransitionTo(ShipmentStatus.OUT_FOR_DELIVERY), "Không được lùi về OUT_FOR_DELIVERY");
         assertFalse(ShipmentStatus.DELIVERED.canTransitionTo(ShipmentStatus.DELIVERED), "Không được cập nhật lại chính nó");
+        assertFalse(ShipmentStatus.DELIVERED.canTransitionTo(ShipmentStatus.CANCELLED));
+    }
+
+    @Test
+    @DisplayName("Hủy được từ trạng thái đang xử lý, và hoàn hàng kết thúc bằng RETURNED")
+    void testCancelAndReturnTransitions() {
+        assertTrue(ShipmentStatus.ROUTE_ASSIGNED.canTransitionTo(ShipmentStatus.CANCELLED));
+        assertTrue(ShipmentStatus.IN_TRANSIT.canTransitionTo(ShipmentStatus.CANCELLED));
+        assertTrue(ShipmentStatus.RETURNING.canTransitionTo(ShipmentStatus.RETURNED));
+        assertFalse(ShipmentStatus.RETURNED.canTransitionTo(ShipmentStatus.OUT_FOR_DELIVERY));
     }
 
     @Test

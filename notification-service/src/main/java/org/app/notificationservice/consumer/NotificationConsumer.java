@@ -89,12 +89,17 @@ public class NotificationConsumer {
                 .build();
 
         notificationRepository.save(noti);
+        publishBellRefresh();
         log.info("[NOTIFICATION] Da gui va luu log phan tuyen cho don {}", event.getTrackingCode());
     }
 
     @KafkaListener(topics = "tracking-status-events", groupId = "notification-group")
     public void handleStatusUpdatedEvent(ShipmentStatusUpdatedEvent event) {
         publishTrackingWsEvent(event);
+        if (event.getCodSettlementStatus() != null && !event.getCodSettlementStatus().isBlank()) {
+            saveCodBell(event);
+            return;
+        }
         String status = event.getStatus();
         log.info("[NOTIFICATION] Nhận event cập nhật trạng thái: {} -> {}", event.getTrackingCode(), status);
 
@@ -299,8 +304,41 @@ public class NotificationConsumer {
                 event.getTripCode(),
                 event.getTotalShipments(),
                 event.getLoadFactor());
-        messagingTemplate.convertAndSend("/topic/notifications/broadcast", message);
+        String tripCode = event.getTripCode() != null && !event.getTripCode().isBlank()
+                ? event.getTripCode() : "TRIP";
+        saveInAppNotification(tripCode, "SYSTEM_ALERT", "Gom đơn chuyến xe", message);
+    }
 
+    private void saveCodBell(ShipmentStatusUpdatedEvent event) {
+        String settlement = event.getCodSettlementStatus().trim().toUpperCase();
+        String title = "SETTLED".equals(settlement) ? "Thu quỹ COD bưu cục" : "Bưu tá nộp quỹ COD";
+        String actor = event.getLocationCode();
+        String recipient = actor != null && actor.contains("@") ? actor.trim() : "SYSTEM_ALERT";
+        String message = (event.getNote() != null && !event.getNote().isBlank() ? event.getNote() : title)
+                + " — " + event.getTrackingCode();
+        saveInAppNotification(event.getTrackingCode(), recipient, title, message);
+    }
+
+    private void saveInAppNotification(String trackingCode, String recipient, String title, String message) {
+        NotificationLog noti = NotificationLog.builder()
+                .trackingCode(trackingCode != null ? trackingCode : "SYSTEM")
+                .recipientPhone(recipient)
+                .type("IN_APP")
+                .title(title)
+                .message(message)
+                .status("SENT")
+                .sentAt(LocalDateTime.now())
+                .build();
+        notificationRepository.save(noti);
+        publishBellRefresh();
+    }
+
+    private void publishBellRefresh() {
+        try {
+            messagingTemplate.convertAndSend("/topic/notifications/broadcast", "refresh");
+        } catch (Exception ex) {
+            log.warn("[NOTIFICATION] Không đẩy được tín hiệu chuông: {}", ex.getMessage());
+        }
     }
 
 }

@@ -22,28 +22,31 @@ public class NotificationController {
 
     @GetMapping
     public ResponseEntity<List<NotificationLog>> getMyNotifications(
-            @RequestHeader(value = "X-User-Email", required = false) String userEmail) {
+            @RequestHeader(value = "X-User-Email", required = false) String userEmail,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles) {
         if (userEmail == null || userEmail.isBlank() || "null".equalsIgnoreCase(userEmail)) {
             return ResponseEntity.ok(Collections.emptyList());
         }
-        return ResponseEntity.ok(notificationService.getMyNotifications(userEmail.trim()));
+        return ResponseEntity.ok(notificationService.getMyNotifications(userEmail.trim(), roles));
     }
 
     @PutMapping("/{id}/read")
     public ResponseEntity<Void> markAsRead(
             @PathVariable Long id,
-            @RequestHeader(value = "X-User-Email", required = false) String userEmail) {
+            @RequestHeader(value = "X-User-Email", required = false) String userEmail,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles) {
         if (userEmail != null && !userEmail.isBlank() && !"null".equalsIgnoreCase(userEmail)) {
-            notificationService.markAsRead(id, userEmail.trim());
+            notificationService.markAsRead(id, userEmail.trim(), roles);
         }
         return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/read-all")
     public ResponseEntity<Void> markAllAsRead(
-            @RequestHeader(value = "X-User-Email", required = false) String userEmail) {
+            @RequestHeader(value = "X-User-Email", required = false) String userEmail,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles) {
         if (userEmail != null && !userEmail.isBlank() && !"null".equalsIgnoreCase(userEmail)) {
-            notificationService.markAllAsRead(userEmail.trim());
+            notificationService.markAllAsRead(userEmail.trim(), roles);
         }
         return ResponseEntity.noContent().build();
     }

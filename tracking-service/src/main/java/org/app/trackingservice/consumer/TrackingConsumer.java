@@ -38,33 +38,50 @@ public class TrackingConsumer {
     @RetryableTopic(attempts = "3", backOff = @BackOff(delay = 1000, multiplier = 2))
     public void handleCreateShipmentEvent(CreateShipmentEvent event) {
 
-        log.info("[TRACKING-SERVICE] Nhận event ShipmentCreated: {}", event.getTrackingCode());
-
-        String deuplicateKey = "shipment-created:" + event.getTrackingCode();
-        Boolean isFirstTime = redisTemplate.opsForValue().setIfAbsent(deuplicateKey, "1", Duration.ofDays(7));
-
-        if (Boolean.FALSE.equals(isFirstTime)) {
-            log.info("[TRACKING-SERVICE] Đã xử lý event ShipmentCreated trước đó: {}", event.getTrackingCode());
+        if (event == null || event.getTrackingCode() == null || event.getTrackingCode().isBlank()) {
+            log.warn("[TRACKING-SERVICE] Bỏ qua ShipmentCreated không có mã vận đơn");
             return;
         }
 
-        TrackingHistory history = TrackingHistory.builder()
-                .trackingCode(event.getTrackingCode())
-                .status("PENDING_ROUTING")
-                .locationCode("WAREHOUSE")
-                .node("Đơn hàng đã được khởi tạo và đang chờ phân tuyến")
-                .occurredAt(LocalDateTime.now())
-                .build();
-        TrackingHistory saved = trackingRepository.save(history);
-        try {
-            kafkaTemplate.send("tracking-replica-sync", event.getTrackingCode(), saved);
-        } catch (Exception e) {
-            log.warn("[TRACKING-SERVICE] Không thể bắn event sync sang Replica: {}", e.getMessage());
+        String trackingCode = event.getTrackingCode().trim();
+        log.info("[TRACKING-SERVICE] Nhận event ShipmentCreated: {}", trackingCode);
+
+        String duplicateKey = "shipment-created:" + trackingCode;
+        boolean historyExists = trackingRepository
+                .findTopByTrackingCodeAndStatusOrderByOccurredAtDesc(trackingCode, "PENDING_ROUTING")
+                .isPresent();
+        Boolean isFirstTime = redisTemplate.opsForValue().setIfAbsent(duplicateKey, "1", Duration.ofDays(7));
+
+        if (historyExists) {
+            log.info("[TRACKING-SERVICE] Đã có mốc khởi tạo cho {}, bỏ qua ghi trùng", trackingCode);
+            return;
+        }
+        if (Boolean.FALSE.equals(isFirstTime)) {
+            log.warn("[TRACKING-SERVICE] Khóa trùng {} đã tồn tại nhưng chưa có lịch sử, ghi lại mốc khởi tạo", trackingCode);
         }
 
-        String redisKey = "shipment-status:" + event.getTrackingCode();
-        redisTemplate.opsForValue().set(redisKey,"PENDING_ROUTING", Duration.ofDays(7));
-        redisTemplate.delete("shipment-history:" + event.getTrackingCode());
+        try {
+            TrackingHistory history = TrackingHistory.builder()
+                    .trackingCode(trackingCode)
+                    .status("PENDING_ROUTING")
+                    .locationCode("WAREHOUSE")
+                    .node("Đơn hàng đã được khởi tạo và đang chờ phân tuyến")
+                    .occurredAt(LocalDateTime.now())
+                    .build();
+            TrackingHistory saved = trackingRepository.save(history);
+            try {
+                kafkaTemplate.send("tracking-replica-sync", trackingCode, saved);
+            } catch (Exception e) {
+                log.warn("[TRACKING-SERVICE] Không thể bắn event sync sang Replica: {}", e.getMessage());
+            }
+
+            String redisKey = "shipment-status:" + trackingCode;
+            redisTemplate.opsForValue().set(redisKey, "PENDING_ROUTING", Duration.ofDays(7));
+            redisTemplate.delete("shipment-history:" + trackingCode);
+        } catch (RuntimeException ex) {
+            redisTemplate.delete(duplicateKey);
+            throw ex;
+        }
     }
 
     @KafkaListener(topics = "route-assigned", groupId = "tracking-group")
@@ -136,6 +153,17 @@ public class TrackingConsumer {
         String locationCode = event.getLocationCode() != null ? event.getLocationCode() : "TRANSIT_HUB";
         LocalDateTime occurredAt = event.getOccurredAt() != null ? event.getOccurredAt() : LocalDateTime.now();
         OperationType operationType = event.getOperationType();
+        boolean inventoryOnly = operationType == OperationType.RESERVED_FOR_TRIP
+                || operationType == OperationType.STORED
+                || operationType == OperationType.STORED_AT_HUB;
+        if (inventoryOnly) {
+            TrackingHistory current = trackingRepository.findTopByTrackingCodeOrderByOccurredAtDesc(trackingCode).orElse(null);
+            if (current != null && current.getStatus() != null && !current.getStatus().isBlank()) {
+                status = current.getStatus().trim().toUpperCase(Locale.ROOT);
+            } else if ("IN_TRANSIT".equals(status) || "STORED".equals(status)) {
+                status = "PICKED_UP";
+            }
+        }
 
         // route-assigned được phát đồng thời qua topic legacy. Làm giàu bản ghi cũ
         // thay vì tạo thêm một mốc ROUTE_ASSIGNED trùng trong giai đoạn migration.
@@ -172,7 +200,9 @@ public class TrackingConsumer {
             log.warn("[TRACKING-SERVICE] Không thể bắn event sync sang Replica: {}", e.getMessage());
         }
 
-        updateRedisProjection(trackingCode, status, locationCode, occurredAt);
+        if (!inventoryOnly) {
+            updateRedisProjection(trackingCode, status, locationCode, occurredAt);
+        }
         log.info("[TRACKING-SERVICE] Đã lưu lifecycle {} cho {} tại {}",
                 operationType != null ? operationType : status, trackingCode, locationCode);
     }
@@ -207,16 +237,18 @@ public class TrackingConsumer {
         String trackingCode = event.getTrackingCode().trim().toUpperCase(Locale.ROOT);
         String status = event.getStatus() != null
                 ? event.getStatus().trim().toUpperCase(Locale.ROOT) : "";
-        if (!Set.of("ARRIVED_DEST_HUB", "IN_TRANSIT").contains(status)) {
+        if (!Set.of("ARRIVED_DEST_HUB", "IN_TRANSIT", "CANCELLED").contains(status)) {
             return;
         }
 
-        String defaultNode = "ARRIVED_DEST_HUB".equals(status)
+        String defaultNode = "CANCELLED".equals(status)
+                ? "Đơn hàng đã được hủy"
+                : "ARRIVED_DEST_HUB".equals(status)
                 ? "Đơn hàng đã đến trạm trung chuyển cuối cùng trước khi giao hàng"
                 : "Chuyến xe vận chuyển bưu phẩm đang lưu thông trên tuyến trục";
         String locCode = event.getLocationCode() != null && !event.getLocationCode().isBlank()
-                ? event.getLocationCode().trim().toUpperCase(Locale.ROOT)
-                : ("ARRIVED_DEST_HUB".equals(status) ? "DEST_HUB" : "TRANSIT_HUB");
+                ? ("CANCELLED".equals(status) ? event.getLocationCode().trim() : event.getLocationCode().trim().toUpperCase(Locale.ROOT))
+                : ("CANCELLED".equals(status) ? "CANCELLED" : "ARRIVED_DEST_HUB".equals(status) ? "DEST_HUB" : "TRANSIT_HUB");
         String node = event.getNote() != null && !event.getNote().isBlank() ? event.getNote() : defaultNode;
         LocalDateTime occurredAt = event.getUpdatedAt() != null ? event.getUpdatedAt() : LocalDateTime.now();
 

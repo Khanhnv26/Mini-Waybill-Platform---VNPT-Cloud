@@ -6,7 +6,7 @@ import java.util.List;
 
 public interface NotificationService {
     List<NotificationLog> getNotificationLogs(String trackingCode);
-    List<NotificationLog> getMyNotifications(String recipientPhone);
-    void markAsRead(Long id, String recipientPhone);
-    void markAllAsRead(String recipientPhone);
+    List<NotificationLog> getMyNotifications(String recipientPhone, String roles);
+    void markAsRead(Long id, String recipientPhone, String roles);
+    void markAllAsRead(String recipientPhone, String roles);
 }

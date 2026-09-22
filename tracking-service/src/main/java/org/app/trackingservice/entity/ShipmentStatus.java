@@ -21,6 +21,12 @@ public enum ShipmentStatus {
         if(nextStatus == null) {
             return false;
         }
+        if (this == DELIVERED || this == RETURNED || this == CANCELLED) {
+            return false;
+        }
+        if (nextStatus == CANCELLED) {
+            return true;
+        }
 
         switch (this) {
             case CREATED:

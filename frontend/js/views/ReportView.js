@@ -124,7 +124,9 @@
                     reportData.shipments = res.shipments || [];
 
                     reportData.inTransitCount = res.inTransitCount || 0;
+                    reportData.failedCount = res.failedCount || 0;
                     reportData.cancelledCount = res.cancelledCount || 0;
+                    reportData.daily = Array.isArray(res.daily) ? res.daily : [];
 
                     pagination.totalPages = res.totalPages || 1;
                     pagination.totalElements = res.tableTotalElements !== undefined ? res.tableTotalElements : (res.totalOrders || 0);
@@ -174,64 +176,63 @@
                         deliveredPct: '0.0',
                         returningPct: '0.0',
                         transitPct: '0.0',
+                        cancelledPct: '0.0',
                         dashDelivered: '0 251.3',
                         dashTransit: '0 251.3',
                         dashReturning: '0 251.3',
+                        dashCancelled: '0 251.3',
                         offsetTransit: 0,
-                        offsetReturning: 0
+                        offsetReturning: 0,
+                        offsetCancelled: 0
                     };
                 }
                 const c = 251.327; // 2 * PI * 40
                 const delivered = Number(reportData.deliveredCount) || 0;
                 const returning = Number(reportData.returningCount) || 0;
+                const failed = Number(reportData.failedCount) || 0;
+                const transit = Number(reportData.inTransitCount) || 0;
+                const cancelled = Number(reportData.cancelledCount) || 0;
 
                 const delivPct = Math.min(100, Math.max(0, (delivered / total) * 100));
-                const retPct = Math.min(100, Math.max(0, (returning / total) * 100));
-                const transPct = Math.min(100, Math.max(0, 100 - delivPct - retPct));
+                const transPct = Math.min(100, Math.max(0, (transit / total) * 100));
+                const retPct = Math.min(100, Math.max(0, ((returning + failed) / total) * 100));
+                const cancelPct = Math.min(100, Math.max(0, (cancelled / total) * 100));
 
                 const lenDeliv = (delivPct / 100) * c;
                 const lenTrans = (transPct / 100) * c;
                 const lenRet = (retPct / 100) * c;
+                const lenCancel = (cancelPct / 100) * c;
 
                 return {
                     deliveredPct: delivPct.toFixed(1),
                     returningPct: retPct.toFixed(1),
                     transitPct: transPct.toFixed(1),
+                    cancelledPct: cancelPct.toFixed(1),
                     dashDelivered: `${lenDeliv.toFixed(1)} ${c}`,
                     dashTransit: `${lenTrans.toFixed(1)} ${c}`,
                     dashReturning: `${lenRet.toFixed(1)} ${c}`,
+                    dashCancelled: `${lenCancel.toFixed(1)} ${c}`,
                     offsetTransit: -lenDeliv,
-                    offsetReturning: -(lenDeliv + lenTrans)
+                    offsetReturning: -(lenDeliv + lenTrans),
+                    offsetCancelled: -(lenDeliv + lenTrans + lenRet)
                 };
             });
 
             // Biểu đồ Cột Xu Hướng 7 ngày gần nhất
             const barChartData = computed(() => {
-                const daysMap = {};
-                // Khởi tạo 7 ngày gần nhất
-                const now = new Date();
-                for (let i = 6; i >= 0; i--) {
-                    const d = new Date();
-                    d.setDate(now.getDate() - i);
-                    const key = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-                    daysMap[key] = { label: key, fee: 0, cod: 0, count: 0, isToday: i === 0 };
-                }
-
-                // Nhóm các đơn từ reportData.shipments theo ngày
-                if (Array.isArray(reportData.shipments)) {
-                    reportData.shipments.forEach(s => {
-                        if (!s.createdAt) return;
-                        const d = new Date(s.createdAt);
-                        const key = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-                        if (daysMap[key]) {
-                            daysMap[key].fee += Number(s.shippingFee) || 0;
-                            daysMap[key].cod += Number(s.codAmount) || 0;
-                            daysMap[key].count++;
-                        }
-                    });
-                }
-
-                const list = Object.values(daysMap);
+                const todayKey = formatDateStr(new Date());
+                const list = (Array.isArray(reportData.daily) ? reportData.daily : []).map(day => {
+                    const raw = String(day.date || '');
+                    const parts = raw.split('-');
+                    const label = parts.length === 3 ? `${parts[2]}/${parts[1]}` : raw;
+                    return {
+                        label,
+                        fee: Number(day.shippingFee) || 0,
+                        cod: Number(day.codAmount) || 0,
+                        count: Number(day.count) || 0,
+                        isToday: raw === todayKey
+                    };
+                });
                 const maxFee = Math.max(...list.map(x => x.fee), 100000);
                 const maxCod = Math.max(...list.map(x => x.cod), 500000);
 
@@ -561,7 +562,7 @@
                                     <span class="font-mono font-bold text-emerald-700">{{ formatVnd(reportData.settledCodAmount) }}</span>
                                 </div>
                                 <div class="flex justify-between items-center">
-                                    <span class="text-slate-500">Bưu tá giữ / Chờ duyệt:</span>
+                                    <span class="text-slate-500">Chờ bưu cục duyệt quỹ:</span>
                                     <span class="font-mono font-bold text-blue-700 inline-flex items-center">
                                         <span class="live-pulse-dot mr-1 inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
                                         {{ formatVnd(reportData.pendingCodAmount) }}
@@ -692,6 +693,15 @@
                                         fill="transparent"
                                         class="transition-all duration-700 ease-out"
                                     />
+                                    <circle 
+                                        cx="50" cy="50" r="40" 
+                                        stroke="#94a3b8" 
+                                        stroke-width="12" 
+                                        :stroke-dasharray="donutMetrics.dashCancelled" 
+                                        :stroke-dashoffset="donutMetrics.offsetCancelled"
+                                        fill="transparent"
+                                        class="transition-all duration-700 ease-out"
+                                    />
                                 </svg>
 
                                 <!-- Tâm Donut -->
@@ -725,6 +735,13 @@
                                         Chuyển Hoàn / Thất Bại
                                     </span>
                                     <span class="font-bold font-mono text-slate-800">{{ donutMetrics.returningPct }}%</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="flex items-center text-slate-600 font-medium">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-slate-400 mr-2"></span>
+                                        Đã Hủy
+                                    </span>
+                                    <span class="font-bold font-mono text-slate-800">{{ donutMetrics.cancelledPct }}%</span>
                                 </div>
                             </div>
                         </div>

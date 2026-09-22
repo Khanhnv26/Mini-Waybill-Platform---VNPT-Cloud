@@ -4,8 +4,10 @@ const path = require('path');
 
 const PORT = process.env.PORT || process.argv[2] || 3000;
 const GATEWAY_HOST = process.env.GATEWAY_HOST || '127.0.0.1';
-const GATEWAY_PORT = process.env.GATEWAY_PORT || 80;
-const FRONTEND_DIR = path.join(__dirname, 'frontend');
+const GATEWAY_PORT = process.env.GATEWAY_PORT || 8080;
+const FRONTEND_DIR = fs.existsSync(path.join(__dirname, 'frontend'))
+    ? path.join(__dirname, 'frontend')
+    : __dirname;
 
 // Bảng MIME types hỗ trợ phục vụ các file tĩnh
 const MIME_TYPES = {
@@ -101,5 +103,6 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-    console.log('VNPT WAYBILL FRONTEND SERVER ĐANG CHẠY TẠI: http://localhost');
+    console.log(`VNPT WAYBILL FRONTEND SERVER ĐANG CHẠY TẠI: http://localhost:${PORT}`);
+    console.log(`Proxy chuyển tiếp /api sang Spring Cloud Gateway: http://${GATEWAY_HOST}:${GATEWAY_PORT}`);
 });

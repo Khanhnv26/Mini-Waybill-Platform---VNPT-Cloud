@@ -671,10 +671,24 @@
             });
 
             // Danh sách các mốc hành trình động (6 mốc liên tỉnh hoặc 4 mốc nội tỉnh)
+            const appendReturnStage = (stages) => {
+                const status = currentShipment.value?.status;
+                if (status !== 'RETURNING' && status !== 'RETURNED') return stages;
+                const senderAddress = currentShipment.value?.senderAddress || 'Địa chỉ người gửi';
+                return [...stages, {
+                    key: 'return-sender',
+                    stageName: `${stages.length + 1}. Chuyển Hoàn`,
+                    roleLabel: 'Người Gửi',
+                    subLabel: status === 'RETURNED' ? 'Đã Hoàn Về Người Gửi' : 'Đang Chuyển Hoàn',
+                    code: 'NGƯỜI GỬI',
+                    displayName: senderAddress,
+                    address: senderAddress
+                }];
+            };
+
             const routeCheckpoints = computed(() => {
                 const inter = isInterProvincial.value;
-                if (inter) {
-                    return [
+                const stages = inter ? [
                         {
                             key: 'origin-po',
                             stageName: '1. Tiếp Nhận',
@@ -729,9 +743,7 @@
                             displayName: recipientShortAddress.value,
                             address: recipientFullAddress.value
                         }
-                    ];
-                } else {
-                    return [
+                    ] : [
                         {
                             key: 'origin-po',
                             stageName: '1. Tiếp Nhận',
@@ -769,13 +781,16 @@
                             address: recipientFullAddress.value
                         }
                     ];
-                }
+                return appendReturnStage(stages);
             });
 
             // Chỉ số mốc đang tác nghiệp (0-indexed)
             const currentCheckpointIndex = computed(() => {
                 const s = currentShipment.value?.status;
                 const inter = isInterProvincial.value;
+                if (s === 'RETURNING' || s === 'RETURNED') {
+                    return Math.max(0, routeCheckpoints.value.length - 1);
+                }
 
                 if (inter) {
                     if (!s || s === 'CREATED' || s === 'PENDING_ROUTING' || s === 'ROUTE_ASSIGNED') return 0;
@@ -917,6 +932,10 @@
                     case 'FAILED':
                     case 'DELIVERY_FAILED':
                         return { bg: 'bg-rose-500', icon: 'alert' };
+                    case 'RETURNING':
+                        return { bg: 'bg-orange-500', icon: 'alert' };
+                    case 'RETURNED':
+                        return { bg: 'bg-slate-600', icon: 'check' };
                     case 'CREATED':
                     default:
                         return { bg: 'bg-slate-400', icon: 'document' };
@@ -1003,24 +1022,54 @@
                 try {
                     // Nạp trạng thái, chi tiết đơn và lịch sử định tuyến song song để tránh làm chậm
                     // timeline khi routing service chỉ là một wrapper tùy chọn.
+                    // Thiếu lịch sử tracking không được hủy kết quả đơn đã có trong shipment-service.
                     const routingHistoryPromise = loadRoutingOperationHistory(code);
                     const routingAssignmentPromise = loadRoutingAssignment(code);
+                    const trackingPromise = Promise.resolve(TrackingService.getFullTracking(code)).catch((err) => {
+                        const missing = err && (err.isNotFound || err.status === 404
+                            || (err.message && String(err.message).toLowerCase().includes('không tìm thấy')));
+                        if (missing) return null;
+                        throw err;
+                    });
                     const [data, detail, routingHistory, assignment] = await Promise.all([
-                        Promise.resolve(TrackingService.getFullTracking(code)),
+                        trackingPromise,
                         loadShipmentDetail(code),
                         routingHistoryPromise,
                         routingAssignmentPromise
                     ]);
 
+                    if (!data && !detail) {
+                        currentShipment.value = null;
+                        trackingHistory.value = [];
+                        routeInfo.value = null;
+                        lastRenderedCode.value = null;
+                        isNotFound.value = true;
+                        notFoundCode.value = code;
+                        return;
+                    }
+
+                    const status = (data && data.currentStatus)
+                        || (detail && (detail.currentStatus || detail.status))
+                        || 'PENDING_ROUTING';
+
                     currentShipment.value = {
                         ...(detail || {}),
                         ...(assignment || {}),
                         trackingCode: code,
-                        status: data.currentStatus,
-                        source: data.source
+                        status,
+                        source: data ? data.source : 'SHIPMENT'
                     };
 
-                    let rawHistory = data.history || data.lifecycleHistory || data.trackingHistory || data.events || [];
+                    let rawHistory = (data && (data.history || data.lifecycleHistory || data.trackingHistory || data.events)) || [];
+                    if (!rawHistory.length) {
+                        rawHistory = [{
+                            trackingCode: code,
+                            status,
+                            locationCode: 'WAREHOUSE',
+                            node: 'Đơn hàng đã được ghi nhận. Hành trình chi tiết sẽ hiện khi có mốc quét.',
+                            occurredAt: (detail && (detail.createdAt || detail.updatedAt)) || new Date().toISOString()
+                        }];
+                    }
                     if (assignment && assignment.routeCode && !rawHistory.some(h => String(h.status || '').includes('ROUTE_ASSIGNED') || String(h.node || '').includes('ROUTE-'))) {
                         rawHistory = [
                             ...rawHistory,
@@ -1048,25 +1097,31 @@
                         }
                     }
 
-                    // Vẽ bản đồ lộ trình dựa trên hành trình thật
-                    await nextTick();
-                    if (window.MapManager) {
-                        window.MapManager.init('tracking-map');
-                        if (lastRenderedCode.value === code) {
-                            const latestMilestone = sortedHistory.value[0];
-                            window.MapManager.updateProgress(data.currentStatus, latestMilestone?.node || '', latestMilestone?.locationCode || null);
-                        } else {
-                            routeInfo.value = await window.MapManager.renderRoute(
-                                trackingHistory.value,
-                                data.currentStatus,
-                                true,
-                                currentShipment.value
-                            );
-                            lastRenderedCode.value = code;
+                    // Lỗi bản đồ không được xóa đơn vừa tải được.
+                    try {
+                        await nextTick();
+                        if (window.MapManager) {
+                            window.MapManager.init('tracking-map');
+                            if (lastRenderedCode.value === code) {
+                                const latestMilestone = sortedHistory.value[0];
+                                window.MapManager.updateProgress(status, latestMilestone?.node || '', latestMilestone?.locationCode || null);
+                            } else {
+                                routeInfo.value = await window.MapManager.renderRoute(
+                                    trackingHistory.value,
+                                    status,
+                                    true,
+                                    currentShipment.value
+                                );
+                                lastRenderedCode.value = code;
+                            }
                         }
+                    } catch (mapErr) {
+                        console.warn('[TrackingView] Không vẽ được bản đồ:', mapErr);
                     }
 
-                    showToast('Thành Công', `Đã nạp dữ liệu hành trình bưu gửi ${code}`);
+                    showToast('Thành Công', data
+                        ? `Đã nạp dữ liệu hành trình bưu gửi ${code}`
+                        : `Đã mở vận đơn ${code}. Hành trình chi tiết sẽ cập nhật khi có mốc quét.`);
                 } catch (err) {
                     currentShipment.value = null;
                     trackingHistory.value = [];

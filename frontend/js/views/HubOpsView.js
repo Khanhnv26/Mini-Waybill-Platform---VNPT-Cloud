@@ -635,6 +635,9 @@
                 if (!item) return { key: 'LOOKUP', label: 'Tra cứu bưu gửi', operation: '' };
                 const status = operationalStatus(item);
                 const inventory = asCode(getInventoryStatus(item));
+                if (status === 'RETURNING') {
+                    return { key: 'WAITING', label: 'Đang chuyển hoàn', operation: '' };
+                }
                 if (['DELIVERED', 'DELIVERY_FAILED', 'CANCELLED', 'RETURNED'].includes(status)) {
                     return { key: 'DONE', label: 'Đã hoàn tất', operation: '' };
                 }

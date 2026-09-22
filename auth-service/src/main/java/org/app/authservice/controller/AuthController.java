@@ -112,6 +112,19 @@ public class AuthController {
         return ResponseEntity.ok(buildResponse(user, token));
     }
 
+    @PutMapping("/change-password")
+    public ResponseEntity<Map<String, String>> changePassword(
+            @RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        Long userId = resolveUserId(userIdHeader, authHeader);
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        authService.changePassword(userId, request);
+        return ResponseEntity.ok(Map.of("message", "Đổi mật khẩu thành công!"));
+    }
+
     private Long resolveUserId(String userIdHeader, String authHeader) {
         if (userIdHeader != null && !userIdHeader.isBlank() && !"null".equalsIgnoreCase(userIdHeader)) {
             try {
@@ -140,6 +153,7 @@ public class AuthController {
                 .userId(user.getId())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
+                .phoneNumber(user.getPhoneNumber())
                 .avatarUrl(user.getAvatarUrl())
                 .locationCode(user.getLocationCode())
                 .roles(user.getRoles().stream().map(Role::getName).toList())

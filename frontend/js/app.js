@@ -19,7 +19,7 @@
             const isUnknownRoute = !isKnownAppPath && !isInitialErrorPage;
             const hasInitialError = !isNaN(initialCodeParam) || isInitialErrorPage || isUnknownRoute;
 
-            const currentUser = ref(null);
+            const currentUser = ref(typeof Auth !== 'undefined' ? Auth.getUser() : null);
             const currentTab = ref(hasInitialError ? 'error' : 'tracking');
             const currentTrackingCode = ref('');
             const currentErrorCode = ref(!isNaN(initialCodeParam) ? initialCodeParam : 404);
@@ -27,6 +27,7 @@
             const currentErrorMessage = ref(urlParams.get('message') || (isUnknownRoute ? `Đường dẫn "${window.location.pathname}" không tồn tại trên hệ thống máy chủ bưu chính VNPT.` : ''));
             const previousTab = ref(null);
             const selectedCustomerForShipment = ref(null);
+            const selectedTariffForShipment = ref(null);
             const isSidebarCollapsed = ref(false);
 
             const showError = (code = 404, title = '', message = '') => {
@@ -142,7 +143,7 @@
                     NotificationService.markAsRead(item.id);
                 }
                 showNotificationDropdown.value = false;
-                if (item.trackingCode) {
+                if (item.trackingCode && String(item.trackingCode).toUpperCase().startsWith('WB')) {
                     if (!isKnownAppPath) {
                         window.location.href = 'index.html?tracking=' + encodeURIComponent(item.trackingCode);
                         return;
@@ -166,6 +167,7 @@
             const profileStorageFields = ['fullName', 'phoneNumber', 'address', 'avatarUrl', 'googleLinked'];
 
             const isStaffUser = computed(() => {
+                if (!currentUser.value) return false;
                 return typeof Auth !== 'undefined' && Auth.isInternalStaff();
             });
 
@@ -378,6 +380,13 @@
                     component: 'AdminRbacView', 
                     permission: 'user:assign_role', // Chỉ Admin (hoặc có quyền assign_role)
                     icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z'
+                },
+                { 
+                    id: 'profile', 
+                    name: 'Hồ Sơ & Thiết Lập', 
+                    component: 'ProfileView', 
+                    permission: null, // Tất cả người dùng đăng nhập đều truy cập được
+                    icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
                 }
             ];
 
@@ -461,12 +470,14 @@
                 }
             };
 
-            // 3. View Component động tương ứng với tab được chọn
             const activeComponent = computed(() => {
                 if (currentTab.value === 'error') {
                     return 'ErrorView';
                 }
-                if (['network', 'calculator', 'guide', 'support'].includes(currentTab.value)) {
+                if (currentTab.value === 'calculator') {
+                    return 'TariffCalculatorView';
+                }
+                if (['network', 'guide', 'support'].includes(currentTab.value)) {
                     return 'UnderDevelopmentView';
                 }
                 const found = allNavigationTabs.find(t => t.id === currentTab.value);
@@ -495,6 +506,7 @@
                 previousTab.value = null; // Người dùng chủ động chuyển tab từ sidebar -> xóa lịch sử quay lại
                 if (tabId !== 'shipment') {
                     selectedCustomerForShipment.value = null;
+                    selectedTariffForShipment.value = null;
                 }
                 if (!isKnownAppPath) {
                     window.location.href = 'index.html#' + tabId;
@@ -511,6 +523,7 @@
                 previousTab.value = srcObj ? { id: srcObj.id, name: srcObj.name } : null;
                 currentTrackingCode.value = trackingCode.trim();
                 selectedCustomerForShipment.value = null;
+                selectedTariffForShipment.value = null;
                 activateTab('tracking');
             };
 
@@ -525,6 +538,7 @@
             // Khi tạo vận đơn thành công ở ShipmentView, nhận sự kiện và chuyển sang Tra Cứu
             const handleShipmentCreated = (trackingCode) => {
                 selectedCustomerForShipment.value = null;
+                selectedTariffForShipment.value = null;
                 // Đồng bộ thông báo thực tế từ server
                 fetchNotifications();
                 setTimeout(fetchNotifications, 1500);
@@ -541,6 +555,14 @@
                 }
                 selectedCustomerForShipment.value = customer;
                 switchTab('shipment');
+            };
+
+            const handleCreateShipmentFromTariff = (tariffData) => {
+                selectedTariffForShipment.value = tariffData;
+                switchTab('shipment');
+                if (window.Utils && window.Utils.showToast) {
+                    window.Utils.showToast('Gói Cước Đã Chọn', 'Đã chuyển sang tạo đơn với gói ' + (tariffData?.planName || ''));
+                }
             };
 
             const handleLogoClick = () => {
@@ -566,11 +588,24 @@
             };
 
             // 6. Quản Lý Hồ Sơ Cá Nhân & Phân Định Vai Trò (Staff vs Customer Profile)
-            const openUserProfileModal = async () => {
+            const handleUserUpdated = (updated) => {
+                if (updated && currentUser.value) {
+                    currentUser.value = { ...currentUser.value, ...updated };
+                    if (typeof Auth !== 'undefined' && Auth.getToken()) {
+                        Auth.setSession(Auth.getToken(), currentUser.value);
+                    }
+                }
+            };
+
+            const openUserProfileModal = () => {
                 if (typeof Auth === 'undefined' || !Auth.isAuthenticated()) {
                     window.location.href = 'login.html';
                     return;
                 }
+                switchTab('profile');
+            };
+
+            const openUserProfileModalLegacy = async () => {
                 showUserProfileModal.value = true;
                 isLoadingUserProfile.value = true;
                 try {
@@ -759,7 +794,7 @@
                     const detail = e.detail || {};
                     const visuals = getNotificationVisuals(detail.title, detail.message);
                     notifications.value.unshift({
-                        id: Date.now(),
+                        id: 'local-' + Date.now(),
                         title: detail.title || 'Thông báo hệ thống',
                         message: detail.message || '',
                         trackingCode: detail.trackingCode || null,
@@ -768,13 +803,42 @@
                         icon: visuals.icon,
                         iconBg: visuals.iconBg
                     });
+                    setTimeout(() => fetchNotifications(), 2000);
                 };
                 window.addEventListener('system-notification-created', handleSystemNotificationEvent);
 
+                const connectNotificationSocket = () => {
+                    if (typeof SockJS === 'undefined' || typeof Stomp === 'undefined') return;
+                    if (bellStomp && bellStomp.connected) return;
+                    try {
+                        const host = window.location.hostname || 'localhost';
+                        const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+                        const port = window.location.port;
+                        const endpoint = (!port || port === '80' || port === '443')
+                            ? `${protocol}//${host}/api/notifications/ws`
+                            : `${protocol}//${host}:8080/api/notifications/ws`;
+                        const socket = new SockJS(endpoint);
+                        bellStomp = Stomp.over(socket);
+                        bellStomp.debug = null;
+                        bellStomp.connect({}, () => {
+                            bellSubscription = bellStomp.subscribe('/topic/notifications/broadcast', () => {
+                                fetchNotifications();
+                            });
+                        }, () => {
+                            bellStomp = null;
+                        });
+                    } catch (err) {
+                        console.warn('[Notifications] Không kết nối được chuông thời gian thực:', err);
+                    }
+                };
+
                 // Tải thông báo thực tế và thiết lập định kỳ đồng bộ (mỗi 30 giây)
                 let pollTimer = null;
+                let bellStomp = null;
+                let bellSubscription = null;
                 if (typeof Auth !== 'undefined' && Auth.getToken()) {
                     fetchNotifications();
+                    connectNotificationSocket();
                     pollTimer = setInterval(() => {
                         if (Auth.getToken()) {
                             fetchNotifications();
@@ -782,10 +846,25 @@
                     }, 30000);
                 }
 
+                // Lắng nghe điều hướng từ Chatbot sang màn hình Tra cứu
+                const handleNavigateToTracking = (e) => {
+                    if (e.detail && e.detail.trackingCode) {
+                        handleViewTracking(e.detail.trackingCode);
+                    }
+                };
+                window.addEventListener('navigate-to-tracking', handleNavigateToTracking);
+
                 onUnmounted(() => {
                     document.removeEventListener('click', handleDocumentClick);
                     window.removeEventListener('system-notification-created', handleSystemNotificationEvent);
+                    window.removeEventListener('navigate-to-tracking', handleNavigateToTracking);
                     if (pollTimer) clearInterval(pollTimer);
+                    if (bellSubscription) {
+                        try { bellSubscription.unsubscribe(); } catch (e) {}
+                    }
+                    if (bellStomp && bellStomp.connected) {
+                        try { bellStomp.disconnect(); } catch (e) {}
+                    }
                 });
             });
 
@@ -804,11 +883,13 @@
                 activeComponent,
                 currentTrackingCode,
                 selectedCustomerForShipment,
+                selectedTariffForShipment,
                 switchTab,
                 handleViewTracking,
                 handleBackToPreviousTab,
                 handleShipmentCreated,
                 handleCreateShipmentFor,
+                handleCreateShipmentFromTariff,
                 handleLogoClick,
                 handleLogout,
                 currentFeatureId,
@@ -839,6 +920,7 @@
                 saveUserProfile,
                 isLinkingGoogle,
                 triggerGoogleLink,
+                handleUserUpdated,
                 toast: window.Utils ? window.Utils.toastState : { show: false },
                 getRoleBadgeInfo: window.Utils ? window.Utils.getRoleBadgeInfo : () => ({ label: 'NHÂN VIÊN', class: 'bg-slate-50' })
             };
@@ -856,8 +938,14 @@
     if (window.CustomerView) app.component('CustomerView', window.CustomerView);
     if (window.AdminRbacView) app.component('AdminRbacView', window.AdminRbacView);
     if (window.ReportView) app.component('ReportView', window.ReportView);
+    if (window.TariffCalculatorView) app.component('TariffCalculatorView', window.TariffCalculatorView);
     if (window.UnderDevelopmentView) app.component('UnderDevelopmentView', window.UnderDevelopmentView);
     if (window.ErrorView) app.component('ErrorView', window.ErrorView);
+    if (window.ProfileView) app.component('ProfileView', window.ProfileView);
+    if (window.ChatbotWidget) {
+        app.component('ChatbotWidget', window.ChatbotWidget);
+        app.component('chatbot-widget', window.ChatbotWidget);
+    }
 
     // Gắn ứng dụng vào DOM
     app.mount('#app');

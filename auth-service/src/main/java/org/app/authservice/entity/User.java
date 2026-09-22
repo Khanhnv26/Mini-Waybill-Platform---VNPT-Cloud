@@ -5,9 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.assertj.core.api.recursive.assertion.RecursiveAssertionConfiguration;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -30,6 +28,9 @@ public class User {
 
     @Column(name = "full_name", length = 150)
     private String fullName;
+
+    @Column(name = "phone_number", length = 20)
+    private String phoneNumber;
 
     @Column(name = "password", length = 255)
     private String password;

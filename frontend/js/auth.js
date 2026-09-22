@@ -192,6 +192,7 @@ const Auth = {
 
     // 15. Kiểm tra người dùng có phải là nhân viên/cán bộ vận hành nội bộ hay không
     isInternalStaff() {
+        if (!this.isAuthenticated()) return false;
         const staffRoles = [
             'ROLE_ADMIN',
             'ROLE_POST_OFFICE_STAFF',
@@ -202,6 +203,16 @@ const Auth = {
             'ROLE_CS'
         ];
         return this.hasAnyRole(staffRoles);
+    },
+
+    // Alias tiện ích kiểm tra nhân viên
+    isStaff() {
+        return this.isInternalStaff();
+    },
+
+    // Kiểm tra người dùng có phải là khách hàng hợp lệ (đã đăng nhập nhưng không phải nhân viên)
+    isCustomer() {
+        return this.isAuthenticated() && !this.isInternalStaff();
     },
 
     // 16. Chuyển đổi mã Role sang danh xưng tiếng Việt thân thiện
@@ -266,6 +277,19 @@ const Auth = {
             this.setSession(nextToken, mergedUser);
         }
         return data;
+    },
+
+    // 19. Đổi mật khẩu tài khoản trực tiếp qua auth-service
+    async changePassword(payload) {
+        if (typeof Api === 'undefined') {
+            throw new Error('Api client chưa sẵn sàng');
+        }
+        const response = await Api.put('/api/auth/change-password', payload);
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.message || errData.error || 'Đổi mật khẩu thất bại');
+        }
+        return response.json();
     }
 };
 
