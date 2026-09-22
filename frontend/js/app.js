@@ -500,6 +500,23 @@
                     return;
                 }
 
+                if (!currentUser.value && (targetTab.permission || targetTab.role)) {
+                    try {
+                        sessionStorage.setItem('redirectAfterLogin', 'index.html#' + tabId);
+                    } catch (e) {}
+                    if (window.Utils && window.Utils.showToast) {
+                        window.Utils.showToast(
+                            'Yêu Cầu Đăng Nhập',
+                            'Vui lòng đăng nhập để truy cập tính năng ' + targetTab.name + '. Đang chuyển hướng...',
+                            'info'
+                        );
+                    }
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 1200);
+                    return;
+                }
+
                 if (targetTab.role) {
                     if (typeof Auth === 'undefined' || !Auth.hasRole(targetTab.role)) {
                         showError(403, 'Quyền Truy Cập Bị Chặn (403)', 'Chức năng này chỉ dành riêng cho Quản trị viên hệ thống!');
@@ -570,6 +587,23 @@
 
             const handleCreateShipmentFromTariff = (tariffData) => {
                 selectedTariffForShipment.value = tariffData;
+                if (!currentUser.value) {
+                    try {
+                        sessionStorage.setItem('pendingTariffShipment', JSON.stringify(tariffData));
+                        sessionStorage.setItem('redirectAfterLogin', 'index.html#shipment');
+                    } catch (e) {}
+                    if (window.Utils && window.Utils.showToast) {
+                        window.Utils.showToast(
+                            'Yêu Cầu Đăng Nhập',
+                            'Vui lòng đăng nhập để tiếp tục tạo đơn với gói ' + (tariffData?.planName || '') + '. Đang chuyển hướng...',
+                            'info'
+                        );
+                    }
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 1200);
+                    return;
+                }
                 switchTab('shipment');
                 if (window.Utils && window.Utils.showToast) {
                     window.Utils.showToast('Gói Cước Đã Chọn', 'Đã chuyển sang tạo đơn với gói ' + (tariffData?.planName || ''));
@@ -789,6 +823,14 @@
                         currentTab.value = hash;
                         currentFeatureId.value = hash;
                     }
+                }
+
+                const pendingTariff = sessionStorage.getItem('pendingTariffShipment');
+                if (pendingTariff && currentUser.value) {
+                    try {
+                        selectedTariffForShipment.value = JSON.parse(pendingTariff);
+                        sessionStorage.removeItem('pendingTariffShipment');
+                    } catch (e) {}
                 }
 
                 // Tự động đóng dropdown thông báo khi click ra ngoài

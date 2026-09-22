@@ -186,8 +186,9 @@
                         attributionControl: false
                     }).setView([16.047079, 108.206230], 6);
 
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        maxZoom: 18
+                    L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {
+                        subdomains: ['0', '1', '2', '3'],
+                        maxZoom: 20
                     }).addTo(mapInstance);
 
                     markersGroup = L.layerGroup().addTo(mapInstance);
@@ -437,7 +438,7 @@
                                     <span>Bưu Cục Giao Dịch</span>
                                 </span>
                             </div>
-                            <span class="font-mono text-slate-400">Leaflet OpenStreetMap B2B</span>
+                            <span class="font-mono text-slate-400">Google Maps B2B</span>
                         </div>
                     </div>
                 </div>
