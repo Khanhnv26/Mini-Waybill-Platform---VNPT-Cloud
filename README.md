@@ -15,6 +15,7 @@
 [![Telegram Bot](https://img.shields.io/badge/Telegram%20Bot-Long--Polling%20Dispatch-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://core.telegram.org/bots)
 [![Google OAuth2](https://img.shields.io/badge/Google%20OAuth2-Identity%20Services%20SSO-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://developers.google.com/identity)
 [![Docker](https://img.shields.io/badge/Docker%20Compose-Containerized%20HA-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-16%20Pods%20Orchestration-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://kubernetes.io/)
 [![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-Smart%20Monorepo%20CI%2FCD-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/features/actions)
 [![Swagger / OpenAPI](https://img.shields.io/badge/OpenAPI-Springdoc%203.1.0-85EA2D?style=for-the-badge&logo=openapiinitiative&logoColor=black)](https://springdoc.org/)
 
@@ -199,9 +200,32 @@ Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, m�
 
 ---
 
-## 5. Hướng Dẫn Khởi Chạy Nhanh (Quickstart - 5 Phút)
+## 5. Hướng Dẫn Khởi Chạy Nhanh (Quickstart)
 
-### Bước 1: Khởi động Hạ tầng Docker HA
+### Cách 1: Khởi chạy toàn bộ hệ sinh thái bằng Kubernetes (Khuyên dùng - 1 Phút)
+Triển khai toàn bộ 16 Pods (11 Microservices, Kafka KRaft, Redis, Eureka, SQL Server PVC 5GB, Frontend) chỉ với 1 bước:
+
+```bash
+# 1. Triển khai theo thứ tự phân tầng K8s
+kubectl apply -f k8s/00-namespaces/
+kubectl apply -f k8s/01-infrastructure/
+kubectl apply -f k8s/02-services/
+
+# 2. Kiểm tra toàn bộ 16 Pods đã sẵn sàng (1/1 Running)
+kubectl get pods -n waybill
+```
+
+* **Web Portal:** [http://localhost](http://localhost) (Cổng 80) hoặc [http://localhost:3000](http://localhost:3000)
+* **API Gateway:** [http://localhost:8080](http://localhost:8080)
+* **SQL Server Database:** `localhost:2433` (`sa` / `Replica@123456`)
+* **Redis Cache:** `localhost:6379`
+* **Eureka Dashboard:** Mở qua lệnh `kubectl port-forward svc/eureka-peer1 8761:8761 -n waybill` -> [http://localhost:8761](http://localhost:8761)
+
+---
+
+### Cách 2: Khởi chạy qua Docker Compose & Local Spring Boot
+
+#### Bước 1: Khởi động Hạ tầng Docker HA
 ```bash
 docker compose up -d
 ```
@@ -210,28 +234,21 @@ docker compose up -d
 * **Redis:** Port `6379`.
 * **SQL Server Replica:** Port `2433` (`sa` / `Replica@123456`).
 
-### Bước 2: Chuẩn bị CSDL Primary (SQL Server Port 1433)
+#### Bước 2: Chuẩn bị CSDL Primary (SQL Server Port 1433)
 1. Tạo 9 database: `auth_db`, `customer_db`, `shipment_db`, `routing_db`, `tracking_db`, `notification_db`, `audit_db`, `shipper_db`, `report_db`.
 2. Chạy 2 script seed dữ liệu nền trong thư mục `database/`:
    * [`database/HubSeed.sql`](database/HubSeed.sql) (Nạp 5 Siêu Hub vào `routing_db`).
    * [`database/seed_rbac_data.sql`](database/seed_rbac_data.sql) (Nạp vai trò, quyền hạn vào `auth_db`).
 
-### Bước 3: Biên dịch Backend
+#### Bước 3: Biên dịch Backend & Khởi chạy Microservices
 ```bash
 mvn clean install -DskipTests
-```
 
-### Bước 4: Khởi chạy các Microservices
-```bash
-# 1. Khởi động Eureka Registry (2 nodes HA)
+# Khởi động Eureka Registry & API Gateway
 cd service-registry && ./mvnw spring-boot:run -Dspring-boot.run.profiles=peer1
-# (Mở terminal khác) cd service-registry && ./mvnw spring-boot:run -Dspring-boot.run.profiles=peer2
-
-# 2. Khởi động API Gateway (2 instances HA)
 cd api-gateway && ./mvnw spring-boot:run
-# (Mở terminal khác) cd api-gateway && ./mvnw spring-boot:run -Dspring-boot.run.arguments=--server.port=8088
 
-# 3. Khởi động các Core Services
+# Khởi động các Core Services
 cd auth-service && ./mvnw spring-boot:run
 cd customer-service && ./mvnw spring-boot:run
 cd shipment-service && ./mvnw spring-boot:run
@@ -243,26 +260,24 @@ cd shipper-service && ./mvnw spring-boot:run
 cd report-service && ./mvnw spring-boot:run
 ```
 
-### Bước 5: Khởi chạy Frontend Portal
+#### Bước 4: Khởi chạy Frontend Portal
 ```bash
 node server.js
 ```
-* Truy cập qua Nginx Load Balancer: **[http://localhost](http://localhost)**
-* Cổng Đăng Nhập: **[http://localhost/login.html](http://localhost/login.html)**
 
 ---
 
 ## 6. Tài Khoản Kiểm Thử Mẫu (Demo Accounts)
 
-Mật khẩu mặc định cho toàn bộ tài khoản: `123456`
+Mật khẩu chuẩn hóa cho toàn bộ tài khoản nghiệp vụ: **`Admin@123456`** *(hoặc `123456` đối với môi trường dev cũ)*:
 
 | Vai Trò | Email Đăng Nhập | Nghiệp Vụ & Quyền Hạn Trọng Tâm |
 | :--- | :--- | :--- |
-| **Quản Trị Viên (Admin)** | `vankhanhak54@gmail.com` | Quản trị RBAC, Audit Trail, gán vị trí trạm làm việc. |
-| **Giao Dịch Viên (CS)** | `cs_quyet@vnpt.vn` | Tiếp nhận đơn tại quầy bưu cục, tạo hộ khách hàng. |
-| **Thủ Kho Hub (Hub Operator)** | `hub_hn_staff@vnpt.vn` | Dỡ hàng tại cổng (Unload Gate), đóng chuyến xe liên tỉnh. |
-| **Bưu Tá (Shipper)** | `shipper_nam@vnpt.vn` | Xuất phát giao hàng, báo phát thất bại, tự động chuyển hoàn. |
-| **Khách Hàng Shop (Customer)** | `shop_hoangmai@gmail.com` | Tạo đơn số lượng lớn, theo dõi đối soát tiền COD. |
+| **Quản Trị Viên (Admin)** | `admin@waybill.vn` | Quản trị toàn quyền hệ thống, RBAC, Audit Trail, xem tất cả vận đơn. |
+| **Thủ Kho Hub (Hub Operator)** | `hub.operator@waybill.vn` | Khai thác Hub, quét mã nhập/xuất kho, niêm phong chuyến xe liên tỉnh. |
+| **Giao Dịch Viên Bưu Cục** | `post.operator@waybill.vn` | Khai thác trạm bưu cục, đóng túi thư gom hàng lên Siêu Hub. |
+| **Bưu Tá (Shipper)** | `shipper@waybill.vn` | Nhận đơn đi phát chặng cuối, cập nhật phát thành công / hẹn lại. |
+| **Khách Hàng Shop (Customer)** | `customer@waybill.vn` | Tạo vận đơn B2B, theo dõi hành trình và đối soát tiền COD. |
 
 ---
 
