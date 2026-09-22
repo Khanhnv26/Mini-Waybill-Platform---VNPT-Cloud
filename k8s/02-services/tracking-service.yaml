@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tracking-service
+  namespace: waybill
+  labels:
+    app: tracking-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tracking-service
+  template:
+    metadata:
+      labels:
+        app: tracking-service
+    spec:
+      containers:
+        - name: tracking-service
+          image: khanhnv26/tracking-service:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8084
+          env:
+            - name: SERVER_PORT
+              value: "8084"
+            - name: SPRING_DATASOURCE_PRIMARY_JDBC_URL
+              value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=tracking_db;encrypt=true;trustServerCertificate=true;"
+            - name: SPRING_DATASOURCE_PRIMARY_USERNAME
+              value: "sa"
+            - name: SPRING_DATASOURCE_PRIMARY_PASSWORD
+              value: "Replica@123456"
+            - name: SPRING_DATASOURCE_REPLICA_JDBC_URL
+              value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=tracking_db;encrypt=true;trustServerCertificate=true;"
+            - name: SPRING_DATASOURCE_REPLICA_USERNAME
+              value: "sa"
+            - name: SPRING_DATASOURCE_REPLICA_PASSWORD
+              value: "Replica@123456"
+            - name: SPRING_DATA_REDIS_HOST
+              value: "redis"
+            - name: SPRING_DATA_REDIS_PORT
+              value: "6379"
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka:9092"
+            - name: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
+              value: "http://eureka-peer1:8761/eureka/"
+            - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS
+              value: "true"
+            - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+              value: "validate"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tracking-service
+  namespace: waybill
+spec:
+  type: ClusterIP
+  selector:
+    app: tracking-service
+  ports:
+    - port: 8084
+      targetPort: 8084

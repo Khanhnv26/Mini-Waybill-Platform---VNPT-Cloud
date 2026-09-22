@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sqlserver-pvc
+  namespace: waybill
+spec:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+        requests:
+            storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: sqlserver-replica
+    namespace: waybill
+    labels:
+        app: sqlserver-replica
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: sqlserver-replica
+    template:
+        metadata:
+            labels:
+                app: sqlserver-replica
+        spec:
+            containers:
+            - name: sqlserver
+              image: mcr.microsoft.com/mssql/server:2022-latest
+              ports:
+                - containerPort: 1433
+              env:
+                - name: ACCEPT_EULA
+                  value: "Y"
+                - name: SA_PASSWORD
+                  value: "Replica@123456"
+
+              resources:
+                requests:
+                    memory: "512Mi"
+                    cpu: "200m"
+                limits:
+                    memory: "1536Mi"
+                    cpu: "1000m"
+              volumeMounts:
+                - name: sqlserver-storage
+                  mountPath: /var/opt/mssql
+            volumes:
+                - name: sqlserver-storage
+                  persistentVolumeClaim:
+                    claimName: sqlserver-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+    name: sqlserver-replica
+    namespace: waybill
+spec:
+    type: LoadBalancer
+    selector:
+        app: sqlserver-replica
+    ports:
+        - name: sql-internal
+          port: 1433
+          targetPort: 1433
+        - name: sql-external
+          port: 2433
+          targetPort: 1433
