@@ -2,7 +2,7 @@
     const PricingService = {
         async calculateTariff(payload) {
             try {
-                const response = await Api.post('/api/pricing/calculate', payload);
+                const response = await Api.post('/api/pricing/calculate', payload, {}, { skip403Toast: true, silent: true });
                 if (response && response.ok) {
                     return await response.json();
                 }

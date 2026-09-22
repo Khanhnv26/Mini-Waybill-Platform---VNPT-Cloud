@@ -44,7 +44,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <!-- Custom Enterprise B2B Styles -->
-    <link rel="stylesheet" href="css/style.css?v=2.5.4" />
+    <link rel="stylesheet" href="css/style.css?v=2.5.6" />
 
     <!-- Vue 3 CDN -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -132,7 +132,7 @@
                     @click="handleGuestTabClick(tab)"
                     :title="isSidebarCollapsed ? tab.name : ''"
                     :class="[
-                        'w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs cursor-pointer text-left',
+                        'w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs transition smooth-transition cursor-pointer text-left',
                         isSidebarCollapsed ? 'justify-center !px-0 !space-x-0' : '',
                         (currentTab === tab.id) 
                             ? 'bg-blue-50 text-blue-700 border border-blue-100 shadow-sm shadow-blue-500/10 font-bold' 
@@ -353,8 +353,8 @@
 
         <!-- MAIN VIEW CONTAINER -->
         <main class="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50">
-            <div class="max-w-7xl mx-auto">
-                <transition :name="currentUser ? 'page' : 'guest-tab'" :mode="currentUser ? 'out-in' : undefined" :appear="!!currentUser">
+            <div class="max-w-7xl mx-auto relative">
+                <transition name="page" mode="out-in" appear>
                     <keep-alive>
                         <component 
                             :is="activeComponent" 

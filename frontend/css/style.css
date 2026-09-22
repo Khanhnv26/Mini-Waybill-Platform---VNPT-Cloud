@@ -346,7 +346,7 @@ body {
 @keyframes fadeInUp {
     from {
         opacity: 0;
-        transform: translateY(16px);
+        transform: translateY(8px);
     }
     to {
         opacity: 1;
@@ -355,13 +355,13 @@ body {
 }
 
 .animate-fade-in {
-    animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: fadeInUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.delay-100 { animation-delay: 100ms; }
-.delay-200 { animation-delay: 200ms; }
-.delay-300 { animation-delay: 300ms; }
-.delay-400 { animation-delay: 400ms; }
+.delay-100 { animation-delay: 40ms; }
+.delay-200 { animation-delay: 70ms; }
+.delay-300 { animation-delay: 100ms; }
+.delay-400 { animation-delay: 130ms; }
 
 /* ==========================================================================
    HIỆU ỨNG CHUYỂN TRANG MƯỢT MÀ (SMOOTH PAGE & SUBTAB TRANSITIONS)
@@ -391,11 +391,6 @@ body {
 .page-leave-to {
     opacity: 0;
     transform: translateY(-8px);
-}
-
-.guest-tab-enter-active,
-.guest-tab-leave-active {
-    transition: none;
 }
 
 /* 2. Chuyển đổi giữa các Subtab con bên trong view (Subtab Transition) - 60fps Micro-motion */

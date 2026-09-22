@@ -153,7 +153,8 @@
                     </button>
                 </div>
 
-                <div v-if="currentSubTab === 'packaging'" class="space-y-4">
+                <transition name="subtab" mode="out-in">
+                    <div v-if="currentSubTab === 'packaging'" key="packaging" class="space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                         <div class="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-2.5 hover:border-blue-300 transition">
                             <div class="flex items-center justify-between">
@@ -262,7 +263,7 @@
                     </div>
                 </div>
 
-                <div v-if="currentSubTab === 'prohibited'" class="space-y-4">
+                    <div v-else-if="currentSubTab === 'prohibited'" key="prohibited" class="space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                         <div class="bg-white border border-rose-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-2.5">
                             <div class="flex items-center justify-between pb-1 border-b border-rose-100">
@@ -322,7 +323,7 @@
                     </div>
                 </div>
 
-                <div v-if="currentSubTab === 'iata'" class="space-y-4">
+                    <div v-else-if="currentSubTab === 'iata'" key="iata" class="space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-3.5">
                         <div class="md:col-span-6 bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-2.5">
                             <h3 class="font-bold text-slate-800 text-xs sm:text-sm">Quy Định Giới Hạn Kiện Hàng</h3>
@@ -393,7 +394,7 @@
                     </div>
                 </div>
 
-                <div v-if="currentSubTab === 'policy'" class="space-y-3.5">
+                    <div v-else-if="currentSubTab === 'policy'" key="policy" class="space-y-3.5">
                     <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                         <table class="w-full text-xs text-left">
                             <thead>
@@ -438,6 +439,7 @@
                         </div>
                     </div>
                 </div>
+                </transition>
 
                 <div class="flex flex-col sm:flex-row items-center justify-between bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm gap-3">
                     <div class="flex items-center space-x-3">

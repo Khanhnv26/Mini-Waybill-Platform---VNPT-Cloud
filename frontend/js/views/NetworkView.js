@@ -1,5 +1,5 @@
 (function () {
-    const { ref, computed, watch, onMounted, onActivated, onBeforeUnmount } = Vue;
+    const { ref, computed, watch, onMounted, onActivated, onDeactivated, onBeforeUnmount } = Vue;
 
     const POST_OFFICES_DATA = [
         { code: 'HUB-HN-01', name: 'Kho Tổng Hà Nội (Super Hub)', province: 'Hà Nội', district: 'Bắc Từ Liêm', address: 'Lô 12-A, KCN Minh Khai, P. Minh Khai, Q. Bắc Từ Liêm, Hà Nội', phone: '024 3768 9999', hours: '24/7 (Cả T7 & CN)', type: 'SUPER_HUB', lat: 21.028511, lng: 105.782000 },
@@ -46,6 +46,7 @@
             let mapInstance = null;
             let markersGroup = null;
             let markersMap = new Map();
+            let bootTimer = null;
 
             const filteredOffices = computed(() => {
                 const q = searchQuery.value.toLowerCase().trim();
@@ -197,7 +198,10 @@
             };
 
             const scheduleMapBoot = () => {
-                requestAnimationFrame(() => requestAnimationFrame(() => bootMap()));
+                if (bootTimer) clearTimeout(bootTimer);
+                bootTimer = setTimeout(() => {
+                    bootMap();
+                }, 260);
             };
 
             onMounted(() => {
@@ -209,11 +213,22 @@
                 scheduleMapBoot();
             });
 
+            onDeactivated(() => {
+                if (bootTimer) {
+                    clearTimeout(bootTimer);
+                    bootTimer = null;
+                }
+            });
+
             watch(filteredOffices, () => {
                 renderMarkers();
             });
 
             onBeforeUnmount(() => {
+                if (bootTimer) {
+                    clearTimeout(bootTimer);
+                    bootTimer = null;
+                }
                 if (mapInstance) {
                     mapInstance.remove();
                     mapInstance = null;
