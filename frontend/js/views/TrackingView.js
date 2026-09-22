@@ -1559,7 +1559,7 @@
                             <span class="text-[11px] text-slate-400 font-medium">Thống kê thời gian thực</span>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in delay-200">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <!-- Cột 1: 03 -->
                             <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1.5 hover:border-blue-300 transition smooth-transition">
                                 <div class="text-[11px] font-bold text-blue-600 uppercase tracking-wider">Hạ Tầng Khai Thác</div>
@@ -1607,7 +1607,7 @@
                     </div>
 
                     <!-- 2. SƠ ĐỒ HÀNH LANG KẾT NỐI BẮC - NAM (TRỤC XƯƠNG SỐNG) -->
-                    <div id="network-corridor-section" class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm animate-fade-in delay-300">
+                    <div id="network-corridor-section" class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                         <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-5">
                             <div class="border-l-4 border-blue-600 pl-3">
                                 <span class="font-extrabold text-slate-800 uppercase tracking-wider text-xs block">
@@ -1657,7 +1657,7 @@
                     </div>
 
                     <!-- 3. CẨM NANG HƯỚNG DẪN & QUY ĐỊNH GỬI HÀNG -->
-                    <div id="guide-section" class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs animate-fade-in delay-400">
+                    <div id="guide-section" class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                         <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-2">
                             <div class="text-blue-700 font-bold text-xs uppercase tracking-wider">
                                 01. Vị Trí Mã Vận Đơn

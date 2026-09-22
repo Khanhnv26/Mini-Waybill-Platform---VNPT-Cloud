@@ -477,17 +477,28 @@
                 if (currentTab.value === 'calculator') {
                     return 'TariffCalculatorView';
                 }
-                if (['network', 'guide', 'support'].includes(currentTab.value)) {
+                if (currentTab.value === 'network') {
+                    return 'NetworkView';
+                }
+                if (currentTab.value === 'guide') {
+                    return 'GuideView';
+                }
+                if (['support'].includes(currentTab.value)) {
                     return 'UnderDevelopmentView';
                 }
                 const found = allNavigationTabs.find(t => t.id === currentTab.value);
                 return found ? found.component : 'TrackingView';
             });
 
-            // 4. Route Guard: Kiểm tra bảo mật khi chuyển tab
             const switchTab = (tabId) => {
                 const targetTab = allNavigationTabs.find(t => t.id === tabId);
-                if (!targetTab) return;
+                if (!targetTab) {
+                    const guestTab = publicGuestTabs.find(t => t.id === tabId);
+                    if (guestTab) {
+                        handleGuestTabClick(guestTab);
+                    }
+                    return;
+                }
 
                 if (targetTab.role) {
                     if (typeof Auth === 'undefined' || !Auth.hasRole(targetTab.role)) {
@@ -939,6 +950,8 @@
     if (window.AdminRbacView) app.component('AdminRbacView', window.AdminRbacView);
     if (window.ReportView) app.component('ReportView', window.ReportView);
     if (window.TariffCalculatorView) app.component('TariffCalculatorView', window.TariffCalculatorView);
+    if (window.NetworkView) app.component('NetworkView', window.NetworkView);
+    if (window.GuideView) app.component('GuideView', window.GuideView);
     if (window.UnderDevelopmentView) app.component('UnderDevelopmentView', window.UnderDevelopmentView);
     if (window.ErrorView) app.component('ErrorView', window.ErrorView);
     if (window.ProfileView) app.component('ProfileView', window.ProfileView);
