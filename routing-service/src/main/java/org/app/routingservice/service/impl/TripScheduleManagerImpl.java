@@ -78,12 +78,12 @@ public class TripScheduleManagerImpl implements TripScheduleManager {
 
         if (request.getEnabled() != null) {
             config.setEnabled(request.getEnabled());
-            toggleQuartzJob(request.getEnabled());
         }
 
+        boolean intervalChanged = false;
         if (request.getIntervalSeconds() != null && request.getIntervalSeconds() > 0) {
             config.setIntervalSeconds(request.getIntervalSeconds());
-            rescheduleQuartzJob(request.getIntervalSeconds());
+            intervalChanged = true;
         }
 
         if (request.getFixedCronTimes() != null && !request.getFixedCronTimes().isBlank()) {
@@ -100,6 +100,12 @@ public class TripScheduleManagerImpl implements TripScheduleManager {
 
         config.setUpdatedAt(LocalDateTime.now());
         schedulerConfigRepository.save(config);
+
+        if (intervalChanged) {
+            rescheduleQuartzJob(config.getIntervalSeconds());
+        }
+        // Quartz rescheduleJob lưu trigger mới ở WAITING, nên pause/resume phải đi sau.
+        toggleQuartzJob(Boolean.TRUE.equals(config.getEnabled()));
 
         return mapToResponse(config);
     }

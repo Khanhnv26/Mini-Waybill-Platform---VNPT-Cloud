@@ -40,6 +40,10 @@ spec:
               value: "http://eureka-peer1:8761/eureka/"
             - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS
               value: "true"
+            - name: TZ
+              value: "Asia/Ho_Chi_Minh"
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Duser.timezone=Asia/Ho_Chi_Minh"
           resources:
             requests:
               memory: "256Mi"

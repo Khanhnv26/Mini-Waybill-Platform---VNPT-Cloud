@@ -39,6 +39,7 @@ public class TripDetailResponse {
     private Boolean isOverdue;
     private LocalDateTime createdAt;
     private Double weightPercentage;
+    private Integer newlyAddedCount;
     private List<StopItemResponse> stops;
     private List<ManifestItemResponse> manifests;
 

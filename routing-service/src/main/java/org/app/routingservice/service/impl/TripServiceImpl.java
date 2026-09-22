@@ -12,6 +12,7 @@ import org.app.routingservice.dto.trip.TripProgressRequest;
 import org.app.routingservice.entity.Hub;
 import org.app.routingservice.entity.HandlingEvent;
 import org.app.routingservice.entity.RoutingAssignment;
+import org.app.routingservice.entity.SchedulerConfig;
 import org.app.routingservice.entity.Trip;
 import org.app.routingservice.entity.TripManifest;
 import org.app.routingservice.entity.TripStop;
@@ -19,6 +20,7 @@ import org.app.routingservice.entity.TripType;
 import org.app.routingservice.entity.WarehouseInventory;
 import org.app.routingservice.repository.HubRepository;
 import org.app.routingservice.repository.RoutingAssignmentRepository;
+import org.app.routingservice.repository.SchedulerConfigRepository;
 import org.app.routingservice.repository.TripManifestRepository;
 import org.app.routingservice.repository.TripRepository;
 import org.app.routingservice.repository.TripStopRepository;
@@ -26,6 +28,7 @@ import org.app.routingservice.repository.WarehouseInventoryRepository;
 import org.app.routingservice.repository.HandlingEventRepository;
 import org.app.routingservice.service.TripService;
 import org.app.sharedevents.entity.*;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,6 +57,8 @@ public class TripServiceImpl implements TripService {
     private final WarehouseInventoryRepository warehouseInventoryRepository;
     private final HandlingEventRepository handlingEventRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final SchedulerConfigRepository schedulerConfigRepository;
+    private final ObjectProvider<TripService> tripServiceProvider;
 
     private String normalizeHubCode(String rawCode) {
         if (rawCode == null || rawCode.isBlank()) {
@@ -229,7 +234,7 @@ public class TripServiceImpl implements TripService {
         if ("SCHEDULED".equals(trip.getStatus()) && trip.getScheduledDepartureTime() != null) {
             isOverdue = LocalDateTime.now().isAfter(trip.getScheduledDepartureTime());
         }
-        boolean ready = Boolean.TRUE.equals(trip.getReadyToDepart()) || weightPercentage >= 80.0
+        boolean ready = Boolean.TRUE.equals(trip.getReadyToDepart()) || weightPercentage >= readyThresholdPercent()
                 || (trip.getCutoffTime() != null && LocalDateTime.now().isAfter(trip.getCutoffTime()));
 
         return TripDetailResponse.builder()
@@ -314,7 +319,7 @@ public class TripServiceImpl implements TripService {
                 log.info("Chuyến xe {} đã qua thời điểm Cut-off ({}), khóa sổ nạp hàng.", trip.getTripCode(), trip.getCutoffTime());
                 trip.setReadyToDepart(true);
                 tripRepository.save(trip);
-                return getTripDetail(trip.getId());
+                return finishConsolidation(trip.getId(), 0);
             }
             throw new IllegalStateException("Chuyến xe đã quá thời điểm Cut-off, không thể nạp thêm kiện hàng.");
         }
@@ -367,6 +372,10 @@ public class TripServiceImpl implements TripService {
                 }
 
                 if (tripManifestRepository.existsByTripIdAndTrackingCodeAndStatus(tripId, trackingCode, "LOADED")) {
+                    continue;
+                }
+                if (loadedOnAnotherTrip(trackingCode, tripId)) {
+                    log.warn("Bỏ qua kiện {} vì đã nằm trên chuyến khác", trackingCode);
                     continue;
                 }
 
@@ -472,6 +481,10 @@ public class TripServiceImpl implements TripService {
                 if (tripManifestRepository.existsByTripIdAndTrackingCodeAndStatus(tripId, trackingCode, "LOADED")) {
                     continue;
                 }
+                if (loadedOnAnotherTrip(trackingCode, tripId)) {
+                    log.warn("Bỏ qua kiện {} vì đã nằm trên chuyến khác", trackingCode);
+                    continue;
+                }
 
                 TripManifest manifest = TripManifest.builder()
                         .tripId(trip.getId())
@@ -501,7 +514,7 @@ public class TripServiceImpl implements TripService {
         trip.setCurrentWeight(currentWeight);
         trip.setTotalShipments((int) tripManifestRepository.countByTripId(tripId));
         double loadFactor = maxWeight > 0 ? (currentWeight / maxWeight) * 100.0 : 0.0;
-        if (loadFactor >= 80.0 || (trip.getCutoffTime() != null && LocalDateTime.now().isAfter(trip.getCutoffTime()))) {
+        if (loadFactor >= readyThresholdPercent() || (trip.getCutoffTime() != null && LocalDateTime.now().isAfter(trip.getCutoffTime()))) {
             trip.setReadyToDepart(true);
         }
 
@@ -522,22 +535,28 @@ public class TripServiceImpl implements TripService {
         log.info("Hoàn tất gom đơn cho xe {}: Đã thêm {} kiện mới. Tổng tải trọng hiện tại: {}/{} kg.",
                 trip.getTripCode(), addedCount, trip.getCurrentWeight(), trip.getMaxWeight());
 
-        return getTripDetail(trip.getId());
+        return finishConsolidation(trip.getId(), addedCount);
+    }
+
+    private TripDetailResponse finishConsolidation(Long tripId, int addedCount) {
+        TripDetailResponse response = getTripDetail(tripId);
+        response.setNewlyAddedCount(addedCount);
+        return response;
     }
 
     @Override
-    @Transactional
     public int consolidateAllScheduledTrips() {
-        List<Trip> scheduledTrips = tripRepository.findAll().stream()
-                .filter(t -> "SCHEDULED".equals(t.getStatus()))
-                .collect(Collectors.toList());
+        List<Trip> scheduledTrips = tripRepository.findByStatus("SCHEDULED").stream()
+                .sorted(Comparator.comparing(Trip::getScheduledDepartureTime, Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
 
+        TripService self = tripServiceProvider.getObject();
         int totalCount = 0;
         for (Trip trip : scheduledTrips) {
             try {
-                TripDetailResponse detail = autoConsolidate(trip.getId(), null);
-                if (detail != null && detail.getManifests() != null) {
-                    totalCount += detail.getManifests().size();
+                TripDetailResponse detail = self.autoConsolidate(trip.getId(), null);
+                if (detail != null && detail.getNewlyAddedCount() != null) {
+                    totalCount += detail.getNewlyAddedCount();
                 }
             } catch (Exception e) {
                 log.error("Lỗi khi gom đơn tự động cho chuyến xe {}: {}", trip.getTripCode(), e.getMessage());
@@ -1000,7 +1019,7 @@ public class TripServiceImpl implements TripService {
 
     private WarehouseInventory ensureLegacyInventory(RoutingAssignment assignment, String origin) {
         String trackingCode = assignment.getTrackingCode();
-        WarehouseInventory inventory = warehouseInventoryRepository.findByTrackingCode(trackingCode).orElse(null);
+        WarehouseInventory inventory = warehouseInventoryRepository.findByTrackingCodeForUpdate(trackingCode).orElse(null);
         // A routing assignment without a physical inventory record must not be
         // promoted to STORED implicitly during trip consolidation.
         if (inventory == null) {
@@ -1045,15 +1064,30 @@ public class TripServiceImpl implements TripService {
     }
 
     private boolean isInventoryStoredAt(String trackingCode, String locationCode) {
-        return warehouseInventoryRepository.findByTrackingCode(trackingCode)
+        return warehouseInventoryRepository.findByTrackingCodeForUpdate(trackingCode)
                 .map(inventory -> locationCode != null
                         && locationCode.equalsIgnoreCase(inventory.getLocationCode())
                         && "STORED".equalsIgnoreCase(inventory.getInventoryStatus()))
                 .orElse(false);
     }
 
+    private boolean loadedOnAnotherTrip(String trackingCode, Long tripId) {
+        return tripManifestRepository.findByTrackingCodeAndStatus(trackingCode, "LOADED")
+                .map(manifest -> manifest.getTripId() != null && !manifest.getTripId().equals(tripId))
+                .orElse(false);
+    }
+
+    private double readyThresholdPercent() {
+        List<SchedulerConfig> configs = schedulerConfigRepository.findAll();
+        if (configs == null || configs.isEmpty()) {
+            return 80.0;
+        }
+        Double threshold = configs.get(0).getReadyThresholdPercent();
+        return threshold != null && threshold > 0 ? threshold : 80.0;
+    }
+
     private void reserveInventoryForTrip(Trip trip, String trackingCode, String pickupLocation, TransportLeg transportLeg) {
-        WarehouseInventory inventory = warehouseInventoryRepository.findByTrackingCode(trackingCode)
+        WarehouseInventory inventory = warehouseInventoryRepository.findByTrackingCodeForUpdate(trackingCode)
                 .orElseThrow(() -> new IllegalStateException(
                         "Bưu gửi " + trackingCode + " chưa có tồn kho vật lý tại " + pickupLocation));
         if (!pickupLocation.equalsIgnoreCase(inventory.getLocationCode())) {
