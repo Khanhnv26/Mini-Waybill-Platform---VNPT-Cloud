@@ -25,13 +25,10 @@ import org.app.routingservice.repository.TripStopRepository;
 import org.app.routingservice.repository.WarehouseInventoryRepository;
 import org.app.routingservice.repository.HandlingEventRepository;
 import org.app.routingservice.service.TripService;
+import org.app.sharedevents.entity.*;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.app.sharedevents.entity.OperationType;
-import org.app.sharedevents.entity.ShipmentLifecycleEvent;
-import org.app.sharedevents.entity.TripProgressEvent;
-import org.app.sharedevents.entity.TransportLeg;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -422,21 +419,21 @@ public class TripServiceImpl implements TripService {
                 String destination;
 
                 if ("ARRIVED_DEST_HUB".equals(assignment.getStatus())) {
-                    // Chặng 4: Xe Feeder phát trả (Kho Tổng đích ➔ Bưu cục con phát)
+
                     origin = assignment.getDestinationHub();
                     destination = assignment.getDestPostOffice();
                 } else if ("AT_SOURCE_HUB".equals(assignment.getStatus())) {
-                    // Chặng 3: Xe trục liên tỉnh Linehaul (Kho Tổng gốc ➔ Kho Tổng đích)
+
                     origin = assignment.getSourceHub();
                     destination = assignment.getDestinationHub();
                 } else {
-                    // Trạng thái ASSIGNED_ORIGIN_PO hoặc ASSIGNED
+
                     if (assignment.getOriginPostOffice() != null && !assignment.getOriginPostOffice().equalsIgnoreCase(assignment.getSourceHub())) {
-                        // Chặng 2: Xe Feeder gom hàng (Bưu cục gốc ➔ Kho Tổng gốc)
+
                         origin = assignment.getOriginPostOffice();
                         destination = assignment.getSourceHub();
                     } else {
-                        // Không có bưu cục con riêng biệt: Đi thẳng từ Kho Tổng gốc
+
                         origin = assignment.getSourceHub();
                         destination = assignment.getDestinationHub();
                     }
@@ -507,9 +504,23 @@ public class TripServiceImpl implements TripService {
         if (loadFactor >= 80.0 || (trip.getCutoffTime() != null && LocalDateTime.now().isAfter(trip.getCutoffTime()))) {
             trip.setReadyToDepart(true);
         }
+
+        TripConsolidatedEvent event = TripConsolidatedEvent.builder()
+                .tripId(trip.getId())
+                .tripCode(trip.getTripCode())
+                .currentWeight(trip.getCurrentWeight())
+                .maxWeight(trip.getMaxWeight())
+                .loadFactor(loadFactor)
+                .totalShipments(trip.getTotalShipments())
+                .readyToDepart(trip.getReadyToDepart())
+                .occuredAt(LocalDateTime.now())
+                .build();
+        kafkaTemplate.send("trip-events", String.valueOf(trip.getId()), event);
+        kafkaTemplate.send("trip-consolidated-topic", event);
+
         tripRepository.save(trip);
         log.info("Hoàn tất gom đơn cho xe {}: Đã thêm {} kiện mới. Tổng tải trọng hiện tại: {}/{} kg.",
-                trip.getTripCode(), addedCount, currentWeight, maxWeight);
+                trip.getTripCode(), addedCount, trip.getCurrentWeight(), trip.getMaxWeight());
 
         return getTripDetail(trip.getId());
     }

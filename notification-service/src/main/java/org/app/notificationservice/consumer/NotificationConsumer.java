@@ -14,6 +14,7 @@ import org.app.notificationservice.repository.NotificationRepository;
 import org.app.notificationservice.service.EmailService;
 import org.app.notificationservice.service.TelegramService;
 import org.app.notificationservice.util.EmailTemplateHelper;
+import org.app.sharedevents.entity.TripConsolidatedEvent;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -287,6 +288,19 @@ public class NotificationConsumer {
             log.error("[WEBSOCKET-PUBSUB] Lỗi publish sự kiện lên Redis, fallback sang local broker: {}", ex.getMessage(), ex);
             messagingTemplate.convertAndSend("/topic/tracking/" + event.getTrackingCode(), event);
         }
+    }
+
+    @KafkaListener(topics = "trip-events", groupId = "notification-group")
+    public void handleTripConsolidatedEvent(TripConsolidatedEvent event) {
+
+        messagingTemplate.convertAndSend("/topic/trips/" + event.getTripId(), event);
+
+        String message = String.format("Chuyến xe %s vừa hoàn tất gom đơn! Hiện có %d kiện (Tải trọng: %.1f%%)",
+                event.getTripCode(),
+                event.getTotalShipments(),
+                event.getLoadFactor());
+        messagingTemplate.convertAndSend("/topic/notifications/broadcast", message);
+
     }
 
 }

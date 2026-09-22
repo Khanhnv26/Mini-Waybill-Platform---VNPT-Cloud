@@ -214,10 +214,36 @@ const getCalculatedCutoffText = (scheduledDepartureTime, bufferMinutes = 30) => 
 };
 ```
 
-### 4.2. Thuật Toán Gom Đơn Tự Động Theo Ngưỡng Tải Trọng (Ready Threshold %)
-Bộ lập lịch tự động (`ScheduledConsolidator`) chạy định kỳ quét các bưu gửi đang chờ tại kho bãi:
-1. **Kiểm tra mức tải:** Khi tổng khối lượng các kiện hàng chờ chuyển về cùng tuyến đạt ngưỡng $\ge 80\%$ tải trọng xe tải ($W_{\text{current}} / W_{\text{max}} \ge 0.8$), hệ thống tự động khởi tạo bảng kê và gán toàn bộ kiện vào chuyến xe.
-2. **Kích hoạt thủ công 1-Click:** Điều phối viên có thể bấm "Gom Đơn Tự Động Toàn Mạng" để ép hệ thống gom toàn bộ kiện đạt chuẩn mà không cần chờ tới chu kỳ quét tiếp theo.
+### 4.2. Kiến Trúc Bộ Lập Lịch Quartz Scheduler Enterprise & Chống Trùng Lặp
+Ban đầu, hệ thống sử dụng `@Scheduled(fixedDelay = 30000)` kết hợp `ShedLock` (Redis). Tuy nhiên, cơ chế này bộc lộ nhiều hạn chế trong môi trường sản xuất quy mô lớn:
+* **Lãng phí tài nguyên (Busy Polling):** Cứ 30 giây server lại phải thức dậy, tranh chấp khóa Redis và truy vấn CSDL chỉ để kiểm tra xem đã đến giờ gom đơn hay chưa (hơn 2.800 lần kiểm tra rỗng mỗi ngày).
+* **Bất đồng bộ cấu hình giữa các Pod:** Khi người dùng đổi chu kỳ chạy trên Web Portal, chỉ Pod nhận request cập nhật bộ nhớ RAM, các Pod khác không nhận biết được thay đổi.
+
+**Giải pháp chuyển đổi toàn diện sang Quartz Enterprise Scheduler:**
+1. **`TripConsolidationJob` (Kế thừa `QuartzJobBean`):** Gắn annotation `@DisallowConcurrentExecution` để ngăn chặn triệt để tình trạng mẻ gom đơn trước chưa hoàn tất mà mẻ sau đã kích hoạt chạy đè, bảo vệ tính toàn vẹn của dữ liệu kho bãi.
+2. **`TripScheduleManager` (Quản trị điều phối động):**
+   - Hỗ trợ đổi tần suất chạy tức thời (`rescheduleJob`) và tạm dừng / kích hoạt (`pauseJob` / `resumeJob`) ngay lúc runtime mà không cần khởi động lại ứng dụng hay can thiệp vào mã nguồn.
+   - Bọc toàn bộ Checked Exception (`SchedulerException`) thành RuntimeException tại tầng Service, giữ cho Controller đạt chuẩn **Thin Controller** tinh gọn.
+
+### 4.3. Luồng Sự Kiện Bất Đồng Bộ Qua Kafka & WebSocket STOMP Realtime
+Sau khi Quartz kích hoạt gom đơn thành công, luồng dữ liệu được đẩy tức thì ra giao diện Web Portal theo mô hình Event-Driven:
+```
+[Quartz Job (routing-service)]
+              │
+              │ 1. Hoàn tất gom kiện lên xe & lưu DB
+              ▼
+   [Kafka Topic: trip-events]
+              │
+              │ 2. Phát tán sự kiện: TripConsolidatedEvent
+              ▼
+  [notification-service (Kafka Consumer)]
+              │
+              │ 3. SimpMessagingTemplate (WebSocket STOMP Broker)
+              ▼
+   [Vue 3 Frontend (Web Portal) - Kênh: /topic/trips/{tripId}]
+   • Thanh tải trọng xe (Load Capacity Bar) tự động cập nhật (< 50ms)
+   • Toast thông báo popup tức thì cho thủ kho không cần tải lại trang (0ms F5)
+```
 
 ---
 
@@ -244,3 +270,10 @@ Bộ lập lịch tự động (`ScheduledConsolidator`) chạy định kỳ qu�
 > * **Rủi ro và giải pháp khắc phục:**
 >   1. **Kích thước Token (Token Size):** Đường dẫn URL quá dài sẽ làm tăng kích thước Header `Authorization` trong mỗi HTTP request. Do đó, chỉ lưu URL ảnh đã được rút gọn của Google, không nhúng dữ liệu Base64 thô của ảnh vào Token.
 >   2. **Dữ liệu lỗi thời (Stale Data):** Khi người dùng đổi ảnh đại diện trên Google, JWT đã phát hành vẫn chứa URL cũ cho tới khi token hết hạn. Giải pháp là cung cấp nút "Làm Mới Hồ Sơ" để người dùng yêu cầu cấp lại Token mới (`refresh token`) khi cần đồng bộ tức thời.
+
+### Câu 4: So sánh việc dùng `@Scheduled + ShedLock` với `Quartz Scheduler` trong bài toán gom đơn tự động và giải pháp chống trùng lặp khi chạy đa node (Clustering)?
+> **Câu trả lời mẫu:**  
+> 1. **Bản chất kiến trúc:** ShedLock không phải là một bộ lập lịch, nó chỉ là một lớp bọc khóa phân tán (Distributed Lock) phía trên `@Scheduled` của Spring. Cốt lõi của `@Scheduled` vẫn là In-Memory Timer chạy trên RAM của từng Pod độc lập, không hỗ trợ đổi lịch linh hoạt lúc runtime và buộc phải duy trì vòng lặp busy-polling tốn CPU. Ngược lại, **Quartz Scheduler** là một Scheduling Engine hoàn chỉnh với State Machine, Thread Pool độc lập (`QuartzSchedulerThread` tách rời worker pool) và khả năng lưu trữ trạng thái bền vững (JDBC JobStore).
+> 2. **Khả năng cấu hình động:** Với Quartz, việc thay đổi chu kỳ gom đơn hoặc bật/tắt Job chỉ cần gọi `scheduler.rescheduleJob()` hoặc `scheduler.pauseJob()`. Hệ thống tự động tính toán lại mốc `nextFireTime` chính xác mà không cần so sánh chuỗi String thời gian thủ công hay khởi động lại ứng dụng.
+> 3. **Cơ chế Clustering & Chống chạy trùng:** Khi triển khai đa Pod (ví dụ trên Kubernetes), Quartz sử dụng cơ chế ghi nhận khóa dòng (Row-level Lock) trong bảng `QRTZ_LOCKS` kết hợp nhịp tim điểm danh (`QRTZ_SCHEDULER_STATE`). Dù có hàng chục Pod cùng chạy, chỉ duy nhất 1 Pod giành được quyền xử lý Trigger tại một thời điểm. Nếu Pod đó gặp sự cố đột tử giữa chừng, tính năng Failover (`requestsRecovery`) của Quartz cho phép Pod khác trong cụm phát hiện và nhận lại công việc dở dang, đảm bảo tính sẵn sàng cao (High Availability) tuyệt đối cho chuỗi cung ứng.
+
