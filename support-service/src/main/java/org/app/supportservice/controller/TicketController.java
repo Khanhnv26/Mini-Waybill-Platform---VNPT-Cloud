@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Locale;
 
 @RestController
 @RequestMapping("/api/tickets")
@@ -36,6 +37,9 @@ public class TicketController {
     public ResponseEntity<List<TicketResponse>> getMyTickets(
             @RequestHeader(value = "X-User-Id", required = false) String headerUserId) {
         Long userId = parseUserId(headerUserId);
+        if (userId == null) {
+            return ResponseEntity.ok(List.of());
+        }
         return ResponseEntity.ok(ticketService.getMyTickets(userId));
     }
 
@@ -50,6 +54,11 @@ public class TicketController {
     @GetMapping("/{id}")
     public ResponseEntity<TicketResponse> getTicketById(@PathVariable Long id) {
         return ResponseEntity.ok(ticketService.getTicketById(id));
+    }
+
+    @GetMapping("/code/{ticketCode}")
+    public ResponseEntity<TicketResponse> getTicketByCode(@PathVariable String ticketCode) {
+        return ResponseEntity.ok(ticketService.getTicketByCode(ticketCode));
     }
 
 
@@ -78,9 +87,31 @@ public class TicketController {
             @RequestHeader(value = "X-User-Id", required = false) String headerUserId,
             @RequestHeader(value = "X-User-Roles", required = false) String headerRoles) {
         Long senderId = parseUserId(headerUserId);
-        String role = (headerRoles != null && headerRoles.contains("ROLE_CS")) ? "ROLE_CS" : "CUSTOMER";
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ticketService.addMessage(id, request, senderId, role));
+                .body(ticketService.addMessage(id, request, senderId != null ? senderId : 0L, resolveSenderRole(headerRoles)));
+    }
+
+    private String resolveSenderRole(String headerRoles) {
+        if (headerRoles == null || headerRoles.isBlank()) {
+            return "CUSTOMER";
+        }
+        boolean staff = false;
+        boolean admin = false;
+        for (String part : headerRoles.split(",")) {
+            String role = part.trim().toUpperCase(Locale.ROOT);
+            if ("ROLE_ADMIN".equals(role) || "ADMIN".equals(role)) {
+                admin = true;
+            } else if ("ROLE_CS".equals(role) || "CS".equals(role)) {
+                staff = true;
+            }
+        }
+        if (admin) {
+            return "ROLE_ADMIN";
+        }
+        if (staff) {
+            return "ROLE_CS";
+        }
+        return "CUSTOMER";
     }
 
     private Long parseUserId(String headerUserId) {
@@ -89,6 +120,6 @@ public class TicketController {
                 return Long.parseLong(headerUserId.trim());
             } catch (NumberFormatException ignored) {}
         }
-        return 1L; // Fallback khi test local hoặc khách vãng lai
+        return null;
     }
 }

@@ -10,6 +10,7 @@ import java.util.Optional;
 @Repository
 public interface SupportTicketRepository extends JpaRepository<SupportTicket, Long> {
     Optional<SupportTicket> findByTicketCode(String ticketCode);
+    boolean existsByTicketCode(String ticketCode);
     List<SupportTicket> findByCreatorUserIdOrderByCreatedAtDesc(Long creatorUserId);
     List<SupportTicket> findByStatusOrderByCreatedAtDesc(String status);
     List<SupportTicket> findByTrackingCodeOrderByCreatedAtDesc(String trackingCode);

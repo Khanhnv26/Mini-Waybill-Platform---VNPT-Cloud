@@ -302,7 +302,7 @@
             });
 
             const activateTab = (tabId) => {
-                if (tabId !== 'tracking') {
+                if (tabId !== 'tracking' && tabId !== 'support') {
                     currentTrackingCode.value = '';
                 }
                 currentTab.value = tabId;
@@ -382,6 +382,13 @@
                     icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z'
                 },
                 { 
+                    id: 'support', 
+                    name: 'Hỗ Trợ & Khiếu Nại', 
+                    component: 'SupportView', 
+                    permission: null, // Khách hàng & CS & Admin đều xem được
+                    icon: 'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z'
+                },
+                { 
                     id: 'profile', 
                     name: 'Hồ Sơ & Thiết Lập', 
                     component: 'ProfileView', 
@@ -448,7 +455,10 @@
             const currentFeatureId = ref('network');
 
             // Xử lý khi khách vãng lai bấm các tiện ích ở sidebar (Hướng B)
-            const handleGuestTabClick = (tab) => {
+            const handleGuestTabClick = (tab, param = null) => {
+                if (tab.id === 'support' && param) {
+                    currentTrackingCode.value = String(param).trim();
+                }
                 if (!isKnownAppPath) {
                     window.location.href = 'index.html#' + tab.id;
                     return;
@@ -483,19 +493,22 @@
                 if (currentTab.value === 'guide') {
                     return 'GuideView';
                 }
-                if (['support'].includes(currentTab.value)) {
-                    return 'UnderDevelopmentView';
+                if (currentTab.value === 'support') {
+                    return 'SupportView';
                 }
                 const found = allNavigationTabs.find(t => t.id === currentTab.value);
                 return found ? found.component : 'TrackingView';
             });
 
-            const switchTab = (tabId) => {
+            const switchTab = (tabId, param = null) => {
+                if (tabId === 'support' && param) {
+                    currentTrackingCode.value = String(param).trim();
+                }
                 const targetTab = allNavigationTabs.find(t => t.id === tabId);
                 if (!targetTab) {
                     const guestTab = publicGuestTabs.find(t => t.id === tabId);
                     if (guestTab) {
-                        handleGuestTabClick(guestTab);
+                        handleGuestTabClick(guestTab, param);
                     }
                     return;
                 }
@@ -825,6 +838,15 @@
                     }
                 }
 
+                try {
+                    const pendingSupportCode = sessionStorage.getItem('supportTrackingCode');
+                    if (pendingSupportCode && (currentTab.value === 'support' || hash === 'support')) {
+                        currentTrackingCode.value = pendingSupportCode;
+                        currentTab.value = 'support';
+                        sessionStorage.removeItem('supportTrackingCode');
+                    }
+                } catch (e) {}
+
                 const pendingTariff = sessionStorage.getItem('pendingTariffShipment');
                 if (pendingTariff && currentUser.value) {
                     try {
@@ -907,10 +929,17 @@
                 };
                 window.addEventListener('navigate-to-tracking', handleNavigateToTracking);
 
+                const handleNavigateToSupport = (e) => {
+                    const code = e.detail && e.detail.trackingCode ? e.detail.trackingCode : null;
+                    switchTab('support', code);
+                };
+                window.addEventListener('navigate-to-support', handleNavigateToSupport);
+
                 onUnmounted(() => {
                     document.removeEventListener('click', handleDocumentClick);
                     window.removeEventListener('system-notification-created', handleSystemNotificationEvent);
                     window.removeEventListener('navigate-to-tracking', handleNavigateToTracking);
+                    window.removeEventListener('navigate-to-support', handleNavigateToSupport);
                     if (pollTimer) clearInterval(pollTimer);
                     if (bellSubscription) {
                         try { bellSubscription.unsubscribe(); } catch (e) {}
@@ -994,6 +1023,7 @@
     if (window.TariffCalculatorView) app.component('TariffCalculatorView', window.TariffCalculatorView);
     if (window.NetworkView) app.component('NetworkView', window.NetworkView);
     if (window.GuideView) app.component('GuideView', window.GuideView);
+    if (window.SupportView) app.component('SupportView', window.SupportView);
     if (window.UnderDevelopmentView) app.component('UnderDevelopmentView', window.UnderDevelopmentView);
     if (window.ErrorView) app.component('ErrorView', window.ErrorView);
     if (window.ProfileView) app.component('ProfileView', window.ProfileView);

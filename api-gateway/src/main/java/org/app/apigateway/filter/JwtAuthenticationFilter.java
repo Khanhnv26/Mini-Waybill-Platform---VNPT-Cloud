@@ -48,7 +48,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String authHeader = request.getHeader("Authorization");
 
         if(authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
+            filterChain.doFilter(blankIdentityHeaders(request), response);
             return;
         }
 
@@ -118,11 +118,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             log.error("Lỗi xác thực JWT tại Gateway: {}", e.getMessage());
 
             SecurityContextHolder.clearContext();
-            filterChain.doFilter(request, response);
+            filterChain.doFilter(blankIdentityHeaders(request), response);
 
         }
 
 
+    }
+
+    /**
+     * Client không được tự khai báo danh tính. Không có JWT hợp lệ thì các header này phải rỗng.
+     */
+    private HttpServletRequest blankIdentityHeaders(HttpServletRequest request) {
+        HeaderMapRequestWrapper wrapper = new HeaderMapRequestWrapper(request);
+        wrapper.addHeader("X-User-Id", "");
+        wrapper.addHeader("X-User-Email", "");
+        wrapper.addHeader("X-User-Roles", "");
+        wrapper.addHeader("X-User-Permissions", "");
+        wrapper.addHeader("X-User-Location-Code", "");
+        return wrapper;
     }
 
 

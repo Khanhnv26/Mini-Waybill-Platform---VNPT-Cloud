@@ -17,7 +17,7 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // 1. Xử lý lỗi không tìm thấy tài nguyên (404 Not Found)
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleResourceNotFound(ResourceNotFoundException ex) {
         log.warn("[SUPPORT-SERVICE] Resource not found: {}", ex.getMessage());
@@ -28,7 +28,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
     }
 
-    // 2. Xử lý lỗi Validate đầu vào Form (@Valid - 400 Bad Request)
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationException(MethodArgumentNotValidException ex) {
         Map<String, Object> response = new HashMap<>();
@@ -45,7 +45,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 3. Xử lý lỗi trùng lặp dữ liệu / Constraint (409 Conflict)
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
         log.warn("[SUPPORT-SERVICE] Data integrity violation: {}", ex.getMessage());
@@ -56,7 +56,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
 
-    // 4. Xử lý lỗi nghiệp vụ BadRequestException (400 Bad Request)
+
     @ExceptionHandler(BadRequestException.class)
     public ResponseEntity<Map<String, Object>> handleBadRequest(BadRequestException ex) {
         log.warn("[SUPPORT-SERVICE] Bad request: {}", ex.getMessage());
@@ -67,7 +67,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
-    // 5. Xử lý các lỗi RuntimeException khác (400 Bad Request)
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex) {
         log.error("[SUPPORT-SERVICE] Runtime exception: {}", ex.getMessage(), ex);
@@ -78,7 +78,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
-    // 6. Xử lý các lỗi hệ thống không lường trước (500 Internal Server Error)
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGlobalException(Exception ex) {
         log.error("[SUPPORT-SERVICE] Unexpected error: {}", ex.getMessage(), ex);

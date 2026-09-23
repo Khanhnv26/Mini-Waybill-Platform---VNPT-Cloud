@@ -518,7 +518,7 @@
                         VNPT Post cam kết bồi thường <strong>100% giá trị khai giá</strong> đối với sự cố tổn thất trong quá trình vận chuyển.<br><br>
                         <strong>Các bước xử lý nhanh:</strong><br>
                         1. Nhập mã bưu phẩm cần tra soát vào ô chat này (ví dụ: <code>WB...</code>).<br>
-                        2. Bấm nút <strong>"⚠️ Khiếu nại"</strong> trên thẻ đơn hàng để lập phiếu tiếp nhận.<br>
+                        2. Bấm nút <strong>"⚠️ Khiếu nại"</strong> trên thẻ đơn hàng để mở form gửi phiếu.<br>
                         3. Nhân viên chăm sóc khách hàng bưu cục sẽ liên hệ hỗ trợ trong vòng <strong>2 giờ làm việc</strong>.
                     `);
                     return;
@@ -762,13 +762,21 @@
                 }
             },
 
-            // Khởi tạo khiếu nại
+            // Mở form khiếu nại thật, chưa tạo phiếu cho đến khi khách gửi
             initClaimFor(trackingCode) {
-                if (window.Utils && typeof window.Utils.showToast === 'function') {
-                    window.Utils.showToast('Ghi Nhận Khiếu Nại', `Đã mở hồ sơ khiếu nại cho bưu phẩm ${trackingCode}. Nhân viên CSKH sẽ liên hệ trong 2h!`, 'warning');
-                } else {
-                    alert(`Đã ghi nhận yêu cầu khiếu nại cho bưu phẩm ${trackingCode}!`);
+                const code = (trackingCode || '').trim();
+                this.closeChat();
+                const path = window.location.pathname || '';
+                const onApp = path.includes('index.html') || path === '/' || path.endsWith('/');
+                if (onApp) {
+                    window.location.hash = 'support';
+                    window.dispatchEvent(new CustomEvent('navigate-to-support', { detail: { trackingCode: code } }));
+                    return;
                 }
+                try {
+                    if (code) sessionStorage.setItem('supportTrackingCode', code);
+                } catch (e) {}
+                window.location.href = 'index.html#support';
             },
 
             triggerAttachmentAlert() {

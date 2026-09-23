@@ -13,6 +13,7 @@ public interface TicketService {
     List<TicketResponse> getMyTickets(Long userId);
     List<TicketResponse> getAllTickets(String status, String trackingCode);
     TicketResponse getTicketById(Long id);
+    TicketResponse getTicketByCode(String ticketCode);
     TicketResponse assignTicket(Long id, Long csUserId, String csName);
     TicketResponse resolveTicket(Long id, ResolveTicketRequest req);
     MessageResponse addMessage(Long id, AddMessageRequest req, Long senderId, String senderRole);

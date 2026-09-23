@@ -8,6 +8,7 @@ import org.app.supportservice.dto.response.MessageResponse;
 import org.app.supportservice.dto.response.TicketResponse;
 import org.app.supportservice.entity.SupportTicket;
 import org.app.supportservice.entity.TicketMessage;
+import org.app.supportservice.exception.BadRequestException;
 import org.app.supportservice.exception.ResourceNotFoundException;
 import org.app.supportservice.repository.SupportTicketRepository;
 import org.app.supportservice.repository.TicketMessageRepository;
@@ -19,7 +20,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Random;
+import java.util.Locale;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,10 +34,7 @@ public class TicketServiceImpl implements TicketService {
     @Override
     @Transactional
     public TicketResponse createTicket(CreateTicketRequest req, Long userId, String userEmail) {
-        //Sinh mã Ticket duy nhất: TKT-YYYYMMDD-XXXX
-        String dateStr = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
-        int randomNum = 1000 + new Random().nextInt(9000);
-        String ticketCode = "TKT-" + dateStr + "-" + randomNum;
+        String ticketCode = nextTicketCode();
 
         SupportTicket ticket = SupportTicket.builder()
                 .ticketCode(ticketCode)
@@ -105,8 +104,19 @@ public class TicketServiceImpl implements TicketService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public TicketResponse getTicketByCode(String ticketCode) {
+        SupportTicket ticket = ticketRepository.findByTicketCode(ticketCode.trim().toUpperCase())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ticket với mã: " + ticketCode));
+        return TicketResponse.fromEntity(ticket);
+    }
+
+    @Override
     @Transactional
     public TicketResponse assignTicket(Long id, Long csUserId, String csName) {
+        if (csUserId == null) {
+            throw new BadRequestException("Không xác định được nhân viên tiếp nhận");
+        }
         SupportTicket ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ticket với ID: " + id));
         ticket.setAssignedToUserId(csUserId);
@@ -137,6 +147,11 @@ public class TicketServiceImpl implements TicketService {
         SupportTicket ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ticket với ID: " + id));
 
+        String status = ticket.getStatus() == null ? "" : ticket.getStatus().trim().toUpperCase(Locale.ROOT);
+        if ("RESOLVED".equals(status) || "CLOSED".equals(status)) {
+            throw new BadRequestException("Phiếu đã được giải quyết, không thể gửi thêm tin nhắn");
+        }
+
         TicketMessage msg = TicketMessage.builder()
                 .ticket(ticket)
                 .senderId(senderId != null ? senderId : 0L)
@@ -150,5 +165,17 @@ public class TicketServiceImpl implements TicketService {
 
         TicketMessage saved = messageRepository.save(msg);
         return MessageResponse.fromEntity(saved);
+    }
+
+    private String nextTicketCode() {
+        String dateStr = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+        for (int attempt = 0; attempt < 5; attempt++) {
+            int randomNum = 1000 + ThreadLocalRandom.current().nextInt(9000);
+            String candidate = "TKT-" + dateStr + "-" + randomNum;
+            if (!ticketRepository.existsByTicketCode(candidate)) {
+                return candidate;
+            }
+        }
+        throw new BadRequestException("Không sinh được mã phiếu duy nhất. Vui lòng thử lại");
     }
 }
