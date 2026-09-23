@@ -1,9 +1,8 @@
 package org.app.routingservice.service;
 
+import org.app.routingservice.dto.trip.EligibleAssignmentResponse;
 import org.app.routingservice.dto.trip.TripDetailResponse;
-import org.app.routingservice.entity.Trip;
-import org.app.routingservice.entity.TripManifest;
-import org.app.routingservice.entity.TripStop;
+import org.app.routingservice.entity.*;
 import org.app.routingservice.repository.*;
 import org.app.routingservice.service.TripService;
 import org.app.routingservice.service.impl.TripServiceImpl;
@@ -42,6 +41,9 @@ class TripServiceImplTest {
 
     @Mock
     private RoutingAssignmentRepository routingAssignmentRepository;
+
+    @Mock
+    private WarehouseInventoryRepository warehouseInventoryRepository;
 
     @Mock
     private KafkaTemplate<String, Object> kafkaTemplate;
@@ -223,5 +225,63 @@ class TripServiceImplTest {
         InOrder order = inOrder(self);
         order.verify(self).autoConsolidate(1L, null);
         order.verify(self).autoConsolidate(2L, null);
+    }
+
+    @Test
+    @DisplayName("Thứ tự ưu tiên nạp kiện hàng: EXPRESS (0) -> STANDARD (1) -> ECO (2)")
+    void getEligibleShipmentsForTrip_SortsByServicePriority() {
+        Trip trip = createMockTrip("SCHEDULED");
+        trip.setTripType(TripType.LINEHAUL);
+        List<TripStop> stops = createMockStops(trip);
+        when(tripRepository.findById(1L)).thenReturn(Optional.of(trip));
+        when(tripStopRepository.findByTripIdOrderByStopOrder(1L)).thenReturn(stops);
+
+        RoutingAssignment eco = RoutingAssignment.builder()
+                .trackingCode("WB_ECO")
+                .status("AT_SOURCE_HUB")
+                .sourceHub("HUB-HN-01")
+                .destinationHub("HUB-HCM-01")
+                .serviceType("ECO")
+                .weight(2.0)
+                .assignedAt(LocalDateTime.now().minusHours(5))
+                .build();
+
+        RoutingAssignment standard = RoutingAssignment.builder()
+                .trackingCode("WB_STD")
+                .status("AT_SOURCE_HUB")
+                .sourceHub("HUB-HN-01")
+                .destinationHub("HUB-HCM-01")
+                .serviceType("STANDARD")
+                .weight(2.0)
+                .assignedAt(LocalDateTime.now().minusHours(2))
+                .build();
+
+        RoutingAssignment express = RoutingAssignment.builder()
+                .trackingCode("WB_EXP")
+                .status("AT_SOURCE_HUB")
+                .sourceHub("HUB-HN-01")
+                .destinationHub("HUB-HCM-01")
+                .serviceType("EXPRESS")
+                .weight(2.0)
+                .assignedAt(LocalDateTime.now().minusHours(1))
+                .build();
+
+        when(routingAssignmentRepository.findByStatus("ASSIGNED_ORIGIN_PO")).thenReturn(List.of());
+        when(routingAssignmentRepository.findByStatus("ASSIGNED")).thenReturn(List.of());
+        when(routingAssignmentRepository.findByStatus("AT_SOURCE_HUB")).thenReturn(List.of(eco, standard, express));
+        when(routingAssignmentRepository.findByStatus("ARRIVED_DEST_HUB")).thenReturn(List.of());
+
+        WarehouseInventory invStored = WarehouseInventory.builder()
+                .locationCode("HUB-HN-01")
+                .inventoryStatus("STORED")
+                .build();
+        when(warehouseInventoryRepository.findByTrackingCode(anyString())).thenReturn(Optional.of(invStored));
+
+        List<EligibleAssignmentResponse> result = tripService.getEligibleAssignmentsForTrip(1L);
+
+        assertEquals(3, result.size());
+        assertEquals("WB_EXP", result.get(0).getTrackingCode());
+        assertEquals("WB_STD", result.get(1).getTrackingCode());
+        assertEquals("WB_ECO", result.get(2).getTrackingCode());
     }
 }
