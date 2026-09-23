@@ -19,6 +19,8 @@
 [![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-Smart%20Monorepo%20CI%2FCD-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/features/actions)
 [![Swagger / OpenAPI](https://img.shields.io/badge/OpenAPI-Springdoc%203.1.0-85EA2D?style=for-the-badge&logo=openapiinitiative&logoColor=black)](https://springdoc.org/)
 [![Quartz Scheduler](https://img.shields.io/badge/Quartz-Enterprise%20Scheduler-007ACC?style=for-the-badge&logo=spring&logoColor=white)](https://www.quartz-scheduler.org/)
+[![Spring AI](https://img.shields.io/badge/Spring%20AI-Tool%20Calling%20Agent-6DB33F?style=for-the-badge&logo=spring&logoColor=white)](https://spring.io/projects/spring-ai)
+[![Ollama](https://img.shields.io/badge/Ollama-Local%20LLM%20Qwen%202.5-black?style=for-the-badge&logo=ollama&logoColor=white)](https://ollama.com/)
 
 ---
 
@@ -72,19 +74,31 @@ Khác với các ứng dụng giao hàng nội thành đơn chặng, hệ thốn
 * **WebSocket STOMP Broker (< 50ms):** Đẩy thông báo sự kiện bưu gửi thời gian thực tới chuông Notification Center và Toast pop-up trên Web Portal, giải phóng 100% tải HTTP Polling dư thừa từ Client.
 * *Tài liệu chi tiết:* Xem chi tiết cơ chế tại [Cẩm nang 07 - Telegram Bot & Realtime Notifications](docs/07-telegram-bot-and-realtime-notifications.md).
 
-### 2.7. Quản Trị Đội Ngũ Bưu Tá (shipper-service), Google Identity & Chống Quét Đúp (Idempotency)
-* **Phân tách vi dịch vụ Bưu tá độc lập (`shipper-service`):** Định nghĩa bưu tá là tài nguyên vận hành giao vận theo Domain-Driven Design (DDD), gắn với ca làm việc thực địa (`ACTIVE`/`INACTIVE`), địa bàn bưu cục (`stationCode`) và kênh nhận tin (`telegram_chat_id`), độc lập hoàn toàn với tài khoản người dùng (`auth-service`) và khách hàng B2B (`customer-service`).
+### 2.7. Quản Trị Đội Ngũ Bưu Tá, Google Identity & Chống Quét Đúp (Idempotency)
+* **Phân tách nghiệp vụ quản lý bưu tá độc lập:** Định nghĩa bưu tá là tài nguyên vận hành giao vận theo Domain-Driven Design (DDD), gắn với ca làm việc thực địa (`ACTIVE`/`INACTIVE`), địa bàn bưu cục (`stationCode`) và kênh nhận tin (`telegram_chat_id`), độc lập hoàn toàn với tài khoản người dùng và khách hàng B2B.
 * **Xác thực đa nguồn Google OAuth2 & Avatar Stateless JWT:** Hỗ trợ xác thực Google ID Token qua Google API Client, nhúng trực tiếp claim `avatarUrl` vào JWT Payload giúp giao diện hiển thị ảnh đại diện với độ trễ 0ms mà không phát sinh thêm HTTP roundtrip.
 * **Mô hình Idempotency & OperationId trong Logistics:** Xử lý triệt để bài toán công nhân bóp cò máy quét barcode 2 lần liên tiếp (Double-Scanning) hoặc mạng 4G chập chờn gây gửi đúp request, đảm bảo 100% tính toàn vẹn trạng thái kiện hàng và bảng kê COD.
 * **Bộ lập lịch gom đơn tự động (Quartz Enterprise Scheduler) & Mốc Cut-off Buffer:** Ứng dụng Quartz Scheduler (`TripConsolidationJob` & `TripScheduleManager`) thay thế hoàn toàn cơ chế Polling cũ, tự động hóa gom kiện đạt ngưỡng tải trọng ($80\%$) và đóng sổ chuyến xe trước giờ xuất bến 30 phút. Tích hợp Kafka Event Streaming (`TripConsolidatedEvent`) và WebSocket STOMP cập nhật tức thì lên Web Portal (< 50ms).
-* *Tài liệu chi tiết:* Xem chi tiết kiến trúc tại [Cẩm nang 08 - Shipper Service, Google Identity & Idempotency](docs/08-shipper-service-identity-and-idempotency.md).
+* *Tài liệu chi tiết:* Xem chi tiết kiến trúc tại [Cẩm nang 08 - Quản Trị Bưu Tá, Google Identity & Idempotency](docs/08-shipper-service-identity-and-idempotency.md).
 
 
-### 2.8. Vi Dịch Vụ Báo Cáo Phân Tích (report-service) & Xuất Excel 2 Sheet Chuẩn Kiểm Toán
-* **Phân tách vi dịch vụ báo cáo độc lập (`report-service` - Port 8091):** Ứng dụng mô hình CQRS (Command Query Responsibility Segregation). Thay vì chạy các query aggregate nặng (`SUM`, `COUNT`, `GROUP BY`) làm chậm CSDL giao dịch cốt lõi `shipment_db`, `report-service` lưu trữ snapshot tối ưu (`report_db`) và nhận dữ liệu qua Kafka streaming.
+### 2.8. Phân Tích Đối Soát Dòng Tiền & Xuất Báo Cáo Kiểm Toán (CQRS & Financial Reports)
+* **Tách biệt phân hệ báo cáo độc lập:** Ứng dụng mô hình CQRS (Command Query Responsibility Segregation). Thay vì chạy các query aggregate nặng (`SUM`, `COUNT`, `GROUP BY`) làm chậm CSDL giao dịch cốt lõi, hệ thống lưu trữ snapshot phân tích tối ưu và đồng bộ dữ liệu ngầm qua Kafka event streaming.
 * **Xuất báo cáo tài chính Excel 2 Sheet chuẩn kiểm toán:** Sử dụng Apache POI sinh file `.xlsx` chuyên nghiệp: Sheet 1 tổng hợp KPI tài chính (doanh thu cước, COD đã vào két, COD bưu tá đang giữ, tỷ lệ giao thành công); Sheet 2 là bảng kê chi tiết toàn bộ vận đơn phục vụ đối soát và lưu trữ thuế.
 * **Tương tác vi mô 60fps (Micro-Interactions & Transitions):** Tích hợp hiệu ứng chuyển động mượt mà, phản hồi visual tức thời khi nộp quỹ / duyệt quỹ, thông báo realtime không cần reload trang.
 * *Tài liệu chi tiết:* Xem chi tiết kiến trúc CQRS và xuất báo cáo tại [Cẩm nang 09 - Quyết Toán COD & Báo Cáo Đối Soát Dòng Tiền](docs/09-cod-settlement-and-financial-reconciliation.md).
+
+### 2.9. Động Cơ Ước Tính Cước Phí Đa Vùng & Ma Trận Cước Bưu Chính (Pricing Engine)
+* **Khối lượng quy đổi thể tích (Volumetric Weight):** Áp dụng chuẩn quốc tế IATA và bưu chính đường bộ: $(L \times W \times H) / 5000 \times 1000$ (gram). Khối lượng tính cước là $\max(W_{\text{actual}}, W_{\text{volumetric}})$, triệt tiêu rủi ro hàng cồng kềnh chiếm chỗ thùng xe tải.
+* **Phân vùng cước địa lý & 3 gói cước phân tầng:** Phân định rõ ràng giữa Nội tỉnh (`INTRA_PROVINCE`) và Liên miền (`INTER_REGION`); cung cấp 3 phân tầng dịch vụ: `ECO` (VNPT Tiết Kiệm), `STANDARD` (VNPT Tiêu Chuẩn), `EXPRESS` (VNPT Hỏa Tốc) với cước cơ bản và nấc lũy tiến mỗi kg tiếp theo.
+* **Cơ cấu phụ phí tự động:** Tự động tính phụ phí nhiên liệu xăng dầu ($6\%$), phí thu hộ COD ($1\%$, min 10.000 VNĐ) và phí bảo hiểm khai giá ($0.5\%$).
+* *Tài liệu chi tiết:* Xem chi tiết công thức và boilerplate bảng cước động tại [Cẩm nang 13 - Động Cơ Định Giá & Ma Trận Cước Bưu Chính](docs/13-pricing-engine-and-tariff-matrix.md).
+
+### 2.10. Trợ Lý Ảo GenAI & Quản Trị Khiếu Nại Toàn Trình (Spring AI & Autonomous Agent)
+* **Kiến trúc On-Premise LLM với Ollama (`qwen2.5:7b`):** Vận hành mô hình ngôn ngữ lớn cục bộ trên máy chủ nội bộ thông qua chuẩn `Spring AI ChatClient`. Bảo mật dữ liệu cá nhân (PII) người gửi/nhận tuyệt đối 100%, chi phí 0 VNĐ và không bị phụ thuộc vào Cloud API rate limit.
+* **Cơ chế Autonomous Tool Calling (Function Calling):** Tự động nhận diện ý định tự nhiên của khách hàng để gọi các công cụ nội bộ (`PostalAiTools`): tra cứu hành trình vận đơn sống (`trackShipment`), tính cước phí dịch vụ (`calculateShippingTariff`) và tra cứu tiến độ khiếu nại (`lookUpTicketStatus`).
+* **Quản trị khiếu nại toàn trình (Dispute & Ticketing):** Tiếp nhận và quản lý vòng đời khiếu nại bưu gửi (giao chậm, hư hỏng, mất mát, sai lệch COD) qua quy trình 4 bước: `SUBMITTED` -> `INVESTIGATING` -> `RESOLVED` / `REJECTED`, tích hợp CSDL độc lập quản lý bằng Flyway.
+* *Tài liệu chi tiết:* Xem chi tiết kiến trúc Spring AI Tool Calling và System Prompting tại [Cẩm nang 14 - Trợ Lý Ảo GenAI & Cơ Chế Spring AI Tool Calling](docs/14-spring-ai-agent-and-support-ticketing.md).
 
 ---
 
@@ -124,6 +138,12 @@ flowchart TB
         AuditSvc["audit-service (8086)\n• Nhật ký kiểm toán toàn mạng"]
         ShipperSvc["shipper-service (8089)\n• Quản lý đội ngũ bưu tá\n• Phân trạm & liên kết Telegram"]
         ReportSvc["report-service (8091)\n• Phân tích đối soát COD & KPI\n• Xuất báo cáo tài chính Excel"]
+        PricingSvc["pricing-service (8092)\n• Động cơ ước tính cước phí\n• Ma trận 3 gói cước & phụ phí"]
+        SupportSvc["support-service (8093)\n• Tiếp nhận khiếu nại toàn trình\n• Trợ lý ảo GenAI (Spring AI)"]
+    end
+
+    subgraph AIEngine [" Local AI & Intelligence Layer "]
+        OllamaLocal[("Ollama Local LLM (Port 11434)\n• Model: qwen2.5:7b\n• OpenAI-compatible API\n• Autonomous Tool Calling")]
     end
 
     subgraph EventAndCache [" Message Broker HA & Caching Layer "]
@@ -145,13 +165,14 @@ flowchart TB
         DB_Audit[(audit_db - 1433)]
         DB_Shipper[(shipper_db - 1433)]
         DB_Report[(report_db - 1433)]
+        DB_Support[(support_db - 1433)]
     end
 
     UI & Scanner -->|"HTTP Port 80"| Nginx
     Nginx -->|"Upstream /api/"| GW1 & GW2
     Nginx -->|"Upstream /"| UI
     GW1 & GW2 --> Eureka1 & Eureka2
-    GW1 & GW2 --> AuthSvc & CustSvc & ShipSvc & RouteSvc & TrackSvc & NotiSvc & AuditSvc & ShipperSvc & ReportSvc
+    GW1 & GW2 --> AuthSvc & CustSvc & ShipSvc & RouteSvc & TrackSvc & NotiSvc & AuditSvc & ShipperSvc & ReportSvc & PricingSvc & SupportSvc
 
     TrackSvc -->|"Ghi: Primary DB"| DB_Track_Primary
     TrackSvc -->|"Đọc: Replica DB"| DB_Track_Replica
@@ -169,6 +190,9 @@ flowchart TB
     KafkaCluster -.-> KafkaUI
 
     NotiSvc -.->|"Feign: /internal/link-telegram"| ShipperSvc
+    ShipSvc -.->|"Feign: /api/pricing/calculate"| PricingSvc
+    SupportSvc -.->|"ChatClient (HTTP 11434)"| OllamaLocal
+    SupportSvc -.->|"Feign Tools: cước & vận đơn"| PricingSvc & TrackSvc & ShipSvc
 
     AuthSvc --> DB_Auth
     CustSvc --> DB_Cust
@@ -178,6 +202,7 @@ flowchart TB
     AuditSvc --> DB_Audit
     ShipperSvc --> DB_Shipper
     ReportSvc --> DB_Report
+    SupportSvc --> DB_Support
 ```
 
 ---
@@ -200,6 +225,8 @@ Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, m�
 | **10** | [**Container Hóa Toàn Trình & Điều Phối HA (Docker & Compose)**](docs/10-docker-containerization-and-ha-orchestration.md) | Quy trình đóng gói Dockerfile chuẩn Java 21 / Node.js, quản trị Registry Docker Hub, xử lý bẫy mạng `SERVER_PORT` & Docker DNS, và **Bộ Boilerplate độc lập 23 Containers** (Kafka KRaft, Redis, SQL Server Volume, Eureka Peer, Nginx Failover). |
 | **11** | [**CI/CD Tự Động Hóa Với GitHub Actions (Microservices Monorepo)**](docs/11-cicd-github-actions-automation.md) | Lý thuyết nền tảng CI/CD & DevOps, kiến trúc 3-Stage Pipeline, bộ lọc thay đổi thông minh (`paths-filter`), ma trận build song song (`matrix`), kỹ thuật cách ly lỗi `fail-fast: false`, gắn nhãn Git SHA bất biến và Bot Telegram cảnh báo thời gian thực. |
 | **12** | [**Điều Phối Toàn Trình Trên Kubernetes (K8s Architecture & Troubleshooting)**](docs/12-kubernetes-orchestration-and-deployment.md) | Kiến trúc cụm K8s 16 Pods (`namespace: waybill`), lưu trữ bền vững SQL Server PVC 5GB, phân biệt ClusterIP vs LoadBalancer, giải quyết 4 bẫy kỹ thuật kinh điển (Eureka IP discovery, Gateway LoadBalancer, Redis host, Kafka consumer bootstrap) và sổ tay kubectl thực chiến. |
+| **13** | [**Động Cơ Định Giá & Ma Trận Cước Bưu Chính**](docs/13-pricing-engine-and-tariff-matrix.md) | Công thức quy đổi khối lượng thể tích ($L \times W \times H / 5000$), phân vùng cước Nội tỉnh vs Liên miền, 3 gói phân tầng `ECO`, `STANDARD`, `EXPRESS`, cơ cấu phụ phí (Xăng dầu 6%, COD 1%, Bảo hiểm 0.5%) và Boilerplate Bảng cước động lưu CSDL. |
+| **14** | [**Trợ Lý Ảo GenAI & Cơ Chế Spring AI Tool Calling**](docs/14-spring-ai-agent-and-support-ticketing.md) | Kiến trúc On-Premise LLM với Ollama (`qwen2.5:7b`), cơ chế Spring AI `ChatClient` Function Calling tự động gọi Feign Client tra cứu vận đơn & tính cước, kỹ thuật Prompt Engineering chống ảo giác và xử lý dự phòng khi AI quá tải. |
 
 ---
 
@@ -261,6 +288,7 @@ cd notification-service && ./mvnw spring-boot:run
 cd audit-service && ./mvnw spring-boot:run
 cd shipper-service && ./mvnw spring-boot:run
 cd report-service && ./mvnw spring-boot:run
+cd pricing-service && ./mvnw spring-boot:run
 cd support-service && ./mvnw spring-boot:run
 ```
 
@@ -305,7 +333,9 @@ mini-waybill-platform/
 │   ├── 09-cod-settlement-and-financial-reconciliation.md
 │   ├── 10-docker-containerization-and-ha-orchestration.md
 │   ├── 11-cicd-github-actions-automation.md
-│   └── 12-kubernetes-orchestration-and-deployment.md
+│   ├── 12-kubernetes-orchestration-and-deployment.md
+│   ├── 13-pricing-engine-and-tariff-matrix.md
+│   └── 14-spring-ai-agent-and-support-ticketing.md
 │
 ├── k8s/                       # Manifests Kubernetes (00-namespace, 01-infrastructure, 02-services)
 ├── scripts/                   # Script tự động hóa đồng bộ DB (sync-db-to-k8s.ps1)
@@ -321,7 +351,8 @@ mini-waybill-platform/
 ├── audit-service/             # Nhật ký kiểm toán toàn mạng (Port 8086, audit_db)
 ├── shipper-service/           # Quản lý bưu tá, phân trạm & liên kết Telegram (Port 8089, shipper_db)
 ├── report-service/            # Phân tích đối soát COD, KPI tài chính & xuất Excel (Port 8091, report_db)
-├── support-service/           # Khiếu nại và hỗ trợ bưu gửi (Port 8093, support_db)
+├── pricing-service/           # Động cơ định giá cước phí, ma trận vùng & phụ phí (Port 8092)
+├── support-service/           # Khiếu nại, hỗ trợ bưu gửi & Trợ lý ảo Spring AI (Port 8093, support_db)
 ├── shared-events/             # DTO Event Contracts dùng chung giữa các microservice
 ├── database/                  # Script khởi tạo 5 Siêu Hub và ma trận RBAC
 └── frontend/                  # Giao diện Web SPA (Vue 3 + Tailwind CSS + Leaflet Maps)

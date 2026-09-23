@@ -286,8 +286,8 @@ flowchart TD
     NodeA -->|Publish Event JSON| RedisChannel
     RedisChannel -->|Broadcast Subscriber| NodeA
     RedisChannel -->|Broadcast Subscriber| NodeB
-    NodeA -->|STOMP Push /topic/tracking/{code}| Client1
-    NodeB -->|STOMP Push /topic/tracking/{code}| Client2
+    NodeA -->|"STOMP Push /topic/tracking/:orderCode"| Client1
+    NodeB -->|"STOMP Push /topic/tracking/:orderCode"| Client2
 ```
 
 ### 5.3. Giải Pháp: Redis Pub/Sub Message Bridge (`RedisPubSubConfig.java`)
