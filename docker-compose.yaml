@@ -405,7 +405,25 @@ services:
       - kafka-3
     restart: always
 
-
+  # support_db phải được tạo sẵn trên SQL Server. Flyway chỉ tạo bảng, không tạo database.
+  support-service:
+    image: khanhnv26/support-service:1.0
+    container_name: waybill-support-service
+    ports:
+      - "8093:8093"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=support_db;encrypt=true;trustServerCertificate=true;
+      - SPRING_DATASOURCE_USERNAME=sa
+      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - GEMINI_API_KEY=${GEMINI_API_KEY:?GEMINI_API_KEY is required}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.6-flash}
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
+    depends_on:
+      - sqlserver-replica
+      - eureka-peer1
+      - eureka-peer2
+    restart: always
 
 
 

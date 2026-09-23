@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: support-service
+  namespace: waybill
+  labels:
+    app: support-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: support-service
+  template:
+    metadata:
+      labels:
+        app: support-service
+    spec:
+      containers:
+        - name: support-service
+          image: khanhnv26/support-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8093
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=support_db;encrypt=true;trustServerCertificate=true;"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "sa"
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: "Replica@123456"
+            - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+              value: "validate"
+            - name: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
+              value: "http://eureka-peer1:8761/eureka/"
+            - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS
+              value: "true"
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: support-ai
+                  key: GEMINI_API_KEY
+            - name: GEMINI_MODEL
+              value: "gemini-3.6-flash"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: support-service
+  namespace: waybill
+spec:
+  type: ClusterIP
+  selector:
+    app: support-service
+  ports:
+    - port: 8093
+      targetPort: 8093

@@ -238,7 +238,7 @@ docker compose up -d
 * **SQL Server Replica:** Port `2433` (`sa` / `Replica@123456`).
 
 #### Bước 2: Chuẩn bị CSDL Primary (SQL Server Port 1433)
-1. Tạo 9 database: `auth_db`, `customer_db`, `shipment_db`, `routing_db`, `tracking_db`, `notification_db`, `audit_db`, `shipper_db`, `report_db`.
+1. Tạo 10 database: `auth_db`, `customer_db`, `shipment_db`, `routing_db`, `tracking_db`, `notification_db`, `audit_db`, `shipper_db`, `report_db`, `support_db`. SQL Server không tự tạo database từ chuỗi JDBC. `support-service` dùng Flyway để tạo bảng trong `support_db` đã có sẵn.
 2. Chạy 2 script seed dữ liệu nền trong thư mục `database/`:
    * [`database/HubSeed.sql`](database/HubSeed.sql) (Nạp 5 Siêu Hub vào `routing_db`).
    * [`database/seed_rbac_data.sql`](database/seed_rbac_data.sql) (Nạp vai trò, quyền hạn vào `auth_db`).
@@ -261,6 +261,7 @@ cd notification-service && ./mvnw spring-boot:run
 cd audit-service && ./mvnw spring-boot:run
 cd shipper-service && ./mvnw spring-boot:run
 cd report-service && ./mvnw spring-boot:run
+cd support-service && ./mvnw spring-boot:run
 ```
 
 #### Bước 4: Khởi chạy Frontend Portal
@@ -320,6 +321,7 @@ mini-waybill-platform/
 ├── audit-service/             # Nhật ký kiểm toán toàn mạng (Port 8086, audit_db)
 ├── shipper-service/           # Quản lý bưu tá, phân trạm & liên kết Telegram (Port 8089, shipper_db)
 ├── report-service/            # Phân tích đối soát COD, KPI tài chính & xuất Excel (Port 8091, report_db)
+├── support-service/           # Khiếu nại và hỗ trợ bưu gửi (Port 8093, support_db)
 ├── shared-events/             # DTO Event Contracts dùng chung giữa các microservice
 ├── database/                  # Script khởi tạo 5 Siêu Hub và ma trận RBAC
 └── frontend/                  # Giao diện Web SPA (Vue 3 + Tailwind CSS + Leaflet Maps)

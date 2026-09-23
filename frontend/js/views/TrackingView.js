@@ -20,11 +20,17 @@
                 default: null
             }
         },
-        emits: ['back-previous'],
+        emits: ['back-previous', 'switch-tab'],
         setup(props, { emit }) {
             const previousTab = computed(() => props.previousTab);
             const searchCode = ref(props.trackingCode || '');
             const isLoading = ref(false);
+
+            const navigateToSupport = () => {
+                const code = currentShipment.value?.trackingCode || searchCode.value;
+                if (!code) return;
+                emit('switch-tab', 'support', code.trim());
+            };
             const isLiveTracking = ref(true);
             const isWsConnected = ref(false);
 
@@ -1380,6 +1386,7 @@
                 previousTab,
                 isWsConnected,
                 isLiveTracking,
+                navigateToSupport,
                 Utils: getUtilsApi() || {}
             };
         },
@@ -1980,6 +1987,21 @@
                                         <span class="font-mono text-slate-500 font-medium text-[11px]" :title="currentShipment.receiverPhone">{{ maskPhone(currentShipment.receiverPhone) }}</span>
                                     </div>
                                     <span class="text-slate-600 text-[11px] block mt-0.5 leading-relaxed">{{ currentShipment.receiverAddress || 'N/A' }}</span>
+                                </div>
+
+                                <!-- Nút chuyển tiếp Hỗ Trợ & Khiếu Nại Bưu Gửi -->
+                                <div class="pt-3 mt-1 border-t border-slate-100">
+                                    <button 
+                                        type="button" 
+                                        @click="navigateToSupport()" 
+                                        class="w-full py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 hover:text-blue-800 border border-blue-200/80 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer shadow-2xs"
+                                        title="Gửi yêu cầu hỗ trợ hoặc phản ánh sự cố cho bưu gửi này"
+                                    >
+                                        <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                                        </svg>
+                                        <span>Khiếu Nại / Hỗ Trợ Bưu Gửi Này</span>
+                                    </button>
                                 </div>
                             </div>
                         </div>

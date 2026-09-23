@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -419,7 +420,7 @@ public class TripServiceImpl implements TripService {
             pendingAssignments.addAll(routingAssignmentRepository.findByStatus("ARRIVED_DEST_HUB"));
 
             pendingAssignments.sort(Comparator
-                    .comparing((RoutingAssignment a) -> "EXPRESS".equalsIgnoreCase(a.getServiceType()) ? 0 : 1)
+                    .comparing((RoutingAssignment a) -> getServicePriority(a.getServiceType()))
                     .thenComparing(a -> a.getAssignedAt() != null ? a.getAssignedAt() : LocalDateTime.MIN));
 
             for (RoutingAssignment assignment : pendingAssignments) {
@@ -991,10 +992,22 @@ public class TripServiceImpl implements TripService {
         }
 
         result.sort(Comparator
-                .comparing((EligibleAssignmentResponse r) -> "EXPRESS".equalsIgnoreCase(r.getServiceType()) ? 0 : 1)
+                .comparing((EligibleAssignmentResponse r) -> getServicePriority(r.getServiceType()))
                 .thenComparing(r -> r.getAssignedAt() != null ? r.getAssignedAt() : LocalDateTime.MIN));
 
         return result;
+    }
+
+    private int getServicePriority(String serviceType) {
+        if (serviceType == null || serviceType.isBlank()) {
+            return 1;
+        }
+        return switch (serviceType.trim().toUpperCase(Locale.ROOT)) {
+            case "EXPRESS" -> 0;  // Ưu tiên 1: Hỏa tốc
+            case "STANDARD" -> 1; // Ưu tiên 2: Tiêu chuẩn
+            case "ECO" -> 2;      // Ưu tiên 3: Tiết kiệm
+            default -> 3;
+        };
     }
 
     private boolean isTripTypeCompatible(TripType tripType, String origin, String destination) {

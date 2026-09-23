@@ -36,6 +36,7 @@
         <module>shipper-service</module>
         <module>report-service</module>
         <module>pricing-service</module>
+        <module>support-service</module>
     </modules>
 
     <dependencyManagement>

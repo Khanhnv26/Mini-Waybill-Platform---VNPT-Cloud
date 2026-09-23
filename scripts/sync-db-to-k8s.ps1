@@ -6,7 +6,7 @@ param(
     [string]$Namespace = "waybill"
 )
 
-$dbs = @('auth_db', 'customer_db', 'shipment_db', 'routing_db', 'tracking_db', 'shipper_db', 'notification_db', 'audit_db', 'report_db')
+$dbs = @('auth_db', 'customer_db', 'shipment_db', 'routing_db', 'tracking_db', 'shipper_db', 'notification_db', 'audit_db', 'report_db', 'support_db')
 
 $pod = (kubectl get pod -l app=sqlserver-replica -n $Namespace -o jsonpath='{.items[0].metadata.name}')
 if (-not $pod) {

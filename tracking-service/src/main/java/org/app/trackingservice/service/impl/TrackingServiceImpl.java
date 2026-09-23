@@ -16,7 +16,9 @@ import org.app.trackingservice.service.TrackingService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -26,6 +28,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 @Service
 @RequiredArgsConstructor
@@ -35,9 +39,9 @@ public class TrackingServiceImpl implements TrackingService {
     private final StringRedisTemplate redisTemplate;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
+    private final PlatformTransactionManager transactionManager;
 
     @Override
-    @Transactional(readOnly = true)
     public Map<String, String> getCurrentStatus(String trackingCode) {
         String redisKey = "shipment-status:" + trackingCode;
         String cacheStatus = redisTemplate.opsForValue().get(redisKey);
@@ -56,15 +60,11 @@ public class TrackingServiceImpl implements TrackingService {
 
         log.warn("Cache MISS cho đơn: {}, đang đọc từ SQL Server...", trackingCode);
 
-        TrackingHistory latestHistory = trackingHistoryRepository.findTopByTrackingCodeOrderByOccurredAtDesc(trackingCode).orElse(null);
-        if (latestHistory == null) {
-            try {
-                DataSourceContextHolder.set(DBType.PRIMARY);
-                latestHistory = trackingHistoryRepository.findTopByTrackingCodeOrderByOccurredAtDesc(trackingCode).orElse(null);
-            } finally {
-                DataSourceContextHolder.clear();
-            }
-        }
+        TrackingHistory latestHistory = readReplicaThenPrimary(
+                () -> trackingHistoryRepository.findTopByTrackingCodeOrderByOccurredAtDesc(trackingCode).orElse(null),
+                history -> history == null,
+                trackingCode
+        );
 
         if (latestHistory != null) {
             redisTemplate.opsForValue().set(redisKey, latestHistory.getStatus(), Duration.ofDays(7));
@@ -82,7 +82,6 @@ public class TrackingServiceImpl implements TrackingService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<TrackingHistory> getTrackingHistory(String trackingCode) {
 
         String redisKey = "shipment-history:" + trackingCode;
@@ -98,19 +97,13 @@ public class TrackingServiceImpl implements TrackingService {
 
         log.warn(">>> [CACHE MISS] Đọc lịch sử đơn '{}' từ REPLICA DB", trackingCode);
 
-        List<TrackingHistory> list = trackingHistoryRepository.findByTrackingCodeOrderByOccurredAtAsc(trackingCode);
-        if (list.isEmpty()) {
-            // Fallback đọc từ PRIMARY nếu Replica chưa kịp đồng bộ (replication lag)
-            try {
-                log.info(">>> [REPLICA EMPTY/LAG] Fallback đọc lịch sử đơn '{}' từ PRIMARY DB", trackingCode);
-                DataSourceContextHolder.set(DBType.PRIMARY);
-                list = trackingHistoryRepository.findByTrackingCodeOrderByOccurredAtAsc(trackingCode);
-            } finally {
-                DataSourceContextHolder.clear();
-            }
-        }
+        List<TrackingHistory> list = readReplicaThenPrimary(
+                () -> trackingHistoryRepository.findByTrackingCodeOrderByOccurredAtAsc(trackingCode),
+                List::isEmpty,
+                trackingCode
+        );
 
-        if (list.isEmpty()) {
+        if (list == null || list.isEmpty()) {
             throw new ShipmentNotFoundException(trackingCode);
         }
 
@@ -121,6 +114,41 @@ public class TrackingServiceImpl implements TrackingService {
             log.warn("Không thể lưu cache lịch sử vào Redis: {}", e.getMessage());
         }
         return list;
+    }
+
+    /**
+     * Đọc replica trước. Replica trống hoặc không kết nối được thì đọc primary
+     * trong một transaction riêng, để lỗi kết nối replica không làm hỏng phiên đọc chính.
+     */
+    private <T> T readReplicaThenPrimary(Supplier<T> query, Predicate<T> missing, String trackingCode) {
+        try {
+            T value = replicaTransaction().execute(status -> query.get());
+            if (value != null && !missing.test(value)) {
+                return value;
+            }
+            log.info(">>> [REPLICA EMPTY/LAG] Fallback đọc đơn '{}' từ PRIMARY DB", trackingCode);
+        } catch (RuntimeException ex) {
+            log.warn(">>> [REPLICA DOWN] Không đọc được đơn '{}' từ replica, chuyển sang PRIMARY: {}",
+                    trackingCode, ex.getMessage());
+        }
+        return primaryTransaction().execute(status -> {
+            DataSourceContextHolder.set(DBType.PRIMARY);
+            try {
+                return query.get();
+            } finally {
+                DataSourceContextHolder.clear();
+            }
+        });
+    }
+
+    private TransactionTemplate replicaTransaction() {
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setReadOnly(true);
+        return template;
+    }
+
+    private TransactionTemplate primaryTransaction() {
+        return new TransactionTemplate(transactionManager);
     }
 
     @Override

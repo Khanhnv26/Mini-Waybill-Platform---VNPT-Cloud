@@ -1,6 +1,7 @@
 package org.app.apigateway.config;
 
 import jakarta.servlet.DispatcherType;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpMethod;
 import lombok.RequiredArgsConstructor;
 import org.app.apigateway.filter.JwtAuthenticationFilter;
@@ -41,6 +42,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,"/api/routing/hubs").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/routing/shipments/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/pricing/calculate").permitAll()
+                        .requestMatchers(HttpMethod.PUT, "/api/tickets/*/assign", "/api/tickets/*/resolve").hasAnyRole("CS", "ADMIN")
+                        // Danh sách toàn hệ thống chỉ dành cho CSKH. Khách tra cứu bằng ?trackingCode= hoặc /code/{ticketCode}.
+                        .requestMatchers(SecurityConfig::isStaffOnlyTicketList).hasAnyRole("CS", "ADMIN")
+                        .requestMatchers(SecurityConfig::isTicketByNumericId).authenticated()
+                        .requestMatchers("/api/tickets", "/api/tickets/**", "/api/support/**").permitAll()
                         .requestMatchers("/api/admin", "/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/audits", "/api/audits/**").hasAnyRole("CS", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/shippers", "/api/shippers/**").hasAnyRole("ADMIN", "POST_OFFICE_OPERATOR", "POST_OFFICE_STAFF", "DISPATCHER")
@@ -49,5 +55,35 @@ public class SecurityConfig {
                         .addFilterBefore(jwtAuthenticationFilter,UsernamePasswordAuthenticationFilter.class)
                         .build();
 
+    }
+
+    static boolean isStaffOnlyTicketList(HttpServletRequest request) {
+        if (!"GET".equalsIgnoreCase(request.getMethod())) {
+            return false;
+        }
+        if (!"/api/tickets".equals(normalizedPath(request))) {
+            return false;
+        }
+        String trackingCode = request.getParameter("trackingCode");
+        return trackingCode == null || trackingCode.isBlank();
+    }
+
+    static boolean isTicketByNumericId(HttpServletRequest request) {
+        if (!"GET".equalsIgnoreCase(request.getMethod())) {
+            return false;
+        }
+        return normalizedPath(request).matches("/api/tickets/\\d+");
+    }
+
+    private static String normalizedPath(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        String context = request.getContextPath();
+        if (context != null && !context.isEmpty() && uri.startsWith(context)) {
+            uri = uri.substring(context.length());
+        }
+        if (uri.length() > 1 && uri.endsWith("/")) {
+            uri = uri.substring(0, uri.length() - 1);
+        }
+        return uri;
     }
 }
