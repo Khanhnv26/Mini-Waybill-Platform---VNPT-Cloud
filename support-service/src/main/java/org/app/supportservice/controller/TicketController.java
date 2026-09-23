@@ -1,0 +1,94 @@
+package org.app.supportservice.controller;
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.app.supportservice.dto.request.AddMessageRequest;
+import org.app.supportservice.dto.request.CreateTicketRequest;
+import org.app.supportservice.dto.request.ResolveTicketRequest;
+import org.app.supportservice.dto.response.MessageResponse;
+import org.app.supportservice.dto.response.TicketResponse;
+import org.app.supportservice.service.TicketService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/tickets")
+@RequiredArgsConstructor
+public class TicketController {
+
+    private final TicketService ticketService;
+
+    @PostMapping
+    public ResponseEntity<TicketResponse> createTicket(
+            @Valid @RequestBody CreateTicketRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) String headerUserId,
+            @RequestHeader(value = "X-User-Email", required = false) String headerEmail) {
+        Long userId = parseUserId(headerUserId);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ticketService.createTicket(request, userId, headerEmail));
+    }
+
+
+    @GetMapping("/my-tickets")
+    public ResponseEntity<List<TicketResponse>> getMyTickets(
+            @RequestHeader(value = "X-User-Id", required = false) String headerUserId) {
+        Long userId = parseUserId(headerUserId);
+        return ResponseEntity.ok(ticketService.getMyTickets(userId));
+    }
+
+
+    @GetMapping
+    public ResponseEntity<List<TicketResponse>> getAllTickets(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String trackingCode) {
+        return ResponseEntity.ok(ticketService.getAllTickets(status, trackingCode));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<TicketResponse> getTicketById(@PathVariable Long id) {
+        return ResponseEntity.ok(ticketService.getTicketById(id));
+    }
+
+
+    @PutMapping("/{id}/assign")
+    public ResponseEntity<TicketResponse> assignTicket(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-User-Id", required = false) String headerUserId,
+            @RequestParam(defaultValue = "Nhân viên CSKH") String csName) {
+        Long csUserId = parseUserId(headerUserId);
+        return ResponseEntity.ok(ticketService.assignTicket(id, csUserId, csName));
+    }
+
+    //CSKH chốt phương án bồi thường & giải quyết
+    @PutMapping("/{id}/resolve")
+    public ResponseEntity<TicketResponse> resolveTicket(
+            @PathVariable Long id,
+            @Valid @RequestBody ResolveTicketRequest request) {
+        return ResponseEntity.ok(ticketService.resolveTicket(id, request));
+    }
+
+    //Gửi thêm tin nhắn vào ticket
+    @PostMapping("/{id}/messages")
+    public ResponseEntity<MessageResponse> addMessage(
+            @PathVariable Long id,
+            @Valid @RequestBody AddMessageRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) String headerUserId,
+            @RequestHeader(value = "X-User-Roles", required = false) String headerRoles) {
+        Long senderId = parseUserId(headerUserId);
+        String role = (headerRoles != null && headerRoles.contains("ROLE_CS")) ? "ROLE_CS" : "CUSTOMER";
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ticketService.addMessage(id, request, senderId, role));
+    }
+
+    private Long parseUserId(String headerUserId) {
+        if (headerUserId != null && !headerUserId.isBlank()) {
+            try {
+                return Long.parseLong(headerUserId.trim());
+            } catch (NumberFormatException ignored) {}
+        }
+        return 1L; // Fallback khi test local hoặc khách vãng lai
+    }
+}
