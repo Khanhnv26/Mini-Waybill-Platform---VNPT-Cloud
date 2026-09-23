@@ -91,7 +91,7 @@ sequenceDiagram
     Ollama->>Ollama: Phân tích ngữ nghĩa: Khách muốn tra đơn!<br/>Nhận diện tham số: trackingCode = "WB26090172"
     
     Note over Ollama,Svc: Bước 2: Ollama KHÔNG trả lời text, mà yêu cầu Spring gọi Tool!
-    Ollama-->>Svc: ToolCallRequest: {name: "trackShipment", arguments: {"trackingCode": "WB26090172"}}
+    Ollama-->>Svc: ToolCallRequest (name: trackShipment, args: trackingCode = WB26090172)
     
     Note over Svc,Tools: Bước 3: Spring AI tự động thực thi Java Method tương ứng
     Svc->>Tools: execute: trackShipment("WB26090172")

@@ -74,30 +74,30 @@ Khác với các ứng dụng giao hàng nội thành đơn chặng, hệ thốn
 * **WebSocket STOMP Broker (< 50ms):** Đẩy thông báo sự kiện bưu gửi thời gian thực tới chuông Notification Center và Toast pop-up trên Web Portal, giải phóng 100% tải HTTP Polling dư thừa từ Client.
 * *Tài liệu chi tiết:* Xem chi tiết cơ chế tại [Cẩm nang 07 - Telegram Bot & Realtime Notifications](docs/07-telegram-bot-and-realtime-notifications.md).
 
-### 2.7. Quản Trị Đội Ngũ Bưu Tá (shipper-service), Google Identity & Chống Quét Đúp (Idempotency)
-* **Phân tách vi dịch vụ Bưu tá độc lập (`shipper-service`):** Định nghĩa bưu tá là tài nguyên vận hành giao vận theo Domain-Driven Design (DDD), gắn với ca làm việc thực địa (`ACTIVE`/`INACTIVE`), địa bàn bưu cục (`stationCode`) và kênh nhận tin (`telegram_chat_id`), độc lập hoàn toàn với tài khoản người dùng (`auth-service`) và khách hàng B2B (`customer-service`).
+### 2.7. Quản Trị Đội Ngũ Bưu Tá, Google Identity & Chống Quét Đúp (Idempotency)
+* **Phân tách nghiệp vụ quản lý bưu tá độc lập:** Định nghĩa bưu tá là tài nguyên vận hành giao vận theo Domain-Driven Design (DDD), gắn với ca làm việc thực địa (`ACTIVE`/`INACTIVE`), địa bàn bưu cục (`stationCode`) và kênh nhận tin (`telegram_chat_id`), độc lập hoàn toàn với tài khoản người dùng và khách hàng B2B.
 * **Xác thực đa nguồn Google OAuth2 & Avatar Stateless JWT:** Hỗ trợ xác thực Google ID Token qua Google API Client, nhúng trực tiếp claim `avatarUrl` vào JWT Payload giúp giao diện hiển thị ảnh đại diện với độ trễ 0ms mà không phát sinh thêm HTTP roundtrip.
 * **Mô hình Idempotency & OperationId trong Logistics:** Xử lý triệt để bài toán công nhân bóp cò máy quét barcode 2 lần liên tiếp (Double-Scanning) hoặc mạng 4G chập chờn gây gửi đúp request, đảm bảo 100% tính toàn vẹn trạng thái kiện hàng và bảng kê COD.
 * **Bộ lập lịch gom đơn tự động (Quartz Enterprise Scheduler) & Mốc Cut-off Buffer:** Ứng dụng Quartz Scheduler (`TripConsolidationJob` & `TripScheduleManager`) thay thế hoàn toàn cơ chế Polling cũ, tự động hóa gom kiện đạt ngưỡng tải trọng ($80\%$) và đóng sổ chuyến xe trước giờ xuất bến 30 phút. Tích hợp Kafka Event Streaming (`TripConsolidatedEvent`) và WebSocket STOMP cập nhật tức thì lên Web Portal (< 50ms).
-* *Tài liệu chi tiết:* Xem chi tiết kiến trúc tại [Cẩm nang 08 - Shipper Service, Google Identity & Idempotency](docs/08-shipper-service-identity-and-idempotency.md).
+* *Tài liệu chi tiết:* Xem chi tiết kiến trúc tại [Cẩm nang 08 - Quản Trị Bưu Tá, Google Identity & Idempotency](docs/08-shipper-service-identity-and-idempotency.md).
 
 
-### 2.8. Vi Dịch Vụ Báo Cáo Phân Tích (report-service) & Xuất Excel 2 Sheet Chuẩn Kiểm Toán
-* **Phân tách vi dịch vụ báo cáo độc lập (`report-service` - Port 8091):** Ứng dụng mô hình CQRS (Command Query Responsibility Segregation). Thay vì chạy các query aggregate nặng (`SUM`, `COUNT`, `GROUP BY`) làm chậm CSDL giao dịch cốt lõi `shipment_db`, `report-service` lưu trữ snapshot tối ưu (`report_db`) và nhận dữ liệu qua Kafka streaming.
+### 2.8. Phân Tích Đối Soát Dòng Tiền & Xuất Báo Cáo Kiểm Toán (CQRS & Financial Reports)
+* **Tách biệt phân hệ báo cáo độc lập:** Ứng dụng mô hình CQRS (Command Query Responsibility Segregation). Thay vì chạy các query aggregate nặng (`SUM`, `COUNT`, `GROUP BY`) làm chậm CSDL giao dịch cốt lõi, hệ thống lưu trữ snapshot phân tích tối ưu và đồng bộ dữ liệu ngầm qua Kafka event streaming.
 * **Xuất báo cáo tài chính Excel 2 Sheet chuẩn kiểm toán:** Sử dụng Apache POI sinh file `.xlsx` chuyên nghiệp: Sheet 1 tổng hợp KPI tài chính (doanh thu cước, COD đã vào két, COD bưu tá đang giữ, tỷ lệ giao thành công); Sheet 2 là bảng kê chi tiết toàn bộ vận đơn phục vụ đối soát và lưu trữ thuế.
 * **Tương tác vi mô 60fps (Micro-Interactions & Transitions):** Tích hợp hiệu ứng chuyển động mượt mà, phản hồi visual tức thời khi nộp quỹ / duyệt quỹ, thông báo realtime không cần reload trang.
 * *Tài liệu chi tiết:* Xem chi tiết kiến trúc CQRS và xuất báo cáo tại [Cẩm nang 09 - Quyết Toán COD & Báo Cáo Đối Soát Dòng Tiền](docs/09-cod-settlement-and-financial-reconciliation.md).
 
-### 2.9. Động Cơ Ước Tính Cước Phí Đa Vùng & Ma Trận Cước Bưu Chính (pricing-service - Port 8092)
+### 2.9. Động Cơ Ước Tính Cước Phí Đa Vùng & Ma Trận Cước Bưu Chính (Pricing Engine)
 * **Khối lượng quy đổi thể tích (Volumetric Weight):** Áp dụng chuẩn quốc tế IATA và bưu chính đường bộ: $(L \times W \times H) / 5000 \times 1000$ (gram). Khối lượng tính cước là $\max(W_{\text{actual}}, W_{\text{volumetric}})$, triệt tiêu rủi ro hàng cồng kềnh chiếm chỗ thùng xe tải.
 * **Phân vùng cước địa lý & 3 gói cước phân tầng:** Phân định rõ ràng giữa Nội tỉnh (`INTRA_PROVINCE`) và Liên miền (`INTER_REGION`); cung cấp 3 phân tầng dịch vụ: `ECO` (VNPT Tiết Kiệm), `STANDARD` (VNPT Tiêu Chuẩn), `EXPRESS` (VNPT Hỏa Tốc) với cước cơ bản và nấc lũy tiến mỗi kg tiếp theo.
 * **Cơ cấu phụ phí tự động:** Tự động tính phụ phí nhiên liệu xăng dầu ($6\%$), phí thu hộ COD ($1\%$, min 10.000 VNĐ) và phí bảo hiểm khai giá ($0.5\%$).
 * *Tài liệu chi tiết:* Xem chi tiết công thức và boilerplate bảng cước động tại [Cẩm nang 13 - Động Cơ Định Giá & Ma Trận Cước Bưu Chính](docs/13-pricing-engine-and-tariff-matrix.md).
 
-### 2.10. Trợ Lý Ảo GenAI & Phân Hệ Hỗ Trợ Khách Hàng Toàn Trình (support-service - Port 8093 & Spring AI)
+### 2.10. Trợ Lý Ảo GenAI & Quản Trị Khiếu Nại Toàn Trình (Spring AI & Autonomous Agent)
 * **Kiến trúc On-Premise LLM với Ollama (`qwen2.5:7b`):** Vận hành mô hình ngôn ngữ lớn cục bộ trên máy chủ nội bộ thông qua chuẩn `Spring AI ChatClient`. Bảo mật dữ liệu cá nhân (PII) người gửi/nhận tuyệt đối 100%, chi phí 0 VNĐ và không bị phụ thuộc vào Cloud API rate limit.
 * **Cơ chế Autonomous Tool Calling (Function Calling):** Tự động nhận diện ý định tự nhiên của khách hàng để gọi các công cụ nội bộ (`PostalAiTools`): tra cứu hành trình vận đơn sống (`trackShipment`), tính cước phí dịch vụ (`calculateShippingTariff`) và tra cứu tiến độ khiếu nại (`lookUpTicketStatus`).
-* **Quản trị khiếu nại toàn trình (Dispute & Ticketing):** Tiếp nhận và quản lý vòng đời khiếu nại bưu gửi (giao chậm, hư hỏng, mất mát, sai lệch COD) qua quy trình 4 bước: `SUBMITTED` -> `INVESTIGATING` -> `RESOLVED` / `REJECTED`, tích hợp CSDL độc lập `support_db` quản lý bằng Flyway.
+* **Quản trị khiếu nại toàn trình (Dispute & Ticketing):** Tiếp nhận và quản lý vòng đời khiếu nại bưu gửi (giao chậm, hư hỏng, mất mát, sai lệch COD) qua quy trình 4 bước: `SUBMITTED` -> `INVESTIGATING` -> `RESOLVED` / `REJECTED`, tích hợp CSDL độc lập quản lý bằng Flyway.
 * *Tài liệu chi tiết:* Xem chi tiết kiến trúc Spring AI Tool Calling và System Prompting tại [Cẩm nang 14 - Trợ Lý Ảo GenAI & Cơ Chế Spring AI Tool Calling](docs/14-spring-ai-agent-and-support-ticketing.md).
 
 ---
