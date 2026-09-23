@@ -337,6 +337,33 @@ body {
     animation: pulse-ring 2s infinite;
 }
 
+@keyframes pulse-ring-amber {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); }
+    70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+.pulse-active-amber {
+    animation: pulse-ring-amber 2s infinite;
+}
+
+@keyframes pulse-ring-rose {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.5); }
+    70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(225, 29, 72, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(225, 29, 72, 0); }
+}
+.pulse-active-rose {
+    animation: pulse-ring-rose 2s infinite;
+}
+
+@keyframes pulse-ring-emerald {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+    70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+.pulse-active-emerald {
+    animation: pulse-ring-emerald 2s infinite;
+}
+
 /* Hiệu ứng trượt xe tải liên tục */
 .truck-pin {
     transition: left 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);

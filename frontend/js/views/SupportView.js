@@ -478,16 +478,18 @@
             };
 
             const formatStatusBadge = (s) => {
-                if (s === 'OPEN') return 'bg-amber-50 text-amber-700 border-amber-200';
-                if (s === 'IN_PROGRESS') return 'bg-blue-50 text-blue-700 border-blue-200';
+                if (s === 'OPEN') return 'bg-blue-50 text-blue-700 border-blue-200';
+                if (s === 'IN_PROGRESS') return 'bg-amber-50 text-amber-700 border-amber-200';
                 if (s === 'RESOLVED') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                if (s === 'REJECTED') return 'bg-rose-50 text-rose-700 border-rose-200';
                 return 'bg-slate-100 text-slate-700 border-slate-200';
             };
 
             const formatStatusText = (s) => {
-                if (s === 'OPEN') return 'Chờ Tiếp Nhận';
-                if (s === 'IN_PROGRESS') return 'Đang Xử Lý';
+                if (s === 'OPEN') return 'Mới Tiếp Nhận';
+                if (s === 'IN_PROGRESS') return 'Đang Thẩm Định';
                 if (s === 'RESOLVED') return 'Đã Giải Quyết';
+                if (s === 'REJECTED') return 'Từ Chối';
                 if (s === 'CLOSED') return 'Đã Đóng';
                 if (window.Utils && typeof window.Utils.formatStatusText === 'function') {
                     return window.Utils.formatStatusText(s);
@@ -1019,70 +1021,131 @@
                                 </span>
                             </div>
 
-                            <!-- Stepper 4 Bước Mini Pipeline -->
-                            <div class="pt-0.5 pb-0.5">
-                                <div class="relative flex items-center justify-between">
-                                    <!-- Thanh tiến độ -->
-                                    <div class="absolute left-0 top-1/2 -translate-y-1/2 h-[2px] w-full bg-slate-200 z-0"></div>
-                                    <div 
-                                        class="absolute left-0 top-1/2 -translate-y-1/2 h-[2px] bg-blue-600 z-0 transition-all duration-300"
-                                        :style="{ width: activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED' ? '100%' : (activeTicket.status === 'IN_PROGRESS' ? '50%' : '15%') }"
-                                    ></div>
-
-                                    <!-- Bước 1: Tiếp nhận -->
-                                    <div class="relative z-10 flex flex-col items-center">
-                                        <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold shadow-xs">
-                                            ✓
-                                        </div>
-                                        <span class="text-[9.5px] font-bold text-slate-700 mt-1">Tiếp Nhận</span>
+                            <!-- Stepper 4 Bước Chuẩn B2B Enterprise (Grid 4 cột, không tràn thanh ray) -->
+                            <div class="pt-2 pb-1">
+                                <div class="relative">
+                                    <!-- Thanh ray nền xám: Cố định từ tâm Bước 1 (12.5%) đến tâm Bước 4 (87.5%) -->
+                                    <div class="absolute top-[13px] left-[12.5%] right-[12.5%] h-[2px] bg-slate-200 -translate-y-1/2 overflow-hidden z-0 pointer-events-none">
+                                        <!-- Thanh tiến trình Gradient chạy bên trong thanh ray -->
+                                        <div 
+                                            class="h-full transition-all duration-500"
+                                            :class="activeTicket.status === 'REJECTED' ? 'bg-gradient-to-r from-blue-600 via-amber-500 to-rose-600' : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500'"
+                                            :style="{ 
+                                                width: (activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED') ? '100%' : 
+                                                       (activeTicket.status === 'REJECTED' ? '66.67%' : 
+                                                       (activeTicket.status === 'IN_PROGRESS' ? '33.33%' : '0%')) 
+                                            }"
+                                        ></div>
                                     </div>
 
-                                    <!-- Bước 2: Thẩm định -->
-                                    <div class="relative z-10 flex flex-col items-center">
-                                        <div 
-                                            class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs transition"
-                                            :class="activeTicket.status === 'IN_PROGRESS' ? 'bg-blue-600 text-white ring-4 ring-blue-100 animate-pulse' : (activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED' ? 'bg-blue-600 text-white' : 'bg-white border-2 border-slate-300 text-slate-400')"
-                                        >
-                                            {{ (activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED') ? '✓' : '2' }}
+                                    <!-- 4 Mốc bước Grid 4 cột đều nhau -->
+                                    <div class="relative z-10 grid grid-cols-4">
+                                        
+                                        <!-- Bước 1: Tiếp nhận -->
+                                        <div class="flex flex-col items-center text-center">
+                                            <div 
+                                                class="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs transition-all duration-300 bg-blue-600 text-white"
+                                                :class="{ 'ring-4 ring-blue-500/20 pulse-active': activeTicket.status === 'OPEN' }"
+                                            >
+                                                ✓
+                                            </div>
+                                            <span class="text-[9.5px] font-bold text-blue-900 mt-1">1. Tiếp Nhận</span>
+                                            <span class="text-[9px] text-slate-400 font-mono">{{ formatTime(activeTicket.createdAt) }}</span>
                                         </div>
-                                        <span class="text-[9.5px] font-bold mt-1" :class="activeTicket.status === 'IN_PROGRESS' ? 'text-blue-700' : 'text-slate-600'">Thẩm Định</span>
-                                    </div>
 
-                                    <!-- Bước 3: Đề xuất bồi hoàn -->
-                                    <div class="relative z-10 flex flex-col items-center">
-                                        <div 
-                                            class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs transition"
-                                            :class="activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED' ? 'bg-emerald-600 text-white' : 'bg-white border-2 border-slate-300 text-slate-400'"
-                                        >
-                                            {{ (activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED') ? '✓' : '3' }}
+                                        <!-- Bước 2: Thẩm định -->
+                                        <div class="flex flex-col items-center text-center">
+                                            <div 
+                                                class="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs transition-all duration-300"
+                                                :class="activeTicket.status === 'IN_PROGRESS' ? 'bg-amber-500 text-white ring-4 ring-amber-500/20 pulse-active-amber' : 
+                                                       ((activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED' || activeTicket.status === 'REJECTED') ? 'bg-blue-600 text-white' : 'bg-white border-2 border-slate-300 text-slate-400')"
+                                            >
+                                                {{ (activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED' || activeTicket.status === 'REJECTED') ? '✓' : '2' }}
+                                            </div>
+                                            <span 
+                                                class="text-[9.5px] mt-1 transition-colors"
+                                                :class="activeTicket.status === 'IN_PROGRESS' ? 'font-bold text-amber-700' : 
+                                                       ((activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED' || activeTicket.status === 'REJECTED') ? 'font-bold text-blue-900' : 'font-medium text-slate-400')"
+                                            >
+                                                2. Thẩm Định
+                                            </span>
+                                            <span class="text-[9px] text-slate-400 font-mono">
+                                                {{ (activeTicket.status !== 'OPEN' && activeTicket.assignedToName) ? 'Đã nhận' : '---' }}
+                                            </span>
                                         </div>
-                                        <span class="text-[9.5px] font-medium mt-1" :class="activeTicket.status === 'RESOLVED' ? 'text-emerald-700 font-bold' : 'text-slate-400'">Bồi Hoàn</span>
-                                    </div>
 
-                                    <!-- Bước 4: Hoàn tất -->
-                                    <div class="relative z-10 flex flex-col items-center">
-                                        <div 
-                                            class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs transition"
-                                            :class="activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED' ? 'bg-emerald-600 text-white ring-4 ring-emerald-100' : 'bg-white border-2 border-slate-300 text-slate-400'"
-                                        >
-                                            {{ (activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED') ? '✓' : '4' }}
+                                        <!-- Bước 3: Đề xuất bồi hoàn / Từ chối -->
+                                        <div class="flex flex-col items-center text-center">
+                                            <div 
+                                                class="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs transition-all duration-300"
+                                                :class="activeTicket.status === 'REJECTED' ? 'bg-rose-600 text-white ring-4 ring-rose-500/20 pulse-active-rose' : 
+                                                       ((activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED') ? 'bg-emerald-600 text-white' : 'bg-white border-2 border-slate-300 text-slate-400')"
+                                            >
+                                                {{ activeTicket.status === 'REJECTED' ? '✕' : ((activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED') ? '✓' : '3') }}
+                                            </div>
+                                            <span 
+                                                class="text-[9.5px] mt-1 transition-colors"
+                                                :class="activeTicket.status === 'REJECTED' ? 'font-bold text-rose-700' : 
+                                                       ((activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED') ? 'font-bold text-emerald-700' : 'font-medium text-slate-400')"
+                                            >
+                                                {{ activeTicket.status === 'REJECTED' ? '3. Từ Chối' : '3. Bồi Hoàn' }}
+                                            </span>
+                                            <span class="text-[9px] text-slate-400 font-mono">
+                                                {{ (activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED' || activeTicket.status === 'REJECTED') ? (activeTicket.closedAt ? formatTime(activeTicket.closedAt) : 'Đã duyệt') : '---' }}
+                                            </span>
                                         </div>
-                                        <span class="text-[9.5px] font-medium mt-1" :class="activeTicket.status === 'RESOLVED' ? 'text-emerald-700 font-bold' : 'text-slate-400'">Hoàn Tất</span>
+
+                                        <!-- Bước 4: Hoàn tất -->
+                                        <div class="flex flex-col items-center text-center">
+                                            <div 
+                                                class="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs transition-all duration-300"
+                                                :class="(activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED') ? 'bg-emerald-600 text-white ring-4 ring-emerald-500/20 pulse-active-emerald' : 
+                                                       'bg-white border-2 border-slate-300 text-slate-400'"
+                                            >
+                                                {{ (activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED') ? '✓' : '4' }}
+                                            </div>
+                                            <span 
+                                                class="text-[9.5px] mt-1 transition-colors"
+                                                :class="(activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED') ? 'font-bold text-emerald-700' : 'font-medium text-slate-400'"
+                                            >
+                                                {{ activeTicket.status === 'REJECTED' ? '4. Đóng Hồ Sơ' : '4. Hoàn Tất' }}
+                                            </span>
+                                            <span class="text-[9px] text-slate-400 font-mono">
+                                                {{ (activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED') ? 'Thành công' : '---' }}
+                                            </span>
+                                        </div>
+
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Tóm tắt đơn hàng liên kết -->
+                            <!-- Tóm tắt đơn hàng liên kết & 4 Khối thông tin chi tiết -->
                             <div class="p-2.5 bg-slate-50 border border-slate-200/80 rounded-lg space-y-1.5 text-[11px] text-slate-600">
                                 <div class="flex items-center justify-between pb-1 border-b border-slate-200/50">
-                                    <span class="text-slate-400">Bưu gửi liên kết:</span>
-                                    <span class="font-mono font-bold text-blue-700">{{ activeTicket.trackingCode }}</span>
+                                    <span class="text-slate-400 flex items-center space-x-1">
+                                        <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                                        <span>Bưu gửi liên kết:</span>
+                                    </span>
+                                    <span class="font-mono font-bold text-blue-700">{{ activeTicket.trackingCode || 'Chưa liên kết' }}</span>
                                 </div>
                                 <div class="grid grid-cols-2 gap-1.5 pt-0.5">
                                     <div><span class="text-slate-400">Người khiếu nại:</span> <strong class="text-slate-800">{{ activeTicket.creatorName }}</strong></div>
                                     <div><span class="text-slate-400">Số điện thoại:</span> <span class="font-mono font-bold text-slate-800">{{ activeTicket.creatorPhone }}</span></div>
                                     <div><span class="text-slate-400">Cán bộ thụ lý:</span> <span class="text-blue-700 font-semibold">{{ activeTicket.assignedToName || 'Đang phân bổ' }}</span></div>
-                                    <div><span class="text-slate-400">Bồi thường:</span> <span class="font-bold text-emerald-600">{{ activeTicket.compensationAmount ? formatCurrency(activeTicket.compensationAmount) : 'Đang đối soát' }}</span></div>
+                                    <div>
+                                        <span class="text-slate-400">Bồi thường:</span> 
+                                        <span 
+                                            :class="activeTicket.status === 'REJECTED' ? 'font-mono font-bold text-rose-600' : (activeTicket.compensationAmount ? 'font-mono font-bold text-emerald-600' : 'text-amber-600 font-medium')"
+                                        >
+                                            {{ activeTicket.status === 'REJECTED' ? '0 đ (Từ chối)' : (activeTicket.compensationAmount ? formatCurrency(activeTicket.compensationAmount) : 'Đang đối soát') }}
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Dòng ghi chú phương án xử lý / Lý do (khi có resolutionNote) -->
+                                <div v-if="activeTicket.resolutionNote" class="pt-1 border-t border-slate-200/50 text-[10.5px] leading-relaxed flex items-start space-x-1 text-slate-500">
+                                    <span class="font-semibold text-slate-600 flex-shrink-0">Kết luận:</span>
+                                    <span>{{ activeTicket.resolutionNote }}</span>
                                 </div>
                             </div>
                         </div>
@@ -1173,6 +1236,22 @@
                                         <span class="text-slate-500 font-medium">Bưu chính VNPT Cloud</span>
                                     </div>
                                 </div>
+
+                                <!-- Thẻ Thông Báo Từ Chối Bồi Thường (Hiện khi REJECTED) -->
+                                <div v-else-if="activeTicket.status === 'REJECTED'" class="tab-content-enter p-3.5 bg-rose-50 border border-rose-200 rounded-xl space-y-2">
+                                    <div class="flex items-center space-x-2 text-rose-800 font-bold text-xs">
+                                        <span class="w-4 h-4 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px]">✕</span>
+                                        <span>THÔNG BÁO TỪ CHỐI BỒI THƯỜNG SỰ CỐ</span>
+                                    </div>
+                                    <div class="text-[11.5px] text-rose-700 leading-relaxed">
+                                        {{ activeTicket.resolutionNote || 'Hồ sơ khiếu nại không đủ điều kiện bồi thường theo quy chuẩn đóng gói bưu phẩm.' }}
+                                        Mức chi trả bồi thường: <strong class="text-rose-900 font-bold font-mono">0 đ</strong>.
+                                    </div>
+                                    <div class="pt-1 flex items-center justify-between text-[10px] text-rose-600 border-t border-rose-200/60 font-mono">
+                                        <span>Hồ sơ đã được đóng lại.</span>
+                                        <span class="text-slate-500 font-medium">Bưu chính VNPT Cloud</span>
+                                    </div>
+                                </div>
                             </template>
 
                             <div v-else class="h-full flex flex-col items-center justify-center text-slate-400 text-xs py-16 space-y-2">
@@ -1182,17 +1261,17 @@
 
                         </div>
 
-                        <!-- 3. Thanh Gợi Ý Trả Lời Nhanh -->
-                        <div v-if="activeTicket && activeTicket.status !== 'RESOLVED' && activeTicket.status !== 'CLOSED'" class="px-3.5 py-1.5 bg-slate-100/70 border-t border-slate-200/60 flex items-center space-x-1.5 overflow-x-auto text-[11px]">
+                        <!-- 3. Thanh Gợi Ý Trả Lời Nhanh (flex-wrap gọn gàng, loại bỏ hoàn toàn thanh kéo ngang) -->
+                        <div v-if="activeTicket && activeTicket.status !== 'RESOLVED' && activeTicket.status !== 'CLOSED' && activeTicket.status !== 'REJECTED'" class="px-3.5 py-2 bg-slate-100/70 border-t border-slate-200/60 flex flex-wrap items-center gap-1.5 text-[11px]">
                             <span class="text-slate-400 text-[10px] font-medium shrink-0">Gợi ý nhanh:</span>
-                            <button type="button" @click="sendMessage('Đã có kết quả thẩm định trách nhiệm bưu cục chưa ạ?')" class="btn-press px-2.5 py-1 bg-white hover:bg-blue-50 hover:text-blue-700 border border-slate-200 rounded-full text-slate-600 font-medium shrink-0 transition">
+                            <button type="button" @click="sendMessage('Đã có kết quả thẩm định trách nhiệm bưu cục chưa ạ?')" class="btn-press px-2.5 py-1 bg-white hover:bg-blue-50 hover:text-blue-700 border border-slate-200 rounded-full text-slate-600 font-medium transition">
                                 Đã có kết quả chưa?
                             </button>
-                            <button type="button" @click="sendMessage('Tôi muốn bổ sung thêm hóa đơn mua hàng và ảnh chụp kiện hàng')" class="btn-press px-2.5 py-1 bg-white hover:bg-blue-50 hover:text-blue-700 border border-slate-200 rounded-full text-slate-600 font-medium shrink-0 transition">
-                                Bổ sung hóa đơn hàng hóa
+                            <button type="button" @click="sendMessage('Tôi muốn bổ sung thêm hóa đơn mua hàng và ảnh chụp kiện hàng')" class="btn-press px-2.5 py-1 bg-white hover:bg-blue-50 hover:text-blue-700 border border-slate-200 rounded-full text-slate-600 font-medium transition">
+                                Bổ sung hóa đơn &amp; ảnh kiện hàng
                             </button>
-                            <button type="button" @click="sendMessage('Thời gian và hình thức nhận tiền bồi thường như thế nào?')" class="btn-press px-2.5 py-1 bg-white hover:bg-blue-50 hover:text-blue-700 border border-slate-200 rounded-full text-slate-600 font-medium shrink-0 transition">
-                                Hình thức nhận bồi thường?
+                            <button type="button" @click="sendMessage('Thời gian và hình thức nhận tiền bồi thường như thế nào?')" class="btn-press px-2.5 py-1 bg-white hover:bg-blue-50 hover:text-blue-700 border border-slate-200 rounded-full text-slate-600 font-medium transition">
+                                Thời gian nhận tiền bồi thường?
                             </button>
                         </div>
 
