@@ -31,6 +31,14 @@
         }, 4000);
     };
 
+    const hideToast = () => {
+        if (toastState.timer) {
+            clearTimeout(toastState.timer);
+            toastState.timer = null;
+        }
+        toastState.show = false;
+    };
+
     // Chuẩn hóa danh xưng vai trò (Roles) theo chuẩn danh mục Bưu chính VNPT
     const getRoleBadgeInfo = (roleName) => {
         switch (roleName) {
@@ -347,6 +355,7 @@
     window.Utils = {
         toastState,
         showToast,
+        hideToast,
         getRoleBadgeInfo,
         formatModuleName,
         formatStatusText,

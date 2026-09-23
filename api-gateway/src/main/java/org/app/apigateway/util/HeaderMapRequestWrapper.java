@@ -40,10 +40,9 @@ public class HeaderMapRequestWrapper extends HttpServletRequestWrapper {
     public Enumeration<String> getHeaders(String name) {
         if (hasCustomHeader(name)) {
             String headerValue = customHeader(name);
-            if (headerValue == null || headerValue.isEmpty()) {
-                return Collections.emptyEnumeration();
-            }
-            return Collections.enumeration(Collections.singletonList(headerValue));
+            // Giá trị rỗng vẫn phải là một phần tử. Bỏ hẳn phần tử khiến Spring 7
+            // coi header là null và gateway trả 500 khi chuyển tiếp.
+            return Collections.enumeration(Collections.singletonList(headerValue == null ? "" : headerValue));
         }
         return super.getHeaders(name);
     }

@@ -34,6 +34,13 @@ spec:
               value: "http://eureka-peer1:8761/eureka/"
             - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS
               value: "true"
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: support-ai
+                  key: GEMINI_API_KEY
+            - name: GEMINI_MODEL
+              value: "gemini-3.6-flash"
           resources:
             requests:
               memory: "256Mi"

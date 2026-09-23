@@ -17,8 +17,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -175,5 +180,35 @@ class TrackingServiceImplTest {
         assertThrows(IllegalArgumentException.class, () -> 
             trackingService.updateStatus(TRACKING_CODE, request, "ROLE_POST_OFFICE_OPERATOR", "tracking:update_post_office")
         );
+    }
+
+    @Test
+    @DisplayName("Replica mất kết nối thì trạng thái hiện tại đọc từ primary")
+    void getCurrentStatus_replicaDown_readsPrimary() {
+        PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
+        when(transactionManager.getTransaction(any())).thenReturn(mock(TransactionStatus.class));
+        TrackingServiceImpl service = new TrackingServiceImpl(
+                trackingHistoryRepository,
+                redisTemplate,
+                kafkaTemplate,
+                new ObjectMapper(),
+                transactionManager
+        );
+        when(valueOperations.get(anyString())).thenReturn(null);
+        TrackingHistory delivered = TrackingHistory.builder()
+                .trackingCode(TRACKING_CODE)
+                .status("DELIVERED")
+                .locationCode("POST-HCM-Q1")
+                .node("Bưu tá phát thành công")
+                .build();
+        when(trackingHistoryRepository.findTopByTrackingCodeOrderByOccurredAtDesc(TRACKING_CODE))
+                .thenThrow(new RuntimeException("Connection refused: 2433"))
+                .thenReturn(Optional.of(delivered));
+
+        Map<String, String> result = service.getCurrentStatus(TRACKING_CODE);
+
+        assertEquals("DELIVERED", result.get("currentStatus"));
+        assertEquals("POST-HCM-Q1", result.get("locationCode"));
+        assertEquals("SQL_SERVER", result.get("source"));
     }
 }

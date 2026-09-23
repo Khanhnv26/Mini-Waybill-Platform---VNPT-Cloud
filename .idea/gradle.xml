@@ -3,14 +3,6 @@
   <component name="GradleMigrationSettings" migrationVersion="1" />
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
-      <GradleProjectSettings>
-        <option name="externalProjectPath" value="$PROJECT_DIR$/pricing-service" />
-        <option name="modules">
-          <set>
-            <option value="$PROJECT_DIR$/pricing-service" />
-          </set>
-        </option>
-      </GradleProjectSettings>
     </option>
   </component>
 </project>

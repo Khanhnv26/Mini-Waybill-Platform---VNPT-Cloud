@@ -68,6 +68,17 @@ public class GlobalExceptionHandler {
     }
 
 
+    @ExceptionHandler(AiUnavailableException.class)
+    public ResponseEntity<Map<String, Object>> handleAiUnavailable(AiUnavailableException ex) {
+        log.error("[SUPPORT-SERVICE] AI unavailable: {}", ex.getMessage(), ex);
+        Map<String, Object> error = new HashMap<>();
+        error.put("errorCode", "AI_UNAVAILABLE");
+        error.put("message", "Hệ thống trợ lý đang bận. Quý khách vui lòng thử lại sau hoặc gửi yêu cầu tại mục Hỗ trợ khiếu nại.");
+        error.put("timestamp", LocalDateTime.now().toString());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(error);
+    }
+
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex) {
         log.error("[SUPPORT-SERVICE] Runtime exception: {}", ex.getMessage(), ex);

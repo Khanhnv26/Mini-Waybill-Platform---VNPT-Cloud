@@ -75,25 +75,32 @@
                 shipmentInfo.value = null;
                 try {
                     let shipment = null;
-                    if (typeof TrackingService !== 'undefined' && TrackingService.getShipmentByTrackingCode) {
-                        shipment = await TrackingService.getShipmentByTrackingCode(code);
-                    } else {
-                        const res = await Api.get(`/api/tracking/${code}`);
-                        if (res.ok) shipment = await res.json();
+                    if (typeof ShipmentService !== 'undefined' && ShipmentService.getByCode) {
+                        shipment = await ShipmentService.getByCode(code);
+                    }
+                    if (!shipment) {
+                        const res = await Api.get(`/api/tracking/${encodeURIComponent(code)}`, {}, { silent: true, skip403Toast: true });
+                        if (res && res.ok) {
+                            const status = await res.json();
+                            if (status && (status.trackingCode || status.currentStatus)) {
+                                shipment = {
+                                    trackingCode: status.trackingCode || code,
+                                    status: status.currentStatus || status.status || ''
+                                };
+                            }
+                        }
                     }
                     if (shipment && (shipment.trackingCode || shipment.id)) {
                         shipmentInfo.value = {
                             ...shipment,
+                            trackingCode: shipment.trackingCode || code,
                             status: shipment.status || shipment.currentStatus || ''
                         };
                         if (!formData.title) {
                             formData.title = `Khiếu nại sự cố bưu phẩm ${code}`;
                         }
-                    } else {
-                        shipmentInfo.value = null;
-                        if (window.Utils?.showToast) {
-                            window.Utils.showToast('Không tìm thấy đơn', `Không có bưu gửi với mã ${code}. Bạn vẫn có thể gửi khiếu nại nếu chắc mã này đúng.`, 'warning');
-                        }
+                    } else if (window.Utils?.showToast) {
+                        window.Utils.showToast('Không tìm thấy đơn', `Không có bưu gửi với mã ${code}. Bạn vẫn có thể gửi khiếu nại nếu chắc mã này đúng.`, 'warning');
                     }
                 } catch (e) {
                     shipmentInfo.value = null;
@@ -244,8 +251,11 @@
             const selectActiveTicket = async (ticket) => {
                 if (!ticket) return;
                 try {
-                    // Tải lại chi tiết để lấy tin nhắn mới nhất
-                    if (ticket.id) {
+                    // Tải lại chi tiết để lấy tin nhắn mới nhất (ưu tiên theo ticketCode để hỗ trợ cả khách vãng lai)
+                    if (ticket.ticketCode) {
+                        const refreshed = await SupportService.getTicketByCode(ticket.ticketCode);
+                        activeTicket.value = refreshed;
+                    } else if (ticket.id) {
                         const refreshed = await SupportService.getTicketById(ticket.id);
                         activeTicket.value = refreshed;
                     } else {
@@ -479,7 +489,20 @@
                 if (s === 'IN_PROGRESS') return 'Đang Xử Lý';
                 if (s === 'RESOLVED') return 'Đã Giải Quyết';
                 if (s === 'CLOSED') return 'Đã Đóng';
-                return s || 'Mới';
+                if (window.Utils && typeof window.Utils.formatStatusText === 'function') {
+                    return window.Utils.formatStatusText(s);
+                }
+                return s || 'Chưa rõ';
+            };
+
+            const formatShipmentBadge = (s) => {
+                if (s === 'OPEN' || s === 'IN_PROGRESS' || s === 'RESOLVED' || s === 'CLOSED') {
+                    return formatStatusBadge(s);
+                }
+                if (window.Utils && typeof window.Utils.getStatusBadgeClass === 'function') {
+                    return window.Utils.getStatusBadgeClass(s);
+                }
+                return formatStatusBadge(s);
             };
 
             const formatCurrency = (amt) => {
@@ -587,6 +610,7 @@
                 formatCategory,
                 formatPriorityBadge,
                 formatStatusBadge,
+                formatShipmentBadge,
                 formatStatusText,
                 formatCurrency,
                 formatTime
@@ -742,13 +766,13 @@
                                         <span class="font-mono font-bold text-blue-700">{{ shipmentInfo.trackingCode }}</span>
                                         <span class="text-slate-500">Bưu gửi bưu chính</span>
                                     </div>
-                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold" :class="formatStatusBadge(shipmentInfo.status)">
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border" :class="formatShipmentBadge(shipmentInfo.status)">
                                         {{ formatStatusText(shipmentInfo.status) }}
                                     </span>
                                 </div>
-                                <div class="grid grid-cols-2 gap-2 text-slate-600 pt-1 border-t border-slate-200/60 mt-1">
-                                    <div><span class="text-slate-400">Người gửi/Chủ hàng:</span> {{ shipmentInfo.senderName || 'Hệ thống Shop' }}</div>
-                                    <div><span class="text-slate-400">Người nhận:</span> {{ shipmentInfo.receiverName || 'Chưa cập nhật' }}</div>
+                                <div v-if="shipmentInfo.senderName || shipmentInfo.receiverName || shipmentInfo.codAmount" class="grid grid-cols-2 gap-2 text-slate-600 pt-1 border-t border-slate-200/60 mt-1">
+                                    <div v-if="shipmentInfo.senderName"><span class="text-slate-400">Người gửi/Chủ hàng:</span> {{ shipmentInfo.senderName }}</div>
+                                    <div v-if="shipmentInfo.receiverName"><span class="text-slate-400">Người nhận:</span> {{ shipmentInfo.receiverName }}</div>
                                     <div v-if="shipmentInfo.codAmount"><span class="text-slate-400">Tiền COD:</span> {{ formatCurrency(shipmentInfo.codAmount) }}</div>
                                 </div>
                             </div>

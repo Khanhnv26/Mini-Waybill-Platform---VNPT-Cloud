@@ -817,27 +817,119 @@ body {
     animation: chatbotProgressFill 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards 0.2s;
 }
 
-/* 5. Hiệu ứng xe tải rung lắc nhẹ đang di chuyển */
+/* 5. Hiệu ứng xe tải lăn bánh êm ái khi đang phát hàng */
 @keyframes chatbotTruckBob {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-2px) rotate(1deg); }
+    0%, 100% { transform: translateY(0) translateX(0); }
+    50% { transform: translateY(-1.5px) translateX(1px); }
 }
 .animate-chatbot-truck {
-    animation: chatbotTruckBob 0.6s ease-in-out infinite;
+    animation: chatbotTruckBob 1.4s ease-in-out infinite;
 }
 
 /* 6. Hiệu ứng 3 chấm gõ tin nhắn (Typing Wave) */
 @keyframes chatbotDotWave {
-    0%, 60%, 100% { transform: translateY(0); }
-    30% { transform: translateY(-5px); }
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+    30% { transform: translateY(-3.5px); opacity: 1; }
 }
 .animate-chatbot-dot-1 { animation: chatbotDotWave 1.2s infinite ease-in-out; }
 .animate-chatbot-dot-2 { animation: chatbotDotWave 1.2s infinite ease-in-out 0.2s; }
 .animate-chatbot-dot-3 { animation: chatbotDotWave 1.2s infinite ease-in-out 0.4s; }
 
+/* 6.1. Hiệu ứng Sparkle AI xoay và nhấp nháy hào quang */
+@keyframes chatbotSparkleSpin {
+    0% {
+        transform: rotate(0deg) scale(0.95);
+        filter: drop-shadow(0 0 2px rgba(56, 189, 248, 0.4));
+    }
+    50% {
+        transform: rotate(180deg) scale(1.15);
+        filter: drop-shadow(0 0 6px rgba(14, 165, 233, 0.8));
+    }
+    100% {
+        transform: rotate(360deg) scale(0.95);
+        filter: drop-shadow(0 0 2px rgba(56, 189, 248, 0.4));
+    }
+}
+.animate-chatbot-sparkle {
+    animation: chatbotSparkleSpin 3s infinite ease-in-out;
+    transform-origin: center;
+}
+
+/* 6.2. Hiệu ứng Dải sáng Shimmer quét ngang văn bản */
+@keyframes chatbotShimmerWave {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+.chatbot-thinking-text {
+    background: linear-gradient(90deg, #0284c7 0%, #38bdf8 30%, #0369a1 60%, #38bdf8 85%, #0284c7 100%);
+    background-size: 250% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: chatbotShimmerWave 2.4s infinite linear;
+    display: inline-block;
+}
+
+/* 6.3. Khung bong bóng suy nghĩ AI Thinking Bubble */
+.chatbot-thinking-bubble {
+    background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+    border: 1px solid rgba(186, 230, 253, 0.9);
+    box-shadow: 0 3px 12px -2px rgba(2, 132, 199, 0.12), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* 6.4. Hiệu ứng trượt nhẹ và xuất hiện mượt mà khi khung suy nghĩ hiển thị */
+@keyframes chatbotThinkingSlideIn {
+    0% {
+        opacity: 0;
+        transform: translateY(6px) scale(0.98);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+.animate-chatbot-thinking-in {
+    animation: chatbotThinkingSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 /* 7. Spring Transition cho cửa sổ Chatbot */
 .chatbot-spring-transition {
     transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 8. Hiệu ứng Nhịp Thở Phát Sáng Nhẹ (Soft Glow & Breathing Pulse) cho Avatar Bot */
+@keyframes chatbotAvatarGlowPulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.4);
+        filter: drop-shadow(0 2px 4px rgba(2, 132, 199, 0.25));
+    }
+    50% {
+        transform: scale(1.04);
+        box-shadow: 0 0 14px 4px rgba(56, 189, 248, 0.65);
+        filter: drop-shadow(0 4px 8px rgba(14, 165, 233, 0.5));
+    }
+}
+.chatbot-avatar-glow {
+    animation: chatbotAvatarGlowPulse 1.6s ease-in-out infinite;
+    border-radius: 10px;
+}
+
+/* 9. Hiệu ứng Micro-Transition cho gợi ý câu hỏi nhanh (Quick Action Chips) */
+.chatbot-chip {
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.chatbot-chip:hover {
+    transform: translateY(-1.5px);
+    box-shadow: 0 3px 8px -1px rgba(2, 132, 199, 0.15);
+    border-color: #38bdf8;
+    color: #0284c7;
+}
+.chatbot-chip:active {
+    transform: translateY(0) scale(0.96);
 }
 
 .hub-marker-pin {
