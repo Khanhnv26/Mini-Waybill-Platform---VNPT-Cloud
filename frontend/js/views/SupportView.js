@@ -416,7 +416,7 @@
             const applyStats = (list) => {
                 const rows = Array.isArray(list) ? list : [];
                 stats.total = rows.length;
-                stats.open = rows.filter(t => t.status === 'OPEN').length;
+                stats.open = rows.filter(t => t.status === 'OPEN' || t.status === 'ESCALATED').length;
                 stats.inProgress = rows.filter(t => t.status === 'IN_PROGRESS').length;
                 stats.resolved = rows.filter(t => t.status === 'RESOLVED' || t.status === 'CLOSED').length;
             };
@@ -479,6 +479,7 @@
 
             const formatStatusBadge = (s) => {
                 if (s === 'OPEN') return 'bg-blue-50 text-blue-700 border-blue-200';
+                if (s === 'ESCALATED') return 'bg-rose-50 text-rose-700 border-rose-300 font-semibold';
                 if (s === 'IN_PROGRESS') return 'bg-amber-50 text-amber-700 border-amber-200';
                 if (s === 'RESOLVED') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
                 if (s === 'REJECTED') return 'bg-rose-50 text-rose-700 border-rose-200';
@@ -487,6 +488,7 @@
 
             const formatStatusText = (s) => {
                 if (s === 'OPEN') return 'Mới Tiếp Nhận';
+                if (s === 'ESCALATED') return 'Quá Hạn SLA';
                 if (s === 'IN_PROGRESS') return 'Đang Thẩm Định';
                 if (s === 'RESOLVED') return 'Đã Giải Quyết';
                 if (s === 'REJECTED') return 'Từ Chối';
@@ -1322,6 +1324,7 @@
                             <select v-model="opsFilterStatus" class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:bg-white focus:outline-none focus:border-blue-600 transition">
                                 <option value="ALL">Tất cả trạng thái</option>
                                 <option value="OPEN">Chờ tiếp nhận (OPEN)</option>
+                                <option value="ESCALATED">Quá hạn SLA (ESCALATED)</option>
                                 <option value="IN_PROGRESS">Đang xử lý (IN_PROGRESS)</option>
                                 <option value="RESOLVED">Đã giải quyết (RESOLVED)</option>
                             </select>
@@ -1378,6 +1381,14 @@
                                                 class="btn-press px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition shadow-2xs"
                                             >
                                                 Tiếp Nhận
+                                            </button>
+                                            <button 
+                                                v-else-if="t.status === 'ESCALATED'"
+                                                type="button" 
+                                                @click="handleAssignTicket(t)"
+                                                class="btn-press px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-lg text-xs transition shadow-2xs"
+                                            >
+                                                Tiếp Nhận Khẩn
                                             </button>
                                             <button 
                                                 v-else-if="t.status === 'IN_PROGRESS'"
