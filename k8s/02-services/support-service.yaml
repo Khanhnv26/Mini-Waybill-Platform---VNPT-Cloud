@@ -39,8 +39,8 @@ spec:
                 secretKeyRef:
                   name: support-ai
                   key: GEMINI_API_KEY
-            - name: GEMINI_MODEL
-              value: "gemini-3.6-flash"
+            - name: LLM_MODEL
+              value: "qwen2.5:3b"
           resources:
             requests:
               memory: "256Mi"

@@ -21,6 +21,7 @@
 [![Quartz Scheduler](https://img.shields.io/badge/Quartz-Enterprise%20Scheduler-007ACC?style=for-the-badge&logo=spring&logoColor=white)](https://www.quartz-scheduler.org/)
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-Tool%20Calling%20Agent-6DB33F?style=for-the-badge&logo=spring&logoColor=white)](https://spring.io/projects/spring-ai)
 [![Ollama](https://img.shields.io/badge/Ollama-Local%20LLM%20Qwen%202.5-black?style=for-the-badge&logo=ollama&logoColor=white)](https://ollama.com/)
+[![RabbitMQ](https://img.shields.io/badge/RabbitMQ-Priority%20Queue%20%26%20SLA%20DLX-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)](https://www.rabbitmq.com/)
 
 ---
 
@@ -100,6 +101,13 @@ Khác với các ứng dụng giao hàng nội thành đơn chặng, hệ thốn
 * **Quản trị khiếu nại toàn trình (Dispute & Ticketing):** Tiếp nhận và quản lý vòng đời khiếu nại bưu gửi (giao chậm, hư hỏng, mất mát, sai lệch COD) qua quy trình 4 bước: `SUBMITTED` -> `INVESTIGATING` -> `RESOLVED` / `REJECTED`, tích hợp CSDL độc lập quản lý bằng Flyway.
 * *Tài liệu chi tiết:* Xem chi tiết kiến trúc Spring AI Tool Calling và System Prompting tại [Cẩm nang 14 - Trợ Lý Ảo GenAI & Cơ Chế Spring AI Tool Calling](docs/14-spring-ai-agent-and-support-ticketing.md).
 
+### 2.11. Hàng Đợi Ưu Tiên RabbitMQ & Đếm Ngược SLA Bằng Dead-Letter Exchange (Polyglot Messaging)
+* **Mô hình Polyglot Messaging phân tầng:** Ứng dụng RabbitMQ cho quản trị hàng đợi thông minh nội bộ `support-service`, Kafka làm xương sống truyền phát sự kiện toàn mạng (`email-events`, `tracking-status-events`), và OpenFeign kết nối đồng bộ tức thời khi cần hủy đơn bưu gửi (`POST /api/shipments/{code}/cancel`).
+* **Hàng đợi ưu tiên 10 cấp (Priority Queuing):** Cấu hình `x-max-priority: 10`, tự động ánh xạ mức độ nghiêm trọng của khiếu nại (`URGENT`/`CRITICAL` điểm 9, `HIGH` điểm 7, `NORMAL` điểm 4, `LOW` điểm 2). RabbitMQ tự động đẩy các sự cố nghiêm trọng lên đầu hàng đợi để nhân viên CSKH tiếp nhận thụ lý trước.
+* **Bộ đếm lùi SLA 2 phút (Zero-Polling Timer):** Áp dụng Message TTL (120 giây) trên hàng đợi tạm `support.ticket.sla.queue` kết hợp Dead-Letter Exchange (`support.sla.dlx.exchange`). Khi quá 2 phút không có chuyên viên tiếp nhận (`IN_PROGRESS`), tin nhắn tự động chuyển sang `support.ticket.outdate.queue`, kích hoạt `SLAEscalationConsumer` nâng trạng thái vé lên `ESCALATED` và bắn email cảnh báo khẩn cấp tới Quản lý qua Kafka mà không tốn 1% tải quét CSDL (Zero Database Polling).
+* **Xử lý khiếu nại đơn đang vận chuyển (`IN_TRANSIT`):** Bảo đảm an toàn vận tải, không tự ý hủy đơn làm gãy chuỗi luân chuyển xe tải giữa các Hub. Chỉ khi CSKH xác minh hàng hỏng/mất/hủy và giải quyết khiếu nại, hệ thống mới gọi Feign Client hủy đơn bên `shipment-service`, phát sự kiện Kafka `tracking-status-events` (`CANCELLED`) để giữ hàng tại trạm và thông báo tức thời tới khách hàng qua WebSocket STOMP.
+* *Tài liệu chi tiết:* Xem chi tiết kiến trúc và boilerplate độc lập tại [Cẩm nang 15 - Hàng Đợi Ưu Tiên RabbitMQ & Cơ Chế Đếm Ngược SLA](docs/15-rabbitmq-priority-queue-and-sla-dead-letter-patterns.md).
+
 ---
 
 ## 3. Kiến Trúc Hệ Thống (System & HA Architecture)
@@ -148,6 +156,7 @@ flowchart TB
 
     subgraph EventAndCache [" Message Broker HA & Caching Layer "]
         KafkaCluster[("Apache Kafka 3-Broker KRaft Cluster (Quorum)\n• kafka-1 (9092), kafka-2 (9094), kafka-3 (9096)\n• RF=3, MinISR=2\n• Quorum Voters (Broker 1, 2, 3)")]
+        RabbitMQ[("RabbitMQ Broker (Port 5672 / 15672)\n• Priority Queue (MaxPri 10)\n• SLA 120s TTL + DLX Outdate Queue")]
         Redis[("Redis In-Memory (Port 6379)\n• shipment-status Cache\n• Rate Limit Buckets (Bucket4j)\n• OTP & Station Cache")]
         KafkaUI["Kafka UI Dashboard (Port 8090)"]
     end
@@ -193,6 +202,10 @@ flowchart TB
     ShipSvc -.->|"Feign: /api/pricing/calculate"| PricingSvc
     SupportSvc -.->|"ChatClient (HTTP 11434)"| OllamaLocal
     SupportSvc -.->|"Feign Tools: cước & vận đơn"| PricingSvc & TrackSvc & ShipSvc
+    SupportSvc -->|"AMQP: priority & sla queue"| RabbitMQ
+    RabbitMQ -->|"DLX Consumer: SLAEscalation"| SupportSvc
+    SupportSvc -->|"Kafka: email-events"| KafkaCluster
+    SupportSvc -.->|"Feign: /api/shipments/cancel"| ShipSvc
 
     AuthSvc --> DB_Auth
     CustSvc --> DB_Cust
@@ -215,7 +228,7 @@ Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, m�
 | :---: | :--- | :--- |
 | **01** | [**Kiến Trúc HA & Nginx Load Balancing**](docs/01-high-availability-and-nginx.md) | Cấu hình Nginx Edge Reverse Proxy Upstream Failover, khắc phục bẫy Eureka Peer Sync 1 chiều (`PeerEurekaNodes.isInstanceURL`), thiết lập cụm Eureka Server Peer-to-Peer Replication (`peer1`/`peer2`) và template `docker-compose` mẫu. |
 | **02** | [**Database Read-Write Splitting & Boilerplate**](docs/02-database-read-write-splitting-boilerplate.md) | Kỹ thuật tách luồng Đọc/Ghi qua Spring `AbstractRoutingDataSource`, xử lý `ThreadLocal`, cấu hình Hikari Pool, đồng bộ ngầm qua Kafka và **Bộ Template Generic độc lập** để copy vào dự án công ty. |
-| **03** | [**Kafka KRaft Cluster & Event Streaming HA**](docs/03-kafka-kraft-cluster-and-event-streaming.md) | Sơ đồ luồng Kafka toàn trình, KRaft Quorum, Producer bất đồng bộ (`whenComplete`), Consumer Error Handling & Dead Letter Topic (`.DLT`), Idempotent Producer. |
+| **03** | [**Kafka KRaft Cluster & Event Streaming HA**](docs/03-kafka-kraft-cluster-and-event-streaming.md) | Kiến trúc KRaft Consensus (Quorum Majority), tầng lưu trữ Append-Only Commit Log & Sparse Index, cơ chế Zero-Copy (`sendfile`), thuật toán băm `MurmurHash2`, Idempotent Producer & Exactly-Once (EOS), Cooperative Sticky Rebalance, Log Compaction & Tombstone, cụm 3-Broker Docker Compose, Boilerplate code và bộ 10 câu hỏi phỏng vấn. |
 | **04** | [**Nghiệp Vụ Logistics & Station Context RBAC**](docs/04-logistics-domain-and-rbac-station-context.md) | Logic Chuyến xe trục (Trips), thanh tải trọng (Load Bar), niêm phong Seal, dỡ hàng tại cổng Hub, tự động chuyển hoàn lần thứ 3 và bảo mật ngữ cảnh trạm làm việc. |
 | **05** | [**Redis Caching, Rate Limiter & Distributed Lock**](docs/05-redis-caching-and-distributed-patterns.md) | Sơ đồ luồng Cache-Aside (< 2ms), Token Bucket phân tầng Read/Write chống DDoS (Bucket4j), xử lý an toàn CORS Preflight (`OPTIONS`), Distributed Lock (`SETNX`) chống race condition và Generic `RedisCacheService` độc lập. |
 | **06** | [**Bảo Mật Microservices: Stateless JWT & RBAC**](docs/06-microservices-security-jwt-and-rbac.md) | Sơ đồ luồng Gateway Auth, Blacklist tức thời qua Redis (< 0.5ms), chống Header Spoofing (`HeaderMapRequestWrapper`), Spring Security 6.x và `UserContextHolder` boilerplate. |
@@ -227,6 +240,7 @@ Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, m�
 | **12** | [**Điều Phối Toàn Trình Trên Kubernetes (K8s Architecture & Troubleshooting)**](docs/12-kubernetes-orchestration-and-deployment.md) | Kiến trúc cụm K8s 16 Pods (`namespace: waybill`), lưu trữ bền vững SQL Server PVC 5GB, phân biệt ClusterIP vs LoadBalancer, giải quyết 4 bẫy kỹ thuật kinh điển (Eureka IP discovery, Gateway LoadBalancer, Redis host, Kafka consumer bootstrap) và sổ tay kubectl thực chiến. |
 | **13** | [**Động Cơ Định Giá & Ma Trận Cước Bưu Chính**](docs/13-pricing-engine-and-tariff-matrix.md) | Công thức quy đổi khối lượng thể tích ($L \times W \times H / 5000$), phân vùng cước Nội tỉnh vs Liên miền, 3 gói phân tầng `ECO`, `STANDARD`, `EXPRESS`, cơ cấu phụ phí (Xăng dầu 6%, COD 1%, Bảo hiểm 0.5%) và Boilerplate Bảng cước động lưu CSDL. |
 | **14** | [**Trợ Lý Ảo GenAI & Cơ Chế Spring AI Tool Calling**](docs/14-spring-ai-agent-and-support-ticketing.md) | Kiến trúc On-Premise LLM với Ollama (`qwen2.5:7b`), cơ chế Spring AI `ChatClient` Function Calling tự động gọi Feign Client tra cứu vận đơn & tính cước, kỹ thuật Prompt Engineering chống ảo giác và xử lý dự phòng khi AI quá tải. |
+| **15** | [**Hàng Đợi Ưu Tiên RabbitMQ & Đếm Ngược SLA**](docs/15-rabbitmq-priority-queue-and-sla-dead-letter-patterns.md) | Kiến trúc Polyglot Messaging (RabbitMQ + Kafka + OpenFeign), hàng đợi ưu tiên 10 cấp, bộ đếm ngược SLA 120s bằng Message TTL + Dead-Letter Exchange (DLX), luồng xử lý khiếu nại đơn đang vận chuyển (IN_TRANSIT) và tự động hủy đơn liên dịch vụ. |
 
 ---
 
@@ -260,6 +274,7 @@ kubectl get pods -n waybill
 docker compose up -d
 ```
 * **Kafka UI:** [http://localhost:8090](http://localhost:8090) (Kiểm tra 3 Brokers online).
+* **RabbitMQ Management:** [http://localhost:15672](http://localhost:15672) (`admin` / `admin`).
 * **Nginx Load Balancer:** [http://localhost:80](http://localhost:80).
 * **Redis:** Port `6379`.
 * **SQL Server Replica:** Port `2433` (`sa` / `Replica@123456`).
@@ -335,7 +350,8 @@ mini-waybill-platform/
 │   ├── 11-cicd-github-actions-automation.md
 │   ├── 12-kubernetes-orchestration-and-deployment.md
 │   ├── 13-pricing-engine-and-tariff-matrix.md
-│   └── 14-spring-ai-agent-and-support-ticketing.md
+│   ├── 14-spring-ai-agent-and-support-ticketing.md
+│   └── 15-rabbitmq-priority-queue-and-sla-dead-letter-patterns.md
 │
 ├── k8s/                       # Manifests Kubernetes (00-namespace, 01-infrastructure, 02-services)
 ├── scripts/                   # Script tự động hóa đồng bộ DB (sync-db-to-k8s.ps1)

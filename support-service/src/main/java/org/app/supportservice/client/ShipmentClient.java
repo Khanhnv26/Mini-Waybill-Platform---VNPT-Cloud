@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 
 import java.util.Map;
 
-@FeignClient(name = "shipment-service")
+@FeignClient(name = "shipment-service", contextId = "shipmentClient")
 public interface ShipmentClient {
 
     @PostMapping("/api/shipments/{code}/cancel")
