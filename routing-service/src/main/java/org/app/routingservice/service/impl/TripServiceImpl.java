@@ -530,7 +530,6 @@ public class TripServiceImpl implements TripService {
                 .occuredAt(LocalDateTime.now())
                 .build();
         kafkaTemplate.send("trip-events", String.valueOf(trip.getId()), event);
-        kafkaTemplate.send("trip-consolidated-topic", event);
 
         tripRepository.save(trip);
         log.info("Hoàn tất gom đơn cho xe {}: Đã thêm {} kiện mới. Tổng tải trọng hiện tại: {}/{} kg.",
@@ -680,7 +679,7 @@ public class TripServiceImpl implements TripService {
                         .status(publicStatus)
                         .locationCode(firstStop.getHubCode())
                         .note(note)
-                        .updateAt(LocalDateTime.now().toString())
+                        .updateAt(LocalDateTime.now())
                         .build();
                 kafkaTemplate.send("tracking-status-events", item.getTrackingCode(), statusEvent);
                 recordLifecycle(item.getTrackingCode(), publicStatus, OperationType.DEPARTED,
@@ -842,7 +841,7 @@ public class TripServiceImpl implements TripService {
                             .status(newShipmentStatus)
                             .locationCode(currentStop.getHubCode())
                             .note(note)
-                            .updateAt(LocalDateTime.now().toString())
+                            .updateAt(LocalDateTime.now())
                             .build();
                     kafkaTemplate.send("tracking-status-events", item.getTrackingCode(), statusEvent);
                     recordLifecycle(item.getTrackingCode(), newShipmentStatus, operationType,
@@ -870,7 +869,7 @@ public class TripServiceImpl implements TripService {
                             .locationCode(currentStop.getHubCode())
                             .note(String.format("Chuyến xe %s đã cập bến trạm trung chuyển %s (%s). Bưu phẩm đang lưu thông qua trạm.",
                                     trip.getTripCode(), currentStop.getHubCode(), hubName(hubsByCode, currentStop.getHubCode())))
-                            .updateAt(LocalDateTime.now().toString())
+                            .updateAt(LocalDateTime.now())
                             .build();
                     kafkaTemplate.send("tracking-status-events", item.getTrackingCode(), transitEvent);
                     recordLifecycle(item.getTrackingCode(), "IN_TRANSIT", OperationType.ARRIVED,

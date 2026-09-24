@@ -15,6 +15,7 @@ import org.app.notificationservice.service.EmailService;
 import org.app.notificationservice.service.TelegramService;
 import org.app.notificationservice.util.EmailTemplateHelper;
 import org.app.sharedevents.entity.TripConsolidatedEvent;
+import org.app.sharedevents.entity.TripProgressEvent;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -307,6 +308,18 @@ public class NotificationConsumer {
         String tripCode = event.getTripCode() != null && !event.getTripCode().isBlank()
                 ? event.getTripCode() : "TRIP";
         saveInAppNotification(tripCode, "SYSTEM_ALERT", "Gom đơn chuyến xe", message);
+    }
+
+    @KafkaListener(topics = "trip-progress-events", groupId = "notification-group")
+    public void handleTripProgressEvent(TripProgressEvent event) {
+        if (event == null || event.getTripCode() == null || event.getTripCode().isBlank()) {
+            return;
+        }
+        try {
+            messagingTemplate.convertAndSend("/topic/trips/progress", event);
+        } catch (Exception ex) {
+            log.warn("[NOTIFICATION] Không đẩy được tiến độ chuyến {}: {}", event.getTripCode(), ex.getMessage());
+        }
     }
 
     private void saveCodBell(ShipmentStatusUpdatedEvent event) {

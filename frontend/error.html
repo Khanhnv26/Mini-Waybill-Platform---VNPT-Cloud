@@ -13,6 +13,10 @@
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
 
+    <!-- SockJS và STOMP Client -->
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+
     <!-- Google Identity Services SDK -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
@@ -629,6 +633,8 @@
         </div>
     </div>
     </Transition>
+
+    <chatbot-widget v-if="!isStaffUser"></chatbot-widget>
 </div>
 
 <!-- CÁC MODULE JAVASCRIPT THEO THỨ TỰ PHỤ THUỘC CHUẨN XÁC -->
@@ -648,6 +654,8 @@
 <script src="js/services/adminService.js"></script>
 <script src="js/services/reportService.js"></script>
 <script src="js/services/pricingService.js"></script>
+<script src="js/services/shipperService.js"></script>
+<script src="js/services/supportService.js"></script>
 
 <!-- 3. Tầng Giao Diện Màn Hình (Views Layer) -->
 <script src="js/views/TrackingView.js"></script>
@@ -656,6 +664,7 @@
 <script src="js/views/TripsView.js"></script>
 <script src="js/views/HubOpsView.js"></script>
 <script src="js/views/ShipperView.js"></script>
+<script src="js/views/ShipperDirectoryView.js"></script>
 <script src="js/views/DispatchSimulationView.js"></script>
 <script src="js/views/CustomerView.js"></script>
 <script src="js/views/AdminRbacView.js"></script>
@@ -663,8 +672,11 @@
 <script src="js/views/TariffCalculatorView.js"></script>
 <script src="js/views/NetworkView.js"></script>
 <script src="js/views/GuideView.js"></script>
+<script src="js/views/SupportView.js"></script>
 <script src="js/views/UnderDevelopmentView.js"></script>
 <script src="js/views/ErrorView.js?v=2.5.3"></script>
+<script src="js/views/ProfileView.js?v=2.5.3"></script>
+<script src="js/components/ChatbotWidget.js?v=2.5.10"></script>
 
 <!-- 4. Điểm Khởi Chạy Ứng Dụng (Master Layout Entry Point) -->
 <script src="js/app.js?v=2.5.3"></script>

@@ -464,6 +464,8 @@
                     DAMAGED_GOODS: 'Hàng móp méo / Vỡ hỏng',
                     LATE_DELIVERY: 'Giao hàng trễ hẹn',
                     LOST_SHIPMENT: 'Thất lạc kiện hàng',
+                    LOST_GOODS: 'Thất lạc kiện hàng',
+                    CANCEL_REQUEST: 'Yêu cầu hủy đơn',
                     COD_DISCREPANCY: 'Sai lệch tiền COD',
                     STAFF_ATTITUDE: 'Thái độ phục vụ',
                     OTHER: 'Yêu cầu khác'
@@ -817,6 +819,7 @@
                                         <option value="DAMAGED_GOODS">Bưu phẩm bị móp méo / vỡ hỏng</option>
                                         <option value="LATE_DELIVERY">Giao hàng trễ hẹn cam kết</option>
                                         <option value="LOST_SHIPMENT">Nghi ngờ thất lạc kiện hàng</option>
+                                        <option value="CANCEL_REQUEST">Yêu cầu hủy đơn</option>
                                         <option value="COD_DISCREPANCY">Sai lệch tiền thu hộ COD / Cước phí</option>
                                         <option value="STAFF_ATTITUDE">Thái độ phục vụ của bưu tá</option>
                                         <option value="OTHER">Thắc mắc hỗ trợ khác</option>

@@ -345,7 +345,7 @@ Hàng đợi `support.ticket.sla.queue` tuyệt đối **KHÔNG CÓ CONSUMER L�
 
 ---
 
-## 7. Luồng Nghiệp Vụ Khiếu Nại Đơn Hàng Đang Vận Chuyển (`IN_TRANSIT`)
+## 7. Luồng Nghiệp Vụ Khiếu Nại Đơn Hàng Đang Vận Chuyển (`IN_TRANSIT`) & Giải Phóng Tồn Kho
 
 Một câu hỏi nghiệp vụ kinh điển: *Nếu đơn hàng đang nằm trên xe tải di chuyển giữa 2 Hub (`IN_TRANSIT`) mà khách nộp đơn khiếu nại thì hệ thống xử lý như thế nào?*
 
@@ -360,19 +360,25 @@ Một câu hỏi nghiệp vụ kinh điển: *Nếu đơn hàng đang nằm trê
            │
      ┌─────┴────────────────────────────────────────────────┐
      ▼                                                      ▼
-[Trường hợp A: Giao trễ / Hỏi thông tin]     [Trường hợp B: Hàng vỡ hỏng / Hủy khẩn cấp]
-     │                                                      │
-     ▼                                                      ▼
-CSKH giải thích & đóng Ticket: RESOLVED       CSKH bấm "Giải quyết": DAMAGED_GOODS
-(Đơn hàng tiếp tục giao bình thường)                        │
-                                                            ▼ (Feign Client POST /cancel)
+[Trường hợp A: Giao trễ / Hỏi thông tin]     [Trường hợp B: Hàng hỏng / Thất lạc / Yêu cầu hủy]
+     │                                       (DAMAGED_GOODS, LOST_SHIPMENT, LOST_GOODS, CANCEL_REQUEST)
+     ▼                                                      │
+CSKH giải thích & đóng Ticket: RESOLVED                     ▼ (Feign Client POST /api/shipments/{code}/cancel)
+(Đơn hàng tiếp tục giao bình thường)                        • Headers: X-User-Role: ROLE_CS, X-User-Permissions: shipment:cancel_all
+                                                            ▼
                                               [shipment-service đổi trạng thái: CANCELLED]
                                                             │
-                                                            ▼ (Kafka: tracking-status-events)
-                                              [Tất cả các bên nhận lệnh DỪNG GIAO & GIỮ HÀNG]
-                                              • tracking-service: Ghi mốc hành trình CANCELLED
-                                              • Hub đích & Bưu tá: Chuyển hoàn về bưu cục gốc
-                                              • Web Portal: Nhảy trạng thái realtime qua WebSocket
+                                                            ▼ (Kafka topic: tracking-status-events)
+                                              ┌────────────────────────────────────────────────────────┐
+                                              │  routing-service (ShipmentCancelledConsumer):          │
+                                              │  • Đọc mốc thời gian cả mảng số [yyyy,MM,dd,HH,mm,ss]   │
+                                              │    lẫn chuỗi ISO từ tracking-service & shipment-service│
+                                              │  • Nếu xe đang SCHEDULED: Gỡ kiện khỏi chuyến (REMOVED)│
+                                              │    và giải phóng tồn kho kho bãi (CANCELLED).          │
+                                              │  • Nếu xe đang IN_TRANSIT: Đánh dấu HOLD_FOR_RETURN để │
+                                              │    trạm kế tiếp dỡ kiện nhập kho chờ chuyển hoàn.       │
+                                              │  • Ghi khóa Redis tombstone: shipment-cancelled:{code} │
+                                              └────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -381,7 +387,7 @@ CSKH giải thích & đóng Ticket: RESOLVED       CSKH bấm "Giải quyết": 
 
 Bộ mã nguồn độc lập dưới đây có thể được sử dụng trực tiếp trong bất kỳ dự án Microservices nào cần kiến trúc hàng đợi ưu tiên và đếm lùi SLA.
 
-### 8.1. Cấu hình RabbitMQ Topology (`RabbitMQConfig.java`)
+### 8.1. Cấu hình RabbitMQ Topology Tinh Gọn Cho SLA Countdown (`RabbitMQConfig.java`)
 ```java
 package org.app.supportservice.config;
 
@@ -397,56 +403,41 @@ public class RabbitMQConfig {
     public static final String EXCHANGE_PRIMARY = "support.direct.change";
     public static final String EXCHANGE_DEAD_LETTER = "support.sla.dlx.exchange";
 
-    public static final String QUEUE_PRIMARY = "support.ticket.priority.queue";
     public static final String QUEUE_SLA = "support.ticket.sla.queue";
     public static final String OUT_DATE_QUEUE = "support.ticket.outdate.queue";
 
-    public static final String ROUTING_KEY_PRIMARY = "ticket.priority";
     public static final String ROUTING_KEY_SLA = "ticket.sla";
     public static final String ROUTING_KEY_OUT_DATE = "ticket.outdate";
 
-    // 1. Direct Exchange chính phục vụ phân phối nghiệp vụ
+    // 1. Direct Exchange chính phục vụ gửi ticket vào hàng đợi SLA
     @Bean
     public DirectExchange supportExchange() {
         return new DirectExchange(EXCHANGE_PRIMARY);
     }
 
-    // 2. Dead-Letter Exchange chuyên tiếp nhận message hết hạn SLA
+    // 2. Dead-Letter Exchange chuyên tiếp nhận message hết hạn 120s SLA
     @Bean
     public DirectExchange slaDeadLetterExchange() {
         return new DirectExchange(EXCHANGE_DEAD_LETTER);
     }
 
-    // 3. Hàng đợi ưu tiên (Max Priority = 10)
-    @Bean
-    public Queue priorityQueue() {
-        return QueueBuilder.durable(QUEUE_PRIMARY)
-                .maxPriority(10)
-                .build();
-    }
-
-    // 4. Hàng đợi đếm lùi SLA: TTL 120s + Chuyển tiếp DLX
+    // 3. Hàng đợi đếm lùi SLA: TTL 120.000ms (2 phút) + Chuyển tiếp DLX
     @Bean
     public Queue slaQueue() {
         return QueueBuilder.durable(QUEUE_SLA)
-                .ttl(120000) // 120 giây (2 phút)
+                .ttl(120000) // 120 giây
                 .deadLetterExchange(EXCHANGE_DEAD_LETTER)
                 .deadLetterRoutingKey(ROUTING_KEY_OUT_DATE)
                 .build();
     }
 
-    // 5. Hàng đợi đón nhận tin nhắn vi phạm SLA
+    // 4. Hàng đợi đón nhận tin nhắn vi phạm SLA để kích hoạt Escalation
     @Bean
     public Queue outDateQueue() {
         return QueueBuilder.durable(OUT_DATE_QUEUE).build();
     }
 
-    // 6. Bindings
-    @Bean
-    public Binding supportBinding() {
-        return BindingBuilder.bind(priorityQueue()).to(supportExchange()).with(ROUTING_KEY_PRIMARY);
-    }
-
+    // 5. Ràng buộc (Bindings)
     @Bean
     public Binding slaBinding() {
         return BindingBuilder.bind(slaQueue()).to(supportExchange()).with(ROUTING_KEY_SLA);
@@ -457,7 +448,7 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(outDateQueue()).to(slaDeadLetterExchange()).with(ROUTING_KEY_OUT_DATE);
     }
 
-    // 7. JSON Converter chuẩn Spring AMQP 4.x (thay thế Jackson2 đã deprecated)
+    // 6. JSON Converter chuẩn Spring AMQP
     @Bean
     public MessageConverter jsonMessageConverter() {
         return new JacksonJsonMessageConverter();
@@ -465,19 +456,39 @@ public class RabbitMQConfig {
 }
 ```
 
+> **Quyết định kiến trúc:** Trước đây hệ thống có cấu hình một hàng đợi ưu tiên `support.ticket.priority.queue`. Tuy nhiên, trong mô hình bàn làm việc CSKH (Ops Desk), nhân viên tải và lọc danh sách vé qua REST API/CSDL (đã được đánh chỉ mục theo `priority`, `created_at`). Hàng đợi ưu tiên nội bộ không có worker background nào tiêu thụ định kỳ, dẫn đến đọng message thừa. Do đó, việc loại bỏ hàng đợi ưu tiên và tập trung toàn bộ tài nguyên RabbitMQ cho **bộ đếm lùi SLA 120s** giúp hệ thống cực kỳ tinh gọn, hiệu năng cao và loại bỏ hoàn toàn mã thừa.
+
 ---
 
-### 8.2. Gửi Message Đánh Số Ưu Tiên & Đếm Lùi SLA (`TicketServiceImpl.java`)
+### 8.2. Kích Hoạt Bộ Đếm Lùi SLA & Tự Động Hủy Đơn Hàng (`TicketServiceImpl.java`)
 ```java
-// Đẩy vào hàng đợi ưu tiên với priority score từ 1 đến 9
-int priorityScore = mapPriorityToScore(savedTicket.getPriority());
-rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_PRIMARY, RabbitMQConfig.ROUTING_KEY_PRIMARY, savedTicket.getId(), message -> {
-    message.getMessageProperties().setPriority(priorityScore);
-    return message;
-});
-
-// Đẩy vào hàng đợi SLA đếm lùi 120 giây
+// 1. Khi tạo Ticket: Chỉ đưa vào hàng đợi SLA đếm lùi 120 giây (Zero-Polling)
 rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_PRIMARY, RabbitMQConfig.ROUTING_KEY_SLA, savedTicket.getId());
+
+// 2. Khi chốt giải quyết Ticket: Tự động hủy đơn hàng liên dịch vụ
+private static final Set<String> CANCEL_SHIPMENT_CATEGORIES = Set.of(
+        "DAMAGED_GOODS", "LOST_GOODS", "LOST_SHIPMENT", "CANCEL_REQUEST");
+
+if (updated.getTrackingCode() != null && !updated.getTrackingCode().isBlank()) {
+    String category = updated.getCategory() != null ? updated.getCategory().toUpperCase() : "";
+    if (CANCEL_SHIPMENT_CATEGORIES.contains(category)) {
+        try {
+            Map<String, String> cancelReq = Map.of(
+                    "reasonCode", "CSKH_RESOLVED",
+                    "reasonNote", "Hủy theo khiếu nại " + updated.getTicketCode() + ": " + updated.getResolutionNote()
+            );
+            shipmentClient.cancelShipment(
+                    updated.getTrackingCode(),
+                    cancelReq,
+                    "ROLE_CS",
+                    "shipment:cancel_all"
+            );
+            log.info(">>> Đã kích hoạt HỦY ĐƠN HÀNG [{}] bên shipment-service thành công!", updated.getTrackingCode());
+        } catch (Exception e) {
+            log.warn("Không thể tự động hủy đơn bên shipment-service: {}", e.getMessage());
+        }
+    }
+}
 ```
 
 ---

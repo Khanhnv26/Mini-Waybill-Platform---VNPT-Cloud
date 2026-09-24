@@ -1,5 +1,6 @@
 package org.app.supportservice.service;
 
+import org.app.supportservice.client.ShipmentClient;
 import org.app.supportservice.dto.request.AddMessageRequest;
 import org.app.supportservice.dto.request.CreateTicketRequest;
 import org.app.supportservice.dto.request.ResolveTicketRequest;
@@ -18,15 +19,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.kafka.core.KafkaTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,6 +42,15 @@ class TicketServiceImplTest {
 
     @Mock
     private TicketMessageRepository messageRepository;
+
+    @Mock
+    private RabbitTemplate rabbitTemplate;
+
+    @Mock
+    private ShipmentClient shipmentClient;
+
+    @Mock
+    private KafkaTemplate<String, Object> kafkaTemplate;
 
     @InjectMocks
     private TicketServiceImpl ticketService;
@@ -173,5 +187,32 @@ class TicketServiceImplTest {
         assertEquals("RESOLVED", response.getStatus());
         assertEquals(new BigDecimal("250000"), response.getCompensationAmount());
         assertEquals("Bồi thường 100% giá trị do va đập trong quá trình vận chuyển", response.getResolutionNote());
+        verify(shipmentClient).cancelShipment(eq("WB123456VN"), any(Map.class), eq("ROLE_CS"), eq("shipment:cancel_all"));
+    }
+
+    @Test
+    void testResolveTicket_LostShipmentCancelsWaybill() {
+        sampleTicket.setCategory("LOST_SHIPMENT");
+        ResolveTicketRequest request = new ResolveTicketRequest();
+        request.setResolutionNote("Kiện thất lạc, hủy vận đơn");
+        when(ticketRepository.findById(1L)).thenReturn(Optional.of(sampleTicket));
+        when(ticketRepository.save(any(SupportTicket.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ticketService.resolveTicket(1L, request);
+
+        verify(shipmentClient).cancelShipment(eq("WB123456VN"), any(Map.class), eq("ROLE_CS"), eq("shipment:cancel_all"));
+    }
+
+    @Test
+    void testResolveTicket_LateDeliveryDoesNotCancelWaybill() {
+        sampleTicket.setCategory("LATE_DELIVERY");
+        ResolveTicketRequest request = new ResolveTicketRequest();
+        request.setResolutionNote("Giao trễ, không hủy đơn");
+        when(ticketRepository.findById(1L)).thenReturn(Optional.of(sampleTicket));
+        when(ticketRepository.save(any(SupportTicket.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ticketService.resolveTicket(1L, request);
+
+        verify(shipmentClient, never()).cancelShipment(any(), any(), any(), any());
     }
 }

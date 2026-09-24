@@ -367,6 +367,13 @@
                     permission: 'user:read', // CS & Admin
                     icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z'
                 },
+                {
+                    id: 'shipper-directory',
+                    name: 'Danh Bạ Bưu Tá',
+                    component: 'ShipperDirectoryView',
+                    permission: 'user:assign_role',
+                    icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
+                },
                 { 
                     id: 'reports', 
                     name: 'Báo Cáo & Đối Soát', 
@@ -1016,6 +1023,7 @@
     if (window.HubOpsView) app.component('HubOpsView', window.HubOpsView);
     if (window.TripsView) app.component('TripsView', window.TripsView);
     if (window.ShipperView) app.component('ShipperView', window.ShipperView);
+    if (window.ShipperDirectoryView) app.component('ShipperDirectoryView', window.ShipperDirectoryView);
     if (window.DispatchSimulationView) app.component('DispatchSimulationView', window.DispatchSimulationView);
     if (window.CustomerView) app.component('CustomerView', window.CustomerView);
     if (window.AdminRbacView) app.component('AdminRbacView', window.AdminRbacView);
