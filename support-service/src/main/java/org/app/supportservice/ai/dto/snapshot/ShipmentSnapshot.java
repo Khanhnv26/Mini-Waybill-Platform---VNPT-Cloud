@@ -1,4 +1,4 @@
-package org.app.supportservice.ai.client;
+package org.app.supportservice.ai.dto.snapshot;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;

@@ -2,8 +2,8 @@ package org.app.supportservice.ai.lookup;
 
 import feign.FeignException;
 import org.app.supportservice.ai.client.PricingAiClient;
-import org.app.supportservice.ai.client.TariffQuoteRequest;
-import org.app.supportservice.ai.client.TariffQuoteResponse;
+import org.app.supportservice.ai.dto.request.TariffQuoteRequest;
+import org.app.supportservice.ai.dto.response.TariffQuoteResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;

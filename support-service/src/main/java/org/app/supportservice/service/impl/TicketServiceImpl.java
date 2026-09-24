@@ -1,7 +1,10 @@
 package org.app.supportservice.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.app.supportservice.client.ShipmentClient;
 import org.app.supportservice.config.RabbitMQConfig;
+import org.app.supportservice.dto.event.SendEmailEvent;
 import org.app.supportservice.dto.request.AddMessageRequest;
 import org.app.supportservice.dto.request.CreateTicketRequest;
 import org.app.supportservice.dto.request.ResolveTicketRequest;
@@ -15,6 +18,7 @@ import org.app.supportservice.repository.SupportTicketRepository;
 import org.app.supportservice.repository.TicketMessageRepository;
 import org.app.supportservice.service.TicketService;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,17 +27,20 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TicketServiceImpl implements TicketService {
 
     private final SupportTicketRepository ticketRepository;
     private final TicketMessageRepository messageRepository;
     private final RabbitTemplate rabbitTemplate;
-
+    private final ShipmentClient shipmentClient;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Override
     @Transactional
@@ -69,6 +76,20 @@ public class TicketServiceImpl implements TicketService {
 
         rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_PRIMARY, RabbitMQConfig.ROUTING_KEY_SLA, savedTicket.getId());
 
+        if (savedTicket.getCreatorEmail() != null && !savedTicket.getCreatorEmail().isBlank()) {
+            SendEmailEvent welcomeEmail = SendEmailEvent.builder()
+                    .toEmail(savedTicket.getCreatorEmail())
+                    .subject("[VNPT Waybill] Tiếp nhận yêu cầu khiếu nại " + savedTicket.getTicketCode())
+                    .body("Xin chào " + savedTicket.getCreatorName() + ",\n\n"
+                            + "Yêu cầu khiếu nại của bạn về đơn hàng [" + savedTicket.getTrackingCode() + "] đã được tiếp nhận thành công.\n"
+                            + "Mã phiếu hỗ trợ: " + savedTicket.getTicketCode() + "\n"
+                            + "Đội ngũ CSKH đang xử lý và sẽ phản hồi sớm nhất.\n\nTrân trọng!")
+                    .type("TICKET_CREATED")
+                    .trackingCode(savedTicket.getTrackingCode())
+                    .build();
+            kafkaTemplate.send("email-events", savedTicket.getTicketCode(), welcomeEmail);
+            log.info(">>> Đã phát sự kiện Kafka gửi email xác nhận tạo vé cho khách: {}", savedTicket.getCreatorEmail());
+        }
 
         //Tự động tạo Message đầu tiên từ nội dung mô tả của khách
         TicketMessage initialMsg = TicketMessage.builder()
@@ -151,6 +172,24 @@ public class TicketServiceImpl implements TicketService {
         }
         ticket.setClosedAt(LocalDateTime.now());
         SupportTicket updated = ticketRepository.save(ticket);
+
+        if(updated.getTrackingCode() != null && !updated.getTrackingCode().isBlank()) {
+            String category = updated.getCategory() != null ? updated.getCategory().toUpperCase() : "";
+            if ("DAMAGED_GOODS".equals(category) || "LOST_GOODS".equals(category) || "CANCEL_REQUEST".equals(category)) {
+                try {
+                    Map<String, String> cancelReq = Map.of(
+                            "reasonCode", "CSKH_RESOLVED",
+                            "reasonNote", "Hủy theo khiếu nại " + updated.getTicketCode() + ": " + updated.getResolutionNote()
+                    );
+                    shipmentClient.cancelShipment(updated.getTrackingCode(), cancelReq, "ROLE_CS", "SHIPMENT:CANCEL");
+                    log.info(">>> Đã tự động kích hoạt HỦY ĐƠN HÀNG [{}] bên shipment-service!", updated.getTrackingCode());
+                } catch (Exception e) {
+                    log.warn("Không thể tự động hủy đơn bên shipment-service: {}", e.getMessage());
+                }
+
+            }
+        }
+
         return TicketResponse.fromEntity(updated);
     }
 

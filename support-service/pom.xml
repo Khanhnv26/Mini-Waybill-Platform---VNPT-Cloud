@@ -102,6 +102,13 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
+
+        <!-- Spring Kafka Starter (Bao gồm Auto-configuration cho KafkaTemplate) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-kafka</artifactId>
+        </dependency>
+
     </dependencies>
 
     <dependencyManagement>

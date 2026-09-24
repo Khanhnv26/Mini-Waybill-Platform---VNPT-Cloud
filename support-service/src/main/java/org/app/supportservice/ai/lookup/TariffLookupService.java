@@ -4,8 +4,8 @@ import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.app.supportservice.ai.client.PricingAiClient;
-import org.app.supportservice.ai.client.TariffQuoteRequest;
-import org.app.supportservice.ai.client.TariffQuoteResponse;
+import org.app.supportservice.ai.dto.request.TariffQuoteRequest;
+import org.app.supportservice.ai.dto.response.TariffQuoteResponse;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;

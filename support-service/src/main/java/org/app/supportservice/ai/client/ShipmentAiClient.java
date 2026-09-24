@@ -1,5 +1,6 @@
 package org.app.supportservice.ai.client;
 
+import org.app.supportservice.ai.dto.snapshot.ShipmentSnapshot;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;

@@ -4,10 +4,10 @@ import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.app.supportservice.ai.client.ShipmentAiClient;
-import org.app.supportservice.ai.client.ShipmentSnapshot;
+import org.app.supportservice.ai.dto.snapshot.ShipmentSnapshot;
 import org.app.supportservice.ai.client.TrackingAiClient;
-import org.app.supportservice.ai.client.TrackingEventView;
-import org.app.supportservice.ai.client.TrackingStatusView;
+import org.app.supportservice.ai.dto.response.TrackingEventView;
+import org.app.supportservice.ai.dto.response.TrackingStatusView;
 import org.springframework.stereotype.Service;
 
 import java.time.format.DateTimeFormatter;
