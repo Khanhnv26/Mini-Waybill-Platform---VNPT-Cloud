@@ -1,6 +1,7 @@
 package org.app.supportservice.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.app.supportservice.config.RabbitMQConfig;
 import org.app.supportservice.dto.request.AddMessageRequest;
 import org.app.supportservice.dto.request.CreateTicketRequest;
 import org.app.supportservice.dto.request.ResolveTicketRequest;
@@ -13,6 +14,7 @@ import org.app.supportservice.exception.ResourceNotFoundException;
 import org.app.supportservice.repository.SupportTicketRepository;
 import org.app.supportservice.repository.TicketMessageRepository;
 import org.app.supportservice.service.TicketService;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +32,8 @@ public class TicketServiceImpl implements TicketService {
 
     private final SupportTicketRepository ticketRepository;
     private final TicketMessageRepository messageRepository;
+    private final RabbitTemplate rabbitTemplate;
+
 
     @Override
     @Transactional
@@ -56,6 +60,15 @@ public class TicketServiceImpl implements TicketService {
                 .build();
 
         SupportTicket savedTicket = ticketRepository.save(ticket);
+
+        int priorityScore = mapPriorityToScore(savedTicket.getPriority());
+        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_PRIMARY, RabbitMQConfig.ROUTING_KEY_PRIMARY, savedTicket.getId(), message -> {
+            message.getMessageProperties().setPriority(priorityScore);
+            return message;
+        });
+
+        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_PRIMARY, RabbitMQConfig.ROUTING_KEY_SLA, savedTicket.getId());
+
 
         //Tự động tạo Message đầu tiên từ nội dung mô tả của khách
         TicketMessage initialMsg = TicketMessage.builder()
@@ -178,4 +191,17 @@ public class TicketServiceImpl implements TicketService {
         }
         throw new BadRequestException("Không sinh được mã phiếu duy nhất. Vui lòng thử lại");
     }
+
+    private int mapPriorityToScore(String priority) {
+        if (priority == null) return 4;
+        return switch(priority.toUpperCase()) {
+            case "URGENT", "CRITICAL" -> 9;
+            case "HIGH" -> 7;
+            case "NORMAL", "MEDIUM" -> 4;
+            case "LOW" -> 2;
+            default -> 4;
+        };
+    }
+
+
 }
