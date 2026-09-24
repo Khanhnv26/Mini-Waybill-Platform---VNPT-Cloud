@@ -144,13 +144,44 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     public Customer createCustomer(CreateCustomerRequest request) {
+        String customerCode = request.getCustomerCode().trim();
+        String email = request.getEmail().trim();
+        String phoneNumber = normalizeVnPhone(request.getPhoneNumber());
+        String fullName = request.getFullName().trim();
+        String address = request.getAddress() == null || request.getAddress().isBlank()
+                ? "Chưa cập nhật địa chỉ"
+                : request.getAddress().trim();
+
+        if (customerRepository.existsByCustomerCode(customerCode)) {
+            throw new IllegalArgumentException("Mã khách hàng này đã tồn tại trong hệ thống");
+        }
+        if (customerRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("Email này đã được đăng ký cho một khách hàng khác");
+        }
+        if (customerRepository.existsByPhoneNumber(phoneNumber)) {
+            throw new IllegalArgumentException("Số điện thoại này đã thuộc về một khách hàng khác");
+        }
+
         return customerRepository.save(Customer.builder()
-                .customerCode(request.getCustomerCode())
-                .fullName(request.getFullName())
-                .address(request.getAddress())
-                .email(request.getEmail())
-                .phoneNumber(request.getPhoneNumber())
+                .customerCode(customerCode)
+                .fullName(fullName)
+                .address(address)
+                .email(email)
+                .phoneNumber(phoneNumber)
                 .build());
+    }
+
+    static String normalizeVnPhone(String raw) {
+        if (raw == null) {
+            return "";
+        }
+        String phone = raw.replaceAll("[\\s.\\-()]", "");
+        if (phone.startsWith("+84")) {
+            phone = "0" + phone.substring(3);
+        } else if (phone.startsWith("84") && phone.length() == 11) {
+            phone = "0" + phone.substring(2);
+        }
+        return phone;
     }
 
     @Override

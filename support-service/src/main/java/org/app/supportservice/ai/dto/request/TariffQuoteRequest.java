@@ -1,4 +1,4 @@
-package org.app.supportservice.ai.client;
+package org.app.supportservice.ai.dto.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

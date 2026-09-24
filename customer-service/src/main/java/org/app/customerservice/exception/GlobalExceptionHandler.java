@@ -22,19 +22,50 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<Map<String,String>> handleDataIntegrityViolationException(org.springframework.dao.DataIntegrityViolationException ex) {
         Map<String,String> error = new HashMap<>();
-        String msg = ex.getMessage();
-        if (msg != null && (msg.contains("UNIQUE") || msg.contains("duplicate key"))) {
-            if (msg.contains("customer_code") || msg.contains("UKiqv746oh5t5is1vr4p2nl79r6")) {
-                error.put("error", "Mã khách hàng này đã tồn tại trong hệ thống");
-            } else if (msg.contains("email") || msg.contains("UKrfbvkrffamfql7cjtx8v5997v")) {
-                error.put("error", "Email này đã được đăng ký cho một khách hàng khác");
-            } else {
-                error.put("error", "Dữ liệu bị trùng lặp (Mã khách hàng hoặc Email đã tồn tại)");
-            }
-        } else {
-            error.put("error", "Lỗi ràng buộc dữ liệu: " + (ex.getRootCause() != null ? ex.getRootCause().getMessage() : ex.getMessage()));
-        }
+        // Hibernate gắn nguyên câu INSERT vào getMessage(), và câu đó luôn có cột customer_code.
+        // Chỉ đọc lỗi gốc của SQL Server để khỏi báo nhầm mọi trùng lặp thành trùng mã khách hàng.
+        Throwable root = ex.getMostSpecificCause();
+        error.put("error", resolveConstraintMessage(root != null ? root.getMessage() : ex.getMessage()));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    static String resolveConstraintMessage(String rootMessage) {
+        if (rootMessage == null || rootMessage.isBlank()) {
+            return "Lỗi ràng buộc dữ liệu";
+        }
+        String lower = rootMessage.toLowerCase();
+        boolean duplicate = lower.contains("unique") || lower.contains("duplicate");
+        if (!duplicate) {
+            return "Lỗi ràng buộc dữ liệu: " + rootMessage;
+        }
+        if (lower.contains("phone")) {
+            return "Số điện thoại này đã thuộc về một khách hàng khác";
+        }
+        if (lower.contains("user_id")) {
+            return "Tài khoản này đã được gắn với một khách hàng khác";
+        }
+        String duplicateValue = extractDuplicateValue(rootMessage);
+        if (duplicateValue != null && duplicateValue.contains("@")) {
+            return "Email này đã được đăng ký cho một khách hàng khác";
+        }
+        if (lower.contains("customer_code") || (duplicateValue != null && duplicateValue.toUpperCase().startsWith("CUST"))) {
+            return "Mã khách hàng này đã tồn tại trong hệ thống";
+        }
+        return "Dữ liệu bị trùng (mã khách hàng, email hoặc số điện thoại đã tồn tại)";
+    }
+
+    private static String extractDuplicateValue(String rootMessage) {
+        String marker = "duplicate key value is (";
+        int start = rootMessage.toLowerCase().indexOf(marker);
+        if (start < 0) {
+            return null;
+        }
+        start += marker.length();
+        int end = rootMessage.indexOf(')', start);
+        if (end < 0) {
+            return null;
+        }
+        return rootMessage.substring(start, end).trim();
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

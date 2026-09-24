@@ -1,5 +1,5 @@
 (function () {
-    const { ref, reactive, computed, watch, onMounted } = Vue;
+    const { ref, reactive, computed, watch, onMounted, nextTick } = Vue;
 
     const ReportView = {
         name: 'ReportView',
@@ -17,6 +17,8 @@
             });
 
             const activeQuickRange = ref('7days');
+            const chartGrouping = ref('day');
+            const chartScrollWrapper = ref(null);
             const filters = reactive({
                 fromDate: '',
                 toDate: '',
@@ -71,16 +73,31 @@
 
                 if (rangeKey === 'today') {
                     fromDate = now;
+                    chartGrouping.value = 'day';
                 } else if (rangeKey === '7days') {
                     fromDate.setDate(now.getDate() - 7);
+                    chartGrouping.value = 'day';
                 } else if (rangeKey === '30days') {
                     fromDate.setDate(now.getDate() - 30);
+                    chartGrouping.value = 'week';
                 } else if (rangeKey === 'month') {
                     fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                    chartGrouping.value = 'week';
                 }
 
                 filters.fromDate = formatDateStr(fromDate);
                 filters.toDate = toStr;
+                pagination.page = 0;
+                loadReport();
+            };
+
+            const handleDateChange = () => {
+                if (filters.fromDate && filters.toDate) {
+                    const from = new Date(filters.fromDate);
+                    const to = new Date(filters.toDate);
+                    const diffDays = Math.ceil(Math.abs(to - from) / (1000 * 60 * 60 * 24)) + 1;
+                    chartGrouping.value = diffDays > 14 ? 'week' : 'day';
+                }
                 pagination.page = 0;
                 loadReport();
             };
@@ -199,20 +216,101 @@
                 };
             });
 
-            const barChartData = computed(() => {
-                const todayKey = formatDateStr(new Date());
-                const list = (Array.isArray(reportData.daily) ? reportData.daily : []).map(day => {
+            const formatMetricShort = (val) => {
+                const num = Number(val) || 0;
+                if (num >= 1000000000) {
+                    return (num / 1000000000).toFixed(1) + 'B';
+                }
+                if (num >= 1000000) {
+                    return (num / 1000000).toFixed(1) + 'M';
+                }
+                if (num >= 1000) {
+                    return (num / 1000).toFixed(0) + 'K';
+                }
+                return num > 0 ? num + 'đ' : '0đ';
+            };
+
+            const buildWeeklySeries = (dailyList, todayKey) => {
+                if (!dailyList || dailyList.length === 0) return [];
+
+                const weeks = [];
+                const chunkSize = 7;
+                for (let i = 0; i < dailyList.length; i += chunkSize) {
+                    const chunk = dailyList.slice(i, i + chunkSize);
+                    const firstDay = chunk[0];
+                    const lastDay = chunk[chunk.length - 1];
+
+                    const firstParts = String(firstDay.date || '').split('-');
+                    const lastParts = String(lastDay.date || '').split('-');
+
+                    const startShort = firstParts.length === 3 ? `${parseInt(firstParts[2], 10)}/${parseInt(firstParts[1], 10)}` : firstDay.date;
+                    const endShort = lastParts.length === 3 ? `${parseInt(lastParts[2], 10)}/${parseInt(lastParts[1], 10)}` : lastDay.date;
+
+                    const startFull = firstParts.length === 3 ? `${firstParts[2]}/${firstParts[1]}` : firstDay.date;
+                    const endFull = lastParts.length === 3 ? `${lastParts[2]}/${lastParts[1]}` : lastDay.date;
+
+                    const weekIndex = Math.floor(i / chunkSize) + 1;
+                    const label = `T${weekIndex}: ${startShort}-${endShort}`;
+                    const fullLabel = `Tuần ${weekIndex} (${startFull} - ${endFull})`;
+
+                    let totalFee = 0;
+                    let totalCod = 0;
+                    let totalCount = 0;
+                    let isHighlight = false;
+
+                    for (const day of chunk) {
+                        totalFee += Number(day.shippingFee) || 0;
+                        totalCod += Number(day.codAmount) || 0;
+                        totalCount += Number(day.count) || 0;
+                        if (String(day.date || '') === todayKey) {
+                            isHighlight = true;
+                        }
+                    }
+
+                    weeks.push({
+                        label,
+                        fullLabel,
+                        fee: totalFee,
+                        cod: totalCod,
+                        count: totalCount,
+                        isHighlight
+                    });
+                }
+
+                const maxFee = Math.max(...weeks.map(x => x.fee), 100000);
+                const maxCod = Math.max(...weeks.map(x => x.cod), 500000);
+
+                return weeks.map(item => ({
+                    ...item,
+                    feeHeight: Math.max(10, Math.min(100, Math.round((item.fee / maxFee) * 85))) + '%',
+                    codHeight: Math.max(12, Math.min(100, Math.round((item.cod / maxCod) * 90))) + '%',
+                    feeText: formatMetricShort(item.fee),
+                    codText: formatMetricShort(item.cod),
+                    tooltipText: `${item.fullLabel}: Cước ${formatMetricShort(item.fee)} | COD ${formatMetricShort(item.cod)} (${formatNumber(item.count)} đơn)`
+                }));
+            };
+
+            const buildDailySeriesFrontend = (dailyList, todayKey) => {
+                if (!dailyList || dailyList.length === 0) return [];
+
+                const list = dailyList.map(day => {
                     const raw = String(day.date || '');
                     const parts = raw.split('-');
                     const label = parts.length === 3 ? `${parts[2]}/${parts[1]}` : raw;
+                    const fee = Number(day.shippingFee) || 0;
+                    const cod = Number(day.codAmount) || 0;
+                    const count = Number(day.count) || 0;
+                    const isToday = raw === todayKey;
                     return {
-                        label,
-                        fee: Number(day.shippingFee) || 0,
-                        cod: Number(day.codAmount) || 0,
-                        count: Number(day.count) || 0,
-                        isToday: raw === todayKey
+                        label: isToday ? 'Hôm Nay' : label,
+                        fullLabel: parts.length === 3 ? `Ngày ${parts[2]}/${parts[1]}/${parts[0]}` : raw,
+                        fee,
+                        cod,
+                        count,
+                        isHighlight: isToday
                     };
                 });
+
                 const maxFee = Math.max(...list.map(x => x.fee), 100000);
                 const maxCod = Math.max(...list.map(x => x.cod), 500000);
 
@@ -220,9 +318,21 @@
                     ...item,
                     feeHeight: Math.max(10, Math.min(100, Math.round((item.fee / maxFee) * 85))) + '%',
                     codHeight: Math.max(12, Math.min(100, Math.round((item.cod / maxCod) * 90))) + '%',
-                    feeText: (item.fee / 1000000).toFixed(1) + 'M',
-                    codText: (item.cod / 1000000).toFixed(1) + 'M'
+                    feeText: formatMetricShort(item.fee),
+                    codText: formatMetricShort(item.cod),
+                    tooltipText: `${item.fullLabel}: Cước ${formatMetricShort(item.fee)} | COD ${formatMetricShort(item.cod)} (${formatNumber(item.count)} đơn)`
                 }));
+            };
+
+            const barChartData = computed(() => {
+                const rawDaily = Array.isArray(reportData.daily) ? reportData.daily : [];
+                const todayKey = formatDateStr(new Date());
+
+                if (chartGrouping.value === 'week') {
+                    return buildWeeklySeries(rawDaily, todayKey);
+                } else {
+                    return buildDailySeriesFrontend(rawDaily, todayKey);
+                }
             });
 
             const filteredShipments = computed(() => {
@@ -287,6 +397,14 @@
                 liveClock.value = now.toLocaleTimeString('vi-VN', { hour12: false });
             };
 
+            watch([chartGrouping, () => reportData.daily], () => {
+                nextTick(() => {
+                    if (chartScrollWrapper.value && chartGrouping.value === 'day') {
+                        chartScrollWrapper.value.scrollLeft = chartScrollWrapper.value.scrollWidth;
+                    }
+                });
+            });
+
             onMounted(() => {
                 updateClock();
                 setInterval(updateClock, 1000);
@@ -300,6 +418,8 @@
                 liveClock,
                 isAdminOrCs,
                 activeQuickRange,
+                chartGrouping,
+                chartScrollWrapper,
                 filters,
                 pagination,
                 tableSearchQuery,
@@ -310,6 +430,7 @@
                 formatVnd,
                 formatNumber,
                 applyQuickRange,
+                handleDateChange,
                 loadReport,
                 handleExportExcel,
                 getStatusBadge,
@@ -433,7 +554,7 @@
                             <input 
                                 type="date" 
                                 v-model="filters.fromDate"
-                                @change="activeQuickRange = 'custom'; loadReport();"
+                                @change="activeQuickRange = 'custom'; handleDateChange();"
                                 class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                             />
                         </div>
@@ -443,7 +564,7 @@
                             <input 
                                 type="date" 
                                 v-model="filters.toDate"
-                                @change="activeQuickRange = 'custom'; loadReport();"
+                                @change="activeQuickRange = 'custom'; handleDateChange();"
                                 class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                             />
                         </div>
@@ -543,52 +664,110 @@
                     </div>
 
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
-                        <div class="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-3">
+                        <div class="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-3 min-w-0">
                             <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
                                 <div>
-                                    <h4 class="text-xs font-bold uppercase text-slate-800 tracking-wide">
-                                        Xu Hướng Doanh Thu Cước &amp; Tiền Thu Hộ COD Theo Ngày
+                                    <h4 class="text-xs font-bold uppercase text-slate-800 tracking-wide flex items-center gap-1.5">
+                                        <span>Xu Hướng Doanh Thu Cước &amp; Tiền Thu Hộ COD</span>
+                                        <span class="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200/60 lowercase">
+                                            {{ chartGrouping === 'week' ? 'theo tuần' : 'theo ngày' }}
+                                        </span>
                                     </h4>
                                     <p class="text-[11px] text-slate-400 mt-0.5">
-                                        Biến động sản lượng &amp; dòng tiền qua các ngày trong kỳ
+                                        {{ chartGrouping === 'week' ? 'Tổng hợp biến động doanh thu & dòng tiền theo từng tuần trong kỳ' : 'Biến động sản lượng & dòng tiền qua các ngày trong kỳ' }}
                                     </p>
                                 </div>
-                                <div class="flex items-center space-x-3 text-xs">
-                                    <span class="flex items-center text-slate-600 font-semibold">
-                                        <span class="w-2.5 h-2.5 rounded-sm bg-blue-600 mr-1.5"></span>
-                                        Cước Phí
-                                    </span>
-                                    <span class="flex items-center text-slate-600 font-semibold">
-                                        <span class="w-2.5 h-2.5 rounded-sm bg-purple-600 mr-1.5"></span>
-                                        Tiền COD
-                                    </span>
+
+                                <div class="flex flex-wrap items-center gap-3 text-xs">
+                                    <div class="flex items-center space-x-3 text-xs">
+                                        <span class="flex items-center text-slate-600 font-semibold text-[11px]">
+                                            <span class="w-2.5 h-2.5 rounded-sm bg-blue-600 mr-1.5"></span>
+                                            Cước Phí
+                                        </span>
+                                        <span class="flex items-center text-slate-600 font-semibold text-[11px]">
+                                            <span class="w-2.5 h-2.5 rounded-sm bg-purple-600 mr-1.5"></span>
+                                            Tiền COD
+                                        </span>
+                                    </div>
+
+                                    <!-- Segmented Control: Theo Ngày / Theo Tuần -->
+                                    <div class="inline-flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200 text-xs">
+                                        <button 
+                                            type="button"
+                                            @click="chartGrouping = 'day'"
+                                            :class="chartGrouping === 'day' ? 'bg-white text-blue-600 font-bold shadow-xs' : 'text-slate-500 hover:text-slate-800 font-semibold'"
+                                            class="px-2 py-0.5 rounded-md text-[11px] transition cursor-pointer"
+                                        >
+                                            Theo Ngày
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            @click="chartGrouping = 'week'"
+                                            :class="chartGrouping === 'week' ? 'bg-white text-blue-600 font-bold shadow-xs' : 'text-slate-500 hover:text-slate-800 font-semibold'"
+                                            class="px-2 py-0.5 rounded-md text-[11px] transition cursor-pointer"
+                                        >
+                                            Theo Tuần
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="h-48 w-full flex items-end justify-between gap-2 pt-4 px-2 border-b border-slate-200">
-                                <div 
-                                    v-for="(day, idx) in barChartData" 
-                                    :key="idx" 
-                                    class="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group cursor-pointer relative"
-                                    :class="{ 'bg-blue-50/50 rounded-lg pb-1': day.isToday }"
-                                >
-                                    <div class="absolute -top-9 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-slate-900 text-white text-[10.5px] py-1 px-2.5 rounded-lg font-mono pointer-events-none z-20 whitespace-nowrap shadow-xl">
-                                        {{ day.label }}: Cước {{ day.feeText }} | COD {{ day.codText }} ({{ day.count }} đơn)
-                                    </div>
+                            <!-- Hint khi xem Theo Ngày có > 14 ngày -->
+                            <div v-if="chartGrouping === 'day' && barChartData.length > 14" class="flex items-center justify-between text-[11px] text-slate-500 bg-blue-50/40 px-2.5 py-1 rounded-lg border border-blue-100">
+                                <span>Hiển thị {{ barChartData.length }} ngày liên tiếp</span>
+                                <span class="flex items-center gap-1 text-blue-600 font-medium">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                                    Cuộn ngang để xem các ngày &rarr;
+                                </span>
+                            </div>
 
-                                    <div class="w-full flex items-end justify-center gap-1.5 h-full">
-                                        <div 
-                                            class="w-3.5 sm:w-5 bg-blue-500 rounded-t-md group-hover:bg-blue-600 transition-all duration-500 ease-out" 
-                                            :style="{ height: day.feeHeight }"
-                                        ></div>
-                                        <div 
-                                            class="w-3.5 sm:w-5 bg-purple-500 rounded-t-md group-hover:bg-purple-600 transition-all duration-500 ease-out" 
-                                            :style="{ height: day.codHeight }"
-                                        ></div>
+                            <!-- Chart Scrollable Container -->
+                            <div 
+                                ref="chartScrollWrapper" 
+                                class="w-full overflow-x-auto pb-1"
+                            >
+                                <div 
+                                    class="h-48 flex items-end border-b border-slate-200 pt-4 px-2"
+                                    :class="[
+                                        chartGrouping === 'week' 
+                                            ? 'w-full justify-around gap-2 sm:gap-4' 
+                                            : (barChartData.length > 14 ? 'justify-between gap-1.5' : 'w-full justify-between gap-2')
+                                    ]"
+                                    :style="chartGrouping === 'day' && barChartData.length > 14 ? { minWidth: Math.max(750, barChartData.length * 30) + 'px' } : {}"
+                                >
+                                    <div 
+                                        v-for="(item, idx) in barChartData" 
+                                        :key="idx" 
+                                        class="flex flex-col items-center gap-1.5 h-full justify-end group cursor-pointer relative"
+                                        :class="[
+                                            chartGrouping === 'week' ? 'w-24 sm:w-28 flex-initial' : 'flex-1 min-w-[24px]',
+                                            { 'bg-blue-50/60 rounded-lg pb-1 border border-blue-200/50': item.isHighlight }
+                                        ]"
+                                    >
+                                        <div class="absolute -top-9 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-slate-900 text-white text-[10.5px] py-1 px-2.5 rounded-lg font-mono pointer-events-none z-20 whitespace-nowrap shadow-xl">
+                                            {{ item.tooltipText }}
+                                        </div>
+
+                                        <div class="w-full flex items-end justify-center gap-1 sm:gap-1.5 h-full">
+                                            <div 
+                                                class="bg-blue-500 rounded-t-md group-hover:bg-blue-600 transition-all duration-500 ease-out" 
+                                                :class="chartGrouping === 'week' ? 'w-5 sm:w-7' : 'w-2.5 sm:w-3.5'"
+                                                :style="{ height: item.feeHeight }"
+                                            ></div>
+                                            <div 
+                                                class="bg-purple-500 rounded-t-md group-hover:bg-purple-600 transition-all duration-500 ease-out" 
+                                                :class="chartGrouping === 'week' ? 'w-5 sm:w-7' : 'w-2.5 sm:w-3.5'"
+                                                :style="{ height: item.codHeight }"
+                                            ></div>
+                                        </div>
+                                        <span 
+                                            class="text-[10px] sm:text-[10.5px] font-semibold text-center truncate max-w-full" 
+                                            :class="item.isHighlight ? 'text-blue-700 font-bold' : 'text-slate-500'"
+                                            :title="item.fullLabel"
+                                        >
+                                            {{ item.label }}
+                                        </span>
                                     </div>
-                                    <span class="text-[10.5px] font-semibold" :class="day.isToday ? 'text-blue-700 font-bold' : 'text-slate-500'">
-                                        {{ day.isToday ? 'Hôm Nay' : day.label }}
-                                    </span>
                                 </div>
                             </div>
                         </div>

@@ -18,10 +18,7 @@ public class SupportServiceApplication {
         SpringApplication.run(SupportServiceApplication.class, args);
     }
 
-    /**
-     * Chạy từ IDE không nạp file .env. Nếu máy chưa đặt GEMINI_API_KEY thì lấy từ .env ở thư mục gốc repo.
-     * Biến môi trường có sẵn (Docker, Kubernetes) được giữ nguyên.
-     */
+
     static void loadLocalGeminiEnv() {
         Path dir = Path.of(System.getProperty("user.dir", ".")).toAbsolutePath();
         for (int i = 0; i < 4 && dir != null; i++) {
@@ -51,7 +48,9 @@ public class SupportServiceApplication {
                 continue;
             }
             String key = trimmed.substring(0, split).trim();
-            if (!"GEMINI_API_KEY".equals(key) && !"GEMINI_MODEL".equals(key)) {
+            if (!"AI_MODEL".equals(key) && !"LLM_MODEL".equals(key)
+                    && !"AI_BASE_URL".equals(key) && !"AI_API_KEY".equals(key)
+                    && !"GEMINI_API_KEY".equals(key) && !"GEMINI_MODEL".equals(key)) {
                 continue;
             }
             if (hasText(System.getProperty(key))) {

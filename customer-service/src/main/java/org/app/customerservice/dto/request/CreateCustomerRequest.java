@@ -24,7 +24,7 @@ public class CreateCustomerRequest {
 
 
     @NotBlank(message = "Họ và tên không được để trống")
-    @Size(min = 2, max = 100)
+    @Size(min = 2, max = 100, message = "Họ tên khách hàng phải có độ dài từ 2 đến 100 ký tự")
     private String fullName;
 
     @Size(max = 255, message = "Địa chỉ không được vượt quá 255 ký tự")

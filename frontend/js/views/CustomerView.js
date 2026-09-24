@@ -37,7 +37,7 @@
                 isLoading.value = true;
                 try {
                     const data = await CustomerService.getAllCustomers();
-                    customers.value = data || [];
+                    customers.value = (data || []).slice().sort((a, b) => (b.id || 0) - (a.id || 0));
                 } catch (err) {
                     Utils.showToast('Lỗi Tải Dữ Liệu', err.message, 'error');
                 } finally {
@@ -134,10 +134,20 @@
                 showModal.value = true;
             };
 
+            const normalizePhone = (raw) => {
+                let phone = String(raw || '').replace(/[\s.\-()]/g, '').trim();
+                if (phone.startsWith('+84')) {
+                    phone = '0' + phone.slice(3);
+                } else if (/^84(3|5|7|8|9)\d{8}$/.test(phone)) {
+                    phone = '0' + phone.slice(2);
+                }
+                return phone;
+            };
+
             // Lưu tạo mới khách hàng
             const handleCreateCustomer = async () => {
                 const fullName = (newCustomer.fullName || '').trim();
-                const phoneNumber = (newCustomer.phoneNumber || '').trim();
+                const phoneNumber = normalizePhone(newCustomer.phoneNumber);
                 const email = (newCustomer.email || '').trim();
                 const address = (newCustomer.address || '').trim();
 
@@ -151,9 +161,15 @@
                     return;
                 }
 
-                const vnPhoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/;
+                const vnPhoneRegex = /^0(3|5|7|8|9)[0-9]{8}$/;
                 if (!vnPhoneRegex.test(phoneNumber)) {
                     Utils.showToast('Lỗi Nhập Liệu', 'Số điện thoại không đúng định dạng di động Việt Nam (10 chữ số, ví dụ 0912345678)', 'error');
+                    return;
+                }
+
+                const samePhone = customers.value.find(c => normalizePhone(c.phoneNumber) === phoneNumber);
+                if (samePhone) {
+                    Utils.showToast('Thất Bại', `Số điện thoại này đã thuộc về khách hàng ${samePhone.fullName}`, 'error');
                     return;
                 }
 
@@ -168,6 +184,12 @@
                     return;
                 }
 
+                const sameEmail = customers.value.find(c => (c.email || '').trim().toLowerCase() === email.toLowerCase());
+                if (sameEmail) {
+                    Utils.showToast('Thất Bại', `Email này đã thuộc về khách hàng ${sameEmail.fullName}`, 'error');
+                    return;
+                }
+
                 isSaving.value = true;
                 try {
                     await CustomerService.createCustomer({
@@ -179,6 +201,9 @@
                     });
                     Utils.showToast('Thành Công', 'Đã lưu thông tin khách hàng bưu chính');
                     showModal.value = false;
+                    searchQuery.value = '';
+                    selectedStatusFilter.value = 'ALL';
+                    currentPage.value = 1;
                     loadCustomers();
                 } catch (err) {
                     Utils.showToast('Thất Bại', err.message, 'error');
