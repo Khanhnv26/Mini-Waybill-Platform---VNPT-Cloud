@@ -130,6 +130,20 @@ services:
         RABBITMQ_DEFAULT_PASS: "admin"
     restart: always
 
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    container_name: waybill-minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio_data:/data
+    restart: always
+
   sqlserver-replica:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: waybill-sqlserver-replica
@@ -431,12 +445,21 @@ services:
       - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
       - AI_API_KEY=${AI_API_KEY:-ollama}
       - LLM_MODEL=${LLM_MODEL:-qwen2.5:3b}
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET_NAME=support-tickets
+      - MINIO_PUBLIC_URL=http://localhost:9000
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
     depends_on:
       - sqlserver-replica
       - eureka-peer1
       - eureka-peer2
+      - minio
     restart: always
+
+volumes:
+  minio_data:
 
 
 

@@ -158,16 +158,16 @@
                             </div>
 
                             <!-- Nội dung tin nhắn -->
-                            <div :class="['space-y-1 max-w-[88%]', msg.sender === 'user' ? 'text-right' : '']">
+                            <div :class="['space-y-1 max-w-[88%] min-w-0', msg.sender === 'user' ? 'text-right' : '']">
                                 
                                 <!-- Tin khách render chữ thường. Chỉ tin bot dùng HTML đã escape. -->
                                 <div
                                     v-if="msg.type === 'text' && msg.sender === 'user'"
-                                    class="rounded-2xl p-3.5 leading-relaxed text-left inline-block shadow-sm whitespace-pre-wrap break-words bg-blue-600 text-white rounded-tr-sm shadow-blue-500/15"
+                                    class="rounded-2xl p-3.5 leading-relaxed text-left inline-block shadow-sm chat-bubble-wrap bg-blue-600 text-white rounded-tr-sm shadow-blue-500/15"
                                 >{{ msg.text }}</div>
                                 <div
                                     v-else-if="msg.type === 'text'"
-                                    class="rounded-2xl p-3.5 leading-relaxed text-left inline-block shadow-sm bg-white border border-slate-200/90 text-slate-700 rounded-tl-sm"
+                                    class="rounded-2xl p-3.5 leading-relaxed text-left inline-block shadow-sm chat-bubble-wrap bg-white border border-slate-200/90 text-slate-700 rounded-tl-sm"
                                     v-html="msg.html"
                                 ></div>
 
@@ -344,26 +344,16 @@
 
                     <!-- FOOTER NHẬP TIN NHẮN (INPUT AREA) -->
                     <div class="p-3 bg-white border-t border-slate-200 flex flex-col space-y-2 select-none">
-                        <form @submit.prevent="submitUserMessage" class="flex items-center space-x-2">
-                            <div class="relative flex-1">
+                        <form @submit.prevent="submitUserMessage" class="flex items-center space-x-2 min-w-0">
+                            <div class="relative flex-1 min-w-0">
                                 <input 
                                     ref="inputField"
                                     v-model="inputText" 
                                     type="text" 
                                     placeholder="Nhập mã vận đơn (WB...) hoặc câu hỏi..." 
-                                    class="w-full pl-3.5 pr-8 py-2.5 text-xs bg-slate-100/90 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-slate-800 placeholder-slate-400 transition-all duration-200"
+                                    class="w-full min-w-0 px-3.5 py-2.5 text-xs bg-slate-100/90 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-slate-800 placeholder-slate-400 transition-all duration-200"
                                     autocomplete="off"
                                 />
-                                <button 
-                                    type="button" 
-                                    @click="triggerAttachmentAlert"
-                                    title="Đính kèm ảnh sự cố hàng vỡ / biên bản" 
-                                    class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-600 hover:scale-110 active:scale-95 transition-all duration-150"
-                                >
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                    </svg>
-                                </button>
                             </div>
                             <button 
                                 type="submit" 
@@ -952,14 +942,6 @@
                     if (code) sessionStorage.setItem('supportTrackingCode', code);
                 } catch (e) {}
                 window.location.href = 'index.html#support';
-            },
-
-            triggerAttachmentAlert() {
-                if (window.Utils && typeof window.Utils.showToast === 'function') {
-                    window.Utils.showToast('Đính Kèm Biên Bản', 'Hệ thống đã sẵn sàng tiếp nhận ảnh chụp hàng vỡ hoặc biên bản giao nhận bưu tá.', 'info');
-                } else {
-                    alert('Đã sẵn sàng tải lên ảnh chụp sự cố bưu phẩm.');
-                }
             },
 
             // BẬT / TẮT ÂM THANH THÔNG BÁO
