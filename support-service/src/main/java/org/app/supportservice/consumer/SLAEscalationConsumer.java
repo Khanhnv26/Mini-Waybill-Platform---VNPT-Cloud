@@ -7,6 +7,7 @@ import org.app.supportservice.dto.event.SendEmailEvent;
 import org.app.supportservice.entity.SupportTicket;
 import org.app.supportservice.repository.SupportTicketRepository;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +15,9 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 @Slf4j
 public class SLAEscalationConsumer {
+
+    @Value("${app.sla.alert-email:vankhanhak54@gmail.com}")
+    private String alertEmailTo;
 
     private final SupportTicketRepository ticketRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
@@ -30,7 +34,7 @@ public class SLAEscalationConsumer {
             log.warn(" [CẢNH BÁO VI PHẠM SLA] Ticket [{}] - {} đã quá 2 phút chưa ai xử lý!", ticket.getTicketCode(), ticket.getTitle());
             log.warn(" Hệ thống tự động nâng trạng thái thành: ESCALATED để báo động cấp quản lý!");
             SendEmailEvent alertEmail = SendEmailEvent.builder()
-                    .toEmail("admin@waybill.vn") // Email của Quản lý / Trưởng bưu cục
+                    .toEmail(alertEmailTo) // Email của Quản lý / Trưởng bưu cục
                     .subject("[CẢNH BÁO KHẨN CẤP] Vi phạm SLA Ticket: " + ticket.getTicketCode())
                     .body("Kính gửi Quản lý ca trực,\n\nKhiếu nại mã " + ticket.getTicketCode()
                             + " với tiêu đề '" + ticket.getTitle() + "' đã quá 2 phút chưa có nhân viên CSKH tiếp nhận!\n"
