@@ -1,7 +1,3 @@
-/**
- * VNPT CLOUD - PROFILE & ACCOUNT CENTER VIEW
- * Trung tâm quản lý hồ sơ tài khoản, bảo mật & thiết lập bưu chính
- */
 
 (function () {
     const { ref, reactive, computed, onMounted } = Vue;
@@ -37,14 +33,12 @@
             const userProfile = ref(null);
             const isLoading = ref(false);
 
-            // Các cờ trạng thái xử lý
             const isSavingProfile = ref(false);
             const isSavingPassword = ref(false);
             const isSavingSettings = ref(false);
             const showAvatarModal = ref(false);
             const avatarInputUrl = ref('');
 
-            // Dữ liệu Form Thông tin cá nhân & Shop
             const profileForm = reactive({
                 fullName: '',
                 phoneNumber: '',
@@ -52,35 +46,30 @@
                 shopBrandName: ''
             });
 
-            // Dữ liệu Form Đổi mật khẩu
             const passwordForm = reactive({
                 currentPassword: '',
                 newPassword: '',
                 confirmPassword: ''
             });
 
-            // Dữ liệu Cấu hình COD & Thiết lập gửi hàng mặc định của Shop
             const shopSettings = reactive({
                 bankName: 'Vietcombank',
                 bankAccount: '',
                 bankAccountName: '',
-                feePayer: 'RECEIVER', // SENDER hoặc RECEIVER
-                inspectionRule: 'ALLOW_VIEW_NO_TRY', // ALLOW_VIEW_NO_TRY, ALLOW_TRY, NO_VIEW
+                feePayer: 'RECEIVER',
+                inspectionRule: 'ALLOW_VIEW_NO_TRY',
                 driverNote: 'Vui lòng gọi trước khi giao hàng'
             });
 
-            // Kiểm tra người dùng là cán bộ nội bộ hay khách hàng
             const isStaffUser = computed(() => {
                 return window.Auth && window.Auth.isInternalStaff();
             });
 
-            // Tiêu đề chức danh
             const roleTitle = computed(() => {
                 const role = currentUser.value?.roles?.[0];
                 return ROLE_TITLES[role] || (role ? role.replace('ROLE_', '') : 'Thành Viên');
             });
 
-            // Mã định danh hiển thị
             const uniqueCode = computed(() => {
                 const u = currentUser.value;
                 if (!u) return 'VNPT';
@@ -91,7 +80,6 @@
                 return userProfile.value?.customerCode || ('KH-' + String(u.userId || u.id || 'VNPT'));
             });
 
-            // Đánh giá độ mạnh mật khẩu động
             const passwordStrength = computed(() => {
                 const pwd = passwordForm.newPassword;
                 if (!pwd) {
@@ -106,7 +94,6 @@
                 return { width: '100%', color: 'bg-emerald-500', text: 'Mạnh', textClass: 'text-emerald-600 font-bold' };
             });
 
-            // Danh sách phân quyền có mô tả tiếng Việt
             const accountStats = reactive({
                 orders: null,
                 successRate: null
@@ -129,7 +116,6 @@
                 }));
             });
 
-            // Tải thông tin tài khoản và cấu hình đã lưu
             const loadAccountData = async () => {
                 if (!window.Auth || !window.Auth.isAuthenticated()) return;
                 isLoading.value = true;
@@ -156,8 +142,7 @@
                         }
                     }
 
-                    // Tải cấu hình Shop từ localStorage (nếu có)
-                    const userId = currentUser.value.userId || currentUser.value.id || 'default';
+                            const userId = currentUser.value.userId || currentUser.value.id || 'default';
                     const savedSettings = localStorage.getItem('waybill_shop_settings_' + userId);
                     if (savedSettings) {
                         try {
@@ -190,7 +175,6 @@
                 }
             };
 
-            // Lưu thông tin hồ sơ
             const handleSaveProfile = async () => {
                 if (!profileForm.fullName.trim()) {
                     if (window.Utils) {
@@ -223,8 +207,7 @@
                             window.Auth.setSession(window.Auth.getToken(), currentUser.value);
                         }
 
-                        // Lưu tên thương hiệu Shop
-                        const userId = currentUser.value.userId || currentUser.value.id || 'default';
+                                    const userId = currentUser.value.userId || currentUser.value.id || 'default';
                         shopSettings.shopBrandName = profileForm.shopBrandName.trim();
                         localStorage.setItem('waybill_shop_settings_' + userId, JSON.stringify(shopSettings));
                     }
@@ -242,7 +225,6 @@
                 }
             };
 
-            // Đổi mật khẩu
             const handleChangePassword = async () => {
                 if (passwordForm.newPassword.length < 6) {
                     if (window.Utils) {
@@ -282,7 +264,6 @@
                 }
             };
 
-            // Lưu cấu hình COD & Vận đơn mặc định của Shop
             const handleSaveShopSettings = () => {
                 isSavingSettings.value = true;
                 try {
@@ -304,7 +285,6 @@
                 }
             };
 
-            // Cập nhật Avatar qua URL
             const saveAvatarFromUrl = async () => {
                 const url = avatarInputUrl.value.trim();
                 if (!url) return;
@@ -327,7 +307,6 @@
                 }
             };
 
-            // Chọn màu đại diện nhận diện thương hiệu
             const selectPresetColor = async (bgClass) => {
                 showAvatarModal.value = false;
                 currentUser.value.avatarBg = bgClass;
@@ -371,12 +350,10 @@
         },
         template: `
             <div class="space-y-4 pb-8 text-slate-800">
-                <!-- 1. HERO BANNER: CHUẨN VNPT GRADIENT ĐỒNG BỘ VỚI TOÀN BỘ HỆ THỐNG -->
                 <div class="rounded-2xl vnpt-gradient text-white p-5 sm:p-6 shadow-md shadow-blue-900/10 relative overflow-hidden transition-all duration-300">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1.2px, transparent 1.2px); background-size: 16px 16px;"></div>
 
                     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
-                        <!-- Avatar + Thông tin định danh -->
                         <div class="flex items-center space-x-4">
                             <div class="relative group cursor-pointer" @click="showAvatarModal = true" title="Bấm để đổi ảnh đại diện">
                                 <div class="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl overflow-hidden bg-white/15 border-2 border-white/30 shadow-inner flex items-center justify-center font-black text-xl text-white transition-transform duration-200 group-hover:scale-105">
@@ -420,7 +397,6 @@
                             </div>
                         </div>
 
-                        <!-- Metric Ribbon (Thẻ thống kê hiệu suất chuẩn B2B) -->
                         <div class="flex items-center space-x-2 self-start md:self-auto">
                             <div class="px-3.5 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[76px] transition-transform hover:scale-105">
                                 <div class="text-sm sm:text-base font-bold leading-tight font-mono text-white">
@@ -452,7 +428,6 @@
                     </div>
                 </div>
 
-                <!-- 2. NAVIGATION TABS (Phong cách b2b-card với hiệu ứng active mượt mà) -->
                 <div class="b2b-card bg-white p-1.5 flex flex-wrap gap-1.5">
                     <button 
                         @click="currentSubTab = 'info'" 
@@ -494,9 +469,7 @@
                     </button>
                 </div>
 
-                <!-- 3. NỘI DUNG TỪNG TAB -->
 
-                <!-- TAB 1: THÔNG TIN CÁ NHÂN & LIÊN HỆ -->
                 <div v-show="currentSubTab === 'info'" class="b2b-card p-5 sm:p-6 space-y-5">
                     <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                         <div>
@@ -562,7 +535,6 @@
                             </div>
                         </div>
 
-                        <!-- Cấu hình Shop (Dành cho Khách hàng - Đã loại bỏ khung giờ lấy hàng) -->
                         <div v-if="!isStaffUser" class="p-4 rounded-xl bg-blue-50/60 border border-blue-200/80 space-y-3.5 transition-all">
                             <div class="text-xs font-bold text-blue-900 flex items-center space-x-1.5">
                                 <svg class="w-4 h-4 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
@@ -602,7 +574,6 @@
                     </form>
                 </div>
 
-                <!-- TAB 2: BẢO MẬT & ĐỔI MẬT KHẨU (BỐ CỤC 2 CỘT CÂN ĐỐI 100%) -->
                 <div v-show="currentSubTab === 'security'" class="b2b-card p-5 sm:p-6 space-y-5">
                     <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
                         <div>
@@ -614,9 +585,7 @@
                         </span>
                     </div>
 
-                    <!-- Lưới 2 cột cân đối -->
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-6 pt-1">
-                        <!-- Cột trái (7/12): Form đổi mật khẩu -->
                         <form @submit.prevent="handleChangePassword" class="md:col-span-7 space-y-3.5 text-xs">
                             <div>
                                 <label class="block font-bold text-slate-700 mb-1">Mật khẩu hiện tại <span class="text-rose-500">*</span></label>
@@ -638,7 +607,6 @@
                                     placeholder="Nhập tối thiểu 6 ký tự" 
                                     class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                                 />
-                                <!-- Thanh đo độ mạnh mật khẩu động -->
                                 <div class="mt-1.5 flex items-center space-x-1.5">
                                     <div class="flex-1 h-1 bg-slate-200 rounded-full overflow-hidden">
                                         <div 
@@ -676,7 +644,6 @@
                             </div>
                         </form>
 
-                        <!-- Cột phải (5/12): Thẻ tiêu chuẩn bảo mật & khuyến nghị -->
                         <div class="md:col-span-5 p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-3 text-xs flex flex-col justify-between">
                             <div>
                                 <div class="font-bold text-slate-800 text-xs flex items-center space-x-1.5 mb-2">
@@ -705,7 +672,6 @@
                         </div>
                     </div>
 
-                    <!-- Khối liên kết Google SSO & Phiên đăng nhập -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs pt-2">
                         <div class="p-3.5 rounded-xl border border-slate-200 bg-white space-y-1.5">
                             <div class="flex items-center justify-between">
@@ -739,9 +705,7 @@
                     </div>
                 </div>
 
-                <!-- TAB 3: NGHIỆP VỤ & THIẾT LẬP -->
                 <div v-show="currentSubTab === 'operations'" class="space-y-4">
-                    <!-- Góc nhìn cho Cán Bộ (Staff): Phân Quyền & Trạm Công Tác -->
                     <div v-if="isStaffUser" class="space-y-4">
                         <div class="b2b-card p-5 sm:p-6 space-y-3.5">
                             <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
@@ -781,9 +745,7 @@
                         </div>
                     </div>
 
-                    <!-- Góc nhìn cho Khách Hàng (Shop): Tài khoản COD & Thiết lập đơn hàng mặc định -->
                     <div v-else class="space-y-4">
-                        <!-- Cấu hình tài khoản ngân hàng nhận tiền COD -->
                         <div class="b2b-card p-5 sm:p-6 space-y-4 text-xs">
                             <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
                                 <div>
@@ -833,7 +795,6 @@
                             </div>
                         </div>
 
-                        <!-- Cấu hình tạo vận đơn gửi hàng mặc định -->
                         <div class="b2b-card p-5 sm:p-6 space-y-4 text-xs">
                             <div class="border-b border-slate-100 pb-3">
                                 <h3 class="text-xs sm:text-sm font-bold text-slate-800">Cấu Hình Vận Đơn Gửi Hàng Mặc Định</h3>
@@ -884,7 +845,6 @@
                     </div>
                 </div>
 
-                <!-- 4. MODAL CHỌN ẢNH ĐẠI DIỆN (AVATAR) CHUẨN TRANSITION -->
                 <div v-if="showAvatarModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
                     <div class="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-2xl border border-slate-200">
                         <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">

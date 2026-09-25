@@ -1,18 +1,6 @@
-/**
- * ==============================================================================
- * VNPT WAYBILL PLATFORM - UNIFIED API CLIENT
- * Tự Động Đính Kèm JWT Bearer Token, Xử Lý Lỗi Toàn Cục & 403 Interceptor
- * ==============================================================================
- */
-
 const API_BASE_URL = (['3000', '80', ''].includes(window.location.port) && window.location.protocol.startsWith('http')) ? '' : 'http://localhost:8080';
 
 const Api = {
-    /**
-     * Hàm gọi API chung
-     * @param {string} endpoint - Ví dụ: '/api/shipments', '/api/admin/roles'
-     * @param {object} options - Cấu hình fetch (method, headers, body...)
-     */
     async request(endpoint, options = {}) {
         const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
         
@@ -21,7 +9,6 @@ const Api = {
             ...(options.headers || {})
         };
 
-        // 1. Tự động đính kèm Token JWT nếu người dùng đã đăng nhập
         if (typeof Auth !== 'undefined') {
             const token = Auth.getToken();
             if (token) {
@@ -35,14 +22,12 @@ const Api = {
                 headers
             });
 
-            // 2. HTTP 401 Unauthorized: Phiên làm việc hết hạn hoặc Token không hợp lệ
             if (response.status === 401) {
                 console.warn('[API 401] Token không hợp lệ hoặc đã hết hạn.');
                 if (typeof Auth !== 'undefined') {
                     Auth.clearSession();
                 }
                 
-                // Tránh loop nếu đang ở trang login
                 if (!window.location.pathname.includes('login.html')) {
                     if (window.Utils && window.Utils.showToast) {
                         window.Utils.showToast('Hết Hạn Phiên (401)', 'Phiên làm việc đã hết hạn. Đang chuyển về trang đăng nhập...', 'warning');
@@ -54,7 +39,6 @@ const Api = {
                 return response;
             }
 
-            // 3. HTTP 403 Forbidden: Bị từ chối bởi cơ chế phân quyền RBAC
             if (response.status === 403) {
                 console.warn('[API 403] Truy cập bị từ chối do không đủ quyền hạn RBAC.');
                 if (!options.skip403Toast && !options.silent) {
@@ -71,12 +55,10 @@ const Api = {
                 return response;
             }
 
-            // 4. HTTP 429 Too Many Requests: Bị giới hạn tần suất yêu cầu (Rate Limiting)
             if (response.status === 429) {
                 console.warn('[API 429] Vượt quá giới hạn tần suất yêu cầu (Rate Limiting). Chuyển hướng sang màn hình lỗi 429...');
                 const retryAfter = response.headers.get('Retry-After') || '10';
                 
-                // Tránh lặp chuyển hướng nếu đang ở trang error.html
                 if (!window.location.pathname.includes('error.html')) {
                     const fromUrl = encodeURIComponent(window.location.href);
                     window.location.href = `error.html?code=429&retryAfter=${retryAfter}&from=${fromUrl}`;
@@ -84,7 +66,6 @@ const Api = {
                 return response;
             }
 
-            // 5. HTTP 502 / 503: Cụm dịch vụ Gateway hoặc Microservices gián đoạn
             if (response.status === 502 || response.status === 503) {
                 console.warn(`[API ${response.status}] Cụm dịch vụ Gateway hoặc Microservices tạm thời không khả dụng.`);
                 if (!options.silent) {
@@ -112,7 +93,6 @@ const Api = {
     async parseError(response, fallbackMessage = 'Yêu cầu không thành công') {
         let payload = null;
 
-        // Đọc từ bản sao trước để không làm mất body của Response gốc khi cần dùng tiếp.
         const readBody = async (candidate) => {
             if (!candidate) return null;
             if (typeof candidate.text === 'function') {
@@ -149,7 +129,6 @@ const Api = {
             }
             payload = await readBody(candidate);
 
-            // Một số mock Response chỉ hỗ trợ json(), không hỗ trợ text()/clone().
             if (payload === null && candidate !== response) {
                 payload = await readBody(response);
             }

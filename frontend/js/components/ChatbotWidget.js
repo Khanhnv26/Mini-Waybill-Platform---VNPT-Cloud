@@ -1,33 +1,20 @@
-/**
- * ==============================================================================
- * VNPT WAYBILL PLATFORM - TRỢ LÝ ẢO CHATBOT CSKH 24/7 (VUE 3 COMPONENT)
- * Logo Vector SVG quả cầu VNPT, Tra cứu đơn hàng thời gian thực,
- * Tối ưu trải nghiệm khách hàng thân thiện, Không dùng thuật ngữ kỹ thuật.
- * ==============================================================================
- */
-
 (function () {
     const ChatbotWidget = {
         name: 'ChatbotWidget',
         template: `
             <div v-if="shouldDisplay" id="vnpt-chatbot-widget" class="fixed bottom-6 right-6 z-[9999] font-sans antialiased">
-                
-                <!-- 1. NÚT MỞ LAUNCHER VỚI VIỀN SÁNG NHẸ NHÀNG + BỒNG BỀNH -->
                 <div 
                     v-show="!isOpen" 
                     class="relative flex items-center justify-center animate-chatbot-float select-none"
                 >
-                    <!-- Vòng sáng dịu mắt lan tỏa nhẹ xung quanh -->
                     <span class="absolute w-14 h-14 rounded-full bg-blue-400 pointer-events-none animate-chatbot-radar-1"></span>
                     <span class="absolute w-14 h-14 rounded-full bg-blue-500 pointer-events-none animate-chatbot-radar-2"></span>
 
-                    <!-- Nút Bấm Mở Tròn -->
                     <button 
                         @click="openChat"
                         title="Trò chuyện với Trợ lý ảo VNPT Post 24/7"
                         class="group relative flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-tr from-blue-700 via-blue-600 to-blue-500 text-white shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 transform hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none border-2 border-white/60"
                     >
-                        <!-- Badge thông báo tin mới -->
                         <span v-if="unreadCount > 0" class="absolute -top-1 -right-1 flex h-5 w-5">
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                             <span class="relative inline-flex rounded-full h-5 w-5 bg-rose-500 text-white font-bold text-[10px] items-center justify-center border-2 border-white shadow-sm">
@@ -35,7 +22,6 @@
                             </span>
                         </span>
 
-                        <!-- LOGO QUẢ CẦU RUY-BĂNG VNPT VECTOR SVG -->
                         <div class="w-8 h-8 flex items-center justify-center transform group-hover:rotate-12 transition-transform duration-300">
                             <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-sm">
                                 <defs>
@@ -59,7 +45,6 @@
                     </button>
                 </div>
 
-                <!-- 2. CỬA SỔ CHATBOT VỚI SPRING BOUNCE TRANSITION -->
                 <div 
                     v-show="isOpen"
                     :class="[
@@ -67,10 +52,8 @@
                         isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-0 opacity-0 translate-y-4 pointer-events-none'
                     ]"
                 >
-                    <!-- HEADER CỬA SỔ CHAT -->
                     <div class="vnpt-gradient text-white px-4 py-3.5 flex items-center justify-between shadow-sm select-none">
                         <div class="flex items-center space-x-3">
-                            <!-- Logo Quả cầu Vector SVG trên Header -->
                             <div class="relative w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md border border-white/30 flex items-center justify-center p-1 shadow-inner">
                                 <svg viewBox="0 0 100 100" class="w-full h-full">
                                     <circle cx="50" cy="50" r="33" fill="#38bdf8"/>
@@ -94,9 +77,7 @@
                             </div>
                         </div>
 
-                        <!-- Các nút thao tác Header -->
                         <div class="flex items-center space-x-1 text-blue-100">
-                            <!-- Nút Bật/Tắt âm thanh chuông -->
                             <button 
                                 @click="toggleMute" 
                                 :title="isMuted ? 'Bật âm thanh thông báo' : 'Tắt âm thanh thông báo'"
@@ -131,7 +112,6 @@
                         </div>
                     </div>
 
-                    <!-- DANH SÁCH TIN NHẮN (MESSAGE HISTORY) -->
                     <div 
                         ref="messagesContainer" 
                         class="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-50/80 text-xs"
@@ -144,7 +124,6 @@
                                 msg.sender === 'user' ? 'justify-end' : ''
                             ]"
                         >
-                            <!-- Avatar Bot -->
                             <div 
                                 v-if="msg.sender === 'bot'" 
                                 class="w-7 h-7 rounded-lg vnpt-gradient text-white flex-shrink-0 flex items-center justify-center p-1 shadow-sm"
@@ -157,10 +136,7 @@
                                 </svg>
                             </div>
 
-                            <!-- Nội dung tin nhắn -->
                             <div :class="['space-y-1 max-w-[88%] min-w-0', msg.sender === 'user' ? 'text-right' : '']">
-                                
-                                <!-- Tin khách render chữ thường. Chỉ tin bot dùng HTML đã escape. -->
                                 <div
                                     v-if="msg.type === 'text' && msg.sender === 'user'"
                                     class="rounded-2xl p-3.5 leading-relaxed text-left inline-block shadow-sm chat-bubble-wrap bg-blue-600 text-white rounded-tr-sm shadow-blue-500/15"
@@ -171,7 +147,6 @@
                                     v-html="msg.html"
                                 ></div>
 
-                                <!-- THẺ RICH CARD: TRA CỨU HÀNH TRÌNH ĐƠN HÀNG -->
                                 <div 
                                     v-else-if="msg.type === 'tracking_card'"
                                     class="bg-white border border-slate-200/90 rounded-2xl rounded-tl-sm p-3.5 shadow-md space-y-2.5 text-left"
@@ -187,7 +162,6 @@
                                         </span>
                                     </div>
 
-                                    <!-- THANH TIẾN ĐỘ VẬN CHUYỂN ANIMATION -->
                                     <div class="bg-slate-50 border border-slate-200/70 rounded-xl p-2.5 space-y-2">
                                         <div class="relative w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                                             <div 
@@ -220,7 +194,6 @@
                                         </div>
                                     </div>
 
-                                    <!-- THÔNG TIN CHI TIẾT ĐƠN HÀNG -->
                                     <div class="bg-blue-50/60 border border-blue-100/80 rounded-xl p-2.5 space-y-1.5 text-[11px]">
                                         <div v-if="msg.data.receiverName" class="flex justify-between">
                                             <span class="text-slate-500">Người nhận:</span>
@@ -247,7 +220,6 @@
                                         </div>
                                     </div>
 
-                                    <!-- Nút xem chi tiết trên Bản Đồ -->
                                     <div class="flex space-x-2 pt-1">
                                         <button 
                                             @click="viewOnTrackingTab(msg.data.trackingCode)"
@@ -268,7 +240,6 @@
                                 <span class="text-[10px] text-slate-400 block px-1">{{ msg.time || 'Vừa xong' }}</span>
                             </div>
 
-                            <!-- Avatar Người Dùng -->
                             <div 
                                 v-if="msg.sender === 'user'" 
                                 class="w-7 h-7 rounded-lg bg-slate-200 text-slate-700 font-bold text-[10px] flex-shrink-0 flex items-center justify-center shadow-2xs border border-slate-300"
@@ -277,7 +248,6 @@
                             </div>
                         </div>
 
-                        <!-- TYPING INDICATOR (HIỆU ỨNG AI ĐANG NGHĨ: SPARKLES + SHIMMER TEXT + MINI WAVE DOTS) -->
                         <div v-if="isTyping" class="flex items-start space-x-2 animate-chatbot-thinking-in">
                             <div class="w-7 h-7 rounded-lg vnpt-gradient text-white flex-shrink-0 flex items-center justify-center p-1 shadow-sm chatbot-avatar-glow">
                                 <svg viewBox="0 0 100 100" class="w-full h-full">
@@ -288,14 +258,12 @@
                                 </svg>
                             </div>
                             <div class="chatbot-thinking-bubble rounded-2xl rounded-tl-sm px-3.5 py-2 flex items-center space-x-2">
-                                <!-- Sparkles AI Icon SVG -->
                                 <div class="w-3.5 h-3.5 flex-shrink-0 text-sky-500 animate-chatbot-sparkle">
                                     <svg viewBox="0 0 24 24" fill="currentColor">
                                         <path d="M12 2L14.2 8.8L21 11L14.2 13.2L12 20L9.8 13.2L3 11L9.8 8.8L12 2Z"/>
                                         <path d="M19 16L19.8 18.2L22 19L19.8 19.8L19 22L18.2 19.8L16 19L18.2 18.2L19 16Z" opacity="0.8"/>
                                     </svg>
                                 </div>
-                                <!-- Text Shimmer Wave + 3 Mini Dots -->
                                 <div class="flex items-center space-x-1">
                                     <span class="chatbot-thinking-text font-semibold text-[11px] tracking-tight">
                                         {{ typingMessage }}
@@ -309,7 +277,6 @@
                             </div>
                         </div>
 
-                        <!-- QUICK ACTION CHIPS (GỢI Ý THAO TÁC NHANH) -->
                         <div v-if="messages.length <= 2" class="pl-9 space-y-1.5 pt-1 animate-chatbot-msg">
                             <p class="text-[11px] font-medium text-slate-500">Gợi ý câu hỏi:</p>
                             <div class="flex flex-wrap gap-1.5">
@@ -342,7 +309,6 @@
 
                     </div>
 
-                    <!-- FOOTER NHẬP TIN NHẮN (INPUT AREA) -->
                     <div class="p-3 bg-white border-t border-slate-200 flex flex-col space-y-2 select-none">
                         <form @submit.prevent="submitUserMessage" class="flex items-center space-x-2 min-w-0">
                             <div class="relative flex-1 min-w-0">
@@ -399,11 +365,9 @@
             };
         },
         computed: {
-            // Kiểm tra người dùng hiện tại có phải cán bộ / nhân viên nội bộ hay không
             isStaffUser() {
                 return typeof Auth !== 'undefined' && Auth.isAuthenticated() && Auth.isInternalStaff();
             },
-            // Chỉ hiển thị Trợ lý ảo CSKH đối với Khách hàng (ROLE_CUSTOMER) và Khách vãng lai (Guest chưa đăng nhập)
             shouldDisplay() {
                 if (this.visible !== null && this.visible !== undefined) {
                     return !!this.visible;
@@ -447,7 +411,6 @@
                     console.warn('[Chatbot] Không đọc được session:', e);
                 }
 
-                // Lời chào mở đầu thân thiện, ngắn gọn, chuyên nghiệp
                 this.messages = [
                     {
                         id: 'init_1',
@@ -477,7 +440,6 @@
                 return now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
             },
 
-            // Gửi tin nhắn của người dùng
             submitUserMessage() {
                 const text = this.inputText.trim();
                 if (!text || this.isTyping) return;
@@ -493,11 +455,9 @@
                 this.saveSessionMessages();
                 this.scrollToBottom();
 
-                // Phân tích ý định và phản hồi
                 this.processUserIntent(text);
             },
 
-            // PHẢN HỒI CỦA BOT (MƯỢT MÀ, 100% REACTIVE, KHÔNG VỠ THẺ HTML)
             async typeBotResponse(fullText, extraData = null) {
                 if (!this.isTyping) {
                     this.typingMessage = 'Trợ lý AI đang suy nghĩ...';
@@ -521,16 +481,13 @@
                 this.saveSessionMessages();
                 this.scrollToBottom();
 
-                // Chỉ tăng số đếm tin chưa đọc nếu cửa sổ chat đang đóng/thu nhỏ
                 if (!this.isOpen) {
                     this.unreadCount++;
                 }
 
-                // Phát âm thanh thông báo chuông 2 nốt êm dịu
                 this.playNotificationSound();
             },
 
-            // TỰ ĐỘNG XÁC ĐỊNH THÔNG ĐIỆP SUY NGHĨ THEO NGỮ CẢNH
             determineThinkingMessage(query) {
                 if (!query) return 'Trợ lý AI đang suy nghĩ...';
                 const text = String(query).trim();
@@ -554,14 +511,10 @@
                 return 'Trợ lý AI đang suy nghĩ...';
             },
 
-            // PHÂN TÍCH Ý ĐỊNH VÀ KẾT NỐI TRỢ LÝ AI (SPRING AI BACKEND)
             async processUserIntent(rawText) {
                 const text = rawText.trim();
-
-                // Tự động phân tích ngữ cảnh để hiển thị thông điệp suy nghĩ tương ứng
                 this.typingMessage = this.determineThinkingMessage(text);
 
-                // 1. Nếu khách nhập thẳng mã vận đơn WB... thì ưu tiên hiển thị Thẻ hành trình trực quan
                 const trackingMatch = text.match(/\b(WB[-_A-Za-z0-9]+)\b/i);
                 const isShortQuery = text.length <= 25 || text.toLowerCase().startsWith('tra cứu') || text.toLowerCase().startsWith('kiểm tra');
                 if (trackingMatch && isShortQuery) {
@@ -570,7 +523,6 @@
                     return;
                 }
 
-                // 2. Gửi câu hỏi đến Trợ lý AI Backend (support-service: POST /api/support/ai/chat)
                 this.isTyping = true;
                 this.scrollToBottom();
 
@@ -606,7 +558,6 @@
                             const formatted = this.formatMarkdown(data.reply);
                             await this.typeBotResponse(formatted);
 
-                            // Nếu có kèm mã vận đơn thì mở thêm thẻ tra cứu cho khách
                             if (trackingMatch) {
                                 await this.fetchAndDisplayShipment(trackingMatch[1].toUpperCase());
                             }
@@ -631,8 +582,6 @@
                 } catch (e) {}
                 return 'Gateway chưa trả lời được. Quý khách thử lại sau.';
             },
-
-            // ĐỊNH DẠNG MARKDOWN TỪ TRỢ LÝ AI SANG HTML GỌN GÀNG
             escapeHtml(value) {
                 return String(value ?? '')
                     .replace(/&/g, '&amp;')
@@ -657,7 +606,6 @@
                 return safe;
             },
 
-            // GỌI API THẬT TỪ HỆ THỐNG ĐƠN HÀNG
             async fetchAndDisplayShipment(trackingCode) {
                 this.typingMessage = 'Đang tra cứu hành trình ' + trackingCode + '...';
                 this.isTyping = true;
@@ -667,7 +615,6 @@
                     let trackingData = null;
                     let shipmentData = null;
 
-                    // 1. Gọi song song Tracking và Shipment API
                     if (window.TrackingService && typeof window.TrackingService.getFullTracking === 'function') {
                         try {
                             trackingData = await window.TrackingService.getFullTracking(trackingCode);
@@ -684,7 +631,6 @@
                         }
                     }
 
-                    // Nếu cả hai đều không tìm thấy đơn hàng
                     if (!trackingData && !shipmentData) {
                         await this.typeBotResponse(`
                             Rất tiếc, em không tìm thấy bưu phẩm mã: <strong class="text-rose-600">${this.escapeHtml(trackingCode)}</strong> trên hệ thống bưu cục.<br>
@@ -693,7 +639,6 @@
                         return;
                     }
 
-                    // 2. Chuẩn hóa dữ liệu hiển thị thẻ Rich Card
                     const status = (
                         trackingData?.currentStatus
                         || shipmentData?.currentStatus
@@ -735,7 +680,6 @@
                 }
             },
 
-            // Map trạng thái đơn hàng sang nhãn tiếng Việt & tỷ lệ phần trăm tiến trình
             mapStatusDetails(status) {
                 switch (status) {
                     case 'RECEIVED':
@@ -836,10 +780,8 @@
                 }
             },
 
-            // Xử lý khi bấm nút Gợi ý nhanh
             async handleQuickAction(action) {
                 if (action === 'track_sample') {
-                    // Thử tìm mã đơn thật từ ShipmentService
                     let targetCode = null;
                     try {
                         if (window.ShipmentService && typeof window.ShipmentService.getAll === 'function') {
@@ -862,7 +804,6 @@
                         this.scrollToBottom();
                         await this.fetchAndDisplayShipment(targetCode);
                     } else {
-                        // Nếu chưa có đơn nào trong DB, hướng dẫn người dùng nhập mã
                         this.messages.push({
                             id: 'usr_' + Date.now(),
                             sender: 'user',
@@ -915,7 +856,6 @@
                 }
             },
 
-            // Xem chi tiết trên tab Tra cứu
             viewOnTrackingTab(trackingCode) {
                 this.closeChat();
                 if (window.location.pathname.includes('index.html') || window.location.pathname === '/' || window.location.pathname === '') {
@@ -927,7 +867,6 @@
                 }
             },
 
-            // Mở form khiếu nại thật, chưa tạo phiếu cho đến khi khách gửi
             initClaimFor(trackingCode) {
                 const code = (trackingCode || '').trim();
                 this.closeChat();
@@ -944,7 +883,6 @@
                 window.location.href = 'index.html#support';
             },
 
-            // BẬT / TẮT ÂM THANH THÔNG BÁO
             toggleMute() {
                 this.isMuted = !this.isMuted;
                 try {
@@ -955,7 +893,6 @@
                 }
             },
 
-            // PHÁT ÂM THANH CHUÔNG 2 NỐT BẰNG WEB AUDIO API (DỊU NHẸ, KHÔNG DÙNG FILE NGOÀI)
             playNotificationSound() {
                 if (this.isMuted) return;
                 try {
@@ -970,27 +907,25 @@
                     const ctx = this.audioCtx;
                     const now = ctx.currentTime;
 
-                    // Nốt 1 (D5 ~ 587.33 Hz)
                     const osc1 = ctx.createOscillator();
                     const gain1 = ctx.createGain();
                     osc1.type = 'sine';
                     osc1.frequency.setValueAtTime(587.33, now);
                     gain1.gain.setValueAtTime(0, now);
                     gain1.gain.linearRampToValueAtTime(0.14, now + 0.02);
-                    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+                    gain1.exponentialRampToValueAtTime(0.001, now + 0.22);
                     osc1.connect(gain1);
                     gain1.connect(ctx.destination);
                     osc1.start(now);
                     osc1.stop(now + 0.24);
 
-                    // Nốt 2 (A5 ~ 880 Hz): nảy thanh thoát
                     const osc2 = ctx.createOscillator();
                     const gain2 = ctx.createGain();
                     osc2.type = 'sine';
                     osc2.frequency.setValueAtTime(880.00, now + 0.08);
                     gain2.gain.setValueAtTime(0, now + 0.08);
                     gain2.gain.linearRampToValueAtTime(0.18, now + 0.10);
-                    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+                    gain2.exponentialRampToValueAtTime(0.001, now + 0.38);
                     osc2.connect(gain2);
                     gain2.connect(ctx.destination);
                     osc2.start(now + 0.08);
@@ -1002,6 +937,5 @@
         }
     };
 
-    // Đưa vào biến toàn cục để Vue App chính có thể nạp
     window.ChatbotWidget = ChatbotWidget;
 })();

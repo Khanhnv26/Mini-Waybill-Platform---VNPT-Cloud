@@ -1,8 +1,3 @@
-/**
- * VNPT CLOUD - AUDIT SERVICE CLIENT
- * Nhật ký tác nghiệp hệ thống và kiểm toán dữ liệu
- */
-
 (function () {
     const AuditService = {
         async getByTrackingCode(trackingCode) {

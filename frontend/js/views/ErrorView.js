@@ -1,10 +1,3 @@
-/**
- * ==============================================================================
- * VNPT WAYBILL PLATFORM - VIEW: THÔNG BÁO LỖI HỆ THỐNG (ERROR VIEW)
- * Tích hợp trực tiếp vào Master Layout của ứng dụng Vue SPA (index.html)
- * Hiển thị Card thông báo lỗi nguyên bản: Icon SVG lớn, Badge, Countdown & Hotline
- * ==============================================================================
- */
 
 (function () {
     const { ref, computed, onMounted, onUnmounted } = Vue;
@@ -183,17 +176,13 @@
         },
         template: `
             <div class="min-h-[520px] flex items-center justify-center p-4 sm:p-6">
-                <!-- THẺ THÔNG BÁO LỖI NGUYÊN BẢN Ở CHÍNH GIỮA MÀN HÌNH -->
                 <div class="max-w-xl w-full bg-white border border-slate-200/90 rounded-2xl shadow-xl shadow-slate-200/60 p-8 sm:p-10 text-center relative overflow-hidden">
                     
-                    <!-- Hào quang mờ nền dịu mắt nhấp nháy êm ái -->
                     <div :class="['error-aura-pulse absolute top-1/4 left-1/2 w-64 h-64 rounded-full blur-3xl pointer-events-none transition-all duration-500', activeConfig.glowClass]"></div>
 
-                    <!-- Icon Minh Họa SVG Động Nổi Bật -->
                     <div class="relative mb-6 error-icon-float flex justify-center">
                         <div :class="['w-24 h-24 rounded-3xl border-2 flex items-center justify-center relative shadow-inner select-none', activeConfig.iconBoxClass]">
                             
-                            <!-- 404 Icon: Kính lúp di chuyển quét & hạt tín hiệu -->
                             <template v-if="activeConfig.iconType === '404'">
                                 <svg class="w-12 h-12 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                                     <path class="text-blue-200/70" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M4 7l8-4 8 4v10l-8 4-8-4V7z"></path>
@@ -206,7 +195,6 @@
                                 <div class="absolute -top-2 -right-2 bg-blue-600 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-md shadow-blue-500/20">404</div>
                             </template>
 
-                            <!-- 403 Icon: Ổ khóa rung cảnh báo an ninh -->
                             <template v-else-if="activeConfig.iconType === '403'">
                                 <div class="anim-403-lock flex items-center justify-center">
                                     <svg class="w-12 h-12 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -219,7 +207,6 @@
                                 <div class="absolute -top-2 -right-2 bg-rose-600 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-md shadow-rose-500/20 anim-403-badge">KHÓA</div>
                             </template>
 
-                            <!-- 503 Icon: Cụm bánh răng kép xoay nhịp nhàng -->
                             <template v-else-if="activeConfig.iconType === '503'">
                                 <div class="relative w-12 h-12 flex items-center justify-center">
                                     <svg class="w-10 h-10 text-amber-600 anim-503-gear-main" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -234,7 +221,6 @@
                                 <div class="absolute -top-2 -right-2 bg-amber-600 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-md shadow-amber-500/20">BẢO TRÌ</div>
                             </template>
 
-                            <!-- 502 Icon: Tia sét phát xung điện -->
                             <template v-else-if="activeConfig.iconType === '502'">
                                 <div class="anim-502-zap flex items-center justify-center">
                                     <svg class="w-12 h-12 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -244,7 +230,6 @@
                                 <div class="absolute -top-2 -right-2 bg-orange-600 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-md shadow-orange-500/20">NGẮT</div>
                             </template>
 
-                            <!-- 429 Icon: Đồng hồ xoay kim phút mượt mà -->
                             <template v-else-if="activeConfig.iconType === '429'">
                                 <svg class="w-12 h-12 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                                     <circle cx="12" cy="12" r="9" stroke-width="1.8"></circle>
@@ -257,22 +242,18 @@
                         </div>
                     </div>
 
-                    <!-- Badge Mã Lỗi Chính -->
                     <div :class="['inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold tracking-wide uppercase mb-3.5 border shadow-sm', activeConfig.badgeClass]">
                         {{ activeConfig.badgeText }}
                     </div>
 
-                    <!-- Tiêu Đề Lỗi -->
                     <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 mb-3">
                         {{ customTitle || activeConfig.title }}
                     </h1>
 
-                    <!-- Mô Tả Thân Thiện -->
                     <p class="text-sm sm:text-base text-slate-600 max-w-md mx-auto mb-6 leading-relaxed">
                         {{ customMessage || activeConfig.desc }}
                     </p>
 
-                    <!-- Hộp đếm ngược tự động thử lại kèm Thanh Tiến Trình Động (503, 502, 429) -->
                     <div v-if="activeConfig.hasCountdown && countdownSeconds > 0" class="mb-6 px-4 py-3 rounded-2xl border border-amber-200 bg-amber-50/80 text-amber-900 text-xs font-medium max-w-sm mx-auto shadow-sm">
                         <div class="flex items-center justify-between space-x-2 mb-2">
                             <div class="flex items-center space-x-2">
@@ -284,7 +265,6 @@
                             </div>
                             <button @click="cancelCountdown" class="text-amber-700 hover:text-amber-950 underline font-semibold text-[11px] px-1 transition cursor-pointer">Hủy</button>
                         </div>
-                        <!-- Thanh tiến trình đếm ngược động mượt mà -->
                         <div class="w-full bg-amber-200/60 h-1.5 rounded-full overflow-hidden shadow-inner">
                             <div 
                                 class="bg-gradient-to-r from-amber-500 to-amber-600 h-full rounded-full transition-all duration-1000 ease-linear shadow-sm"
@@ -293,7 +273,6 @@
                         </div>
                     </div>
 
-                    <!-- CÁC NÚT THAO TÁC HÀNH ĐỘNG NGUYÊN BẢN -->
                     <div class="flex flex-wrap items-center justify-center gap-3 w-full max-w-md mx-auto">
                         <button 
                             v-for="(act, idx) in activeConfig.actions" 
@@ -310,7 +289,6 @@
                         </button>
                     </div>
 
-                    <!-- THÔNG TIN HỖ TRỢ KỸ THUẬT DOANH NGHIỆP -->
                     <div class="mt-8 pt-6 border-t border-slate-100 flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500">
                         <span class="flex items-center space-x-1.5">
                             <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

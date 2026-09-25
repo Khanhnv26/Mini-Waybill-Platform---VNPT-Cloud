@@ -1,9 +1,3 @@
-/**
- * ==============================================================================
- * VNPT CLOUD - VIEW: HỖ TRỢ & XỬ LÝ KHIẾU NẠI BƯU GỬI (SUPPORT & HELPDESK VIEW)
- * Chuẩn Enterprise B2B, Bố Cục Split-Pane 2 Cột (Master-Detail), Chatbox 60fps
- * ==============================================================================
- */
 
 (function () {
     const { ref, reactive, computed, watch, onMounted, nextTick } = Vue;
@@ -28,10 +22,8 @@
                 return Auth.hasRole('ROLE_CS') || Auth.hasRole('ROLE_ADMIN');
             });
 
-            // Tab hiện tại: 'create' | 'lookup' | 'ops'
             const currentSubTab = ref('create');
 
-            // 1. DỮ LIỆU THỐNG KÊ KPI TOÀN DIỆN
             const stats = reactive({
                 total: 0,
                 open: 0,
@@ -39,7 +31,6 @@
                 resolved: 0
             });
 
-            // 2. TAB 1: FORM GỬI KHIẾU NẠI
             const formData = reactive({
                 trackingCode: props.trackingCode || props.initialTrackingCode || '',
                 creatorName: '',
@@ -55,7 +46,6 @@
             const isCheckingShipment = ref(false);
             const isSubmittingTicket = ref(false);
 
-            // Tự động điền thông tin tài khoản nếu đã đăng nhập
             const syncUserDataToForm = () => {
                 if (currentUser.value) {
                     formData.creatorName = currentUser.value.fullName || currentUser.value.username || '';
@@ -64,7 +54,6 @@
                 }
             };
 
-            // Kiểm tra thông tin đơn hàng từ mã vận đơn WB
             const checkShipment = async () => {
                 const code = formData.trackingCode.trim().toUpperCase();
                 if (!code) {
@@ -112,7 +101,6 @@
                 }
             };
 
-            // Gửi phiếu khiếu nại lên support-service
             const submitTicket = async () => {
                 if (!formData.trackingCode.trim()) {
                     if (window.Utils?.showToast) window.Utils.showToast('Lỗi', 'Vui lòng nhập mã vận đơn', 'warning');
@@ -149,11 +137,9 @@
                         );
                     }
 
-                    // Lưu vào localStorage cho khách vãng lai
-                    saveGuestHistory(result);
+                        saveGuestHistory(result);
 
-                    // Chuyển sang Tab 2 và nạp hồ sơ vừa tạo vào Chatbox
-                    searchCode.value = result.ticketCode;
+                        searchCode.value = result.ticketCode;
                     activeTicket.value = result;
                     currentSubTab.value = 'lookup';
                     await loadMyTickets();
@@ -165,7 +151,6 @@
                 }
             };
 
-            // 3. TAB 2: TRA CỨU & KHUNG CHATBOX 2 CỘT SPLIT-PANE
             const searchCode = ref('');
             const isSearching = ref(false);
             const myTickets = ref([]);
@@ -175,7 +160,6 @@
             const isSendingMessage = ref(false);
             const chatBoxRef = ref(null);
 
-            // Quản lý đính kèm ảnh (MinIO Object Storage)
             const selectedAttachmentUrl = ref(null);
             const isUploadingAttachment = ref(false);
 
@@ -235,7 +219,6 @@
                 if (inputEl) inputEl.click();
             };
 
-            // Quản lý LocalStorage History cho Guest
             const loadGuestHistory = () => {
                 try {
                     const raw = localStorage.getItem('vnpt_guest_support_history');
@@ -262,7 +245,6 @@
                 } catch {}
             };
 
-            // Tải danh sách hồ sơ của tài khoản đăng nhập
             const loadMyTickets = async () => {
                 if (!currentUser.value) return;
                 try {
@@ -276,7 +258,6 @@
                 }
             };
 
-            // Tìm kiếm hồ sơ theo mã TKT... hoặc WB...
             const handleSearch = async () => {
                 const code = searchCode.value.trim().toUpperCase();
                 if (!code) {
@@ -307,7 +288,6 @@
                 }
             };
 
-            // Chọn ticket active trong Master List
             const selectActiveTicket = async (ticket) => {
                 if (!ticket) return;
                 try {
@@ -328,7 +308,6 @@
                 }
             };
 
-            // Gửi tin nhắn trao đổi trong Chatbox
             const sendMessage = async (presetText = null) => {
                 const text = (presetText || chatInput.value).trim();
                 const attachment = selectedAttachmentUrl.value;
@@ -354,7 +333,6 @@
                 }
             };
 
-            // Tự động cuộn xuống cuối khung chat
             const scrollToBottom = () => {
                 nextTick(() => {
                     const el = document.getElementById('chatMessagesFeed');
@@ -362,13 +340,11 @@
                 });
             };
 
-            // 4. TAB 3: TÁC NGHIỆP CSKH (DÀNH CHO ROLE_CS / ROLE_ADMIN)
             const opsTickets = ref([]);
             const opsFilterStatus = ref('ALL');
             const opsSearchQuery = ref('');
             const isLoadingOps = ref(false);
 
-            // Modal giải quyết & bồi thường
             const showResolveModal = ref(false);
             const modalTicket = ref(null);
             const modalCompensation = ref(0);
@@ -403,7 +379,6 @@
                 });
             });
 
-            // Cán bộ CSKH tiếp nhận phiếu
             const handleAssignTicket = async (ticket) => {
                 try {
                     const csName = currentUser.value?.fullName || 'Chuyên viên CSKH';
@@ -418,7 +393,6 @@
                 }
             };
 
-            // Mở modal duyệt chi bồi thường
             const openResolveModal = (ticket) => {
                 modalTicket.value = ticket;
                 modalCompensation.value = ticket.compensationAmount || 0;
@@ -568,7 +542,6 @@
                 }
             };
 
-            // Tiện ích format
             const formatCategory = (cat) => {
                 const map = {
                     DAMAGED_GOODS: 'Hàng móp méo / Vỡ hỏng',
@@ -636,7 +609,6 @@
                 }
             };
 
-            // Khởi tạo component
             watch(opsFilterStatus, () => {
                 if (isStaffUser.value && currentSubTab.value === 'ops') {
                     loadOpsTickets();
@@ -657,7 +629,6 @@
 
                 await refreshStats();
 
-                // Nếu có trackingCode truyền vào từ TrackingView
                 const targetCode = props.trackingCode || props.initialTrackingCode;
                 if (targetCode) {
                     formData.trackingCode = targetCode;
@@ -666,7 +637,6 @@
                 }
             });
 
-            // Tự động nhận diện khi trackingCode prop thay đổi từ tab khác
             watch(() => props.trackingCode, (newCode) => {
                 if (newCode && newCode !== formData.trackingCode) {
                     formData.trackingCode = newCode;
@@ -674,8 +644,6 @@
                     checkShipment();
                 }
             });
-
-            // Chuyển sang Tab 2 và xem trực tiếp ticket trong Split-Pane Chatbox
             const selectTicketForChat = (ticket) => {
                 if (!ticket) return;
                 activeTicket.value = ticket;
@@ -744,8 +712,37 @@
         template: `
             <div class="space-y-3.5 pb-10 text-slate-800">
 
-                <!-- 1. HERO BANNER: GRADIENT VNPT VÀ KHỐI KPI STATS -->
-                <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden transition-all duration-300">
+                <div v-if="!currentUser" class="page-header-banner rounded-3xl p-6 sm:p-7 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden transition-all duration-300 hover:shadow-md">
+                    <div class="flex items-start space-x-4">
+                        <div class="w-14 h-14 rounded-2xl bg-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-600/30 flex-shrink-0 ring-4 ring-purple-100">
+                            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-2 text-xs font-semibold text-purple-700 mb-1 whitespace-nowrap">
+                                <span @click="$emit('switch-tab', 'tracking')" class="cursor-pointer hover:underline">Trang Chủ</span>
+                                <span>/</span>
+                                <span>Trung Tâm Hỗ Trợ</span>
+                                <span>/</span>
+                                <span class="text-slate-500">CSKH &amp; Khiếu Nại</span>
+                            </div>
+                            <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight sm:whitespace-nowrap">Cổng Tiếp Nhận Hỗ Trợ &amp; Xử Lý Khiếu Nại</h1>
+                            <p class="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl leading-relaxed">Tiếp nhận sự cố vận chuyển, giải quyết quyền lợi bưu chính và cam kết phản hồi đối soát bưu phẩm minh bạch.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-3 self-start md:self-center flex-shrink-0">
+                        <div class="px-4 py-2.5 rounded-2xl bg-white border border-purple-200/80 shadow-xs text-center min-w-[110px] flex-shrink-0">
+                            <span class="text-[10.5px] uppercase font-bold text-slate-400 block tracking-wider whitespace-nowrap">Hotline</span>
+                            <span class="text-xs sm:text-sm font-black text-purple-700 whitespace-nowrap">1900 54 54 81</span>
+                        </div>
+                        <div class="px-4 py-2.5 rounded-2xl bg-white border border-purple-200/80 shadow-xs text-center min-w-[110px] flex-shrink-0">
+                            <span class="text-[10.5px] uppercase font-bold text-slate-400 block tracking-wider whitespace-nowrap">Cam Kết CSKH</span>
+                            <span class="text-xs sm:text-sm font-black text-emerald-600 whitespace-nowrap">Phản Hồi &lt; 2h</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-else class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden transition-all duration-300">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
 
                     <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -764,7 +761,6 @@
                             </p>
                         </div>
 
-                        <!-- 4 Chỉ số KPI Counters -->
                         <div class="flex items-center space-x-2 self-start sm:self-auto">
                             <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px] transform hover:scale-105 transition">
                                 <div class="text-sm sm:text-base font-bold leading-tight">{{ stats.total }}</div>
@@ -786,11 +782,9 @@
                     </div>
                 </div>
 
-                <!-- 2. THANH SUB-TAB ĐIỀU HƯỚNG CHÍNH -->
                 <div class="b2b-card rounded-xl p-1.5 shadow-sm flex items-center justify-between overflow-x-auto">
                     <div class="flex items-center space-x-1.5">
                         
-                        <!-- Tab 1: Gửi khiếu nại (Chung cho tất cả) -->
                         <button 
                             type="button"
                             @click="currentSubTab = 'create'" 
@@ -803,7 +797,6 @@
                             <span class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-white/20 text-white" v-if="currentSubTab === 'create'">Soạn vé</span>
                         </button>
 
-                        <!-- Tab 2: Tra cứu tiến độ (Guest & Customer) -->
                         <button 
                             type="button"
                             @click="currentSubTab = 'lookup'" 
@@ -818,7 +811,6 @@
                             </span>
                         </button>
 
-                        <!-- Tab 3: Tác nghiệp CSKH (CHỈ DÀNH CHO CSKH & ADMIN) -->
                         <button 
                             v-if="isStaffUser"
                             type="button"
@@ -840,12 +832,8 @@
                     </div>
                 </div>
 
-                <!-- ========================================================================= -->
-                <!-- SUB-TAB 1: GỬI KHIẾU NẠI BƯU GỬI (GUEST & CUSTOMER)                      -->
-                <!-- ========================================================================= -->
                 <div v-if="currentSubTab === 'create'" class="tab-content-enter grid grid-cols-1 lg:grid-cols-12 gap-3.5">
                     
-                    <!-- Form nhập liệu -->
                     <div class="lg:col-span-7 b2b-card rounded-xl p-4 sm:p-5 shadow-sm space-y-4">
                         <div class="border-b border-slate-100 pb-2.5 flex items-center justify-between">
                             <div class="flex items-center space-x-2">
@@ -861,7 +849,6 @@
 
                         <form class="space-y-3.5 text-xs" @submit.prevent="submitTicket">
                             
-                            <!-- Nhập mã vận đơn WB -->
                             <div>
                                 <label class="block font-semibold text-slate-700 mb-1">Mã Vận Đơn Bưu Chính (Tracking Code) <span class="text-rose-500">*</span>:</label>
                                 <div class="flex items-center space-x-2">
@@ -884,7 +871,6 @@
                                 </div>
                             </div>
 
-                            <!-- Preview thông tin bưu gửi nếu đã nạp -->
                             <div v-if="shipmentInfo" class="tab-content-enter p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5 transition-all text-[11px]">
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center space-x-2">
@@ -902,7 +888,6 @@
                                 </div>
                             </div>
 
-                            <!-- Họ tên & SĐT -->
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                     <label class="block font-semibold text-slate-700 mb-1">
@@ -930,7 +915,6 @@
                                 </div>
                             </div>
 
-                            <!-- Phân loại sự cố & Mức độ khẩn cấp -->
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                     <label class="block font-semibold text-slate-700 mb-1">Phân loại sự cố <span class="text-rose-500">*</span>:</label>
@@ -954,7 +938,6 @@
                                 </div>
                             </div>
 
-                            <!-- Tiêu đề yêu cầu -->
                             <div>
                                 <label class="block font-semibold text-slate-700 mb-1">Tiêu đề yêu cầu <span class="text-rose-500">*</span>:</label>
                                 <input 
@@ -966,7 +949,6 @@
                                 />
                             </div>
 
-                            <!-- Mô tả chi tiết -->
                             <div>
                                 <label class="block font-semibold text-slate-700 mb-1">Mô tả sự việc chi tiết <span class="text-rose-500">*</span>:</label>
                                 <textarea 
@@ -978,7 +960,6 @@
                                 ></textarea>
                             </div>
 
-                            <!-- Nút gửi -->
                             <div class="pt-2 flex items-center justify-end space-x-2">
                                 <button 
                                     type="submit" 
@@ -993,7 +974,6 @@
                         </form>
                     </div>
 
-                    <!-- Cột hướng dẫn quy chuẩn -->
                     <div class="lg:col-span-5 space-y-3.5">
                         <div class="b2b-card rounded-xl p-4 sm:p-5 shadow-sm space-y-3 text-xs">
                             <h2 class="text-xs font-bold text-slate-900 uppercase tracking-wide border-b border-slate-100 pb-2">
@@ -1027,15 +1007,10 @@
 
                 </div>
 
-                <!-- ========================================================================= -->
-                <!-- SUB-TAB 2: TRA CỨU TIẾN ĐỘ & CHATBOX SPLIT-PANE (40% / 60%)                -->
-                <!-- ========================================================================= -->
                 <div v-if="currentSubTab === 'lookup'" class="tab-content-enter grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch w-full max-w-full min-w-0">
                     
-                    <!-- CỘT TRÁI (40% - lg:col-span-5): TÌM KIẾM + MASTER LIST + STEPPER 4 BƯỚC -->
                     <div class="lg:col-span-5 min-w-0 flex flex-col space-y-3">
                         
-                        <!-- 1. Hộp tìm kiếm mã vé TKT... hoặc mã bưu gửi WB... -->
                         <div class="b2b-card rounded-xl p-3.5 shadow-xs space-y-2">
                             <div class="flex items-center justify-between">
                                 <span class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center space-x-1.5">
@@ -1065,7 +1040,6 @@
                             </div>
                         </div>
 
-                        <!-- 2. Danh sách hồ sơ Master List (Tài khoản hoặc LocalStorage) -->
                         <div class="b2b-card rounded-xl p-3 shadow-xs space-y-2">
                             <div class="flex items-center justify-between pb-1.5 border-b border-slate-100">
                                 <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
@@ -1077,7 +1051,6 @@
                                 </span>
                             </div>
 
-                            <!-- List items -->
                             <div class="space-y-1.5 max-h-44 overflow-y-auto pr-0.5">
                                 <template v-if="currentUser && myTickets.length">
                                     <div 
@@ -1133,7 +1106,6 @@
                             </div>
                         </div>
 
-                        <!-- 3. Chi tiết hồ sơ Active & Stepper 4 bước -->
                         <div v-if="activeTicket" class="b2b-card rounded-xl p-3.5 shadow-xs space-y-2.5 flex-1">
                             <div class="flex items-center justify-between pb-2 border-b border-slate-100">
                                 <div>
@@ -1145,12 +1117,9 @@
                                 </span>
                             </div>
 
-                            <!-- Stepper 4 Bước Chuẩn B2B Enterprise (Grid 4 cột, không tràn thanh ray) -->
                             <div class="pt-2 pb-1">
                                 <div class="relative">
-                                    <!-- Thanh ray nền xám: Cố định từ tâm Bước 1 (12.5%) đến tâm Bước 4 (87.5%) -->
                                     <div class="absolute top-[13px] left-[12.5%] right-[12.5%] h-[2px] bg-slate-200 -translate-y-1/2 overflow-hidden z-0 pointer-events-none">
-                                        <!-- Thanh tiến trình Gradient chạy bên trong thanh ray -->
                                         <div 
                                             class="h-full transition-all duration-500"
                                             :class="activeTicket.status === 'REJECTED' ? 'bg-gradient-to-r from-blue-600 via-amber-500 to-rose-600' : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500'"
@@ -1162,10 +1131,8 @@
                                         ></div>
                                     </div>
 
-                                    <!-- 4 Mốc bước Grid 4 cột đều nhau -->
                                     <div class="relative z-10 grid grid-cols-4">
                                         
-                                        <!-- Bước 1: Tiếp nhận -->
                                         <div class="flex flex-col items-center text-center">
                                             <div 
                                                 class="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs transition-all duration-300 bg-blue-600 text-white"
@@ -1177,7 +1144,6 @@
                                             <span class="text-[9px] text-slate-400 font-mono">{{ formatTime(activeTicket.createdAt) }}</span>
                                         </div>
 
-                                        <!-- Bước 2: Thẩm định -->
                                         <div class="flex flex-col items-center text-center">
                                             <div 
                                                 class="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs transition-all duration-300"
@@ -1198,7 +1164,6 @@
                                             </span>
                                         </div>
 
-                                        <!-- Bước 3: Đề xuất bồi hoàn / Từ chối -->
                                         <div class="flex flex-col items-center text-center">
                                             <div 
                                                 class="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs transition-all duration-300"
@@ -1219,7 +1184,6 @@
                                             </span>
                                         </div>
 
-                                        <!-- Bước 4: Hoàn tất -->
                                         <div class="flex flex-col items-center text-center">
                                             <div 
                                                 class="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs transition-all duration-300"
@@ -1243,7 +1207,6 @@
                                 </div>
                             </div>
 
-                            <!-- Tóm tắt đơn hàng liên kết & 4 Khối thông tin chi tiết -->
                             <div class="p-2.5 bg-slate-50 border border-slate-200/80 rounded-lg space-y-1.5 text-[11px] text-slate-600">
                                 <div class="flex items-center justify-between pb-1 border-b border-slate-200/50">
                                     <span class="text-slate-400 flex items-center space-x-1">
@@ -1266,7 +1229,6 @@
                                     </div>
                                 </div>
                                 
-                                <!-- Dòng ghi chú phương án xử lý / Lý do (khi có resolutionNote) -->
                                 <div v-if="activeTicket.resolutionNote" class="pt-1 border-t border-slate-200/50 text-[10.5px] leading-relaxed flex items-start space-x-1 text-slate-500">
                                     <span class="font-semibold text-slate-600 flex-shrink-0">Kết luận:</span>
                                     <span>{{ activeTicket.resolutionNote }}</span>
@@ -1276,10 +1238,8 @@
 
                     </div>
 
-                    <!-- CỘT PHẢI (60% - lg:col-span-7): TOÀN BỘ KHUNG CHATBOX CHUYÊN NGHIỆP -->
                     <div class="lg:col-span-7 min-w-0 b2b-card rounded-xl shadow-xs overflow-hidden bg-white flex flex-col border border-slate-200 h-[620px] lg:h-[680px]">
                         
-                        <!-- 1. Chatbox Header -->
                         <div class="bg-white px-3.5 py-2.5 border-b border-slate-200 flex items-center justify-between shrink-0">
                             <div class="flex items-center space-x-2.5">
                                 <div class="relative">
@@ -1301,26 +1261,21 @@
                             </div>
                         </div>
 
-                        <!-- 2. Chatbox Body (Feed Cuộn 2 Vế Tự Động Co Giãn Vừa Khít) -->
                         <div id="chatMessagesFeed" class="p-3.5 space-y-3 flex-1 overflow-y-auto overflow-x-hidden min-h-0 bg-[#f8fafc]">
                             
                             <template v-if="activeTicket">
-                                <!-- Mốc ghi nhận ban đầu -->
                                 <div class="flex justify-center">
                                     <span class="px-3 py-1 rounded-full bg-slate-200/80 text-slate-600 text-[10px] font-medium border border-slate-300/40 text-center">
                                         {{ formatTime(activeTicket.createdAt) }} • Hồ sơ {{ activeTicket.ticketCode }} được tạo thành công
                                     </span>
                                 </div>
 
-                                <!-- Danh sách tin nhắn đối thoại -->
                                 <template v-for="msg in activeTicket.messages" :key="msg.id">
                                     
-                                    <!-- Tin nhắn của Khách Hàng (Nằm bên Phải - Màu Xanh VNPT) -->
                                     <div v-if="msg.senderRole === 'CUSTOMER'" class="flex justify-end chat-bubble-in">
                                         <div class="max-w-[85%] sm:max-w-[75%] min-w-0 space-y-1">
                                             <div class="bg-blue-600 text-white rounded-2xl rounded-tr-xs p-3 shadow-xs text-xs leading-relaxed space-y-2 chat-bubble-wrap">
                                                 <p v-if="msg.content" class="chat-bubble-wrap">{{ msg.content }}</p>
-                                                <!-- Đính kèm ảnh MinIO (Góc nhìn Khách hàng) -->
                                                 <div v-if="msg.attachmentUrls" class="pt-1.5 border-t border-blue-400/40">
                                                     <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-white/20 bg-blue-700/50 hover:bg-blue-700 transition">
                                                         <img :src="msg.attachmentUrls" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
@@ -1337,7 +1292,6 @@
                                         </div>
                                     </div>
 
-                                    <!-- Tin nhắn của CSKH (Nằm bên Trái - Màu Xám/Trắng) -->
                                     <div v-else class="flex items-start space-x-2 chat-bubble-in">
                                         <div class="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-[10px] shrink-0 border border-blue-200 mt-1">
                                             CS
@@ -1346,7 +1300,6 @@
                                             <div class="text-[10px] font-bold text-slate-700 pl-1">{{ msg.senderName || 'CSKH VNPT' }}</div>
                                             <div class="bg-white text-slate-800 rounded-2xl rounded-tl-xs border border-slate-200 p-3 shadow-2xs text-xs leading-relaxed space-y-2 chat-bubble-wrap">
                                                 <p v-if="msg.content" class="chat-bubble-wrap">{{ msg.content }}</p>
-                                                <!-- Đính kèm ảnh MinIO (Góc nhìn CSKH gửi) -->
                                                 <div v-if="msg.attachmentUrls" class="pt-1.5 border-t border-slate-100">
                                                     <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition">
                                                         <img :src="msg.attachmentUrls" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
@@ -1365,7 +1318,6 @@
 
                                 </template>
 
-                                <!-- Thẻ Biên Bản Giải Quyết & Duyệt Bồi Thường (Hiện khi RESOLVED) -->
                                 <div v-if="activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED'" class="tab-content-enter p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
                                     <div class="flex items-center space-x-2 text-emerald-800 font-bold text-xs">
                                         <span class="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">✓</span>
@@ -1381,7 +1333,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Thẻ Thông Báo Từ Chối Bồi Thường (Hiện khi REJECTED) -->
                                 <div v-else-if="activeTicket.status === 'REJECTED'" class="tab-content-enter p-3.5 bg-rose-50 border border-rose-200 rounded-xl space-y-2">
                                     <div class="flex items-center space-x-2 text-rose-800 font-bold text-xs">
                                         <span class="w-4 h-4 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px]">✕</span>
@@ -1405,7 +1356,6 @@
 
                         </div>
 
-                        <!-- 3. Thanh Gợi Ý Trả Lời Nhanh (flex-wrap gọn gàng, loại bỏ hoàn toàn thanh kéo ngang) -->
                         <div v-if="activeTicket && activeTicket.status !== 'RESOLVED' && activeTicket.status !== 'CLOSED' && activeTicket.status !== 'REJECTED'" class="px-3.5 py-2 bg-slate-100/70 border-t border-slate-200/60 flex flex-wrap items-center gap-1.5 text-[11px] shrink-0">
                             <span class="text-slate-400 text-[10px] font-medium shrink-0">Gợi ý nhanh:</span>
                             <button type="button" @click="sendMessage('Đã có kết quả thẩm định trách nhiệm bưu cục chưa ạ?')" class="btn-press px-2.5 py-1 bg-white hover:bg-blue-50 hover:text-blue-700 border border-slate-200 rounded-full text-slate-600 font-medium transition">
@@ -1419,7 +1369,6 @@
                             </button>
                         </div>
 
-                        <!-- 3.5. Khung Xem Trước Ảnh Đính Kèm Trước Khi Gửi -->
                         <div v-if="selectedAttachmentUrl" class="px-3.5 py-2 bg-blue-50/90 border-t border-blue-100 flex items-center justify-between shrink-0">
                             <div class="flex items-center space-x-2.5">
                                 <div class="relative w-11 h-11 rounded-lg overflow-hidden border border-blue-200 bg-white shrink-0 shadow-2xs">
@@ -1442,9 +1391,7 @@
                             </button>
                         </div>
 
-                        <!-- 4. Thanh Soạn Thảo Tin Nhắn Ghim Đáy -->
                         <div class="p-3 bg-white border-t border-slate-200 flex items-center space-x-2 shrink-0" :class="activeTicket && (activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED') ? 'opacity-50 pointer-events-none' : ''">
-                            <!-- Nút Đính Kèm Ảnh (MinIO) -->
                             <input 
                                 type="file" 
                                 id="supportChatFileInput" 
@@ -1494,12 +1441,8 @@
 
                 </div>
 
-                <!-- ========================================================================= -->
-                <!-- SUB-TAB 3: TÁC NGHIỆP CSKH (CHỈ DÀNH CHO CSKH & ADMIN)                   -->
-                <!-- ========================================================================= -->
                 <div v-if="currentSubTab === 'ops' && isStaffUser" class="tab-content-enter space-y-3.5">
                     
-                    <!-- Thanh Lọc & Tìm Kiếm -->
                     <div class="b2b-card rounded-xl p-3 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div class="flex flex-wrap items-center gap-2 flex-1">
                             <div class="relative w-full sm:w-72">
@@ -1525,7 +1468,6 @@
                         </div>
                     </div>
 
-                    <!-- Bảng dữ liệu tác nghiệp -->
                     <div class="b2b-card rounded-xl shadow-sm overflow-hidden">
                         <div class="overflow-x-auto">
                             <table class="w-full text-left text-xs text-slate-600">
@@ -1619,9 +1561,6 @@
 
                 </div>
 
-                <!-- ========================================================================= -->
-                <!-- MODAL XỬ LÝ & BỒI THƯỜNG 2 CỘT CHO CSKH                                  -->
-                <!-- ========================================================================= -->
                 <div v-if="showResolveModal && modalTicket" class="fixed inset-0 z-50 modal-backdrop-enter bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-3">
                     <div class="modal-box-enter bg-white rounded-xl shadow-xl border border-slate-200 max-w-4xl w-full overflow-hidden text-xs">
                         <div class="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
@@ -1634,7 +1573,6 @@
                         </div>
 
                         <div class="p-4 grid grid-cols-1 md:grid-cols-12 gap-4">
-                            <!-- Cột 1: Thông tin kết luận & Bồi thường -->
                             <div class="md:col-span-6 space-y-3 border-r md:pr-4 border-slate-100">
                                 <div class="font-bold text-slate-800 uppercase tracking-wider text-[11px]">Thông Tin Thẩm Định Lỗi Vận Chuyển</div>
                                 <div class="space-y-1.5 text-slate-600 text-[11px] bg-slate-50 p-3 rounded-lg border border-slate-200/80">
@@ -1666,7 +1604,6 @@
                                 </div>
                             </div>
 
-                            <!-- Cột 2: Giao diện Chatbox đối thoại với khách -->
                             <div class="md:col-span-6 flex flex-col justify-between border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
                                 <div class="bg-white px-3 py-2 border-b border-slate-200 flex items-center justify-between">
                                     <div class="flex items-center space-x-2">
@@ -1678,7 +1615,6 @@
 
                                 <div class="h-60 overflow-y-auto overflow-x-hidden min-w-0 p-3 space-y-3 bg-[#f8fafc]">
                                     <template v-for="msg in modalTicket.messages" :key="msg.id">
-                                        <!-- Khách nhắn (Bên trái góc nhìn CSKH) -->
                                         <div v-if="msg.senderRole === 'CUSTOMER'" class="flex items-start space-x-2 chat-bubble-in">
                                             <div class="w-6 h-6 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">
                                                 KH
@@ -1687,7 +1623,6 @@
                                                 <div class="text-[10px] text-slate-500">{{ msg.senderName }} • {{ formatTime(msg.createdAt) }}</div>
                                                 <div class="p-2.5 bg-white text-slate-700 rounded-2xl rounded-tl-xs border border-slate-200 shadow-2xs text-[11px] leading-relaxed space-y-1.5 chat-bubble-wrap">
                                                     <p v-if="msg.content" class="chat-bubble-wrap">{{ msg.content }}</p>
-                                                    <!-- Đính kèm ảnh MinIO -->
                                                     <div v-if="msg.attachmentUrls" class="pt-1 border-t border-slate-100">
                                                         <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
                                                             <img :src="msg.attachmentUrls" alt="Ảnh đính kèm" class="max-w-full max-h-40 rounded-lg object-contain mx-auto" loading="lazy" />
@@ -1697,13 +1632,11 @@
                                             </div>
                                         </div>
 
-                                        <!-- CSKH nhắn (Bên phải góc nhìn CSKH) -->
                                         <div v-else class="flex justify-end chat-bubble-in">
                                             <div class="max-w-[80%] min-w-0 space-y-0.5 text-right">
                                                 <div class="text-[10px] text-slate-400">Bạn (CSKH) • {{ formatTime(msg.createdAt) }}</div>
                                                 <div class="p-2.5 bg-blue-600 text-white rounded-2xl rounded-tr-xs shadow-xs text-[11px] text-left leading-relaxed space-y-1.5 chat-bubble-wrap">
                                                     <p v-if="msg.content" class="chat-bubble-wrap">{{ msg.content }}</p>
-                                                    <!-- Đính kèm ảnh MinIO -->
                                                     <div v-if="msg.attachmentUrls" class="pt-1 border-t border-blue-400/40">
                                                         <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-white/20 bg-blue-700/50">
                                                             <img :src="msg.attachmentUrls" alt="Ảnh đính kèm" class="max-w-full max-h-40 rounded-lg object-contain mx-auto" loading="lazy" />
@@ -1715,7 +1648,6 @@
                                     </template>
                                 </div>
 
-                                <!-- Preview ảnh đính kèm CSKH trong Modal -->
                                 <div v-if="modalAttachmentUrl" class="px-2.5 py-1.5 bg-blue-50 border-t border-blue-100 flex items-center justify-between shrink-0">
                                     <div class="flex items-center space-x-2">
                                         <img :src="modalAttachmentUrl" alt="Preview" class="w-8 h-8 rounded object-cover border border-blue-200" />

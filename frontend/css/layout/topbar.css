@@ -1,0 +1,25 @@
+.dropdown-enter-active,
+.dropdown-leave-active {
+    transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+}
+
+@keyframes bellRing {
+    0%, 100% { transform: rotate(0deg); }
+    10%, 30% { transform: rotate(14deg); }
+    20%, 40% { transform: rotate(-14deg); }
+    50% { transform: rotate(8deg); }
+    60% { transform: rotate(-6deg); }
+    70% { transform: rotate(2deg); }
+    80% { transform: rotate(0deg); }
+}
+
+.bell-ring-active {
+    animation: bellRing 1.8s ease-in-out infinite;
+    transform-origin: top center;
+}

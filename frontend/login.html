@@ -5,12 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cổng Xác Thực Vận Hành - VNPT Waybill Platform</title>
     
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
     
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -36,10 +34,8 @@
         }
     </script>
 
-    <!-- Vue 3 CDN -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 
-    <!-- Google Identity Services SDK -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <style>
@@ -48,8 +44,7 @@
             background: linear-gradient(145deg, #00376d 0%, #0055bb 55%, #0077dd 100%);
         }
 
-        /* HÌNH NỀN (WALLPAPER) CỦA BẠN */
-        .auth-custom-bg {
+                .auth-custom-bg {
             background-color: #0f172a;
             background-image: url('images/my-bg.jpg');
             background-size: cover;
@@ -58,12 +53,8 @@
             background-attachment: fixed;
         }
 
-        /* ===================================================================== */
-        /* HIỆU ỨNG ANIMATION TOÀN DIỆN CHO TRANG ĐĂNG NHẬP                       */
-        /* ===================================================================== */
-
-        /* 1. Hào quang trôi chậm (Ambient Floating Glow Orbs) */
-        @keyframes floatSlow1 {
+                        
+                @keyframes floatSlow1 {
             0%, 100% {
                 transform: translate(0px, 0px) scale(1);
             }
@@ -95,8 +86,7 @@
             animation: floatSlow2 18s ease-in-out infinite;
         }
 
-        /* 2. Hiệu ứng xuất hiện thẻ chính (Card Entrance Animation) */
-        @keyframes cardPopIn {
+                @keyframes cardPopIn {
             0% {
                 opacity: 0;
                 transform: translateY(22px) scale(0.985);
@@ -111,8 +101,7 @@
             animation: cardPopIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
 
-        /* 3. Hiệu ứng xuất hiện so le theo tầng (Staggered Entrance Animation) */
-        @keyframes staggerSlideIn {
+                @keyframes staggerSlideIn {
             0% {
                 opacity: 0;
                 transform: translateY(14px);
@@ -129,8 +118,7 @@
         .stagger-4 { animation: staggerSlideIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.26s both; }
         .stagger-5 { animation: staggerSlideIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.32s both; }
 
-        /* 4. Chuyển đổi biểu mẫu mượt mà (Form Slide-Fade Transition) */
-        .form-slide-enter-active {
+                .form-slide-enter-active {
             transition: opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1), transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
             will-change: transform, opacity;
         }
@@ -149,8 +137,7 @@
             transform: translateX(-16px);
         }
 
-        /* 5. Tương tác vi mô (Micro-interactions) & Hiệu ứng quét sáng (Shimmer Wave) */
-        .btn-hover-lift {
+                .btn-hover-lift {
             transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .btn-hover-lift:hover {
@@ -194,8 +181,7 @@
             box-shadow: 0 0 0 3.5px rgba(0, 102, 204, 0.18) !important;
         }
 
-        /* 6. Hiệu ứng thở nhẹ lưới tọa độ (Dot Grid Pulse) & KPI 3D Lift */
-        @keyframes gridDotPulse {
+                @keyframes gridDotPulse {
             0%, 100% { opacity: 0.10; }
             50% { opacity: 0.22; }
         }
@@ -215,30 +201,21 @@
 </head>
 <body class="min-h-screen flex items-center justify-center p-3 sm:p-6 auth-custom-bg text-slate-800 selection:bg-vnpt-500 selection:text-white font-sans relative">
 
-    <!-- ========================================================================= -->
-    <!-- VNPT ENTERPRISE SPLASH PRELOADER (VÒNG QUỸ ĐẠO XOAY QUANH LOGO)          -->
-    <!-- ========================================================================= -->
     <div id="vnpt-page-preloader" class="fixed inset-0 z-[99999] bg-slate-50 flex flex-col items-center justify-center transition-opacity duration-300">
         <div class="flex flex-col items-center text-center space-y-4 max-w-xs px-4">
             
-            <!-- Vùng Logo VNPT Tâm + Vòng Xoay Quỹ Đạo Smooth Arc -->
             <div class="relative w-24 h-24 flex items-center justify-center">
-                <!-- Vòng tròn nền mờ tĩnh cố định -->
                 <div class="absolute inset-0 rounded-full border border-blue-200/50"></div>
                 
-                <!-- Vòng cung xoay phát sáng mượt mà (Smooth Arc Spinner) -->
                 <div class="absolute inset-0 rounded-full border-2 border-transparent border-t-blue-600 border-r-blue-400 animate-spin" style="animation-duration: 0.9s;"></div>
                 
-                <!-- Hào quang nhẹ (Glow) -->
                 <div class="absolute inset-2 rounded-full bg-blue-500/5 blur-sm pointer-events-none"></div>
 
-                <!-- Logo VNPT Chuẩn Mới Ở Trung Tâm -->
                 <div class="w-12 h-12 rounded-2xl vnpt-gradient text-white flex items-center justify-center shadow-lg shadow-blue-600/25 border border-white/30 select-none z-10">
                     <span class="text-xs sm:text-sm font-black tracking-tight leading-none">VNPT</span>
                 </div>
             </div>
 
-            <!-- Tên Thương Hiệu -->
             <div class="space-y-0.5 pt-1">
                 <div class="font-extrabold text-base text-slate-800 tracking-tight">
                     Waybill Post
@@ -246,7 +223,6 @@
                 <p class="text-[11.5px] text-slate-400 font-medium">Cổng Xác Thực Nghiệp Vụ &amp; Vận Hành</p>
             </div>
 
-            <!-- Dòng Trạng Thái Tải Động Tối Giản -->
             <div class="pt-2 flex items-center justify-center space-x-2 text-xs text-slate-500 font-medium">
                 <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-ping"></span>
                 <span id="preloader-status-text">Khởi tạo cổng bảo mật...</span>
@@ -274,28 +250,18 @@
         })();
     </script>
 
-    <!-- ========================================================================= -->
-    <!-- HÀO QUANG CÔNG NGHỆ CHUYỂN ĐỘNG NỀN (BACKGROUND AMBIENT GLOW)             -->
-    <!-- ========================================================================= -->
     <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <!-- Đốm sáng xanh VNPT trên góc trái -->
         <div class="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-blue-600/25 blur-[120px] animate-float-1"></div>
-        <!-- Đốm sáng Cyan dưới góc phải -->
         <div class="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-cyan-500/20 blur-[120px] animate-float-2"></div>
-        <!-- Vùng sáng trung tâm nhẹ -->
         <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] rounded-full bg-indigo-600/10 blur-[140px]"></div>
     </div>
 
-    <!-- Khối thẻ Split-Screen chính giữa -->
     <div id="app" v-cloak class="relative z-10 max-w-5xl w-full bg-white rounded-3xl shadow-2xl shadow-black/40 border border-slate-700/20 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[640px] card-entrance">
         
-        <!-- CỘT TRÁI (5/12): HERO BANNER VNPT B2B LOGISTICS -->
         <div class="lg:col-span-5 vnpt-gradient text-white p-8 sm:p-10 flex flex-col justify-between relative overflow-hidden border-r border-blue-900/30">
-            <!-- Lưới tọa độ điều phối chìm có hiệu ứng thở chậm -->
             <div class="absolute inset-0 opacity-10 pointer-events-none grid-pulse" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 20px 20px;"></div>
             <div class="absolute -right-20 -top-20 w-64 h-64 bg-blue-400/20 rounded-full blur-3xl pointer-events-none"></div>
 
-            <!-- Top Header Định danh -->
             <div class="relative z-10 space-y-3 stagger-1">
                 <div class="flex items-center space-x-3">
                     <div class="h-10 px-3.5 rounded-xl bg-white text-vnpt-500 font-black flex items-center justify-center text-xs tracking-wider shadow-md">
@@ -311,7 +277,6 @@
                 </div>
             </div>
 
-            <!-- Middle Content: Chuỗi mắt xích vận hành & SLA -->
             <div class="relative z-10 my-8 space-y-4 stagger-2">
                 <div>
                     <span class="text-[10px] uppercase tracking-widest font-mono font-semibold text-blue-200">Hệ sinh thái số toàn trình</span>
@@ -323,7 +288,6 @@
                     </p>
                 </div>
 
-                <!-- KPI Cards với hiệu ứng Hover 3D Lift -->
                 <div class="grid grid-cols-2 gap-3 pt-2">
                     <div class="p-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15 kpi-card-hover cursor-pointer">
                         <div class="text-lg font-bold font-mono text-white">99.98%</div>
@@ -336,17 +300,14 @@
                 </div>
             </div>
 
-            <!-- Bottom: Chân trang Bưu chính -->
             <div class="relative z-10 pt-4 border-t border-white/15 flex items-center justify-between text-[11px] text-blue-100/70 stagger-3">
                 <span>TẬP ĐOÀN BƯU CHÍNH VIỄN THÔNG VIỆT NAM</span>
                 <span class="font-mono text-[10px]">VNPT 2026</span>
             </div>
         </div>
 
-        <!-- CỘT PHẢI (7/12): FORM TƯƠNG TÁC NGHIỆP VỤ -->
         <div class="lg:col-span-7 p-8 sm:p-12 flex flex-col justify-between bg-white">
             <div>
-                <!-- Top Tabs Switcher & Badge Trạng thái hệ thống -->
                 <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-6 stagger-1">
                     <div class="flex space-x-6 text-xs font-semibold">
                         <button 
@@ -366,7 +327,6 @@
                     </div>
                 </div>
 
-                <!-- Alert Message Box -->
                 <div v-if="alert.show" 
                     :class="alert.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-rose-50 text-rose-800 border-rose-300'"
                     class="p-3 rounded-xl text-xs font-medium mb-4 flex items-center justify-between border transition-all">
@@ -374,11 +334,7 @@
                     <button type="button" @click="alert.show = false" class="text-slate-400 hover:text-slate-600 text-xs font-bold ml-2">ĐÓNG</button>
                 </div>
 
-                <!-- ============================================================ -->
-                <!-- TRANSITION CHUYỂN BIỂU MẪU MƯỢT MÀ (FORM SLIDE-FADE)         -->
-                <!-- ============================================================ -->
                 <transition name="form-slide" mode="out-in" @enter="handleFormEnter" @after-enter="handleFormAfterEnter">
-                    <!-- 1. FORM ĐĂNG NHẬP -->
                     <div v-if="authMode === 'login'" key="login" class="space-y-4">
                     <div class="stagger-2">
                         <h2 class="text-lg font-bold text-slate-900 tracking-tight">Đăng nhập Cổng Dịch Vụ Vận Đơn</h2>
@@ -422,7 +378,6 @@
                         </div>
                     </form>
 
-                    <!-- Divider "Hoặc tiếp tục với" Căn chính giữa 100% -->
                     <div class="relative flex items-center justify-center my-4 stagger-5">
                         <div class="absolute inset-0 flex items-center">
                             <div class="w-full border-t border-slate-200"></div>
@@ -432,7 +387,6 @@
                         </div>
                     </div>
 
-                    <!-- Google Workspace Sign-In Container (Căn chính giữa và luôn hiển thị) -->
                     <div class="flex flex-col items-center justify-center w-full space-y-2 stagger-5">
                         <div id="googleBtn" class="flex justify-center w-full min-h-[44px]"></div>
                         <div v-if="googleLoading" class="text-xs font-semibold text-vnpt-500 animate-pulse">
@@ -444,7 +398,6 @@
 
                 </div>
 
-                    <!-- 2. FORM ĐĂNG KÝ -->
                     <div v-else-if="authMode === 'register'" key="register" class="space-y-4">
                     <div>
                         <h2 class="text-lg font-bold text-slate-900 tracking-tight">Đăng ký Tài khoản Khách hàng gửi hàng</h2>
@@ -502,7 +455,6 @@
                         </button>
                     </form>
 
-                    <!-- Divider "Hoặc đăng ký nhanh với" Căn chính giữa 100% -->
                     <div class="relative flex items-center justify-center my-3">
                         <div class="absolute inset-0 flex items-center">
                             <div class="w-full border-t border-slate-200"></div>
@@ -512,7 +464,6 @@
                         </div>
                     </div>
 
-                    <!-- Google Workspace Sign-Up Container -->
                     <div class="flex flex-col items-center justify-center w-full space-y-2">
                         <div id="googleBtnRegister" class="flex justify-center w-full min-h-[44px]"></div>
                         <div v-if="googleLoading" class="text-xs font-semibold text-vnpt-500 animate-pulse">
@@ -524,7 +475,6 @@
 
                 </div>
 
-                    <!-- 3. QUÊN MẬT KHẨU - BƯỚC 1: NHẬP EMAIL GỬI OTP -->
                     <div v-else-if="authMode === 'forgot_step1'" key="forgot_step1" class="space-y-4">
                     <div class="flex items-center justify-between text-xs text-slate-500 pb-1">
                         <button type="button" @click="switchMode('login')" class="text-vnpt-500 hover:underline font-semibold">
@@ -559,7 +509,6 @@
                     </form>
                 </div>
 
-                    <!-- 4. QUÊN MẬT KHẨU - BƯỚC 2: NHẬP 6 Ô OTP & MẬT KHẨU MỚI -->
                     <div v-else-if="authMode === 'forgot_step2'" key="forgot_step2" class="space-y-4">
                     <div class="flex items-center justify-between text-xs text-slate-500 pb-1">
                         <button type="button" @click="switchMode('forgot_step1')" class="text-vnpt-500 hover:underline font-semibold">
@@ -576,7 +525,6 @@
                     </div>
 
                     <form @submit.prevent="handleResetPassword" class="space-y-4 pt-1">
-                        <!-- 6 Ô NHẬP OTP RỜI TỰ ĐỘNG CHUYỂN FOCUS -->
                         <div>
                             <div class="flex items-center justify-between mb-2">
                                 <label class="text-xs font-semibold text-slate-700">Mã OTP (6 chữ số)</label>
@@ -643,7 +591,6 @@
                 </transition>
             </div>
 
-            <!-- Chân trang liên kết -->
             <div class="pt-6 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
                 <a href="/index.html" class="text-vnpt-500 hover:underline font-medium">
                     Quay lại trang tra cứu vận đơn
@@ -654,7 +601,6 @@
 
     </div>
 
-    <!-- Scripts -->
     <script src="js/auth.js"></script>
     <script src="js/api.js"></script>
 
@@ -663,14 +609,13 @@
 
         createApp({
             setup() {
-                // Kiểm tra nếu đã đăng nhập thì về trang chủ
-                if (typeof Auth !== 'undefined' && Auth.isAuthenticated()) {
+                                if (typeof Auth !== 'undefined' && Auth.isAuthenticated()) {
                     window.location.href = '/index.html';
                 }
 
                 const GOOGLE_CLIENT_ID = "530674460360-7q1qf5lchbkj7sp7kslvttf7mqt92klg.apps.googleusercontent.com";
 
-                const authMode = ref('login'); // 'login' | 'register' | 'forgot_step1' | 'forgot_step2'
+                const authMode = ref('login');
                 const loading = ref(false);
                 const googleLoading = ref(false);
                 const cooldownSeconds = ref(60);
@@ -743,8 +688,7 @@
                     }, 1000);
                 }
 
-                // Tự động chuyển con trỏ giữa 6 ô OTP
-                function handleOtpKeyUp(idx, event) {
+                                function handleOtpKeyUp(idx, event) {
                     const key = event.key;
                     if (key >= '0' && key <= '9') {
                         if (idx < 5) {
@@ -759,8 +703,7 @@
                     }
                 }
 
-                // Hỗ trợ dán thẳng chuỗi OTP 6 số (Paste event)
-                function handleOtpPaste(event) {
+                                function handleOtpPaste(event) {
                     event.preventDefault();
                     const pasteData = (event.clipboardData || window.clipboardData).getData('text').trim();
                     if (/^\d{6}$/.test(pasteData)) {
@@ -772,8 +715,7 @@
                     }
                 }
 
-                // 1. Xử lý Đăng nhập Email/Password
-                async function handleEmailLogin() {
+                                async function handleEmailLogin() {
                     clearAlert();
                     loading.value = true;
                     try {
@@ -795,15 +737,13 @@
                     }
                 }
 
-                // Đăng nhập nhanh tài khoản mẫu thử nghiệm
-                function quickLogin(email) {
+                                function quickLogin(email) {
                     loginForm.email = email;
                     loginForm.password = 'Admin@123456';
                     handleEmailLogin();
                 }
 
-                // 2. Xử lý Đăng ký tài khoản
-                async function handleRegister() {
+                                async function handleRegister() {
                     clearAlert();
                     if (registerForm.password !== registerForm.confirmPassword) {
                         showAlert('Mật khẩu xác nhận không trùng khớp!');
@@ -830,8 +770,7 @@
                     }
                 }
 
-                // 3. Quên mật khẩu - Bước 1: Yêu cầu gửi OTP
-                async function handleSendOtp() {
+                                async function handleSendOtp() {
                     clearAlert();
                     loading.value = true;
                     try {
@@ -852,14 +791,12 @@
                     }
                 }
 
-                // Gửi lại mã OTP
-                async function handleResendOtp() {
+                                async function handleResendOtp() {
                     if (cooldownSeconds.value > 0) return;
                     await handleSendOtp();
                 }
 
-                // 4. Quên mật khẩu - Bước 2: Xác nhận OTP & Đổi mật khẩu
-                async function handleResetPassword() {
+                                async function handleResetPassword() {
                     clearAlert();
                     const otp = otpDigits.value.join('').trim();
                     if (otp.length < 6) {
@@ -895,8 +832,7 @@
                     }
                 }
 
-                // 5. Xử lý Google OAuth2 Sign-In
-                async function handleGoogleLoginResponse(googleResponse) {
+                                async function handleGoogleLoginResponse(googleResponse) {
                     clearAlert();
                     googleLoading.value = true;
                     try {
@@ -923,8 +859,7 @@
                     window.location.href = redirectUrl;
                 }
 
-                // Hàm khởi tạo và render nút Google với cơ chế thử lại (Retry Polling)
-                function renderGoogleButton(force = false) {
+                                function renderGoogleButton(force = false) {
                     if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
                         google.accounts.id.initialize({
                             client_id: GOOGLE_CLIENT_ID,

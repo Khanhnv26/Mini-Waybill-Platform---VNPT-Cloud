@@ -1,10 +1,3 @@
-/**
- * ==============================================================================
- * VNPT CLOUD - VIEW: QUẢN LÝ DANH BẠ KHÁCH HÀNG BƯU CHÍNH (CUSTOMER CRM VIEW)
- * Phong Cách B2B Enterprise Blue, Đồng Bộ Hero Banner & Bảng Phân Trang Chuẩn RBAC
- * ==============================================================================
- */
-
 (function () {
     const { ref, reactive, computed, watch, onMounted } = Vue;
 
@@ -17,13 +10,11 @@
             const showModal = ref(false);
             const isSaving = ref(false);
 
-            // Tìm kiếm & Bộ lọc
             const searchQuery = ref('');
             const selectedStatusFilter = ref('ALL');
             const currentPage = ref(1);
             const pageSize = ref(5);
 
-            // Form Thêm mới khách hàng
             const newCustomer = reactive({
                 customerCode: '',
                 fullName: '',
@@ -32,7 +23,6 @@
                 address: ''
             });
 
-            // Tải danh sách khách hàng từ backend
             const loadCustomers = async () => {
                 isLoading.value = true;
                 try {
@@ -45,7 +35,6 @@
                 }
             };
 
-            // Thống kê nhanh KPI
             const activeCustomersCount = computed(() => {
                 return customers.value.filter(c => c.status === 'ACTIVE').length;
             });
@@ -59,16 +48,13 @@
                 }).length;
             });
 
-            // Lọc danh sách theo từ khóa và trạng thái
             const filteredCustomers = computed(() => {
                 let list = customers.value;
 
-                // Lọc theo trạng thái
                 if (selectedStatusFilter.value !== 'ALL') {
                     list = list.filter(c => c.status === selectedStatusFilter.value);
                 }
 
-                // Lọc theo từ khóa tìm kiếm
                 const q = searchQuery.value.trim().toLowerCase();
                 if (q) {
                     list = list.filter(c => 
@@ -82,7 +68,6 @@
                 return list;
             });
 
-            // Phân trang
             const totalPages = computed(() => {
                 if (pageSize.value === -1) return 1;
                 return Math.ceil(filteredCustomers.value.length / pageSize.value) || 1;
@@ -124,7 +109,6 @@
                 currentPage.value = 1;
             };
 
-            // Mở Modal thêm mới đối tác
             const openCreateModal = () => {
                 newCustomer.customerCode = 'CUST-' + Math.floor(100000 + Math.random() * 900000);
                 newCustomer.fullName = '';
@@ -144,7 +128,6 @@
                 return phone;
             };
 
-            // Lưu tạo mới khách hàng
             const handleCreateCustomer = async () => {
                 const fullName = (newCustomer.fullName || '').trim();
                 const phoneNumber = normalizePhone(newCustomer.phoneNumber);
@@ -212,7 +195,6 @@
                 }
             };
 
-            // Chuyển đổi trạng thái đối tác
             const toggleCustomerStatus = async (customer) => {
                 const newStatus = customer.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
                 const actionText = newStatus === 'ACTIVE' ? 'Kích hoạt' : 'Tạm dừng';
@@ -225,7 +207,6 @@
                 }
             };
 
-            // Tác nghiệp nhanh: Tạo vận đơn cho khách hàng này
             const handleCreateShipmentFor = (customer) => {
                 if (!customer || customer.status !== 'ACTIVE') {
                     Utils.showToast('Không Khả Dụng', 'Khách hàng đang ở trạng thái Tạm Dừng, không thể tạo vận đơn.', 'warning');
@@ -269,7 +250,6 @@
         },
         template: `
             <div class="space-y-3.5 pb-8 text-slate-800">
-                <!-- 1. HERO BANNER: CHUẨN VNPT GRADIENT ĐỒNG BỘ VỚI RBAC -->
                 <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
 
@@ -289,7 +269,6 @@
                             </p>
                         </div>
 
-                        <!-- Thống kê nhanh KPI -->
                         <div class="flex items-center space-x-2 self-start sm:self-auto">
                             <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[68px]">
                                 <div class="text-sm sm:text-base font-bold leading-tight">{{ customers.length }}</div>
@@ -307,10 +286,8 @@
                     </div>
                 </div>
 
-                <!-- 2. TOOLBAR TÌM KIẾM & THAO TÁC B2B -->
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div class="flex flex-wrap items-center gap-2 flex-1">
-                        <!-- Ô tìm kiếm -->
                         <div class="relative w-full sm:w-72">
                             <input 
                                 v-model="searchQuery" 
@@ -328,7 +305,6 @@
                             </button>
                         </div>
 
-                        <!-- Bộ lọc trạng thái -->
                         <select 
                             v-model="selectedStatusFilter" 
                             class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
@@ -338,7 +314,6 @@
                             <option value="INACTIVE">Tạm dừng hoạt động</option>
                         </select>
 
-                        <!-- Nút Xóa Lọc -->
                         <button 
                             v-if="hasActiveFilter" 
                             @click="resetFilters" 
@@ -349,7 +324,6 @@
                         </button>
                     </div>
 
-                    <!-- Nút thao tác phải -->
                     <div class="flex items-center space-x-2">
                         <button 
                             @click="loadCustomers()" 
@@ -369,7 +343,6 @@
                     </div>
                 </div>
 
-                <!-- 3. BẢNG DỮ LIỆU ĐỐI TÁC KHÁCH HÀNG (TABLE-B2B) -->
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse table-b2b">
@@ -444,7 +417,6 @@
 
                                     <td class="text-right py-2.5 px-3 whitespace-nowrap">
                                         <div class="flex items-center justify-end space-x-1.5">
-                                            <!-- Nút Tạo Đơn Nhanh (Chỉ hiển thị khi khách hàng đang Hoạt Động) -->
                                             <button 
                                                 v-if="c.status === 'ACTIVE'"
                                                 @click="handleCreateShipmentFor(c)"
@@ -455,7 +427,6 @@
                                                 <span>Tạo Đơn</span>
                                             </button>
 
-                                            <!-- Nút Kích hoạt / Tạm dừng (Không cho phép tạm dừng tài khoản CUS_RETAIL hệ thống) -->
                                             <button 
                                                 v-if="c.customerCode !== 'CUS_RETAIL'"
                                                 @click="toggleCustomerStatus(c)"
@@ -474,7 +445,6 @@
                                     </td>
                                 </tr>
 
-                                <!-- Trạng thái rỗng -->
                                 <tr v-if="filteredCustomers.length === 0">
                                     <td colspan="7" class="text-center py-10 text-slate-400 text-xs">
                                         <div class="flex flex-col items-center justify-center space-y-1.5">
@@ -489,7 +459,6 @@
                         </table>
                     </div>
 
-                    <!-- 4. THANH PHÂN TRANG CHUẨN B2B (PAGINATION BAR) -->
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50/50 text-xs text-slate-600 gap-2">
                         <div class="flex items-center space-x-2">
                             <span>Hiển thị <b>{{ startIndex }}</b> - <b>{{ endIndex }}</b> trên tổng <b>{{ filteredCustomers.length }}</b> đối tác</span>
@@ -538,12 +507,10 @@
                     </div>
                 </div>
 
-                <!-- 5. MODAL THÊM MỚI KHÁCH HÀNG (ACRYLIC BLUR CHUẨN RBAC) -->
                 <teleport to="body">
                 <Transition name="modal">
                 <div v-if="showModal" class="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
                     <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 overflow-hidden">
-                        <!-- Modal Header -->
                         <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                             <div class="flex items-center space-x-2">
                                 <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
@@ -552,7 +519,6 @@
                             <button @click="showModal = false" class="text-slate-400 hover:text-slate-700 text-lg font-bold">×</button>
                         </div>
 
-                        <!-- Modal Body -->
                         <form @submit.prevent="handleCreateCustomer" class="p-5 space-y-3">
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-700 mb-1">Mã Khách Hàng (Tự sinh)</label>
@@ -608,7 +574,6 @@
                                 ></textarea>
                             </div>
 
-                            <!-- Modal Footer -->
                             <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
                                 <button 
                                     type="button" 

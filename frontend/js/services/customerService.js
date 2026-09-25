@@ -1,8 +1,3 @@
-/**
- * VNPT CLOUD - CUSTOMER SERVICE CLIENT
- * Quản lý danh bạ khách hàng bưu chính doanh nghiệp
- */
-
 (function () {
     function extractErrorMessage(errData, defaultMsg) {
         if (!errData) return defaultMsg;

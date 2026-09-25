@@ -18,11 +18,13 @@ import org.app.shipmentservice.exception.DuplicateRequestException;
 import org.app.shipmentservice.exception.ForbiddenException;
 import org.app.shipmentservice.exception.UnauthorizedException;
 import org.app.shipmentservice.entity.CodSettlementStatus;
+import org.app.shipmentservice.pricing.dto.CalculateTariffRequest;
+import org.app.shipmentservice.pricing.dto.TariffCalculationResponse;
+import org.app.shipmentservice.pricing.service.TariffPricingService;
 import org.app.shipmentservice.repository.ShipmentRepository;
 import org.app.shipmentservice.service.ShipmentService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.app.shipmentservice.client.PricingClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,7 +48,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final StringRedisTemplate redisTemplate;
     private final KafkaTemplate<String,Object> kafkaTemplate;
     private final HubClient hubClient;
-    private final PricingClient pricingClient;
+    private final TariffPricingService tariffPricingService;
 
     private Long resolveCustomerId(String currentUserId) {
         if (currentUserId == null || currentUserId.isBlank() || "null".equalsIgnoreCase(currentUserId)) {
@@ -189,17 +191,17 @@ public class ShipmentServiceImpl implements ShipmentService {
         BigDecimal totalFee;
 
         try {
-            PricingClient.TariffRequest tariffRequest = PricingClient.TariffRequest.builder()
+            CalculateTariffRequest tariffRequest = CalculateTariffRequest.builder()
                     .senderProvince(request.getSenderAddress())
                     .receiverProvince(request.getReceiverAddress())
                     .weightGram(weight * 1000.0)
                     .codAmount(request.getCodAmount())
                     .build();
 
-            PricingClient.TariffResponse tariffResponse = pricingClient.calculateTariff(tariffRequest);
+            TariffCalculationResponse tariffResponse = tariffPricingService.calculateTariff(tariffRequest);
             String targetServiceCode = request.getServiceType() != null ? request.getServiceType().name() : "STANDARD";
 
-            PricingClient.PlanDetail matchedPlan = null;
+            TariffCalculationResponse.PlanDetail matchedPlan = null;
             if (tariffResponse != null && tariffResponse.getPlans() != null) {
                 matchedPlan = tariffResponse.getPlans().stream()
                         .filter(p -> targetServiceCode.equalsIgnoreCase(p.getServiceCode()))

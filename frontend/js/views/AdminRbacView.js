@@ -1,23 +1,13 @@
-/**
- * ==============================================================================
- * VNPT CLOUD - VIEW: QUẢN TRỊ HỆ THỐNG & PHÂN QUYỀN VẬN HÀNH (RBAC ADMIN VIEW)
- * Thiết Kế B2B Tinh Gọn, Chuẩn Hóa Font Chữ Tiếng Việt & Thanh Lọc Gọn Gàng
- * ==============================================================================
- */
-
 (function () {
     const { ref, reactive, computed, watch, onMounted } = Vue;
 
     const AdminRbacView = {
         name: 'AdminRbacView',
         setup() {
-            const currentSubtab = ref('matrix'); // 'matrix' | 'users'
+            const currentSubtab = ref('matrix');
             const isLoading = ref(false);
             const isSaving = ref(false);
 
-            // ==================================================================
-            // DỮ LIỆU & BỘ LỌC MA TRẬN PHÂN QUYỀN
-            // ==================================================================
             const permissionsList = ref([]);
             const rolesList = ref([]);
             const selectedModule = ref('ALL');
@@ -25,12 +15,8 @@
             const permPageSize = ref(15);
             const permCurrentPage = ref(1);
 
-            // Trạng thái Checkbox: { roleId: Set([permissionCode, ...]) }
             const matrixState = reactive({});
 
-            // ==================================================================
-            // DỮ LIỆU & BỘ LỌC QUẢN TRỊ NGƯỜI DÙNG
-            // ==================================================================
             const usersList = ref([]);
             const userSearchQuery = ref('');
             const selectedRoleFilter = ref('ALL');
@@ -57,7 +43,6 @@
                 { code: 'HUB-CT-01', label: 'HUB Cần Thơ' }
             ];
 
-            // Modal Cấp phát vai trò và trạm tác nghiệp
             const editingUser = ref(null);
             const userRolesForm = reactive({
                 roles: []
@@ -67,7 +52,6 @@
             });
             const showRoleModal = ref(false);
 
-            // 1. Tải danh mục quyền và vai trò
             const loadMatrixData = async () => {
                 isLoading.value = true;
                 try {
@@ -90,7 +74,6 @@
                 }
             };
 
-            // 2. Tải danh sách người dùng
             const loadUsersData = async () => {
                 isLoading.value = true;
                 try {
@@ -104,7 +87,6 @@
                 }
             };
 
-            // Danh sách các Modules nghiệp vụ
             const availableModules = computed(() => {
                 const map = {};
                 permissionsList.value.forEach(p => {
@@ -121,7 +103,6 @@
                 ];
             });
 
-            // Lọc danh sách quyền
             const filteredPermissions = computed(() => {
                 let list = permissionsList.value;
                 if (selectedModule.value !== 'ALL') {
@@ -200,9 +181,6 @@
                 }
             };
 
-            // ==================================================================
-            // LỌC & PHÂN TRANG NGƯỜI DÙNG
-            // ==================================================================
             const hasActiveUserFilter = computed(() => {
                 return userSearchQuery.value.trim() !== '' || selectedRoleFilter.value !== 'ALL' || selectedStatusFilter.value !== 'ALL';
             });
@@ -395,7 +373,6 @@
         },
         template: `
         <div class="space-y-3.5 pb-8 text-slate-800">
-            <!-- 1. HERO BANNER: THIẾT KẾ GỌN GÀNG, CHUYÊN NGHIỆP -->
             <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                 <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
 
@@ -415,7 +392,6 @@
                         </p>
                     </div>
 
-                    <!-- Thống kê nhanh gọn -->
                     <div class="flex items-center space-x-2 self-start sm:self-auto">
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[68px]">
                             <div class="text-sm sm:text-base font-bold leading-tight">{{ rolesList.length }}</div>
@@ -433,7 +409,6 @@
                 </div>
             </div>
 
-            <!-- 2. SUBTABS ĐIỀU HƯỚNG TINH GỌN -->
             <div class="flex items-center justify-between border-b border-slate-200">
                 <div class="flex space-x-4 sm:space-x-6">
                     <button 
@@ -468,14 +443,9 @@
                 </div>
             </div>
 
-            <!-- =================================================================== -->
-            <!-- PHÂN HỆ 1: MA TRẬN ĐẶC QUYỀN (ROLE - PERMISSION MATRIX) -->
-            <!-- =================================================================== -->
             <div v-if="currentSubtab === 'matrix'" class="space-y-3">
-                <!-- THANH CÔNG CỤ TINH GỌN (COMPACT TOOLBAR) -->
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2.5 shadow-sm">
                     <div class="flex flex-wrap items-center gap-2 flex-1">
-                        <!-- Ô Tìm Kiếm Quyền -->
                         <div class="relative w-56 sm:w-64">
                             <input 
                                 v-model="permissionSearchQuery"
@@ -495,7 +465,6 @@
                             </button>
                         </div>
 
-                        <!-- Dropdown Lọc Phân Hệ -->
                         <select 
                             v-model="selectedModule"
                             class="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 focus:bg-white focus:border-blue-600 outline-none transition"
@@ -506,7 +475,6 @@
                         </select>
                     </div>
 
-                    <!-- Nút Áp Dụng Toàn Bộ Ma Trận -->
                     <button 
                         @click="saveAllMatrix" 
                         :disabled="isSaving"
@@ -520,7 +488,6 @@
                     </button>
                 </div>
 
-                <!-- Bảng Ma Trận Checkbox Phân Quyền -->
                 <div class="b2b-card overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse table-b2b">
@@ -543,13 +510,11 @@
                             </thead>
                             <tbody class="divide-y divide-slate-100">
                                 <tr v-for="perm in paginatedPermissions" :key="perm.id" class="hover:bg-blue-50/30 transition">
-                                    <!-- Cột Thông Tin Quyền -->
                                     <td class="py-2.5 px-3">
                                         <div class="text-xs font-bold text-slate-900 leading-snug">{{ perm.name }}</div>
                                         <div class="text-[11px] text-slate-500 leading-normal mt-0.5">{{ perm.description }}</div>
                                     </td>
 
-                                    <!-- Các Cột Checkbox Từng Vai Trò -->
                                     <td v-for="role in rolesList" :key="role.id" class="text-center py-2.5 px-2">
                                         <label class="inline-flex items-center justify-center cursor-pointer p-0.5">
                                             <input 
@@ -573,7 +538,6 @@
                         </table>
                     </div>
 
-                    <!-- Phân Trang Cho Bảng Quyền Hạn (Gọn gàng) -->
                     <div v-if="permTotalPages > 1" class="px-3 py-2 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between text-xs">
                         <span class="text-slate-500">
                             Trang <b>{{ permCurrentPage }}</b> / <b>{{ permTotalPages }}</b> (Tổng {{ filteredPermissions.length }} quyền)
@@ -598,14 +562,9 @@
                 </div>
             </div>
 
-            <!-- =================================================================== -->
-            <!-- PHÂN HỆ 2: DANH SÁCH NGƯỜI DÙNG & CẤP VAI TRÒ (USER MANAGEMENT) -->
-            <!-- =================================================================== -->
             <div v-if="currentSubtab === 'users'" class="space-y-3">
-                <!-- THANH CÔNG CỤ TÌM KIẾM & BỘ LỌC (SINGLE-LINE COMPACT TOOLBAR) -->
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2.5 shadow-sm">
                     <div class="flex flex-wrap items-center gap-2 flex-1">
-                        <!-- Ô Tìm Kiếm -->
                         <div class="relative w-52 sm:w-60">
                             <input 
                                 v-model="userSearchQuery"
@@ -625,7 +584,6 @@
                             </button>
                         </div>
 
-                        <!-- Dropdown Lọc Vai Trò -->
                         <select 
                             v-model="selectedRoleFilter"
                             class="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 focus:bg-white focus:border-blue-600 outline-none transition"
@@ -636,7 +594,6 @@
                             </option>
                         </select>
 
-                        <!-- Dropdown Lọc Trạng Thái -->
                         <select 
                             v-model="selectedStatusFilter"
                             class="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 focus:bg-white focus:border-blue-600 outline-none transition"
@@ -646,7 +603,6 @@
                             <option value="BLOCKED">Tạm Đình Chỉ</option>
                         </select>
 
-                        <!-- Nút Xóa Nhanh Bộ Lọc -->
                         <button 
                             v-if="hasActiveUserFilter"
                             @click="resetUserFilters"
@@ -657,13 +613,11 @@
                         </button>
                     </div>
 
-                    <!-- Hiển thị tổng số tài khoản -->
                     <div class="text-xs font-medium text-slate-500 whitespace-nowrap self-center">
                         Tổng cộng: <b class="text-slate-800">{{ filteredUsers.length }}</b> tài khoản
                     </div>
                 </div>
 
-                <!-- Bảng Danh Sách Người Dùng Tinh Gọn -->
                 <div class="b2b-card overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse table-b2b">
@@ -768,7 +722,6 @@
                         </table>
                     </div>
 
-                    <!-- THANH PHÂN TRANG GỌN GÀNG (COMPACT PAGINATION BAR) -->
                     <div class="px-3 py-2 bg-slate-50/90 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
                         <div class="flex items-center space-x-2 text-slate-500">
                             <span>Hiển thị <b>{{ userStartIndex }}</b> - <b>{{ userEndIndex }}</b> / <b>{{ filteredUsers.length }}</b></span>
@@ -786,7 +739,6 @@
                             </div>
                         </div>
 
-                        <!-- Các Nút Chuyển Trang Mini -->
                         <div class="flex items-center space-x-1">
                             <button 
                                 @click="goToUserPage(userCurrentPage - 1)"
@@ -824,9 +776,6 @@
                 </div>
             </div>
 
-            <!-- =================================================================== -->
-            <!-- MODAL CẤP PHÁT VAI TRÒ NGHIỆP VỤ -->
-            <!-- =================================================================== -->
             <teleport to="body">
             <Transition name="modal">
             <div v-if="showRoleModal" class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">

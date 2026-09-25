@@ -1,16 +1,5 @@
-/**
- * ==============================================================================
- * VNPT CLOUD - SERVICE: QUẢN TRỊ PHÂN QUYỀN (RBAC ADMIN SERVICE)
- * Gọi trực tiếp các API Quản trị Hệ thống: Permissions, Roles & User Management
- * 100% NẠP DỮ LIỆU THẬT TỪ BACKEND - KHÔNG DÙNG DỮ LIỆU MOCK / FALLBACK
- * ==============================================================================
- */
-
 (function () {
     const AdminService = {
-        /**
-         * 1. Lấy danh bạ toàn bộ quyền (Permissions) trong hệ thống
-         */
         async getAllPermissions() {
             const res = await Api.get('/api/admin/permissions');
             if (!res.ok) {
@@ -20,9 +9,6 @@
             return await res.json();
         },
 
-        /**
-         * 2. Lấy danh sách Roles kèm Permissions hiện tại
-         */
         async getAllRoles() {
             const res = await Api.get('/api/admin/roles');
             if (!res.ok) {
@@ -32,11 +18,6 @@
             return await res.json();
         },
 
-        /**
-         * 3. Cập nhật phân quyền cho một Role cụ thể
-         * @param {number} roleId
-         * @param {string[]} permissionCodes
-         */
         async updateRolePermissions(roleId, permissionCodes) {
             const res = await Api.put(`/api/admin/roles/${roleId}/permissions`, {
                 permissionCodes
@@ -48,9 +29,6 @@
             return await res.json();
         },
 
-        /**
-         * 4. Lấy danh sách người dùng trong hệ thống từ CSDL
-         */
         async getAllUsers() {
             const res = await Api.get('/api/admin/users');
             if (!res.ok) {
@@ -60,11 +38,6 @@
             return await res.json();
         },
 
-        /**
-         * 5. Gán vai trò mới cho tài khoản người dùng
-         * @param {number} userId
-         * @param {string[]} roleNames
-         */
         async updateUserRoles(userId, roleNames) {
             const res = await Api.put(`/api/admin/users/${userId}/roles`, {
                 roleNames
@@ -76,11 +49,6 @@
             return await res.json();
         },
 
-        /**
-         * 6. Khóa hoặc Kích hoạt tài khoản người dùng
-         * @param {number} userId
-         * @param {string} status - 'ACTIVE' | 'BLOCKED'
-         */
         async updateUserStatus(userId, status) {
             const res = await Api.put(`/api/admin/users/${userId}/status`, {
                 status
@@ -92,11 +60,6 @@
             return await res.json();
         },
 
-        /**
-         * 7. Gán hoặc thu hồi trạm tác nghiệp tin cậy của tài khoản
-         * @param {number} userId
-         * @param {string|null} locationCode
-         */
         async updateUserLocation(userId, locationCode) {
             const res = await Api.put(`/api/admin/users/${userId}/location`, {
                 locationCode: locationCode || null

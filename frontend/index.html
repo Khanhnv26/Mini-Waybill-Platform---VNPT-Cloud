@@ -5,19 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VNPT Waybill Platform - Hệ Thống Điều Phối & Quản Trị Vận Đơn Bưu Chính</title>
     
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- SockJS và STOMP Client -->
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
-
-    <!-- Google Identity Services SDK -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <script>
@@ -44,50 +38,37 @@
         }
     </script>
     
-    <!-- Leaflet CSS & JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <!-- Custom Enterprise B2B Styles -->
-    <link rel="stylesheet" href="css/style.css?v=2.5.6" />
+    <link rel="stylesheet" href="css/style.css?v=2.6.0" />
 
-    <!-- Vue 3 CDN -->
+    <script>
+        (function () {
+            try {
+                localStorage.removeItem('theme');
+                document.documentElement.classList.remove('dark');
+            } catch (e) {}
+        })();
+    </script>
+
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 </head>
 <body class="bg-[#f8fafc] text-slate-900 antialiased min-h-full flex flex-col selection:bg-blue-600 selection:text-white font-sans">
 
-    <!-- ========================================================================= -->
-    <!-- VNPT ENTERPRISE SPLASH PRELOADER (VÒNG QUỸ ĐẠO XOAY QUANH LOGO)          -->
-    <!-- ========================================================================= -->
     <div id="vnpt-page-preloader" class="fixed inset-0 z-[99999] bg-slate-50 flex flex-col items-center justify-center transition-opacity duration-300">
         <div class="flex flex-col items-center text-center space-y-4 max-w-xs px-4">
-            
-            <!-- Vùng Logo VNPT Tâm + Vòng Xoay Quỹ Đạo Smooth Arc -->
             <div class="relative w-24 h-24 flex items-center justify-center">
-                <!-- Vòng tròn nền mờ tĩnh cố định -->
                 <div class="absolute inset-0 rounded-full border border-blue-200/50"></div>
-                
-                <!-- Vòng cung xoay phát sáng mượt mà (Smooth Arc Spinner) -->
                 <div class="absolute inset-0 rounded-full border-2 border-transparent border-t-blue-600 border-r-blue-400 animate-spin" style="animation-duration: 0.9s;"></div>
-                
-                <!-- Hào quang nhẹ (Glow) -->
                 <div class="absolute inset-2 rounded-full bg-blue-500/5 blur-sm pointer-events-none"></div>
-
-                <!-- Logo VNPT Chuẩn Mới Ở Trung Tâm -->
                 <div class="w-12 h-12 rounded-2xl vnpt-gradient text-white flex items-center justify-center shadow-lg shadow-blue-600/25 border border-white/30 select-none z-10">
                     <span class="text-xs sm:text-sm font-black tracking-tight leading-none">VNPT</span>
                 </div>
             </div>
-
-            <!-- Tên Thương Hiệu -->
             <div class="space-y-0.5 pt-1">
-                <div class="font-extrabold text-base text-slate-800 tracking-tight">
-                    Waybill Post
-                </div>
+                <div class="font-extrabold text-base text-slate-800 tracking-tight">Waybill Post</div>
                 <p class="text-[11.5px] text-slate-400 font-medium">Hệ Thống Điều Phối Bưu Chính &amp; Vận Đơn</p>
             </div>
-
-            <!-- Dòng Trạng Thái Tải Động Tối Giản -->
             <div class="pt-2 flex items-center justify-center space-x-2 text-xs text-slate-500 font-medium">
                 <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-ping"></span>
                 <span id="preloader-status-text">Đang kết nối hệ thống bưu chính...</span>
@@ -100,11 +81,9 @@
             var preloader = document.getElementById('vnpt-page-preloader');
             var status = document.getElementById('preloader-status-text');
             if (!preloader) return;
-
             setTimeout(function () {
                 if (status) status.innerText = 'Đồng bộ dữ liệu bưu cục...';
             }, 400);
-
             setTimeout(function () {
                 if (status) status.innerText = 'Sẵn sàng khởi động!';
                 preloader.classList.add('opacity-0', 'pointer-events-none');
@@ -115,632 +94,124 @@
         })();
     </script>
 
-<div id="app" v-cloak class="flex h-screen w-screen overflow-hidden bg-slate-50">
-    
-    <!-- ========================================================================= -->
-    <!-- 1. LEFT SIDEBAR NAVIGATION (THANH ĐIỀU HƯỚNG BÊN TRÁI)                    -->
-    <!-- ========================================================================= -->
-    <aside 
-        id="app-sidebar" 
-        :style="{ width: isSidebarCollapsed ? '72px' : '260px' }"
-        class="bg-white border-r border-slate-200 flex flex-col justify-between smooth-transition relative z-40 shadow-sm flex-shrink-0 !overflow-visible"
-    >
-        <!-- Nút Tròn Nổi Mép Viền Phải (Floating Border Toggle - Style Cũ) -->
-        <button 
-            @click="toggleSidebarCollapse" 
-            :title="isSidebarCollapsed ? 'Mở rộng thanh bên' : 'Thu gọn thanh bên'" 
-            class="absolute -right-3.5 top-5 w-7 h-7 rounded-full bg-white border border-slate-200 shadow-md flex items-center justify-center text-slate-500 hover:text-blue-600 hover:border-blue-300 hover:scale-110 transition smooth-transition z-50 cursor-pointer ring-2 ring-slate-100/80 hover:ring-blue-100"
-            aria-label="Thu mở thanh điều hướng bên"
+    <div id="app" v-cloak class="w-full min-h-screen bg-slate-50 selection:bg-blue-600 selection:text-white font-sans">
+        <component
+            :is="currentUser ? 'InternalLayout' : 'PublicLayout'"
+            :current-user="currentUser"
+            :current-tab="currentTab"
+            :current-tab-title="currentTabTitle"
+            :current-tracking-code="currentTrackingCode"
+            :is-sidebar-collapsed="isSidebarCollapsed"
+            :navigation-tabs="navigationTabs"
+            :public-guest-tabs="publicGuestTabs"
+            :show-notification-dropdown="showNotificationDropdown"
+            :notifications="notifications"
+            :unread-notifications-count="unreadNotificationsCount"
+            @toggle-sidebar="toggleSidebarCollapse"
+            @switch-tab="switchTab"
+            @logo-click="handleLogoClick"
+            @open-profile="openUserProfileModal"
+            @logout="handleLogout"
+            @toggle-notifications="toggleNotificationDropdown"
+            @mark-all-read="markAllNotificationsAsRead"
+            @notification-click="handleNotificationClick"
+            @guest-tab-click="handleGuestTabClick"
         >
-            <svg class="w-3.5 h-3.5 transition-transform duration-200" :class="{ 'rotate-180': isSidebarCollapsed }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 19l-7-7 7-7" />
-            </svg>
-        </button>
+            <transition name="page" mode="out-in" appear>
+                <keep-alive>
+                    <component 
+                        :is="activeComponent" 
+                        :key="currentTab"
+                        :current-user="currentUser"
+                        :tracking-code="currentTrackingCode"
+                        :previous-tab="previousTab"
+                        :customer-prefill="selectedCustomerForShipment"
+                        :tariff-prefill="selectedTariffForShipment"
+                        :feature-id="currentFeatureId"
+                        :error-code="currentErrorCode"
+                        :custom-title="currentErrorTitle"
+                        :custom-message="currentErrorMessage"
+                        @back-home="handleBackToHome"
+                        @view-tracking="handleViewTracking"
+                        @back-previous="handleBackToPreviousTab"
+                        @created-shipment="handleShipmentCreated"
+                        @create-shipment-for="handleCreateShipmentFor"
+                        @create-shipment-from-tariff="handleCreateShipmentFromTariff"
+                        @user-updated="handleUserUpdated"
+                        @switch-tab="switchTab"
+                    ></component>
+                </keep-alive>
+            </transition>
+        </component>
 
-        <!-- Top: Logo & Thương hiệu VNPT -->
-        <div>
-            <div 
-                @click="handleLogoClick"
-                :title="isSidebarCollapsed ? 'Bấm để mở rộng thanh bên' : 'Về trang Tra cứu bưu gửi'"
-                class="h-16 flex items-center px-4 border-b border-slate-100 cursor-pointer hover:bg-slate-50/80 transition"
-                :class="{ 'justify-center !px-0': isSidebarCollapsed }"
-            >
-                <div class="flex items-center space-x-3 overflow-hidden">
-                    <div class="w-9 h-9 rounded-xl vnpt-gradient text-white flex items-center justify-center shadow-md shadow-blue-600/25 flex-shrink-0 border border-white/20 select-none">
-                        <span class="text-[10px] font-black tracking-tight leading-none">VNPT</span>
-                    </div>
-                    <div v-show="!isSidebarCollapsed" class="leading-tight overflow-hidden">
-                        <div class="font-extrabold text-sm text-slate-900 tracking-tight whitespace-nowrap">
-                            Waybill Post
-                        </div>
-                        <p class="text-[10.5px] text-slate-400 font-medium whitespace-nowrap">Quản trị &amp; Điều phối</p>
-                    </div>
-                </div>
-            </div>
+        <toast-container :toast="toast"></toast-container>
 
-            <!-- 1. Menu Phân Hệ Nghiệp Vụ (Khi đã đăng nhập) -->
-            <div v-if="currentUser" class="p-3 space-y-1">
-                <div v-show="!isSidebarCollapsed" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Phân Hệ Nghiệp Vụ
-                </div>
+        <user-profile-modal
+            :show="showUserProfileModal"
+            :current-user="currentUser"
+            :user-profile="userProfile"
+            :is-staff-user="isStaffUser"
+            :is-loading="isLoadingUserProfile"
+            :is-saving="isSavingUserProfile"
+            :is-linking-google="isLinkingGoogle"
+            :profile-form-data="profileFormData"
+            :get-role-title="getRoleTitle"
+            @close="closeUserProfileModal"
+            @save="saveUserProfile"
+            @trigger-google-link="triggerGoogleLink"
+        ></user-profile-modal>
 
-                <button 
-                    v-for="tab in navigationTabs" 
-                    :key="tab.id"
-                    @click="switchTab(tab.id)"
-                    :title="isSidebarCollapsed ? tab.name : ''"
-                    :class="[
-                        'w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs transition smooth-transition cursor-pointer text-left',
-                        isSidebarCollapsed ? 'justify-center !px-0 !space-x-0' : '',
-                        currentTab === tab.id 
-                            ? 'bg-blue-50 text-blue-700 border border-blue-100 shadow-sm shadow-blue-500/10 font-bold' 
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-medium'
-                    ]"
-                >
-                    <svg class="w-4 h-4 flex-shrink-0" :class="currentTab === tab.id ? 'text-blue-600' : 'text-slate-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tab.icon || 'M4 6h16M4 12h16M4 18h16'" />
-                    </svg>
-                    <span v-show="!isSidebarCollapsed" class="truncate">{{ tab.name }}</span>
-                </button>
-            </div>
-
-            <!-- 2. Menu Tiện Ích Khách Hàng (Khi chưa đăng nhập - Hướng B) -->
-            <div v-else class="p-3 space-y-1">
-                <div v-show="!isSidebarCollapsed" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Tiện Ích Khách Hàng
-                </div>
-
-                <button 
-                    v-for="tab in publicGuestTabs" 
-                    :key="tab.id"
-                    @click="handleGuestTabClick(tab)"
-                    :title="isSidebarCollapsed ? tab.name : ''"
-                    :class="[
-                        'w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs transition smooth-transition cursor-pointer text-left',
-                        isSidebarCollapsed ? 'justify-center !px-0 !space-x-0' : '',
-                        (currentTab === tab.id) 
-                            ? 'bg-blue-50 text-blue-700 border border-blue-100 shadow-sm shadow-blue-500/10 font-bold' 
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-medium'
-                    ]"
-                >
-                    <svg class="w-4 h-4 flex-shrink-0" :class="(currentTab === tab.id) ? 'text-blue-600' : 'text-slate-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tab.icon" />
-                    </svg>
-                    <span v-show="!isSidebarCollapsed" class="truncate">{{ tab.name }}</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Bottom: Thẻ Hồ Sơ Người Dùng / Đăng Nhập & B2B -->
-        <div class="p-3 border-t border-slate-100 bg-slate-50/50">
-            <!-- Nếu chưa đăng nhập (Khách vãng lai) -->
-            <div v-if="!currentUser" class="space-y-2">
-                <!-- Card B2B CTA (ẩn khi thu gọn) -->
-                <div v-show="!isSidebarCollapsed" class="p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm space-y-1.5">
-                    <div class="flex items-center space-x-1.5">
-                        <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
-                        <span class="text-[10.5px] font-bold text-slate-800 uppercase tracking-tight">Đối Tác Doanh Nghiệp</span>
-                    </div>
-                    <p class="text-[11px] text-slate-500 leading-relaxed">
-                        Tích hợp API bưu chính tự động cho các sàn TMĐT &amp; chuỗi bán lẻ.
-                    </p>
-                    <a href="tel:1900545481" class="inline-block text-[11px] font-bold text-blue-600 hover:text-blue-700">
-                        Liên hệ kinh doanh &rarr;
-                    </a>
-                </div>
-
-                <!-- Nút Đăng Nhập Nghiệp Vụ -->
-                <a 
-                    href="login.html" 
-                    :title="isSidebarCollapsed ? 'Đăng nhập tài khoản nghiệp vụ' : ''"
-                    :class="[
-                        'w-full flex items-center py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/20 transition cursor-pointer',
-                        isSidebarCollapsed ? 'justify-center !px-0 w-10 h-10 mx-auto' : 'justify-center space-x-2 px-3'
-                    ]"
-                >
-                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                    </svg>
-                    <span v-show="!isSidebarCollapsed">Đăng Nhập</span>
-                </a>
-            </div>
-
-            <!-- Nếu đã đăng nhập (Nhân sự hệ thống & Khách hàng/Shop) -->
-            <div v-else class="flex items-center justify-between p-1.5 rounded-xl bg-white border border-slate-200 shadow-sm" :class="{ 'justify-center !p-1': isSidebarCollapsed }">
-                <!-- Nút bấm tương tác mở Modal Hồ Sơ Cá Nhân / Shop -->
-                <button 
-                    type="button"
-                    @click="openUserProfileModal"
-                    :title="isSidebarCollapsed ? 'Xem & sửa hồ sơ: ' + (currentUser.fullName || currentUser.email) : 'Bấm để xem và sửa thông tin cá nhân / Shop'"
-                    class="flex items-center space-x-2.5 overflow-hidden text-left hover:bg-slate-50 p-1 rounded-lg transition group flex-1 cursor-pointer"
-                >
-                    <div class="w-8 h-8 rounded-lg overflow-hidden bg-blue-600 group-hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 shadow-sm transition">
-                        <img 
-                            v-if="currentUser?.avatarUrl" 
-                            :src="currentUser.avatarUrl" 
-                            :alt="currentUser.fullName || 'Avatar'" 
-                            class="w-full h-full object-cover" 
-                            referrerpolicy="no-referrer"
-                            @error="currentUser.avatarUrl = null"
-                        />
-                        <span v-else>
-                            {{ (currentUser.fullName || currentUser.email || 'U').charAt(0).toUpperCase() }}
-                        </span>
-                    </div>
-                    <div v-show="!isSidebarCollapsed" class="leading-tight truncate flex-1">
-                        <div class="flex items-center space-x-1">
-                            <span class="text-xs font-bold text-slate-800 truncate group-hover:text-blue-600 transition">{{ currentUser.fullName || currentUser.email }}</span>
-                            <svg class="w-3 h-3 text-slate-400 group-hover:text-blue-500 flex-shrink-0 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                            </svg>
-                        </div>
-                        <div class="text-[10px] text-blue-600 font-semibold truncate">{{ currentUser.email }}</div>
-                    </div>
-                </button>
-
-                <button 
-                    v-show="!isSidebarCollapsed"
-                    @click="handleLogout"
-                    title="Đăng xuất khỏi hệ thống" 
-                    class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition cursor-pointer flex-shrink-0 ml-1"
-                >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                </button>
-            </div>
-        </div>
-    </aside>
-
-    <!-- ========================================================================= -->
-    <!-- 2. MAIN CONTENT WRAPPER                                                  -->
-    <!-- ========================================================================= -->
-    <div class="flex-1 flex flex-col h-full overflow-hidden">
-        
-        <!-- TOPBAR NHỎ GỌN (BREADCRUMB & HOTLINE & BELL) -->
-        <header class="h-16 bg-white border-b border-slate-200 pl-8 pr-6 flex items-center justify-between flex-shrink-0 relative z-20">
-            <!-- Breadcrumb -->
-            <div class="flex items-center space-x-2 text-xs">
-                <span class="text-slate-400">Nền Tảng</span>
-                <span class="text-slate-300">/</span>
-                <span class="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
-                    {{ currentTabTitle }}
-                </span>
-                <span v-if="currentTrackingCode" class="text-slate-300">/</span>
-                <span v-if="currentTrackingCode" class="font-mono text-slate-500 font-semibold">{{ currentTrackingCode }}</span>
-            </div>
-
-            <!-- Hotline & Notification Bell -->
-            <div class="flex items-center space-x-3">
-                <a href="tel:1900545481" class="hidden sm:flex text-xs font-semibold text-slate-600 hover:text-blue-600 items-center space-x-1.5 transition">
-                    <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                    <span>Hotline: 1900 54 54 81</span>
-                </a>
-
-                <div class="h-4 w-px bg-slate-200 hidden sm:block"></div>
-
-                <!-- NÚT CHUÔNG THÔNG BÁO Ở GÓC TOPBAR -->
-                <div class="relative z-50" id="notification-bell-dropdown">
-                    <button 
-                        type="button"
-                        @click="toggleNotificationDropdown"
-                        :title="unreadNotificationsCount > 0 ? unreadNotificationsCount + ' thông báo mới' : 'Thông báo hệ thống'"
-                        class="relative p-2 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-slate-100 transition cursor-pointer select-none focus:outline-none"
-                    >
-                        <svg class="w-5 h-5 transition-transform" :class="{ 'bell-ring-active text-blue-600': unreadNotificationsCount > 0 }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                        </svg>
-                        <!-- Badge số lượng thông báo chưa đọc -->
-                        <span 
-                            v-if="unreadNotificationsCount > 0" 
-                            class="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white font-black text-[10px] rounded-full flex items-center justify-center ring-2 ring-white shadow-sm animate-pulse"
-                        >
-                            {{ unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount }}
-                        </span>
-                    </button>
-
-                    <!-- DROPDOWN POPOVER DANH SÁCH THÔNG BÁO -->
-                    <Transition name="dropdown">
-                        <div 
-                            v-if="showNotificationDropdown"
-                            class="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50 text-slate-800"
-                        >
-                            <!-- Header Popover -->
-                            <div class="p-3.5 px-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
-                                <div class="flex items-center space-x-2">
-                                    <span class="font-bold text-xs text-slate-800 uppercase tracking-tight">Thông Báo Hệ Thống</span>
-                                    <span v-if="unreadNotificationsCount > 0" class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">
-                                        {{ unreadNotificationsCount }} mới
-                                    </span>
-                                </div>
-                                <button 
-                                    v-if="unreadNotificationsCount > 0"
-                                    type="button"
-                                    @click="markAllNotificationsAsRead"
-                                    class="text-[11px] font-semibold text-blue-600 hover:text-blue-800 transition cursor-pointer"
-                                >
-                                    Đã đọc tất cả
-                                </button>
-                            </div>
-
-                            <!-- Danh Sách Thông Báo -->
-                            <div class="max-h-80 overflow-y-auto divide-y divide-slate-100">
-                                <div 
-                                    v-for="item in notifications" 
-                                    :key="item.id"
-                                    @click="handleNotificationClick(item)"
-                                    :class="[
-                                        'p-3 px-4 flex items-start space-x-3 hover:bg-slate-50 transition cursor-pointer text-left',
-                                        !item.isRead ? 'bg-blue-50/30' : ''
-                                    ]"
-                                >
-                                    <!-- Icon theo loại nghiệp vụ -->
-                                    <div :class="['w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-xs shadow-sm mt-0.5', item.iconBg || 'bg-blue-600']">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon" />
-                                        </svg>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center justify-between">
-                                            <h4 class="text-xs font-bold text-slate-800 truncate" :class="{ 'text-blue-900 font-extrabold': !item.isRead }">
-                                                {{ item.title }}
-                                            </h4>
-                                            <span class="text-[10px] text-slate-400 flex-shrink-0 ml-2 whitespace-nowrap">{{ item.time }}</span>
-                                        </div>
-                                        <p class="text-[11px] text-slate-500 mt-0.5 leading-snug line-clamp-2">
-                                            {{ item.message }}
-                                        </p>
-                                        <div v-if="item.trackingCode" class="mt-1 inline-flex items-center space-x-1 text-[10.5px] text-blue-600 hover:text-blue-800 font-semibold font-mono">
-                                            <span>Mã bưu gửi: {{ item.trackingCode }}</span>
-                                            <span>&rarr;</span>
-                                        </div>
-                                    </div>
-                                    <!-- Chấm xanh biểu thị tin chưa đọc -->
-                                    <div v-if="!item.isRead" class="w-2 h-2 rounded-full bg-blue-600 flex-shrink-0 mt-1.5 shadow-sm"></div>
-                                </div>
-
-                                <!-- Empty state -->
-                                <div v-if="notifications.length === 0" class="p-8 text-center text-slate-400 text-xs">
-                                    <svg class="w-8 h-8 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                    </svg>
-                                    Chưa có thông báo mới nào dành cho tài khoản của bạn
-                                </div>
-                            </div>
-                        </div>
-                    </Transition>
-                </div>
-            </div>
-        </header>
-
-        <!-- MAIN VIEW CONTAINER -->
-        <main class="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50">
-            <div class="max-w-7xl mx-auto relative">
-                <transition name="page" mode="out-in" appear>
-                    <keep-alive>
-                        <component 
-                            :is="activeComponent" 
-                            :key="currentTab"
-                            :tracking-code="currentTrackingCode"
-                            :previous-tab="previousTab"
-                            :customer-prefill="selectedCustomerForShipment"
-                            :tariff-prefill="selectedTariffForShipment"
-                            :feature-id="currentFeatureId"
-                            :error-code="currentErrorCode"
-                            :custom-title="currentErrorTitle"
-                            :custom-message="currentErrorMessage"
-                            @back-home="handleBackToHome"
-                            @view-tracking="handleViewTracking"
-                            @back-previous="handleBackToPreviousTab"
-                            @created-shipment="handleShipmentCreated"
-                            @create-shipment-for="handleCreateShipmentFor"
-                            @create-shipment-from-tariff="handleCreateShipmentFromTariff"
-                            @user-updated="handleUserUpdated"
-                            @switch-tab="switchTab"
-                        ></component>
-                    </keep-alive>
-                </transition>
-            </div>
-        </main>
-
-        <!-- MASTER FOOTER -->
-        <footer class="bg-white border-t border-slate-200 py-3 px-6 text-center text-xs text-slate-400 flex-shrink-0 flex flex-col sm:flex-row items-center justify-between gap-2">
-            <span>© 2026 TỔNG CÔNG TY DỊCH VỤ VIỄN THÔNG VNPT - HỆ THỐNG ĐIỀU PHỐI VẬN ĐƠN BƯU CHÍNH</span>
-            <span class="font-mono text-[10px] text-slate-400">VERSION 2.5.0-ENTERPRISE-SIDEBAR</span>
-        </footer>
+        <chatbot-widget v-if="!isStaffUser"></chatbot-widget>
     </div>
 
-    <!-- GLOBAL TOAST NOTIFICATION (Tự động hiển thị khi thành công, lỗi 403, lỗi mạng) -->
-    <div 
-        v-if="toast.show" 
-        :class="[
-            'fixed top-6 right-6 z-[99999] p-4 rounded-2xl shadow-xl border text-xs max-w-sm w-[calc(100%-3rem)] sm:w-auto transition-all duration-300 flex items-start space-x-3 backdrop-blur-md',
-            toast.type === 'error' ? 'bg-rose-50/95 border-rose-200 text-rose-900 shadow-rose-500/10' : 
-            toast.type === 'warning' ? 'bg-amber-50/95 border-amber-200 text-amber-900 shadow-amber-500/10' : 
-            'bg-emerald-50/95 border-emerald-200 text-emerald-900 shadow-emerald-500/10'
-        ]"
-    >
-        <div class="mt-0.5 flex-shrink-0">
-            <!-- Icon Error -->
-            <svg v-if="toast.type === 'error'" class="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <!-- Icon Warning -->
-            <svg v-else-if="toast.type === 'warning'" class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <!-- Icon Success -->
-            <svg v-else class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-        </div>
+    <script src="js/auth.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/map.js"></script>
 
-        <div class="flex-1 min-w-0 pr-1">
-            <div class="font-bold text-xs mb-0.5">{{ toast.title }}</div>
-            <div class="text-[11px] leading-relaxed opacity-90 break-words">{{ toast.message }}</div>
-        </div>
+    <script src="js/services/routingService.js"></script>
+    <script src="js/services/shipmentService.js"></script>
+    <script src="js/services/trackingService.js"></script>
+    <script src="js/services/customerService.js"></script>
+    <script src="js/services/notificationService.js"></script>
+    <script src="js/services/auditService.js"></script>
+    <script src="js/services/adminService.js"></script>
+    <script src="js/services/reportService.js"></script>
+    <script src="js/services/pricingService.js"></script>
+    <script src="js/services/supportService.js"></script>
+    <script src="js/services/shipperService.js"></script>
+    <script src="js/services/ratingService.js"></script>
 
-        <!-- Nút đóng nhanh Toast (✕) -->
-        <button 
-            type="button"
-            @click="toast.show = false"
-            title="Đóng thông báo"
-            class="p-1 -mr-1 -mt-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200/50 rounded-lg active:scale-90 transition-all flex-shrink-0"
-        >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-        </button>
-    </div>
+    <script src="js/components/layout/AppSidebar.js"></script>
+    <script src="js/components/layout/AppTopbar.js"></script>
+    <script src="js/components/layout/InternalFooter.js"></script>
+    <script src="js/components/layout/PublicHeader.js"></script>
+    <script src="js/components/layout/PublicFooter.js"></script>
+    <script src="js/components/common/ToastContainer.js"></script>
+    <script src="js/components/common/UserProfileModal.js"></script>
+    <script src="js/layouts/InternalLayout.js"></script>
+    <script src="js/layouts/PublicLayout.js"></script>
 
-    <!-- ========================================================================= -->
-    <!-- 4. MODAL HỒ SƠ TÀI KHOẢN & PHÂN ĐỊNH VAI TRÒ (STAFF VS CUSTOMER)          -->
-    <!-- ========================================================================= -->
-    <Transition name="modal">
-    <div 
-        v-if="showUserProfileModal" 
-        class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
-        @click.self="closeUserProfileModal"
-    >
-        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
-            <!-- Header chuẩn VNPT Gradient -->
-            <div class="vnpt-gradient text-white p-4 sm:p-5 flex items-center justify-between relative overflow-hidden">
-                <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 14px 14px;"></div>
-                <div class="relative z-10 flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-xl overflow-hidden bg-white/15 border border-white/25 flex items-center justify-center font-black text-sm shadow-inner">
-                        <img 
-                            v-if="currentUser?.avatarUrl" 
-                            :src="currentUser.avatarUrl" 
-                            :alt="currentUser.fullName || 'Avatar'" 
-                            class="w-full h-full object-cover"
-                            referrerpolicy="no-referrer"
-                            @error="currentUser.avatarUrl = null"
-                        />
-                        <span v-else>
-                            {{ (profileFormData.fullName || currentUser?.fullName || 'U').charAt(0).toUpperCase() }}
-                        </span>
-                    </div>
-                    <div>
-                        <h3 class="text-sm sm:text-base font-bold text-white tracking-tight leading-snug">
-                            {{ isStaffUser ? 'Hồ Sơ Cán Bộ & Vị Trí Vận Hành' : 'Hồ Sơ & Thông Tin Shop' }}
-                        </h3>
-                        <p class="text-[11px] text-blue-100 font-medium">
-                            {{ isStaffUser ? 'Nhân Sự Nội Bộ VNPT Post' : 'Bưu chính Viễn thông VNPT' }}
-                        </p>
-                    </div>
-                </div>
+    <script src="js/views/TrackingView.js"></script>
+    <script src="js/views/ShipmentView.js"></script>
+    <script src="js/views/PostOfficeOpsView.js"></script>
+    <script src="js/views/TripsView.js"></script>
+    <script src="js/views/HubOpsView.js"></script>
+    <script src="js/views/ShipperView.js"></script>
+    <script src="js/views/ShipperDirectoryView.js"></script>
+    <script src="js/views/DispatchSimulationView.js"></script>
+    <script src="js/views/CustomerView.js"></script>
+    <script src="js/views/AdminRbacView.js"></script>
+    <script src="js/views/ReportView.js"></script>
+    <script src="js/views/TariffCalculatorView.js"></script>
+    <script src="js/views/NetworkView.js"></script>
+    <script src="js/views/GuideView.js"></script>
+    <script src="js/views/SupportView.js"></script>
+    <script src="js/views/UnderDevelopmentView.js"></script>
+    <script src="js/views/ErrorView.js?v=2.6.0"></script>
+    <script src="js/views/ProfileView.js?v=2.6.0"></script>
+    <script src="js/components/ChatbotWidget.js?v=2.6.0"></script>
 
-                <button 
-                    type="button" 
-                    @click="closeUserProfileModal" 
-                    class="relative z-10 w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition"
-                    title="Đóng"
-                >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
-
-            <!-- Body: Loading hoặc Form -->
-            <div v-if="isLoadingUserProfile" class="p-8 text-center space-y-3">
-                <div class="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                <div class="text-xs text-slate-500 font-medium">Đang tải hồ sơ bưu chính...</div>
-            </div>
-
-            <form v-else @submit.prevent="saveUserProfile" class="p-5 space-y-4 text-xs text-slate-800">
-                <!-- Thẻ Tóm Tắt Định Danh Dành Cho Nhân Viên Nội Bộ -->
-                <div v-if="isStaffUser" class="p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-xl space-y-2.5">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <div class="text-[10px] uppercase font-bold text-slate-500">Mã Cán Bộ / Nhân Viên</div>
-                            <div class="text-xs font-mono font-bold text-blue-700 mt-0.5">
-                                NV-{{ String(currentUser?.userId || currentUser?.id || 1).padStart(5, '0') }}
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-[10px] uppercase font-bold text-slate-500">Chức Danh Vận Hành</div>
-                            <span class="inline-block mt-0.5 px-2.5 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white shadow-xs">
-                                {{ getRoleTitle(currentUser?.roles?.[0]) }}
-                            </span>
-                        </div>
-                    </div>
-                    <div class="pt-2 border-t border-blue-100 flex items-center justify-between text-[11px]">
-                        <span class="text-slate-600 font-semibold flex items-center space-x-1.5">
-                            <svg class="w-3.5 h-3.5 text-blue-600 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-                            </svg>
-                            <span>Trạm công tác trực thuộc:</span>
-                        </span>
-                        <span class="font-mono font-bold text-blue-800 bg-white px-2 py-0.5 rounded border border-blue-200 shadow-xs">
-                            {{ currentUser?.locationCode || 'Chưa phân công trạm' }}
-                        </span>
-                    </div>
-                </div>
-
-                <!-- Thẻ Tóm Tắt Định Danh Dành Cho Khách Hàng / Đối Tác -->
-                <div v-else class="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between">
-                    <div>
-                        <div class="text-[10px] uppercase font-bold text-slate-400">Mã Đối Tác / Khách Hàng</div>
-                        <div class="text-xs font-mono font-bold text-blue-700 mt-0.5">
-                            {{ userProfile?.customerCode || ('KH-' + (currentUser?.userId || 'VNPT')) }}
-                        </div>
-                    </div>
-                    <div class="text-right">
-                        <div class="text-[10px] uppercase font-bold text-slate-400">Vai Trò Hệ Thống</div>
-                        <span class="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">
-                            {{ currentUser?.roles?.[0] ? currentUser.roles[0].replace('ROLE_', '') : 'CUSTOMER' }}
-                        </span>
-                    </div>
-                </div>
-
-                <!-- Email (Readonly) & Liên kết Google -->
-                <div>
-                    <div class="flex items-center justify-between mb-1">
-                        <label class="block text-[11px] font-bold text-slate-700">
-                            {{ isStaffUser ? 'Email Công Vụ' : 'Email Tài Khoản' }}
-                        </label>
-                        <span v-if="currentUser?.googleLinked || currentUser?.avatarUrl" class="text-[10px] text-emerald-700 font-semibold px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200">
-                            Đã liên kết Google
-                        </span>
-                        <button 
-                            v-else 
-                            type="button" 
-                            @click="triggerGoogleLink" 
-                            :disabled="isLinkingGoogle"
-                            class="text-[10px] font-semibold text-blue-700 hover:text-blue-800 underline hover:no-underline cursor-pointer disabled:opacity-50"
-                        >
-                            {{ isLinkingGoogle ? 'Đang liên kết...' : 'Liên kết tài khoản Google' }}
-                        </button>
-                    </div>
-                    <input 
-                        type="email" 
-                        :value="currentUser?.email" 
-                        disabled 
-                        class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-xs font-mono text-slate-500 cursor-not-allowed"
-                    />
-                    <div id="googleLinkModalBtn" class="mt-2 hidden flex justify-center"></div>
-                </div>
-
-                <!-- Họ tên / Tên Shop -->
-                <div>
-                    <label class="block text-[11px] font-bold text-slate-700 mb-1">
-                        {{ isStaffUser ? 'Họ Và Tên Cán Bộ / Nhân Viên' : 'Họ Và Tên / Tên Cửa Hàng (Shop)' }} <span class="text-rose-500">*</span>
-                    </label>
-                    <input 
-                        v-model="profileFormData.fullName" 
-                        type="text" 
-                        required 
-                        :placeholder="isStaffUser ? 'VD: Nguyễn Văn A' : 'VD: Shop Thời Trang Mai Anh'"
-                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
-                    />
-                </div>
-
-                <!-- Số điện thoại (Bắt buộc cho khách hàng, tùy chọn/ẩn cho nhân sự) -->
-                <div v-if="!isStaffUser">
-                    <label class="block text-[11px] font-bold text-slate-700 mb-1">
-                        Số Điện Thoại Liên Hệ <span class="text-rose-500">*</span>
-                    </label>
-                    <input 
-                        v-model="profileFormData.phoneNumber" 
-                        type="tel" 
-                        required 
-                        placeholder="VD: 0912345678"
-                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono font-semibold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
-                    />
-                </div>
-
-                <!-- Địa chỉ kho / Địa chỉ lấy hàng (Chỉ dành cho Khách hàng/Shop) -->
-                <div v-if="!isStaffUser">
-                    <label class="block text-[11px] font-bold text-slate-700 mb-1">
-                        Địa Chỉ Kho Hàng / Địa Chỉ Lấy Hàng Mặc Định <span class="text-rose-500">*</span>
-                    </label>
-                    <textarea 
-                        v-model="profileFormData.address" 
-                        rows="2" 
-                        required 
-                        placeholder="VD: Số 57 Huỳnh Thúc Kháng, Láng Hạ, Đống Đa, Hà Nội"
-                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
-                    ></textarea>
-                </div>
-
-                <!-- Thông báo ghi chú quyền hạn cho nhân viên -->
-                <div v-if="isStaffUser" class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-500 leading-relaxed">
-                    <span class="font-bold text-slate-700">Lưu ý nghiệp vụ:</span> Trạm công tác và chức danh vận hành được bảo vệ và cấu hình bởi Quản trị viên hệ thống theo nguyên tắc Station Context Binding.
-                </div>
-
-                <!-- Buttons Footer -->
-                <div class="pt-2 flex items-center justify-end space-x-2 border-t border-slate-100">
-                    <button 
-                        type="button" 
-                        @click="closeUserProfileModal" 
-                        class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold transition text-xs"
-                    >
-                        Đóng
-                    </button>
-                    <button 
-                        type="submit" 
-                        :disabled="isSavingUserProfile" 
-                        class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-md shadow-blue-600/20 transition text-xs flex items-center space-x-1.5 disabled:opacity-50"
-                    >
-                        <span v-if="isSavingUserProfile" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                        <span>{{ isSavingUserProfile ? 'Đang Lưu...' : 'Lưu Thay Đổi' }}</span>
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-    </Transition>
-
-    <!-- 5. TRỢ LÝ ẢO CHATBOT CSKH VNPT POST 24/7 (CHỈ HIỂN THỊ VỚI KHÁCH HÀNG & KHÁCH VÃNG LAI/GUESTS) -->
-    <chatbot-widget v-if="!isStaffUser"></chatbot-widget>
-</div>
-
-<!-- CÁC MODULE JAVASCRIPT THEO THỨ TỰ PHỤ THUỘC CHUẨN XÁC -->
-<!-- 1. Tầng Cốt Lõi: Auth & Tiện Ích Toàn Cục -->
-<script src="js/auth.js"></script>
-<script src="js/utils.js"></script>
-<script src="js/api.js"></script>
-<script src="js/map.js"></script>
-
-<!-- 2. Tầng Dịch Vụ Microservices (Services Layer) -->
-<script src="js/services/routingService.js"></script>
-<script src="js/services/shipmentService.js"></script>
-<script src="js/services/trackingService.js"></script>
-<script src="js/services/customerService.js"></script>
-<script src="js/services/notificationService.js"></script>
-<script src="js/services/auditService.js"></script>
-<script src="js/services/adminService.js"></script>
-<script src="js/services/reportService.js"></script>
-<script src="js/services/pricingService.js"></script>
-<script src="js/services/supportService.js"></script>
-<script src="js/services/shipperService.js"></script>
-
-<!-- 3. Tầng Giao Diện Màn Hình (Views Layer) -->
-<script src="js/views/TrackingView.js"></script>
-<script src="js/views/ShipmentView.js"></script>
-<script src="js/views/PostOfficeOpsView.js"></script>
-<script src="js/views/TripsView.js"></script>
-<script src="js/views/HubOpsView.js"></script>
-<script src="js/views/ShipperView.js"></script>
-<script src="js/views/ShipperDirectoryView.js"></script>
-<script src="js/views/DispatchSimulationView.js"></script>
-<script src="js/views/CustomerView.js"></script>
-<script src="js/views/AdminRbacView.js"></script>
-<script src="js/views/ReportView.js"></script>
-<script src="js/views/TariffCalculatorView.js"></script>
-<script src="js/views/NetworkView.js"></script>
-<script src="js/views/GuideView.js"></script>
-<script src="js/views/SupportView.js"></script>
-<script src="js/views/UnderDevelopmentView.js"></script>
-<script src="js/views/ErrorView.js?v=2.5.3"></script>
-<script src="js/views/ProfileView.js?v=2.5.3"></script>
-<script src="js/components/ChatbotWidget.js?v=2.5.10"></script>
-
-<!-- 4. Điểm Khởi Chạy Ứng Dụng (Master Layout Entry Point) -->
-<script src="js/app.js?v=2.5.3"></script>
+    <script src="js/app.js?v=2.6.0"></script>
 </body>
 </html>

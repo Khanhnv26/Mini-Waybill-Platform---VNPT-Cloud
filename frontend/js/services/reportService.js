@@ -1,10 +1,3 @@
-/**
- * ==============================================================================
- * VNPT WAYBILL PLATFORM - REPORT SERVICE CLIENT
- * Quản lý Gọi API Báo Cáo Thống Kê Sản Lượng & Xuất Báo Cáo Đối Soát Excel
- * ==============================================================================
- */
-
 (function () {
     const ReportService = {
         /**

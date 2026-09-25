@@ -1,9 +1,3 @@
-/**
- * ==============================================================================
- * VNPT CLOUD - VIEW: QUẢN LÝ DANH BẠ BƯU TÁ (SHIPPER DIRECTORY VIEW)
- * Phong Cách B2B Enterprise Blue, Đồng Bộ Hero Banner & Bảng Phân Trang Chuẩn RBAC/CRM
- * ==============================================================================
- */
 
 (function () {
     const { ref, reactive, computed, watch, onMounted } = Vue;
@@ -45,17 +39,14 @@
             const isSaving = ref(false);
             const showModal = ref(false);
 
-            // Tìm kiếm & Bộ lọc nâng cao
             const searchQuery = ref('');
             const statusFilter = ref('ALL');
             const stationFilter = ref('ALL');
             const currentPage = ref(1);
             const pageSize = ref(5);
 
-            // Form Thêm mới / Cập nhật
             const form = reactive(emptyForm());
 
-            // Modal Xác nhận an toàn đổi trạng thái
             const confirmDialog = reactive({
                 show: false,
                 item: null,
@@ -67,7 +58,6 @@
                 return found ? found.label : (code || 'Chưa gán trạm');
             };
 
-            // Tải danh bạ bưu tá từ backend
             const loadShippers = async () => {
                 if (typeof ShipperDirectoryService === 'undefined') return;
                 isLoading.value = true;
@@ -81,7 +71,6 @@
                 }
             };
 
-            // Thống kê nhanh 4 thẻ KPI trên Hero Banner
             const activeShippersCount = computed(() => {
                 return shippers.value.filter(item => item.status === 'ACTIVE').length;
             });
@@ -95,7 +84,6 @@
                 return set.size;
             });
 
-            // Lọc danh sách theo từ khóa, trạng thái, và bưu cục/trạm
             const filteredShippers = computed(() => {
                 let list = shippers.value;
 
@@ -119,7 +107,6 @@
                 return list;
             });
 
-            // Phân trang chuẩn B2B
             const totalPages = computed(() => {
                 if (pageSize.value === -1) return 1;
                 return Math.ceil(filteredShippers.value.length / pageSize.value) || 1;
@@ -224,7 +211,6 @@
                 }
             };
 
-            // Mở modal xác nhận an toàn trước khi đổi trạng thái
             const confirmToggleStatus = (item) => {
                 confirmDialog.item = item;
                 confirmDialog.show = true;
@@ -292,7 +278,6 @@
         },
         template: `
             <div class="space-y-3.5 pb-8 text-slate-800">
-                <!-- 1. HERO BANNER: CHUẨN VNPT GRADIENT ĐỒNG BỘ VỚI RBAC & CUSTOMER VIEW -->
                 <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
 
@@ -312,7 +297,6 @@
                             </p>
                         </div>
 
-                        <!-- Thống kê nhanh 4 thẻ KPI -->
                         <div class="flex items-center space-x-2 self-start sm:self-auto flex-wrap sm:flex-nowrap gap-y-2">
                             <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[68px]">
                                 <div class="text-sm sm:text-base font-bold leading-tight">{{ shippers.length }}</div>
@@ -334,10 +318,8 @@
                     </div>
                 </div>
 
-                <!-- 2. TOOLBAR TÌM KIẾM & BỘ LỌC ĐA TIÊU CHÍ B2B -->
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div class="flex flex-wrap items-center gap-2 flex-1">
-                        <!-- Ô tìm kiếm -->
                         <div class="relative w-full sm:w-72">
                             <input 
                                 v-model="searchQuery" 
@@ -355,7 +337,6 @@
                             </button>
                         </div>
 
-                        <!-- Bộ lọc trạng thái -->
                         <select 
                             v-model="statusFilter" 
                             class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
@@ -365,7 +346,6 @@
                             <option value="INACTIVE">Tạm dừng hoạt động</option>
                         </select>
 
-                        <!-- Bộ lọc Bưu Cục / Trạm -->
                         <select 
                             v-model="stationFilter" 
                             class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition max-w-[200px]"
@@ -374,7 +354,6 @@
                             <option v-for="s in stations" :key="s.code" :value="s.code">{{ s.label }}</option>
                         </select>
 
-                        <!-- Nút Xóa Lọc -->
                         <button 
                             v-if="hasActiveFilter" 
                             @click="resetFilters" 
@@ -385,7 +364,6 @@
                         </button>
                     </div>
 
-                    <!-- Nút thao tác bên phải -->
                     <div class="flex items-center space-x-2">
                         <button 
                             @click="loadShippers()" 
@@ -405,7 +383,6 @@
                     </div>
                 </div>
 
-                <!-- 3. BẢNG DỮ LIỆU BƯU TÁ (TABLE-B2B) -->
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse table-b2b">
@@ -519,7 +496,6 @@
                                     </td>
                                 </tr>
 
-                                <!-- Trạng thái rỗng -->
                                 <tr v-if="filteredShippers.length === 0">
                                     <td colspan="8" class="text-center py-10 text-slate-400 text-xs">
                                         <div class="flex flex-col items-center justify-center space-y-1.5">
@@ -534,7 +510,6 @@
                         </table>
                     </div>
 
-                    <!-- 4. THANH PHÂN TRANG CHUẨN B2B (PAGINATION BAR) -->
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50/50 text-xs text-slate-600 gap-2">
                         <div class="flex items-center space-x-2">
                             <span>Hiển thị <b>{{ startIndex }}</b> - <b>{{ endIndex }}</b> trên tổng <b>{{ filteredShippers.length }}</b> bưu tá</span>
@@ -583,12 +558,10 @@
                     </div>
                 </div>
 
-                <!-- 5. MODAL THÊM MỚI / CHỈNH SỬA BƯU TÁ (ACRYLIC BLUR CHUẨN RBAC) -->
                 <teleport to="body">
                     <Transition name="modal">
                         <div v-if="showModal" class="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
                             <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden animate-fade-in">
-                                <!-- Modal Header -->
                                 <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                                     <div class="flex items-center space-x-2">
                                         <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
@@ -599,9 +572,7 @@
                                     <button @click="showModal = false" class="text-slate-400 hover:text-slate-700 text-lg font-bold">×</button>
                                 </div>
 
-                                <!-- Modal Body -->
                                 <form @submit.prevent="save" class="p-5 space-y-4">
-                                    <!-- Phần 1: Định danh & Địa bàn -->
                                     <div class="space-y-3">
                                         <div class="text-[11px] font-black uppercase tracking-wider text-blue-700 border-b border-blue-100 pb-1">
                                             1. Thông Tin Nhận Diện &amp; Địa Bàn
@@ -660,14 +631,12 @@
                                         </div>
                                     </div>
 
-                                    <!-- Phần 2: Tích hợp Telegram Bot -->
                                     <div class="space-y-2 pt-2">
                                         <div class="text-[11px] font-black uppercase tracking-wider text-sky-700 border-b border-sky-100 pb-1 flex items-center justify-between">
                                             <span>2. Kênh Thông Báo Telegram Bot</span>
                                             <span class="text-[10px] text-sky-600 lowercase font-normal">Tự động nhận đơn</span>
                                         </div>
 
-                                        <!-- Hướng dẫn cú pháp -->
                                         <div class="p-2.5 rounded-xl bg-sky-50 border border-sky-200/80 text-xs text-sky-900 space-y-1">
                                             <div class="font-bold flex items-center space-x-1.5 text-sky-800">
                                                 <span class="w-1.5 h-1.5 rounded-full bg-sky-600"></span>
@@ -692,7 +661,6 @@
                                         </div>
                                     </div>
 
-                                    <!-- Footer Modal -->
                                     <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
                                         <button 
                                             type="button" 
@@ -715,7 +683,6 @@
                     </Transition>
                 </teleport>
 
-                <!-- 6. MODAL XÁC NHẬN AN TOÀN TRƯỚC KHI TẠM DỪNG / KÍCH HOẠT BƯU TÁ -->
                 <teleport to="body">
                     <Transition name="modal">
                         <div v-if="confirmDialog.show" class="fixed inset-0 z-[110] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">

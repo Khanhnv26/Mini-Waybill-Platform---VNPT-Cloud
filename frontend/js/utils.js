@@ -1,19 +1,11 @@
-/**
- * ==============================================================================
- * VNPT CLOUD - UTILITIES & FORMATTERS
- * Bộ Tiện Ích Chuẩn Hóa Giao Diện Doanh Nghiệp, Toast Hệ Thống & Format Nghiệp Vụ
- * ==============================================================================
- */
-
 (function () {
     const { reactive } = Vue;
 
-    // Trạng thái thông báo Toast hệ thống
     const toastState = reactive({
         show: false,
         title: '',
         message: '',
-        type: 'success', // 'success' | 'error' | 'warning' | 'info'
+        type: 'success',
         timer: null
     });
 
@@ -39,7 +31,6 @@
         toastState.show = false;
     };
 
-    // Chuẩn hóa danh xưng vai trò (Roles) theo chuẩn danh mục Bưu chính VNPT
     const getRoleBadgeInfo = (roleName) => {
         switch (roleName) {
             case 'ROLE_ADMIN':
@@ -101,7 +92,6 @@
         }
     };
 
-    // Chuẩn hóa tên Module phân quyền nghiệp vụ
     const formatModuleName = (moduleCode) => {
         switch (moduleCode) {
             case 'SHIPMENT': return 'Quản Trị Bưu Gửi & Vận Đơn';
@@ -145,7 +135,6 @@
         }
     };
 
-    // Chuẩn hóa màu sắc trạng thái bưu gửi
     const getStatusBadgeClass = (status) => {
         switch (status) {
             case 'CREATED':
@@ -318,20 +307,17 @@
         return `${safePrefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
     };
 
-    // Format thời gian hiển thị
     const formatTime = (ts) => {
         if (!ts) return '';
         const d = new Date(ts);
         return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + d.toLocaleDateString('vi-VN');
     };
 
-    // Format tiền tệ Việt Nam
     const formatCurrency = (amount) => {
         if (amount === undefined || amount === null) return '0 đ';
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
     };
 
-    // Format node hành trình luân chuyển
     const formatNodeText = (node, status) => {
         if (!node || node.includes('?') || node.trim() === '') {
             return formatStatusText(status);
@@ -343,7 +329,6 @@
         return node;
     };
 
-    // Format JSON phục vụ kiểm toán tác nghiệp
     const formatJson = (str) => {
         try {
             return JSON.stringify(JSON.parse(str), null, 2);
@@ -372,6 +357,7 @@
         getOperationId,
         createOperationId,
         formatTime,
+        formatDateTime: formatTime,
         formatCurrency,
         formatNodeText,
         formatJson

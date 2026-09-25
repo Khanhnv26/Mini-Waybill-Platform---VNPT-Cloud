@@ -38,6 +38,8 @@ public class SecurityConfig {
                         "/api/auth/reset-password").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/tracking/**").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/shipments/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/ratings/*/status").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/ratings").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/notifications/*").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/routing/hubs").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/routing/shipments/**").permitAll()

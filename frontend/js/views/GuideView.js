@@ -52,52 +52,32 @@
         },
         template: `
             <div class="space-y-5 pb-12 text-slate-800">
-                <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
-                    <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
-
-                    <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div>
-                            <div class="flex items-center space-x-2">
-                                <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
-                                    Standards &amp; Policies
-                                </span>
-                                <span class="text-blue-100 text-xs font-medium flex items-center gap-1.5">
-                                    <span class="w-2 h-2 rounded-full bg-cyan-300 animate-pulse"></span>
-                                    Quy Chuẩn Bưu Chính VNPT
-                                </span>
-                            </div>
-                            <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
-                                Cẩm Nang Đóng Gói &amp; Quy Định Bưu Chính
-                            </h1>
-                            <p class="text-xs text-blue-100/90 mt-0.5 leading-normal">
-                                Hướng dẫn đóng gói an toàn theo nhóm hàng, danh mục hàng cấm, công thức quy đổi IATA và bảo hiểm bưu gửi.
-                            </p>
+                <div class="page-header-banner rounded-3xl p-6 sm:p-7 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden transition-all duration-300 hover:shadow-md">
+                    <div class="flex items-start space-x-4">
+                        <div class="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-600/30 flex-shrink-0 ring-4 ring-indigo-100">
+                            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
                         </div>
+                        <div>
+                            <div class="flex items-center space-x-2 text-xs font-semibold text-indigo-700 mb-1 whitespace-nowrap">
+                                <span @click="goBack" class="cursor-pointer hover:underline">Trang Chủ</span>
+                                <span>/</span>
+                                <span>Tiêu Chuẩn Bưu Chính</span>
+                                <span>/</span>
+                                <span class="text-slate-500">Cẩm Nang Đóng Gói</span>
+                            </div>
+                            <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight sm:whitespace-nowrap">Cẩm Nang Đóng Gói &amp; Quy Chuẩn Hàng Hóa</h1>
+                            <p class="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl leading-relaxed">Hướng dẫn chi tiết quy cách đóng gói an toàn cho 4 nhóm hàng, danh mục hàng cấm gửi và chính sách bảo hiểm bưu gửi 100%.</p>
+                        </div>
+                    </div>
 
-                        <div class="flex items-center space-x-2 self-start sm:self-auto">
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px]">
-                                <div class="text-sm sm:text-base font-bold leading-tight text-white">4 Nhóm</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Mặt Hàng</div>
-                            </div>
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px]">
-                                <div class="text-sm sm:text-base font-bold leading-tight text-cyan-300 font-mono">Chuẩn IATA</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Thể Tích</div>
-                            </div>
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px]">
-                                <div class="text-sm sm:text-base font-bold leading-tight text-amber-300 font-mono">100%</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Bảo Hiểm</div>
-                            </div>
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px]">
-                                <div class="text-sm sm:text-base font-bold leading-tight text-emerald-300 font-mono">1900 545481</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Hotline</div>
-                            </div>
-                            <button 
-                                type="button" 
-                                @click="goBack" 
-                                class="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 border border-white/30 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-sm cursor-pointer ml-1"
-                            >
-                                <span>← Về Tra Cứu</span>
-                            </button>
+                    <div class="flex items-center space-x-3 self-start md:self-center flex-shrink-0">
+                        <div class="px-4 py-2.5 rounded-2xl bg-white border border-indigo-200/80 shadow-xs text-center min-w-[110px] flex-shrink-0">
+                            <span class="text-[10.5px] uppercase font-bold text-slate-400 block tracking-wider whitespace-nowrap">Tiêu Chuẩn</span>
+                            <span class="text-xs sm:text-sm font-black text-indigo-700 whitespace-nowrap">Chuẩn IATA</span>
+                        </div>
+                        <div class="px-4 py-2.5 rounded-2xl bg-white border border-indigo-200/80 shadow-xs text-center min-w-[110px] flex-shrink-0">
+                            <span class="text-[10.5px] uppercase font-bold text-slate-400 block tracking-wider whitespace-nowrap">Bảo Hiểm</span>
+                            <span class="text-xs sm:text-sm font-black text-emerald-600 whitespace-nowrap">Đền Bù 100%</span>
                         </div>
                     </div>
                 </div>

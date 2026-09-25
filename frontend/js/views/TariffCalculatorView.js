@@ -247,52 +247,32 @@
         },
         template: `
             <div class="space-y-5 pb-12 text-slate-800 w-full">
-                <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
-                    <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
-
-                    <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div>
-                            <div class="flex items-center space-x-2">
-                                <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
-                                    B2B Tariff Engine
-                                </span>
-                                <span class="text-blue-100 text-xs font-medium flex items-center gap-1.5">
-                                    <span class="w-2 h-2 rounded-full bg-cyan-300 animate-pulse"></span>
-                                    Định Tuyến Cấp Quận / Huyện
-                                </span>
-                            </div>
-                            <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
-                                Hệ Thống Ước Tính Cước Phí Bưu Phẩm
-                            </h1>
-                            <p class="text-xs text-blue-100/90 mt-0.5 leading-normal">
-                                Tra cứu biểu giá cước động theo từng Quận/Huyện, trọng lượng gram và dịch vụ thu hộ COD.
-                            </p>
+                <div class="page-header-banner rounded-3xl p-6 sm:p-7 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden transition-all duration-300 hover:shadow-md">
+                    <div class="flex items-start space-x-4">
+                        <div class="w-14 h-14 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-600/30 flex-shrink-0 ring-4 ring-blue-100">
+                            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                         </div>
+                        <div>
+                            <div class="flex items-center space-x-2 text-xs font-semibold text-blue-700 mb-1 whitespace-nowrap">
+                                <span @click="goBack" class="cursor-pointer hover:underline">Trang Chủ</span>
+                                <span>/</span>
+                                <span>Công Cụ Bưu Chính</span>
+                                <span>/</span>
+                                <span class="text-slate-500">Ước Tính Cước</span>
+                            </div>
+                            <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight sm:whitespace-nowrap">Ước Tính Cước Phí Vận Chuyển</h1>
+                            <p class="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl leading-relaxed">Dự toán cước bưu chính chính xác theo khoảng cách địa lý, kích thước thể tích chuẩn IATA và dịch vụ cộng thêm.</p>
+                        </div>
+                    </div>
 
-                        <div class="flex items-center space-x-2 self-start sm:self-auto">
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px]">
-                                <div class="text-sm sm:text-base font-bold leading-tight text-white">3 Gói</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Dịch Vụ</div>
-                            </div>
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px]">
-                                <div class="text-sm sm:text-base font-bold leading-tight font-mono text-cyan-300">63 Tỉnh</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Toàn Quốc</div>
-                            </div>
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px]">
-                                <div class="text-sm sm:text-base font-bold leading-tight text-amber-300">Từ 12h</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Hỏa Tốc</div>
-                            </div>
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px]">
-                                <div class="text-sm sm:text-base font-bold leading-tight text-emerald-300">0đ COD</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">&lt; 1 Triệu</div>
-                            </div>
-                            <button 
-                                type="button" 
-                                @click="goBack" 
-                                class="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 border border-white/30 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-sm cursor-pointer ml-1"
-                            >
-                                <span>← Về Tra Cứu</span>
-                            </button>
+                    <div class="flex items-center space-x-3 self-start md:self-center flex-shrink-0">
+                        <div class="px-4 py-2.5 rounded-2xl bg-white border border-blue-200/80 shadow-xs text-center min-w-[110px] flex-shrink-0">
+                            <span class="text-[10.5px] uppercase font-bold text-slate-400 block tracking-wider whitespace-nowrap">Biểu Phí</span>
+                            <span class="text-xs sm:text-sm font-black text-blue-700 whitespace-nowrap">Mới Nhất 2026</span>
+                        </div>
+                        <div class="px-4 py-2.5 rounded-2xl bg-white border border-blue-200/80 shadow-xs text-center min-w-[110px] flex-shrink-0">
+                            <span class="text-[10.5px] uppercase font-bold text-slate-400 block tracking-wider whitespace-nowrap">Ưu Đãi Shop</span>
+                            <span class="text-xs sm:text-sm font-black text-emerald-600 whitespace-nowrap">Chiết Khấu 15%</span>
                         </div>
                     </div>
                 </div>

@@ -1,10 +1,3 @@
-/**
- * ==============================================================================
- * VNPT WAYBILL PLATFORM - VIEW: ĐANG PHÁT TRIỂN (UNDER DEVELOPMENT)
- * Hiệu ứng Vòng Xoay Quỹ Đạo Công Nghệ (Tech Orbit Animation)
- * Áp dụng cho các tính năng đang trong lộ trình tích hợp hệ thống (v2.6.0)
- * ==============================================================================
- */
 
 (function () {
     const { computed } = Vue;
@@ -86,7 +79,6 @@
         },
         template: `
             <div class="space-y-5 pb-12 text-slate-800">
-                <!-- HERO BANNER TỐI GIẢN NHẸ NHÀNG -->
                 <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 flex items-center justify-between">
                     <div>
                         <div class="flex items-center space-x-2">
@@ -108,24 +100,18 @@
                     </button>
                 </div>
 
-                <!-- THẺ NỘI DUNG TRUNG TÂM VỚI TECH ORBIT ANIMATION -->
                 <div class="b2b-card bg-white border border-slate-200 rounded-2xl p-8 sm:p-12 shadow-sm text-center max-w-2xl mx-auto space-y-6">
-                    <!-- VÒNG XOAY QUỸ ĐẠO CÔNG NGHỆ (TECH ORBIT SPINNER) -->
                     <div class="relative w-28 h-28 mx-auto flex items-center justify-center">
-                        <!-- Vòng quay quỹ đạo ngoài cùng -->
                         <div class="absolute inset-0 rounded-full border-2 border-slate-100"></div>
                         <div class="absolute inset-0 rounded-full border-2 border-transparent border-t-blue-600 border-r-blue-400 animate-spin" style="animation-duration: 1.2s;"></div>
                         
-                        <!-- Vòng quay quỹ đạo ngược bên trong -->
                         <div class="absolute inset-3 rounded-full border-2 border-transparent border-b-cyan-500 border-l-cyan-300 animate-spin" style="animation-duration: 2s; animation-direction: reverse;"></div>
 
-                        <!-- Tâm phát sáng với Logo VNPT -->
                         <div class="w-12 h-12 rounded-xl vnpt-gradient text-white font-black text-xs flex items-center justify-center shadow-md shadow-blue-500/25 z-10 select-none">
                             VNPT
                         </div>
                     </div>
 
-                    <!-- THÔNG BÁO TIẾN ĐỘ -->
                     <div class="space-y-2">
                         <h2 class="text-base sm:text-lg font-extrabold text-slate-800">
                             Chức Năng Đang Được Hoàn Thiện
@@ -135,7 +121,6 @@
                         </p>
                     </div>
 
-                    <!-- DANH SÁCH TÍNH NĂNG NỔI BẬT ĐANG TRIỂN KHAI -->
                     <div class="p-4 bg-slate-50 rounded-xl border border-slate-200/80 text-left max-w-md mx-auto space-y-2.5">
                         <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
                             Hạng Mục Đang Xây Dựng:
@@ -146,7 +131,6 @@
                         </div>
                     </div>
 
-                    <!-- NÚT ĐIỀU HƯỚNG QUAY LẠI -->
                     <div class="pt-2">
                         <button 
                             type="button" 

@@ -690,7 +690,6 @@
                                         </span>
                                     </div>
 
-                                    <!-- Segmented Control: Theo Ngày / Theo Tuần -->
                                     <div class="inline-flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200 text-xs">
                                         <button 
                                             type="button"
@@ -712,7 +711,6 @@
                                 </div>
                             </div>
 
-                            <!-- Hint khi xem Theo Ngày có > 14 ngày -->
                             <div v-if="chartGrouping === 'day' && barChartData.length > 14" class="flex items-center justify-between text-[11px] text-slate-500 bg-blue-50/40 px-2.5 py-1 rounded-lg border border-blue-100">
                                 <span>Hiển thị {{ barChartData.length }} ngày liên tiếp</span>
                                 <span class="flex items-center gap-1 text-blue-600 font-medium">
@@ -721,7 +719,6 @@
                                 </span>
                             </div>
 
-                            <!-- Chart Scrollable Container -->
                             <div 
                                 ref="chartScrollWrapper" 
                                 class="w-full overflow-x-auto pb-1"

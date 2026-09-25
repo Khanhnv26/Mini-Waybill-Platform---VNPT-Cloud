@@ -1,11 +1,3 @@
-/**
- * ==============================================================================
- * VNPT CLOUD - VIEW: KHAI THÁC & CHIA CHỌN BƯU GỬI TẠI HUB (HUB OPERATIONS)
- * Phong Cách B2B Tối Giản, Chuẩn Hóa Thuật Ngữ Bưu Chính & Kết Nối Dữ Liệu Thật
- * Phân quyền: ROLE_HUB_OPERATOR / ROLE_ADMIN (Quyền: tracking:update_hub)
- * ==============================================================================
- */
-
 (function () {
     const { ref, computed, watch, onMounted } = Vue;
 
@@ -165,12 +157,11 @@
         name: 'HubOpsView',
         emits: ['view-tracking'],
         setup(props, { emit }) {
-            const currentSubtab = ref('scan'); // 'scan' | 'inventory'
+            const currentSubtab = ref('scan');
             const isLoading = ref(false);
             const isActionRunning = ref(false);
             const inventorySource = ref('shipment-fallback');
 
-            // Dữ liệu vận hành. Khi có RoutingService, các bản ghi tồn kho là nguồn chính.
             const shipmentsList = ref([]);
             const hubsList = ref([]);
             const scanInputCode = ref('');
@@ -195,8 +186,6 @@
                     return false;
                 }
             });
-            // Filter mặc định mỗi lần vào trang: admin xem toàn bộ trạm tổng,
-            // thủ kho bám đúng hub được gán (mã POST-* không lọt vào phạm vi kho).
             const resolveDefaultHub = () => {
                 if (isAdmin.value) return 'ALL';
                 return asHubCode(stationContext.value.code) || 'ALL';
@@ -205,7 +194,6 @@
             const selectedStatusFilter = ref('ALL');
             const searchQuery = ref('');
 
-            // Phân trang
             const currentPage = ref(1);
             const pageSize = ref(10);
             const selectedTrackingCodes = ref(new Set());
@@ -234,7 +222,6 @@
                 };
 
                 addStation(stationContext.value.code, stationContext.value.label);
-                // Giữ option khớp với giá trị đang chọn để select không bao giờ trống.
                 addStation(selectedHub.value, getStationName(selectedHub.value));
                 KNOWN_HUB_CODES.forEach(code => addStation(code, getStationName(code)));
                 hubsList.value.forEach(hub => {
@@ -266,9 +253,6 @@
                 item?.rawInventoryStatus ?? item?.inventoryStatus ?? item?.inventory_status
             );
 
-            // Bucket trạng thái duy nhất cho từng kiện: ưu tiên trạng thái tồn kho
-            // thực tế, chỉ fallback sang trạng thái vận đơn khi chưa có bản ghi tồn kho.
-            // Nhờ vậy bộ lọc, KPI và danh sách luôn khớp nhau và không chồng chéo.
             const resolveHubBucket = (item) => {
                 if (!item) return '';
                 const inventory = asCode(getInventoryStatus(item));
@@ -457,7 +441,6 @@
                     const data = await RoutingService.getAllHubs();
                     hubsList.value = Array.isArray(data) ? data : unwrapCollection(data);
                 } catch (error) {
-                    // Danh bạ hub chỉ bổ trợ cho bộ lọc; không che mất dữ liệu tồn kho.
                     console.warn('[HubOpsView] Không thể tải danh bạ trạm:', error);
                 }
             };
@@ -471,7 +454,6 @@
                 shipmentsList.value = mergeOptimisticItems(normalizeCollection(data, 'shipment-fallback'));
             };
 
-            // Tồn kho RoutingService là nguồn chính. ShipmentService chỉ còn là đường di trú.
             const loadShipmentsData = async (silent = false) => {
                 if (!silent) isLoading.value = true;
                 try {
@@ -490,7 +472,6 @@
                             );
                             return;
                         } catch (error) {
-                            // Không che lỗi phân quyền/xung đột bằng dữ liệu cũ. Chỉ fallback khi endpoint chưa có.
                             if (!isMigrationUnavailable(error)) {
                                 if (!silent) showLoadError(error);
                                 return;
@@ -516,18 +497,15 @@
                 if (location === selected) return true;
 
                 const status = operationalStatus(item);
-                // Kiện gom từ bưu cục lên Hub: chỉ nhận nếu đã rời bưu cục và hướng tới Hub này
                 if (['ROUTE_ASSIGNED', 'PENDING_ROUTING', 'PICKED_UP'].includes(status)) {
                     return !location.startsWith('POST-') && location !== 'DELIVERY_OFFICE' && asCode(item.sourceHub) === selected;
                 }
-                // Kiện đến từ tuyến đường trục liên tỉnh: chỉ nhận nếu xe đã cập bến Hub đích
                 if (status === 'ARRIVED_DEST_HUB') {
                     return asCode(item.destinationHub) === selected;
                 }
                 return false;
             };
 
-            // 1. Thống kê nhanh KPI theo cùng phạm vi Hub và bucket với bộ lọc
             const scopedHubShipments = computed(() => {
                 if (!selectedHub.value || selectedHub.value === 'ALL') return shipmentsList.value;
                 return shipmentsList.value.filter(item => isShipmentInSelectedHubScope(item, selectedHub.value));
@@ -541,7 +519,6 @@
                 resolveHubBucket(item) === 'WAITING_INTAKE'
             ).length);
 
-            // Hàng mới dỡ xuống khu tiếp nhận, chờ thủ kho xác nhận lưu kho.
             const kpiAwaitingStore = computed(() => scopedHubShipments.value.filter(item =>
                 resolveHubBucket(item) === 'RECEIVED'
             ).length);
@@ -550,7 +527,6 @@
                 resolveHubBucket(item) === 'IN_TRANSIT'
             ).length);
 
-            // 2. Lọc danh sách bưu gửi đa điều kiện
             const filteredShipments = computed(() => {
                 let list = shipmentsList.value;
 
@@ -581,7 +557,6 @@
                 return list;
             });
 
-            // 3. Phân trang
             const totalPages = computed(() => {
                 if (pageSize.value === -1) return 1;
                 return Math.ceil(filteredShipments.value.length / pageSize.value) || 1;
@@ -616,7 +591,6 @@
                 if (['RECEIVED', 'STORED', 'RESERVED', 'LOADED', 'HANDED_TO_COURIER'].includes(inventory)) return false;
                 const status = operationalStatus(item);
                 const location = locationForDisplay(item);
-                // Kiện còn ở bưu cục thuộc thẩm quyền bưu cục, Hub chưa thể tiếp nhận
                 if (location.startsWith('POST-') || location === 'DELIVERY_OFFICE') return false;
                 if (['ROUTE_ASSIGNED', 'PENDING_ROUTING'].includes(status)) {
                     return asCode(item.sourceHub) === asCode(currentActionLocation.value);
@@ -630,7 +604,6 @@
                 return inventory === 'RECEIVED';
             };
 
-            // UI-only resolver: ô quét luôn hướng tới thao tác vật lý kế tiếp.
             const getNextHubAction = (item) => {
                 if (!item) return { key: 'LOOKUP', label: 'Tra cứu bưu gửi', operation: '' };
                 const status = operationalStatus(item);
@@ -716,7 +689,6 @@
                 }, 600);
             };
 
-            // 4. Tác nghiệp kho phải đi qua RoutingService, không giả lập bằng tracking status.
             const isConflictError = (error) => {
                 const status = errorStatus(error);
                 const text = String(error?.message || error || '').toLowerCase();
@@ -724,7 +696,6 @@
                     || text.includes('đã được') || text.includes('đã tồn tại');
             };
 
-            // Một bước vật lý đơn lẻ (không tự làm mới danh sách).
             const runInventoryStep = async (item, operation) => {
                 const cleanCode = asNonBlankString(item?.trackingCode);
                 if (!cleanCode) {
@@ -806,7 +777,6 @@
                 }
             };
 
-            // 1-Click: tiếp nhận xong lưu kho ngay (bỏ qua bước đã hoàn tất).
             const handleReceiveAndStore = async (item) => {
                 if (isActionRunning.value) return;
                 const cleanCode = asNonBlankString(item?.trackingCode);
@@ -929,7 +899,6 @@
                 return processed;
             };
 
-            // Hàng loạt 1-Click: tiếp nhận trước, làm mới, rồi lưu kho các kiện vừa nhận.
             const handleBulkReceiveAndStore = async (locationCode) => {
                 const items = selectedHubItems.value.filter(item =>
                     isShipmentInSelectedHubScope(item) && canReceive(item)
@@ -1046,7 +1015,6 @@
                 return handleInventoryOperation(item, operation);
             };
 
-            // Mở chi tiết hành trình & bản đồ tại TrackingView.
             const viewTrackingDetail = (code) => {
                 const cleanCode = asNonBlankString(code);
                 if (cleanCode) emit('view-tracking', cleanCode, 'hub-ops');
@@ -1054,7 +1022,6 @@
 
             onMounted(async () => {
                 stationContext.value = resolveStationContext();
-                // Mỗi lần vào trang đều trả bộ lọc về mặc định thay vì bám mã tài khoản.
                 selectedHub.value = resolveDefaultHub();
                 selectedStatusFilter.value = 'ALL';
                 searchQuery.value = '';
