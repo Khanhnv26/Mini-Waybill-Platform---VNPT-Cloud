@@ -28,7 +28,22 @@
             const previousTab = ref(null);
             const selectedCustomerForShipment = ref(null);
             const selectedTariffForShipment = ref(null);
-            const isSidebarCollapsed = ref(false);
+            const isSidebarCollapsed = ref(typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
+            if (typeof window !== 'undefined') {
+                window.addEventListener('resize', () => {
+                    if (window.innerWidth < 768 && !isSidebarCollapsed.value) {
+                        isSidebarCollapsed.value = true;
+                    }
+                });
+            }
+
+            // Chuẩn hóa giao diện sáng mặc định (Đã loại bỏ Dark Theme khỏi hệ thống)
+            try {
+                localStorage.removeItem('theme');
+                document.documentElement.classList.remove('dark');
+            } catch (e) {}
+            const isDarkMode = ref(false);
+            const toggleDarkMode = () => {};
 
             const showError = (code = 404, title = '', message = '') => {
                 currentErrorCode.value = code;
@@ -1013,11 +1028,52 @@
                 isLinkingGoogle,
                 triggerGoogleLink,
                 handleUserUpdated,
+                // Dark Mode Theme Engine
+                isDarkMode,
+                toggleDarkMode,
                 toast: window.Utils ? window.Utils.toastState : { show: false },
                 getRoleBadgeInfo: window.Utils ? window.Utils.getRoleBadgeInfo : () => ({ label: 'NHÂN VIÊN', class: 'bg-slate-50' })
             };
         }
     });
+
+    // Đăng ký Layout & Shared UI Components
+    if (window.AppSidebar) {
+        app.component('AppSidebar', window.AppSidebar);
+        app.component('app-sidebar', window.AppSidebar);
+    }
+    if (window.AppTopbar) {
+        app.component('AppTopbar', window.AppTopbar);
+        app.component('app-topbar', window.AppTopbar);
+    }
+    if (window.InternalFooter) {
+        app.component('InternalFooter', window.InternalFooter);
+        app.component('internal-footer', window.InternalFooter);
+    }
+    if (window.PublicHeader) {
+        app.component('PublicHeader', window.PublicHeader);
+        app.component('public-header', window.PublicHeader);
+    }
+    if (window.PublicFooter) {
+        app.component('PublicFooter', window.PublicFooter);
+        app.component('public-footer', window.PublicFooter);
+    }
+    if (window.ToastContainer) {
+        app.component('ToastContainer', window.ToastContainer);
+        app.component('toast-container', window.ToastContainer);
+    }
+    if (window.UserProfileModal) {
+        app.component('UserProfileModal', window.UserProfileModal);
+        app.component('user-profile-modal', window.UserProfileModal);
+    }
+    if (window.InternalLayout) {
+        app.component('InternalLayout', window.InternalLayout);
+        app.component('internal-layout', window.InternalLayout);
+    }
+    if (window.PublicLayout) {
+        app.component('PublicLayout', window.PublicLayout);
+        app.component('public-layout', window.PublicLayout);
+    }
 
     // Đăng ký các View Components
     if (window.TrackingView) app.component('TrackingView', window.TrackingView);
@@ -1042,6 +1098,10 @@
         app.component('ChatbotWidget', window.ChatbotWidget);
         app.component('chatbot-widget', window.ChatbotWidget);
     }
+
+    app.config.errorHandler = (err, vm, info) => {
+        console.error('VUE_APP_ERROR:', err, err ? err.stack : '', info);
+    };
 
     // Gắn ứng dụng vào DOM
     app.mount('#app');

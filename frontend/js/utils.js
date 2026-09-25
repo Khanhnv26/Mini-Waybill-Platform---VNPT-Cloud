@@ -372,6 +372,7 @@
         getOperationId,
         createOperationId,
         formatTime,
+        formatDateTime: formatTime,
         formatCurrency,
         formatNodeText,
         formatJson

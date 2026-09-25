@@ -39,13 +39,52 @@
 
             const publicHeroTab = ref('tracking');
             const isMapExpanded = ref(false);
+
+            // Đảm bảo DOM container của bản đồ đã được render, hiển thị và có kích thước thực tế trước khi nạp Leaflet
+            const ensureMapReady = async (containerId = 'tracking-map', maxRetries = 15) => {
+                for (let i = 0; i < maxRetries; i++) {
+                    await nextTick();
+                    const el = document.getElementById(containerId);
+                    if (el && el.offsetWidth > 0 && el.offsetHeight > 0) {
+                        if (window.MapManager) {
+                            window.MapManager.init(containerId);
+                            if (typeof window.MapManager.scheduleInvalidateSize === 'function') {
+                                window.MapManager.scheduleInvalidateSize();
+                            }
+                        }
+                        return true;
+                    }
+                    await new Promise(r => requestAnimationFrame(() => setTimeout(r, 40)));
+                }
+                const el = document.getElementById(containerId);
+                if (el && window.MapManager) {
+                    window.MapManager.init(containerId);
+                    if (typeof window.MapManager.scheduleInvalidateSize === 'function') {
+                        window.MapManager.scheduleInvalidateSize();
+                    }
+                }
+                return false;
+            };
+
             const toggleMapExpanded = () => {
                 isMapExpanded.value = !isMapExpanded.value;
                 if (isMapExpanded.value) {
                     nextTick(() => {
-                        if (window.MapManager && typeof window.MapManager.invalidateSize === 'function') {
-                            window.MapManager.invalidateSize();
-                        }
+                        ensureMapReady('tracking-map').then(() => {
+                            setTimeout(() => {
+                                if (window.MapManager) {
+                                    if (typeof window.MapManager.scheduleInvalidateSize === 'function') {
+                                        window.MapManager.scheduleInvalidateSize(() => {
+                                            if (routeInfo.value) {
+                                                window.MapManager.fitRouteView();
+                                            }
+                                        });
+                                    } else {
+                                        window.MapManager.invalidateSize();
+                                    }
+                                }
+                            }, 250);
+                        });
                     });
                 }
             };
@@ -84,6 +123,21 @@
                 const code = currentShipment.value?.trackingCode || searchCode.value;
                 if (!code) return;
                 emit('switch-tab', 'support', code.trim());
+            };
+
+            const copiedCodeTooltip = ref(false);
+            const copyTrackingCode = (code) => {
+                const val = code || currentShipment.value?.trackingCode || searchCode.value;
+                if (!val) return;
+                if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(val).then(() => {
+                        copiedCodeTooltip.value = true;
+                        setTimeout(() => { copiedCodeTooltip.value = false; }, 2000);
+                        if (typeof Utils !== 'undefined' && Utils.showToast) {
+                            Utils.showToast('Đã sao chép mã bưu gửi: ' + val, 'success');
+                        }
+                    }).catch(() => {});
+                }
             };
             const isLiveTracking = ref(true);
             const isWsConnected = ref(false);
@@ -1081,7 +1135,7 @@
 
                 // Hỗ trợ mã mẫu demo VNPT-HN-SG-9821
                 if (code === 'VNPT-HN-SG-9821' || code.startsWith('VNPT-')) {
-                    setTimeout(() => {
+                    setTimeout(async () => {
                         currentShipment.value = {
                             trackingCode: code,
                             status: 'OUT_FOR_DELIVERY',
@@ -1140,21 +1194,22 @@
                             }
                         ];
                         isLoading.value = false;
-                        nextTick(async () => {
-                            if (window.MapManager) {
-                                window.MapManager.init('tracking-map');
-                                try {
-                                    routeInfo.value = await window.MapManager.renderRoute(
-                                        trackingHistory.value,
-                                        'OUT_FOR_DELIVERY',
-                                        'HUB-HN-01',
-                                        'HUB-HCM-01',
-                                        'POST-HN-CG',
-                                        'POST-HCM-Q1'
-                                    );
-                                } catch (e) {}
-                            }
-                        });
+                        await ensureMapReady('tracking-map');
+                        if (window.MapManager) {
+                            try {
+                                routeInfo.value = await window.MapManager.renderRoute(
+                                    trackingHistory.value,
+                                    'OUT_FOR_DELIVERY',
+                                    true,
+                                    {
+                                        sourceHub: 'HUB-HN-01',
+                                        destHub: 'HUB-HCM-01',
+                                        originPostOffice: 'POST-HN-CG',
+                                        destPostOffice: 'POST-HCM-Q1'
+                                    }
+                                );
+                            } catch (e) {}
+                        }
                     }, 250);
                     return;
                 }
@@ -1239,9 +1294,8 @@
 
                     // Lỗi bản đồ không được xóa đơn vừa tải được.
                     try {
-                        await nextTick();
+                        await ensureMapReady('tracking-map');
                         if (window.MapManager) {
-                            window.MapManager.init('tracking-map');
                             if (lastRenderedCode.value === code) {
                                 const latestMilestone = sortedHistory.value[0];
                                 window.MapManager.updateProgress(status, latestMilestone?.node || '', latestMilestone?.locationCode || null);
@@ -1437,7 +1491,8 @@
 
             onMounted(() => {
                 nextTick(() => {
-                    if (window.MapManager) {
+                    const el = document.getElementById('tracking-map');
+                    if (window.MapManager && el && el.offsetWidth > 0 && el.offsetHeight > 0) {
                         window.MapManager.init('tracking-map');
                     }
                     let routingService;
@@ -1723,6 +1778,8 @@
                 quickQuote,
                 fillSampleCode,
                 handleResetSearch,
+                copiedCodeTooltip,
+                copyTrackingCode,
                 getPostOfficeDisplayName,
                 Utils: getUtilsApi() || {}
             };
@@ -1976,30 +2033,42 @@
                         </div>
                     </div>
 
-                    <!-- 1.3 KẾT QUẢ TRA CỨU: BRANDED HEADER BANNER, MAP COLLAPSIBLE & 2-COLUMN RESULT -->
+                    <!-- 1.3 KẾT QUẢ TRA CỨU: BRANDED HEADER BANNER, MAP COLLAPSIBLE, STEPPER TOÀN TRÌNH & 2-COLUMN RESULT -->
                     <div v-if="currentShipment" class="space-y-6">
                         
-                        <!-- BRANDED BANNER KẾT QUẢ TRA CỨU -->
+                        <!-- A. PAGE HEADER BANNER: NỀN SÁNG ĐỒNG BỘ VỚI CÁC TRANG PUBLIC KHÁC -->
                         <div class="page-header-banner rounded-3xl p-6 sm:p-7 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden transition-all duration-300 hover:shadow-md">
                             <div class="flex items-start space-x-4">
+                                <!-- Icon Box chuẩn Brand VNPT (Xanh dương bo tròn ring-4 ring-blue-100) -->
                                 <div class="w-14 h-14 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-600/30 flex-shrink-0 ring-4 ring-blue-100 radar-pulse-effect">
                                     <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                                 </div>
                                 <div>
-                                    <!-- Breadcrumbs -->
+                                    <!-- Breadcrumbs chuẩn text-blue-700 -->
                                     <div class="flex items-center space-x-2 text-xs font-semibold text-blue-700 mb-1 whitespace-nowrap">
                                         <span @click="handleResetSearch" class="cursor-pointer hover:underline">Trang Chủ</span>
                                         <span>/</span>
                                         <span>Định Vị Bưu Phẩm</span>
                                         <span>/</span>
-                                        <span class="text-slate-500">Tra Cứu Toàn Trình</span>
+                                        <span class="text-slate-500 font-mono">{{ currentShipment.trackingCode }}</span>
                                     </div>
-                                    <div class="flex items-center space-x-2.5">
+                                    <div class="flex flex-wrap items-center gap-2.5">
                                         <span class="text-xs text-slate-400 font-medium whitespace-nowrap">Mã bưu gửi:</span>
-                                        <!-- Kích thước text-base font-mono chuẩn đẹp theo phản hồi người dùng -->
-                                        <span class="font-mono text-base font-black text-blue-700 tracking-tight whitespace-nowrap">{{ currentShipment.trackingCode }}</span>
-                                        <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center space-x-1.5 shadow-xs whitespace-nowrap flex-shrink-0">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+                                        <!-- Box mã vận đơn có nút copy SVG 1 chạm -->
+                                        <div class="inline-flex items-center space-x-1.5 bg-blue-50/80 border border-blue-200/90 px-2.5 py-1 rounded-lg">
+                                            <span class="font-mono text-base font-black text-blue-700 tracking-tight whitespace-nowrap">{{ currentShipment.trackingCode }}</span>
+                                            <button 
+                                                type="button"
+                                                @click="copyTrackingCode(currentShipment.trackingCode)" 
+                                                title="Sao chép mã bưu gửi" 
+                                                class="p-0.5 rounded text-blue-500 hover:text-blue-800 transition cursor-pointer relative"
+                                            >
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                                <span v-if="copiedCodeTooltip" class="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded bg-slate-900 text-[10px] text-white whitespace-nowrap shadow-md">Đã chép!</span>
+                                            </button>
+                                        </div>
+                                        <span :class="['px-2.5 py-1 rounded-full text-xs font-bold border flex items-center space-x-1.5 shadow-xs whitespace-nowrap flex-shrink-0', Utils.getStatusBadgeClass(currentShipment.status)]">
+                                            <span class="w-1.5 h-1.5 rounded-full" :class="currentShipment.status === 'DELIVERED' ? 'bg-emerald-500' : 'bg-blue-600 animate-ping'"></span>
                                             <span>{{ Utils.formatStatusText(currentShipment.status) }}</span>
                                         </span>
                                     </div>
@@ -2009,12 +2078,8 @@
                                 </div>
                             </div>
 
-                            <!-- Thẻ Chỉ Số Nhanh, Nút Xem Bản Đồ & Nút Tra Cứu Mã Khác -->
+                            <!-- Nút Xem Bản Đồ & Nút Tra Cứu Mã Khác -->
                             <div class="flex flex-wrap items-center gap-3 self-start md:self-center flex-shrink-0">
-                                <div class="px-4 py-2.5 rounded-2xl bg-white border border-blue-200/80 shadow-xs text-center min-w-[120px] flex-shrink-0">
-                                    <span class="text-[10.5px] uppercase font-bold text-slate-400 block tracking-wider whitespace-nowrap">Dự Kiến Giao</span>
-                                    <span class="text-xs sm:text-sm font-black text-slate-800 whitespace-nowrap">{{ currentShipment.estimatedDelivery || 'Trước 17:30' }}</span>
-                                </div>
                                 <button 
                                     type="button"
                                     @click="toggleMapExpanded" 
@@ -2034,13 +2099,13 @@
                             </div>
                         </div>
 
-                        <!-- BẢN ĐỒ THU GỌN ACCORDION (LEAFLET GIS LIVE VIEW) -->
+                        <!-- B. BẢN ĐỒ THU GỌN ACCORDION (LEAFLET GIS LIVE VIEW) -->
                         <div :class="['map-collapse-wrapper mb-6', isMapExpanded ? 'map-expanded' : 'map-collapsed']">
                             <div class="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
                                 <div class="p-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-slate-700">
                                     <span class="flex items-center space-x-1.5 whitespace-nowrap">
                                         <svg class="w-4 h-4 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
-                                        <span>Hành lang luân chuyển toàn trình bưu gửi</span>
+                                        <span>Hành lang luân chuyển toàn trình bưu gửi (GIS Leaflet)</span>
                                     </span>
                                     <div class="flex items-center space-x-2">
                                         <button 
@@ -2066,164 +2131,265 @@
                             </div>
                         </div>
 
-                        <!-- LƯỚI 2 CỘT CÂN ĐỐI (CỘT TRÁI 5/12: TIẾN TRÌNH & THÔNG TIN; CỘT PHẢI 7/12: DÒNG THỜI GIAN QUÉT) -->
-                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                            
-                            <!-- CỘT TRÁI (5 PHẦN) -->
-                            <div class="lg:col-span-5 space-y-5">
-                                
-                                <!-- Thẻ 1: Tiến Trình Giao Nhận (Stepper) -->
-                                <div class="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
-                                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-2 flex items-center justify-between">
-                                        <span class="whitespace-nowrap">Tiến Trình Giao Nhận</span>
-                                        <span class="text-[11px] text-blue-600 font-bold font-mono whitespace-nowrap">
-                                            Chặng {{ currentCheckpointIndex + 1 }} / {{ routeCheckpoints.length }}
-                                        </span>
+                        <!-- C. THANH TIẾN TRÌNH LUÂN CHUYỂN BƯU GỬI (HORIZONTAL STEPPER NỔI BẬT) -->
+                        <div class="bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+                            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                                <div class="flex items-center space-x-2">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                    <h3 class="font-extrabold text-sm sm:text-base text-slate-800 uppercase tracking-tight">
+                                        Tiến Trình Luân Chuyển Bưu Gửi Toàn Trình
                                     </h3>
-
-                                    <div class="space-y-4 pt-1">
-                                        <div 
-                                            v-for="(cp, idx) in routeCheckpoints" 
-                                            :key="cp.key" 
-                                            class="flex items-start space-x-3.5 relative"
-                                        >
-                                            <!-- Đường kẻ dọc kết nối các trạm -->
-                                            <div 
-                                                v-if="idx < routeCheckpoints.length - 1" 
-                                                class="absolute left-4 top-8 -bottom-4 w-0.5"
-                                                :class="idx < currentCheckpointIndex ? 'bg-blue-600' : 'bg-slate-200'"
-                                            ></div>
-
-                                            <!-- Điểm tròn trạng thái -->
-                                            <div 
-                                                :class="[
-                                                    'w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs flex-shrink-0 z-10 transition-all duration-200',
-                                                    idx === currentCheckpointIndex 
-                                                        ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-4 ring-blue-100 radar-pulse-effect' 
-                                                        : (idx < currentCheckpointIndex ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-400')
-                                                ]"
-                                            >
-                                                <svg v-if="idx < currentCheckpointIndex" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                                                <span v-else>{{ idx + 1 }}</span>
-                                            </div>
-
-                                            <div class="flex-1 min-w-0 pt-0.5">
-                                                <div class="flex items-center justify-between gap-1">
-                                                    <div :class="['text-xs font-bold whitespace-nowrap', idx === currentCheckpointIndex ? 'text-blue-700' : (idx < currentCheckpointIndex ? 'text-slate-800' : 'text-slate-400')]">
-                                                        {{ cp.stageName }}
-                                                    </div>
-                                                    <span v-if="idx === currentCheckpointIndex" class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100 whitespace-nowrap flex-shrink-0">
-                                                        Hiện Tại
-                                                    </span>
-                                                </div>
-                                                <p class="text-xs mt-0.5 font-medium" :class="idx <= currentCheckpointIndex ? 'text-slate-700' : 'text-slate-400'">
-                                                    {{ cp.displayName }}
-                                                </p>
-                                                <p v-if="cp.address" class="text-[11px] text-slate-400 mt-0.5 truncate">
-                                                    {{ cp.address }}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
-
-                                <!-- Thẻ 2: Thông Tin Chi Tiết Kiện Hàng -->
-                                <div class="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm space-y-3.5">
-                                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-2 flex items-center justify-between">
-                                        <span class="whitespace-nowrap">Thông Tin Bưu Kiện</span>
-                                        <span class="text-[11px] text-blue-600 font-bold font-mono whitespace-nowrap">{{ currentShipment.serviceType || 'TIÊU CHUẨN' }}</span>
-                                    </h3>
-
-                                    <div class="space-y-2.5 text-xs">
-                                        <div class="flex justify-between items-start">
-                                            <span class="text-slate-400 whitespace-nowrap">Người gửi:</span>
-                                            <span class="font-bold text-slate-800 text-right">{{ currentShipment.senderName || 'Bưu cục VNPT' }}</span>
-                                        </div>
-                                        <div class="flex justify-between items-start">
-                                            <span class="text-slate-400 whitespace-nowrap">Người nhận:</span>
-                                            <span class="font-bold text-slate-800 text-right">{{ currentShipment.receiverName || 'Khách hàng' }}</span>
-                                        </div>
-                                        <div class="flex justify-between items-start">
-                                            <span class="text-slate-400 whitespace-nowrap">Địa chỉ nhận:</span>
-                                            <span class="font-medium text-slate-700 text-right max-w-[220px]">{{ recipientFullAddress }}</span>
-                                        </div>
-                                        <div class="flex justify-between items-center pt-2 border-t border-slate-100">
-                                            <span class="text-slate-400 whitespace-nowrap">Trọng lượng:</span>
-                                            <span class="font-mono font-bold text-slate-800 whitespace-nowrap">{{ currentShipment.weight ? currentShipment.weight + ' gram' : '500 gram' }}</span>
-                                        </div>
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-slate-400 whitespace-nowrap">Thu hộ COD:</span>
-                                            <span class="font-mono font-bold text-emerald-600 whitespace-nowrap">{{ currentShipment.codAmount ? Number(currentShipment.codAmount).toLocaleString('vi-VN') + ' đ' : '0 đ' }}</span>
-                                        </div>
-                                    </div>
-
-                                    <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                                        <span class="text-[11px] text-slate-400 whitespace-nowrap">Cần trợ giúp đơn hàng?</span>
-                                        <button 
-                                            type="button" 
-                                            @click="navigateToSupport" 
-                                            class="text-xs font-bold text-blue-600 hover:text-blue-800 transition flex items-center space-x-1 cursor-pointer whitespace-nowrap"
-                                        >
-                                            <span>Gửi khiếu nại CSKH</span>
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                                        </button>
-                                    </div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-xs text-slate-400 font-medium">Hiện trạng:</span>
+                                    <span class="font-bold text-xs text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 font-mono">
+                                        Chặng {{ currentCheckpointIndex + 1 }} / {{ routeCheckpoints.length }} ({{ routeCheckpoints[currentCheckpointIndex]?.stageName || 'Đang Luân Chuyển' }})
+                                    </span>
                                 </div>
                             </div>
 
-                            <!-- CỘT PHẢI (7 PHẦN): LỊCH SỬ HÀNH TRÌNH QUÉT MÃ TỨC THÌ -->
-                            <div class="lg:col-span-7 bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-sm">
-                                <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-5">
-                                    <div>
-                                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">
-                                            Lịch Sử Hành Trình Quét Mã
-                                        </h3>
-                                        <p class="text-[11px] text-slate-400 mt-0.5">Dữ liệu được cập nhật tức thì qua hệ thống trạm vi dịch vụ</p>
+                            <!-- Khung Stepper: Desktop Ngang Đều / Mobile Dọc Tinh Gọn -->
+                            <div class="pt-3 pb-1">
+                                <!-- 1. GIAO DIỆN DESKTOP / TABLET (NGANG ĐỀU THEO SỐ CHẶNG) -->
+                                <div class="hidden sm:grid gap-2 relative text-center" :style="{ gridTemplateColumns: 'repeat(' + routeCheckpoints.length + ', minmax(0, 1fr))' }">
+                                    <!-- Đường line nền kết nối -->
+                                    <div class="absolute top-5 left-10 right-10 h-1 bg-slate-200 z-0">
+                                        <div class="h-full bg-blue-600 transition-all duration-700" :style="{ width: ((currentCheckpointIndex / Math.max(1, routeCheckpoints.length - 1)) * 100) + '%' }"></div>
                                     </div>
-                                    <span class="text-[11px] font-mono font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100 whitespace-nowrap flex-shrink-0">
-                                        {{ trackingHistory.length }} Mốc Quét
+
+                                    <!-- Từng chặng lộ trình -->
+                                    <div v-for="(cp, idx) in routeCheckpoints" :key="cp.key" class="relative z-10 flex flex-col items-center">
+                                        <!-- Điểm tròn chặng -->
+                                        <div 
+                                            :class="[
+                                                'w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold ring-4 ring-white transition-all duration-300',
+                                                idx < currentCheckpointIndex 
+                                                    ? 'bg-blue-600 text-white shadow-sm'
+                                                    : (idx === currentCheckpointIndex 
+                                                        ? (currentShipment.status === 'DELIVERED' ? 'bg-emerald-600 text-white shadow-md ring-emerald-100' : 'bg-amber-500 text-white shadow-md ring-amber-100 radar-pulse-effect')
+                                                        : 'bg-slate-100 text-slate-400 border-2 border-slate-300')
+                                            ]"
+                                        >
+                                            <!-- Đã qua: Dấu tick SVG ✓ -->
+                                            <svg v-if="idx < currentCheckpointIndex" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                            
+                                            <!-- Đang hoạt động: Icon SVG động theo trạng thái -->
+                                            <svg v-else-if="idx === currentCheckpointIndex && currentShipment.status === 'DELIVERED'" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                            <svg v-else-if="idx === currentCheckpointIndex && (cp.key === 'dest-po' || currentShipment.status === 'OUT_FOR_DELIVERY')" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                            <svg v-else-if="idx === currentCheckpointIndex && cp.key === 'linehaul'" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>
+                                            <svg v-else-if="idx === currentCheckpointIndex" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                            
+                                            <!-- Chưa tới: Số thứ tự -->
+                                            <span v-else>{{ idx + 1 }}</span>
+                                        </div>
+
+                                        <!-- Tiêu đề chặng -->
+                                        <div :class="['text-xs font-bold mt-2.5 whitespace-nowrap', idx === currentCheckpointIndex ? (currentShipment.status === 'DELIVERED' ? 'text-emerald-700' : 'text-blue-700') : (idx < currentCheckpointIndex ? 'text-slate-800' : 'text-slate-400')]">
+                                            {{ cp.stageName }}
+                                        </div>
+                                        <div class="text-[10.5px] truncate max-w-[125px]" :class="idx <= currentCheckpointIndex ? 'text-slate-500 font-medium' : 'text-slate-400'">
+                                            {{ cp.displayName }}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 2. GIAO DIỆN MOBILE (<640px) CO GIÃN THÔNG MINH -->
+                                <div class="sm:hidden space-y-2 pt-1">
+                                    <div :class="['border rounded-2xl p-3.5 flex items-center justify-between', currentShipment.status === 'DELIVERED' ? 'bg-emerald-50/70 border-emerald-200' : 'bg-blue-50/70 border-blue-200']">
+                                        <div class="flex items-center space-x-3">
+                                            <div :class="['w-9 h-9 rounded-xl text-white flex items-center justify-center font-bold text-xs flex-shrink-0', currentShipment.status === 'DELIVERED' ? 'bg-emerald-600' : 'bg-blue-600 radar-pulse-effect']">
+                                                <svg v-if="currentShipment.status === 'DELIVERED'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                                <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                            </div>
+                                            <div>
+                                                <div class="text-xs font-bold" :class="currentShipment.status === 'DELIVERED' ? 'text-emerald-900' : 'text-blue-900'">
+                                                    Chặng {{ currentCheckpointIndex + 1 }}/{{ routeCheckpoints.length }}: {{ routeCheckpoints[currentCheckpointIndex]?.stageName || 'Đang Luân Chuyển' }}
+                                                </div>
+                                                <div class="text-[11px] font-medium" :class="currentShipment.status === 'DELIVERED' ? 'text-emerald-700' : 'text-blue-700'">
+                                                    {{ routeCheckpoints[currentCheckpointIndex]?.displayName }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <span class="text-[11px] font-mono font-bold px-2 py-0.5 rounded" :class="currentShipment.status === 'DELIVERED' ? 'text-emerald-800 bg-emerald-100' : 'text-blue-800 bg-blue-100'">
+                                            {{ Math.round(((currentCheckpointIndex + 1) / Math.max(1, routeCheckpoints.length)) * 100) }}%
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- D. LƯỚI 2 CỘT: CỘT TRÁI TIMELINE THÂN THIỆN (8 PHẦN) - CỘT PHẢI THẺ THÔNG TIN (4 PHẦN) -->
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                            
+                            <!-- ============================================================= -->
+                            <!-- CỘT TRÁI (8 COLS): LỊCH SỬ LUÂN CHUYỂN BƯU CỤC THÂN THIỆN     -->
+                            <!-- ============================================================= -->
+                            <div class="lg:col-span-8 bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-6 shadow-sm space-y-5">
+                                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                                    <div>
+                                        <h3 class="font-extrabold text-sm sm:text-base text-slate-800 uppercase tracking-tight flex items-center space-x-2">
+                                            <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                            <span>Lịch Sử Luân Chuyển Bưu Cục</span>
+                                        </h3>
+                                        <p class="text-xs text-slate-400 mt-0.5">Dữ liệu quét cập nhật theo thời gian thực từ trạm bưu chính</p>
+                                    </div>
+                                    <span class="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                                        {{ sortedHistory.length }} mốc quét
                                     </span>
                                 </div>
 
-                                <div class="space-y-3.5">
-                                    <div 
-                                        v-for="(item, idx) in sortedHistory" 
-                                        :key="item.id || idx"
-                                        :class="[
-                                            'flex items-start space-x-3.5 p-3.5 rounded-2xl transition-all duration-200',
-                                            idx === 0 
-                                                ? 'bg-blue-50/50 border border-blue-100/90 shadow-2xs' 
-                                                : 'hover:bg-slate-50 border border-transparent hover:border-slate-100'
-                                        ]"
-                                    >
+                                <!-- Danh sách timeline thân thiện hoàn toàn bằng SVG icons -->
+                                <div v-if="sortedHistory.length > 0" class="space-y-4 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 pl-9">
+                                    <div v-for="(item, idx) in sortedHistory" :key="item.id || idx" class="relative">
+                                        <!-- Vòng tròn icon SVG -->
                                         <div 
                                             :class="[
-                                                'w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5',
-                                                idx === 0 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'
+                                                'w-8 h-8 rounded-full text-white flex items-center justify-center text-xs font-bold absolute -left-9 top-0 ring-4 ring-white',
+                                                idx === 0 
+                                                    ? (currentShipment.status === 'DELIVERED' ? 'bg-emerald-600 shadow-md ring-emerald-100' : 'bg-blue-600 shadow-md radar-pulse-effect') 
+                                                    : 'bg-slate-300 text-slate-600'
                                             ]"
                                         >
-                                            <svg v-if="idx === 0" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                                            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                            <svg v-if="idx === 0 && currentShipment.status === 'DELIVERED'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                            <svg v-else-if="idx === 0" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                                         </div>
-                                        <div class="flex-1 min-w-0">
-                                            <div class="flex items-center justify-between gap-2">
-                                                <div :class="['text-xs font-bold whitespace-nowrap truncate', idx === 0 ? 'text-blue-900' : 'text-slate-800']">
+
+                                        <!-- Khối nội dung mốc quét -->
+                                        <div 
+                                            :class="[
+                                                'rounded-2xl p-4 space-y-1.5 transition',
+                                                idx === 0 
+                                                    ? 'bg-blue-50/60 border border-blue-200/80 shadow-xs' 
+                                                    : 'bg-slate-50 border border-slate-200/80 hover:bg-slate-100/60'
+                                            ]"
+                                        >
+                                            <div class="flex flex-wrap items-center justify-between gap-1 text-xs">
+                                                <span :class="['font-bold text-sm', idx === 0 ? 'text-blue-950' : 'text-slate-800']">
                                                     {{ Utils.formatStatusText(item.status || item.operationType) }}
-                                                </div>
-                                                <span class="font-mono text-[11px] font-semibold whitespace-nowrap" :class="idx === 0 ? 'text-blue-700 font-bold' : 'text-slate-400'">
-                                                    {{ Utils.formatDateTime(item.timestamp) || 'Mới cập nhật' }}
+                                                </span>
+                                                <span class="font-mono text-[11.5px] font-semibold" :class="idx === 0 ? 'text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-md font-bold' : 'text-slate-400'">
+                                                    {{ (Utils.formatTime || Utils.formatDateTime || ((t) => t))(item.timestamp || item.occurredAt) || 'Mới cập nhật' }}
                                                 </span>
                                             </div>
-                                            <p class="text-[11.5px] mt-0.5 leading-snug" :class="idx === 0 ? 'text-slate-700 font-medium' : 'text-slate-500'">
-                                                {{ safeFormatHistoryNote(item.note) || item.node || 'Đang luân chuyển bưu gửi' }}
+                                            <p class="text-xs sm:text-sm leading-relaxed" :class="idx === 0 ? 'text-slate-700 font-medium' : 'text-slate-600'">
+                                                {{ safeFormatHistoryNote(item.note) || item.node || 'Đang luân chuyển bưu gửi trên tuyến' }}
                                             </p>
-                                            <div v-if="item.node" class="text-[10.5px] text-slate-400 mt-1 flex items-center space-x-1 whitespace-nowrap">
-                                                <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
-                                                <span>{{ item.node }}</span>
+                                            <div v-if="item.node" class="text-[11px] text-slate-400 flex items-center space-x-1.5 pt-0.5">
+                                                <svg class="w-3.5 h-3.5 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                                <span class="font-mono">{{ item.node }}</span>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
+                                <div v-else class="text-center py-8 text-slate-400 text-xs">
+                                    Chưa có mốc quét chi tiết nào được ghi nhận.
+                                </div>
+                            </div>
+
+                            <!-- ============================================================= -->
+                            <!-- CỘT PHẢI (4 COLS): THẺ THÔNG TIN BƯU GỬI + TIỆN ÍCH TƯƠNG TÁC -->
+                            <!-- ============================================================= -->
+                            <div class="lg:col-span-4 space-y-5">
+                                
+                                <!-- THẺ 1: THÔNG TIN BƯU GỬI CHI TIẾT (BẢO MẬT SĐT) -->
+                                <div class="bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 text-xs">
+                                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                                        <span class="font-extrabold text-slate-800 uppercase tracking-tight flex items-center space-x-2">
+                                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                            <span>Thông Tin Bưu Gửi</span>
+                                        </span>
+                                        <span class="font-mono text-[10.5px] text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full font-bold border border-blue-200">
+                                            {{ currentShipment.serviceType || 'VNPT EXPRESS' }}
+                                        </span>
+                                    </div>
+
+                                    <div class="space-y-3">
+                                        <div class="flex justify-between items-center py-1 border-b border-slate-50">
+                                            <span class="text-slate-400 font-medium">Mã bưu gửi:</span>
+                                            <div class="flex items-center space-x-1.5">
+                                                <span class="font-mono font-extrabold text-blue-700 text-sm">{{ currentShipment.trackingCode }}</span>
+                                                <button 
+                                                    type="button"
+                                                    @click="copyTrackingCode(currentShipment.trackingCode)"
+                                                    title="Sao chép mã"
+                                                    class="p-0.5 rounded hover:bg-slate-100 text-slate-400 hover:text-blue-600 transition cursor-pointer"
+                                                >
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div class="flex justify-between items-center py-1 border-b border-slate-50">
+                                            <span class="text-slate-400 font-medium">Khối lượng tính cước:</span>
+                                            <span class="font-mono font-bold text-slate-800 text-sm">{{ currentShipment.weight ? currentShipment.weight + ' gram' : '500 gram' }}</span>
+                                        </div>
+
+                                        <div class="flex justify-between items-center py-1 border-b border-slate-50">
+                                            <span class="text-slate-400 font-medium">Tiền thu hộ COD:</span>
+                                            <span class="font-mono font-bold text-emerald-600 text-base">{{ currentShipment.codAmount ? Number(currentShipment.codAmount).toLocaleString('vi-VN') + ' đ' : '0 đ' }}</span>
+                                        </div>
+
+                                        <!-- Người Gửi (Bảo mật SĐT 0912****88) -->
+                                        <div class="py-2 border-b border-slate-50">
+                                            <div class="flex items-center justify-between mb-1">
+                                                <span class="text-slate-400 text-[10.5px] uppercase font-bold">Người Gửi (Đã che SĐT):</span>
+                                                <span class="font-mono text-slate-600 text-[11px] bg-slate-100 px-2 py-0.5 rounded font-semibold">{{ maskPhone(currentShipment.senderPhone) || '0912***888' }}</span>
+                                            </div>
+                                            <div class="font-bold text-slate-800 text-[12.5px]">{{ currentShipment.senderName || 'Bưu cục tiếp nhận VNPT' }}</div>
+                                            <div class="text-slate-500 text-[11px] mt-0.5">{{ currentShipment.senderAddress || 'Quận Đống Đa, TP. Hà Nội' }}</div>
+                                        </div>
+
+                                        <!-- Người Nhận (Bảo mật SĐT 0988****12) -->
+                                        <div class="py-2">
+                                            <div class="flex items-center justify-between mb-1">
+                                                <span class="text-slate-400 text-[10.5px] uppercase font-bold">Người Nhận (Đã che SĐT):</span>
+                                                <span class="font-mono text-slate-600 text-[11px] bg-slate-100 px-2 py-0.5 rounded font-semibold">{{ maskPhone(currentShipment.receiverPhone) || '0988***112' }}</span>
+                                            </div>
+                                            <div class="font-bold text-slate-800 text-[12.5px]">{{ currentShipment.receiverName || 'Khách hàng nhận' }}</div>
+                                            <div class="text-slate-500 text-[11px] mt-0.5">{{ recipientFullAddress }}</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 2 NÚT HÀNH ĐỘNG NHANH CÙNG BỘ SVG ICON -->
+                                    <div class="pt-3 border-t border-slate-100 space-y-2.5">
+                                        <!-- Nút Đánh giá Shipper & Dịch Vụ -->
+                                        <button 
+                                            type="button" 
+                                            @click="openRatingModal" 
+                                            class="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-amber-500/25 transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer active:scale-98"
+                                        >
+                                            <svg class="w-4 h-4 text-white fill-white" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                                            <span>Đánh Giá Shipper &amp; Dịch Vụ</span>
+                                        </button>
+
+                                        <!-- Nút Gửi khiếu nại CSKH -->
+                                        <button 
+                                            type="button" 
+                                            @click="navigateToSupport" 
+                                            class="w-full py-3 px-4 rounded-2xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs sm:text-sm border border-blue-200 transition-all duration-200 flex items-center justify-center space-x-2 cursor-pointer active:scale-98"
+                                        >
+                                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                                            <span>Gửi Khiếu Nại Bưu Gửi Này</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- THẺ 2: HOTLINE TỔNG ĐÀI HỖ TRỢ PHÁT HÀNG -->
+                                <div class="bg-gradient-to-br from-blue-50/70 to-indigo-50/70 border border-blue-100/90 rounded-3xl p-5 text-xs space-y-2 shadow-xs">
+                                    <div class="flex items-center space-x-2 text-blue-900 font-bold text-sm">
+                                        <span class="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
+                                        <span>Cần hẹn lại giờ phát bưu gửi?</span>
+                                    </div>
+                                    <p class="text-slate-600 text-[11.5px] leading-relaxed">
+                                        Tổng đài viên VNPT Post luôn sẵn sàng hỗ trợ thay đổi địa chỉ hoặc chuyển giờ phát thuận tiện nhất cho bạn.
+                                    </p>
+                                    <a href="tel:1900545481" class="inline-flex items-center space-x-2 text-blue-700 hover:text-blue-900 font-black text-sm pt-1">
+                                        <svg class="w-4 h-4 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                                        <span>Hotline CSKH: 1900 54 54 81</span>
+                                    </a>
+                                </div>
+
                             </div>
                         </div>
                     </div>

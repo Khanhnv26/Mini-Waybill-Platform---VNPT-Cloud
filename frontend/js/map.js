@@ -411,12 +411,17 @@
         // Khởi tạo bản đồ Leaflet với dữ liệu bản đồ tiếng Việt và lớp Chủ Quyền Quốc Gia
         init(containerId = 'tracking-map') {
             const el = document.getElementById(containerId);
-            if (!el) return;
+            if (!el) return null;
 
-            // Nếu map đã tồn tại trên container này và đang hoạt động, chỉ cần điều chỉnh kích thước
+            // Nếu container chưa hiển thị hoặc chưa có kích thước thực tế (v-show 0x0), không khởi tạo sớm
+            if (el.offsetWidth === 0 || el.offsetHeight === 0) {
+                return null;
+            }
+
+            // Nếu map đã tồn tại trên container này và đang hoạt động, lên lịch tính lại kích thước sau khi layout ổn định
             if (this.map && this.currentContainerId === containerId && el._leaflet_id) {
-                this.map.invalidateSize();
-                return;
+                this.scheduleInvalidateSize();
+                return this.map;
             }
 
             // Nếu trip map đang dùng chung container này, xoá layer riêng trước khi huỷ map.
@@ -479,7 +484,11 @@
                 errorTileUrl: BLANK_TILE
             });
 
-            // Mặc định nạp nền Google Maps đường bộ
+            this.roadLayer = roadLayer;
+            this.hybridLayer = hybridLayer;
+            this.darkLayer = null;
+
+            // Luôn nạp lớp Google Maps tiêu chuẩn mặc định
             roadLayer.addTo(this.map);
 
             this.baseLayers = {
@@ -502,12 +511,36 @@
             // 6. Thiết lập góc nhìn mặc định bao quát toàn cảnh Việt Nam
             this.fitVietnamView();
 
-            // 7. Cập nhật kích thước Leaflet chuẩn xác khi render xong
+            // 7. Cập nhật kích thước Leaflet chuẩn xác sau khi layout ổn định
+            this.scheduleInvalidateSize();
+            return this.map;
+        },
+
+        // Giữ hàm để tương thích an toàn (hệ thống dùng thuần giao diện Sáng)
+        updateTheme() {},
+
+        // Lên lịch tính lại kích thước nhiều đợt sau khi layout DOM/Flexbox/Grid ổn định hoàn toàn
+        scheduleInvalidateSize(callback) {
+            if (!this.map) return;
+            try { this.map.invalidateSize(); } catch (e) {}
+            requestAnimationFrame(() => {
+                if (this.map) {
+                    try { this.map.invalidateSize(); } catch (e) {}
+                    if (typeof callback === 'function') callback();
+                }
+            });
             setTimeout(() => {
                 if (this.map) {
-                    this.map.invalidateSize();
+                    try { this.map.invalidateSize(); } catch (e) {}
+                    if (typeof callback === 'function') callback();
                 }
-            }, 250);
+            }, 120);
+            setTimeout(() => {
+                if (this.map) {
+                    try { this.map.invalidateSize(); } catch (e) {}
+                    if (typeof callback === 'function') callback();
+                }
+            }, 300);
         },
 
         // Yêu cầu Leaflet tính lại kích thước khung (sau khi tab hiện lại hoặc layout đổi)
@@ -1936,6 +1969,11 @@
             if (shouldFitBounds) {
                 try {
                     this.fitRouteView();
+                    this.scheduleInvalidateSize(() => {
+                        try {
+                            this.fitRouteView();
+                        } catch (e) {}
+                    });
                 } catch (e) {}
             }
 

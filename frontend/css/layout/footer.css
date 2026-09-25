@@ -1,0 +1,11 @@
+/* VNPT CLOUD - FOOTER LAYOUT STYLES */
+.public-footer {
+    border-top: 1px solid #e2e8f0;
+    background-color: #ffffff;
+}
+
+.internal-footer {
+    border-top: 1px solid #f1f5f9;
+    color: #64748b;
+    font-size: 0.75rem;
+}
