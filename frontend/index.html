@@ -115,17 +115,18 @@
         })();
     </script>
 
-<div id="app" v-cloak class="flex h-screen w-screen overflow-hidden bg-slate-50">
+<div id="app" v-cloak :class="[currentUser ? 'flex h-screen w-screen overflow-hidden' : 'flex flex-col min-h-screen w-screen overflow-x-hidden overflow-y-auto', 'bg-slate-50 selection:bg-blue-600 selection:text-white font-sans']">
     
     <!-- ========================================================================= -->
-    <!-- 1. LEFT SIDEBAR NAVIGATION (THANH ĐIỀU HƯỚNG BÊN TRÁI)                    -->
+    <!-- 1. LEFT SIDEBAR NAVIGATION (CHỈ DÀNH CHO NHÂN SỰ NỘI BỘ ĐÃ ĐĂNG NHẬP)     -->
     <!-- ========================================================================= -->
     <aside 
+        v-if="currentUser"
         id="app-sidebar" 
         :style="{ width: isSidebarCollapsed ? '72px' : '260px' }"
         class="bg-white border-r border-slate-200 flex flex-col justify-between smooth-transition relative z-40 shadow-sm flex-shrink-0 !overflow-visible"
     >
-        <!-- Nút Tròn Nổi Mép Viền Phải (Floating Border Toggle - Style Cũ) -->
+        <!-- Nút Tròn Nổi Mép Viền Phải (Floating Border Toggle) -->
         <button 
             @click="toggleSidebarCollapse" 
             :title="isSidebarCollapsed ? 'Mở rộng thanh bên' : 'Thu gọn thanh bên'" 
@@ -158,8 +159,8 @@
                 </div>
             </div>
 
-            <!-- 1. Menu Phân Hệ Nghiệp Vụ (Khi đã đăng nhập) -->
-            <div v-if="currentUser" class="p-3 space-y-1">
+            <!-- Menu Phân Hệ Nghiệp Vụ -->
+            <div class="p-3 space-y-1">
                 <div v-show="!isSidebarCollapsed" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Phân Hệ Nghiệp Vụ
                 </div>
@@ -183,70 +184,11 @@
                     <span v-show="!isSidebarCollapsed" class="truncate">{{ tab.name }}</span>
                 </button>
             </div>
-
-            <!-- 2. Menu Tiện Ích Khách Hàng (Khi chưa đăng nhập - Hướng B) -->
-            <div v-else class="p-3 space-y-1">
-                <div v-show="!isSidebarCollapsed" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Tiện Ích Khách Hàng
-                </div>
-
-                <button 
-                    v-for="tab in publicGuestTabs" 
-                    :key="tab.id"
-                    @click="handleGuestTabClick(tab)"
-                    :title="isSidebarCollapsed ? tab.name : ''"
-                    :class="[
-                        'w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs transition smooth-transition cursor-pointer text-left',
-                        isSidebarCollapsed ? 'justify-center !px-0 !space-x-0' : '',
-                        (currentTab === tab.id) 
-                            ? 'bg-blue-50 text-blue-700 border border-blue-100 shadow-sm shadow-blue-500/10 font-bold' 
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-medium'
-                    ]"
-                >
-                    <svg class="w-4 h-4 flex-shrink-0" :class="(currentTab === tab.id) ? 'text-blue-600' : 'text-slate-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tab.icon" />
-                    </svg>
-                    <span v-show="!isSidebarCollapsed" class="truncate">{{ tab.name }}</span>
-                </button>
-            </div>
         </div>
 
-        <!-- Bottom: Thẻ Hồ Sơ Người Dùng / Đăng Nhập & B2B -->
+        <!-- Bottom: Thẻ Hồ Sơ Người Dùng Nội Bộ -->
         <div class="p-3 border-t border-slate-100 bg-slate-50/50">
-            <!-- Nếu chưa đăng nhập (Khách vãng lai) -->
-            <div v-if="!currentUser" class="space-y-2">
-                <!-- Card B2B CTA (ẩn khi thu gọn) -->
-                <div v-show="!isSidebarCollapsed" class="p-3 rounded-xl bg-white border border-slate-200/80 shadow-sm space-y-1.5">
-                    <div class="flex items-center space-x-1.5">
-                        <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
-                        <span class="text-[10.5px] font-bold text-slate-800 uppercase tracking-tight">Đối Tác Doanh Nghiệp</span>
-                    </div>
-                    <p class="text-[11px] text-slate-500 leading-relaxed">
-                        Tích hợp API bưu chính tự động cho các sàn TMĐT &amp; chuỗi bán lẻ.
-                    </p>
-                    <a href="tel:1900545481" class="inline-block text-[11px] font-bold text-blue-600 hover:text-blue-700">
-                        Liên hệ kinh doanh &rarr;
-                    </a>
-                </div>
-
-                <!-- Nút Đăng Nhập Nghiệp Vụ -->
-                <a 
-                    href="login.html" 
-                    :title="isSidebarCollapsed ? 'Đăng nhập tài khoản nghiệp vụ' : ''"
-                    :class="[
-                        'w-full flex items-center py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/20 transition cursor-pointer',
-                        isSidebarCollapsed ? 'justify-center !px-0 w-10 h-10 mx-auto' : 'justify-center space-x-2 px-3'
-                    ]"
-                >
-                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                    </svg>
-                    <span v-show="!isSidebarCollapsed">Đăng Nhập</span>
-                </a>
-            </div>
-
-            <!-- Nếu đã đăng nhập (Nhân sự hệ thống & Khách hàng/Shop) -->
-            <div v-else class="flex items-center justify-between p-1.5 rounded-xl bg-white border border-slate-200 shadow-sm" :class="{ 'justify-center !p-1': isSidebarCollapsed }">
+            <div class="flex items-center justify-between p-1.5 rounded-xl bg-white border border-slate-200 shadow-sm" :class="{ 'justify-center !p-1': isSidebarCollapsed }">
                 <!-- Nút bấm tương tác mở Modal Hồ Sơ Cá Nhân / Shop -->
                 <button 
                     type="button"
@@ -295,10 +237,12 @@
     <!-- ========================================================================= -->
     <!-- 2. MAIN CONTENT WRAPPER                                                  -->
     <!-- ========================================================================= -->
-    <div class="flex-1 flex flex-col h-full overflow-hidden">
+    <div :class="[currentUser ? 'flex-1 flex flex-col h-full overflow-hidden' : 'flex-1 flex flex-col min-h-screen']">
         
-        <!-- TOPBAR NHỎ GỌN (BREADCRUMB & HOTLINE & BELL) -->
-        <header class="h-16 bg-white border-b border-slate-200 pl-8 pr-6 flex items-center justify-between flex-shrink-0 relative z-20">
+        <!-- ========================================================================= -->
+        <!-- 2.1. TOPBAR NỘI BỘ (BREADCRUMB & HOTLINE & BELL) - CHỈ KHI ĐÃ ĐĂNG NHẬP   -->
+        <!-- ========================================================================= -->
+        <header v-if="currentUser" class="h-16 bg-white border-b border-slate-200 pl-8 pr-6 flex items-center justify-between flex-shrink-0 relative z-20">
             <!-- Breadcrumb -->
             <div class="flex items-center space-x-2 text-xs">
                 <span class="text-slate-400">Nền Tảng</span>
@@ -415,8 +359,88 @@
             </div>
         </header>
 
+        <!-- ========================================================================= -->
+        <!-- 2.2. PUBLIC GUEST TOP NAVIGATION HEADER (KHI CHƯA ĐĂNG NHẬP)               -->
+        <!-- ========================================================================= -->
+        <div v-if="!currentUser" class="flex flex-col flex-shrink-0 relative z-40 bg-white">
+            <!-- Tầng 1: Micro Utility Bar -->
+            <div class="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs py-1.5 px-4 sm:px-8">
+                <div class="max-w-7xl mx-auto flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <a href="tel:1900545481" class="flex items-center space-x-1.5 text-blue-700 hover:text-blue-800 font-semibold transition">
+                            <svg class="w-3.5 h-3.5 text-blue-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                            <span>Tổng đài CSKH: <strong class="text-blue-800 font-bold">1900 54 54 81</strong></span>
+                        </a>
+                        <span class="text-slate-300 hidden sm:inline">|</span>
+                        <span class="hidden md:inline text-slate-500 text-[11px]">Giờ phục vụ: 07:00 - 21:00 (Cả T7, CN)</span>
+                    </div>
+                    <div class="flex items-center space-x-3 text-[11.5px]">
+                        <button type="button" @click="switchTab('support')" class="text-slate-500 hover:text-blue-600 transition cursor-pointer hidden sm:inline">Gửi phản ánh</button>
+                        <span class="text-slate-300 hidden sm:inline">|</span>
+                        <button type="button" @click="switchTab('network')" class="text-slate-500 hover:text-blue-600 transition cursor-pointer hidden sm:inline">Bưu cục gần bạn</button>
+                        <span class="text-slate-300 hidden sm:inline">|</span>
+                        <span class="font-medium text-slate-700">🇻🇳 Tiếng Việt</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tầng 2: Main Brand Header -->
+            <div class="bg-white border-b border-slate-100 sticky top-0 z-30 shadow-xs">
+                <div class="max-w-7xl mx-auto px-4 sm:px-8 py-3 flex items-center justify-between gap-4">
+                    <!-- Logo & Brand -->
+                    <div class="flex items-center space-x-3 cursor-pointer group select-none" @click="handleLogoClick">
+                        <div class="w-10 h-10 rounded-xl vnpt-gradient text-white flex items-center justify-center shadow-md shadow-blue-600/30 border border-white/20 flex-shrink-0 transition-transform duration-300 group-hover:scale-105">
+                            <span class="text-xs font-black tracking-tight">VNPT</span>
+                        </div>
+                        <div>
+                            <div class="font-extrabold text-base sm:text-lg text-slate-900 tracking-tight leading-tight flex items-center space-x-1.5">
+                                <span class="group-hover:text-blue-600 transition-colors">Waybill Post</span>
+                                <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100">Portal</span>
+                            </div>
+                            <p class="text-[10.5px] text-slate-400 font-medium">Cổng Dịch Vụ Vận Đơn Bưu Chính Toàn Quốc</p>
+                        </div>
+                    </div>
+
+                    <!-- Right CTA Đăng Nhập -->
+                    <div class="flex items-center space-x-2">
+                        <a 
+                            href="login.html" 
+                            class="group inline-flex items-center space-x-2 px-3.5 sm:px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-blue-600/25 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer whitespace-nowrap"
+                        >
+                            <svg class="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
+                            <span>Đăng Nhập Nghiệp Vụ</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Tầng 3: Top Navigation Bar 5 Tabs Công Khai -->
+                <div class="bg-slate-50 border-t border-b border-slate-200/90 px-2 sm:px-8 py-1.5 shadow-inner">
+                    <div class="max-w-7xl mx-auto flex items-center justify-start sm:justify-center overflow-x-auto space-x-1 sm:space-x-2 scrollbar-none py-0.5">
+                        <button 
+                            v-for="tab in publicGuestTabs"
+                            :key="tab.id"
+                            @click="handleGuestTabClick(tab)"
+                            :class="[
+                                'flex-shrink-0 px-3.5 py-2 rounded-xl text-xs transition-all duration-200 flex items-center space-x-1.5 cursor-pointer',
+                                currentTab === tab.id
+                                    ? 'font-bold text-blue-700 bg-white shadow-sm border border-slate-200/90'
+                                    : 'font-medium text-slate-600 hover:text-blue-600 hover:bg-white/80'
+                            ]"
+                        >
+                            <svg class="w-4 h-4 flex-shrink-0" :class="currentTab === tab.id ? 'text-blue-600' : 'text-slate-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tab.icon" />
+                            </svg>
+                            <span class="whitespace-nowrap">{{ tab.name }}</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- MAIN VIEW CONTAINER -->
-        <main class="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50">
+        <main :class="[currentUser ? 'flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50' : 'flex-1 p-4 sm:p-8 bg-gradient-to-b from-blue-50/30 via-slate-50 to-slate-100']">
             <div class="max-w-7xl mx-auto relative">
                 <transition name="page" mode="out-in" appear>
                     <keep-alive>
@@ -445,10 +469,55 @@
             </div>
         </main>
 
-        <!-- MASTER FOOTER -->
-        <footer class="bg-white border-t border-slate-200 py-3 px-6 text-center text-xs text-slate-400 flex-shrink-0 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <!-- MASTER FOOTER NỘI BỘ (KHI ĐÃ ĐĂNG NHẬP) -->
+        <footer v-if="currentUser" class="bg-white border-t border-slate-200 py-3 px-6 text-center text-xs text-slate-400 flex-shrink-0 flex flex-col sm:flex-row items-center justify-between gap-2">
             <span>© 2026 TỔNG CÔNG TY DỊCH VỤ VIỄN THÔNG VNPT - HỆ THỐNG ĐIỀU PHỐI VẬN ĐƠN BƯU CHÍNH</span>
-            <span class="font-mono text-[10px] text-slate-400">VERSION 2.5.0-ENTERPRISE-SIDEBAR</span>
+            <span class="font-mono text-[10px] text-slate-400">VERSION 2.6.0-ENTERPRISE-SIDEBAR</span>
+        </footer>
+
+        <!-- MASTER FOOTER CÔNG KHAI (KHI LÀ KHÁCH VÃNG LAI) -->
+        <footer v-else class="bg-slate-900 text-slate-300 text-xs border-t border-slate-800 pt-10 pb-8 px-4 sm:px-8 mt-auto flex-shrink-0">
+            <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+                <!-- Col 1 -->
+                <div class="space-y-3">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 rounded-lg vnpt-gradient text-white flex items-center justify-center font-black text-xs">VNPT</div>
+                        <span class="font-extrabold text-white text-sm">Waybill Post</span>
+                    </div>
+                    <p class="text-slate-400 text-[11.5px] leading-relaxed">
+                        Hệ thống bưu chính số quốc gia, tối ưu vận đơn chặng đầu, liên tỉnh và chặng cuối với công nghệ vi dịch vụ.
+                    </p>
+                </div>
+                <!-- Col 2 -->
+                <div class="space-y-2">
+                    <h4 class="text-white font-bold text-xs uppercase tracking-wider">Dịch Vụ Nổi Bật</h4>
+                    <ul class="space-y-1.5 text-[11.5px] text-slate-400">
+                        <li @click="switchTab('tracking')" class="hover:text-white transition-colors cursor-pointer">Tra cứu bưu gửi toàn trình</li>
+                        <li @click="switchTab('calculator')" class="hover:text-white transition-colors cursor-pointer">Ước tính cước phí toàn quốc</li>
+                        <li @click="switchTab('network')" class="hover:text-white transition-colors cursor-pointer">Mạng lưới bưu cục gửi hàng</li>
+                    </ul>
+                </div>
+                <!-- Col 3 -->
+                <div class="space-y-2">
+                    <h4 class="text-white font-bold text-xs uppercase tracking-wider">Hỗ Trợ Khách Hàng</h4>
+                    <ul class="space-y-1.5 text-[11.5px] text-slate-400">
+                        <li @click="switchTab('guide')" class="hover:text-white transition-colors cursor-pointer">Quy cách đóng gói hàng hóa</li>
+                        <li @click="switchTab('guide')" class="hover:text-white transition-colors cursor-pointer">Danh mục hàng cấm gửi</li>
+                        <li @click="switchTab('support')" class="hover:text-white transition-colors cursor-pointer">Gửi phản ánh &amp; CSKH</li>
+                    </ul>
+                </div>
+                <!-- Col 4 -->
+                <div class="space-y-2">
+                    <h4 class="text-white font-bold text-xs uppercase tracking-wider">Tổng Đài Bưu Chính</h4>
+                    <a href="tel:1900545481" class="text-white font-bold text-base text-cyan-300 hover:underline block">1900 54 54 81</a>
+                    <p class="text-slate-400 text-[11px]">Email: cskh@vnpt-post.vn</p>
+                    <p class="text-slate-400 text-[11px]">Tòa nhà VNPT, 57 Huỳnh Thúc Kháng, Đống Đa, Hà Nội</p>
+                </div>
+            </div>
+            <div class="max-w-7xl mx-auto pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500">
+                <span>© 2026 TỔNG CÔNG TY DỊCH VỤ VIỄN THÔNG VNPT - TẤT CẢ QUYỀN ĐƯỢC BẢO LƯU</span>
+                <span class="mt-2 sm:mt-0">Cổng Dịch Vụ Khách Hàng Công Khai v2.6.0</span>
+            </div>
         </footer>
     </div>
 
@@ -718,6 +787,7 @@
 <script src="js/services/pricingService.js"></script>
 <script src="js/services/supportService.js"></script>
 <script src="js/services/shipperService.js"></script>
+<script src="js/services/ratingService.js"></script>
 
 <!-- 3. Tầng Giao Diện Màn Hình (Views Layer) -->
 <script src="js/views/TrackingView.js"></script>

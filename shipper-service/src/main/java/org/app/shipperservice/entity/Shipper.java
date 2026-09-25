@@ -40,6 +40,12 @@ public class Shipper {
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
+    @Column(name = "rating_avg")
+    private Double ratingAvg;
+
+    @Column(name = "rating_count")
+    private Integer ratingCount;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -51,6 +57,13 @@ public class Shipper {
 
         if(this.status == null) {
             this.status = "ACTIVE";
+        }
+
+        if (this.ratingAvg == null) {
+            this.ratingAvg = 5.0;
+        }
+        if (this.ratingCount == null) {
+            this.ratingCount = 0;
         }
     }
 }

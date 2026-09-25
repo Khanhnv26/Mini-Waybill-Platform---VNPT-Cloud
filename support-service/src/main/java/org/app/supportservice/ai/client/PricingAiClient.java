@@ -6,7 +6,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
-@FeignClient(name = "pricing-service")
+@FeignClient(name = "shipment-service", contextId = "pricingAiClient")
 public interface PricingAiClient {
 
     @PostMapping("/api/pricing/calculate")

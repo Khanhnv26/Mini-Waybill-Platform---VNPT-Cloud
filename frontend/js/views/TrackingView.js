@@ -1128,6 +1128,15 @@
                     showToast('Thành Công', data
                         ? `Đã nạp dữ liệu hành trình bưu gửi ${code}`
                         : `Đã mở vận đơn ${code}. Hành trình chi tiết sẽ cập nhật khi có mốc quét.`);
+
+                    if (status === 'DELIVERED') {
+                        loadRatingStatus(code);
+                    } else {
+                        ratingState.value.canRate = false;
+                        ratingState.value.alreadyRated = false;
+                        ratingState.value.serviceRating = 5;
+                        ratingState.value.shipperRating = 5;
+                    }
                 } catch (err) {
                     currentShipment.value = null;
                     trackingHistory.value = [];
@@ -1192,8 +1201,10 @@
                     if (statusChanged) {
                         showToast('Cập Nhật Tự Động', `Bưu gửi vừa chuyển sang: ${safeFormatStatusText(newStatus)}`);
                     }
+                    if (newStatus === 'DELIVERED') {
+                        loadRatingStatus(code);
+                    }
                     if (isFinalState.value) {
-                        // DELIVERED/CANCELLED/RETURNED are terminal; DELIVERY_FAILED intentionally is not.
                         stopLivePolling();
                     }
                 } catch (err) {
@@ -1342,6 +1353,170 @@
                 }
             };
 
+            const ratingState = ref({
+                canRate: false,
+                alreadyRated: false,
+                serviceRating: 5,
+                shipperRating: 5,
+                isLoading: false
+            });
+            const isRatingModalOpen = ref(false);
+            const serviceScore = ref(5);
+            const shipperScore = ref(5);
+            const hoveredServiceScore = ref(0);
+            const hoveredShipperScore = ref(0);
+            const ratingComment = ref('');
+            const ratingPhone = ref('');
+            const selectedRatingTags = ref(['Giao siêu tốc ⚡', 'Shipper cực kỳ thân thiện 😊']);
+            const isSubmittingRating = ref(false);
+            const ratingResultView = ref(null);
+            const lastBouncedStar = ref(null);
+
+            const ratingMeta = {
+                1: {
+                    label: 'Rất không hài lòng',
+                    badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
+                    tags: ['Giao hàng trễ hẹn', 'Thái độ chưa chuẩn mực', 'Kiện hàng bị móp méo', 'Không gọi điện trước', 'Không giao tận nơi'],
+                    placeholder: 'Vui lòng cho chúng tôi biết chi tiết vấn đề bạn gặp phải để CSKH hỗ trợ ngay...'
+                },
+                2: {
+                    label: 'Chưa hài lòng',
+                    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
+                    tags: ['Giao trễ hơn dự kiến', 'Shipper hơi vội vã', 'Đóng gói bị trầy xước', 'Khó liên hệ tài xế'],
+                    placeholder: 'Chia sẻ thêm điều khiến bạn chưa thật sự ưng ý...'
+                },
+                3: {
+                    label: 'Bình thường / Tạm ổn',
+                    badgeClass: 'bg-yellow-50 text-yellow-800 border-yellow-200',
+                    tags: ['Đúng giờ nhưng vội', 'Thái độ bình thường', 'Hộp hơi nhăn', 'Đúng quy trình'],
+                    placeholder: 'Góp ý thêm để dịch vụ VNPT Post lần sau tốt hơn...'
+                },
+                4: {
+                    label: 'Hài lòng',
+                    badgeClass: 'bg-blue-50 text-[#004488] border-blue-200',
+                    tags: ['Giao hàng nhanh', 'Shipper lịch sự', 'Hàng nguyên vẹn', 'Đúng địa chỉ hẹn'],
+                    placeholder: 'Bạn ấn tượng nhất điểm nào ở dịch vụ hôm nay?'
+                },
+                5: {
+                    label: 'Rất tuyệt vời! ⭐⭐⭐⭐⭐',
+                    badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                    tags: ['Giao siêu tốc ⚡', 'Shipper cực kỳ thân thiện 😊', 'Kiện hàng nguyên vẹn 📦', 'Hỗ trợ nhiệt tình 👏', 'Đúng hẹn chuẩn xác ⏱️'],
+                    placeholder: 'Gửi vài lời khen ngợi hoặc động viên đến shipper nhé...'
+                }
+            };
+
+            const loadRatingStatus = async (trackingCode) => {
+                if (!trackingCode || typeof RatingService === 'undefined') return;
+                ratingState.value.isLoading = true;
+                try {
+                    const res = await RatingService.getRatingStatus(trackingCode);
+                    if (res) {
+                        ratingState.value.canRate = !!res.isDelivered && !res.hasRated;
+                        ratingState.value.alreadyRated = !!res.hasRated;
+                        ratingState.value.serviceRating = res.serviceRating || 5;
+                        ratingState.value.shipperRating = res.shipperRating || 5;
+                    }
+                } catch (e) {
+                    console.warn('[TrackingView] Không thể tải trạng thái đánh giá:', e);
+                } finally {
+                    ratingState.value.isLoading = false;
+                }
+            };
+
+            const openRatingModal = () => {
+                if (!currentShipment.value) return;
+                serviceScore.value = ratingState.value.alreadyRated ? (ratingState.value.serviceRating || 5) : 5;
+                shipperScore.value = ratingState.value.alreadyRated ? (ratingState.value.shipperRating || 5) : 5;
+                hoveredServiceScore.value = 0;
+                hoveredShipperScore.value = 0;
+                ratingComment.value = '';
+                ratingResultView.value = null;
+                selectedRatingTags.value = ['Giao siêu tốc ⚡', 'Shipper cực kỳ thân thiện 😊'];
+
+                const rawPhone = currentShipment.value.receiverPhone || '';
+                const cleanPhone = rawPhone.replace(/\D+/g, '');
+                if (cleanPhone.length >= 4) {
+                    ratingPhone.value = cleanPhone.slice(-4);
+                } else {
+                    ratingPhone.value = '';
+                }
+                isRatingModalOpen.value = true;
+            };
+
+            const closeRatingModal = () => {
+                isRatingModalOpen.value = false;
+            };
+
+            const setServiceScore = (score) => {
+                serviceScore.value = score;
+                shipperScore.value = score;
+                lastBouncedStar.value = score;
+                setTimeout(() => {
+                    if (lastBouncedStar.value === score) {
+                        lastBouncedStar.value = null;
+                    }
+                }, 450);
+
+                const meta = ratingMeta[score];
+                if (meta && meta.tags && meta.tags.length > 0) {
+                    selectedRatingTags.value = [meta.tags[0]];
+                    if (meta.tags[1]) selectedRatingTags.value.push(meta.tags[1]);
+                } else {
+                    selectedRatingTags.value = [];
+                }
+            };
+
+            const toggleRatingTag = (tag) => {
+                const idx = selectedRatingTags.value.indexOf(tag);
+                if (idx > -1) {
+                    selectedRatingTags.value.splice(idx, 1);
+                } else {
+                    selectedRatingTags.value.push(tag);
+                }
+            };
+
+            const submitRating = async () => {
+                if (!currentShipment.value) return;
+                const phone = (ratingPhone.value || '').trim();
+                if (!phone || phone.length !== 4) {
+                    showToast('Lỗi Xác Thực', 'Vui lòng nhập đúng 4 chữ số cuối số điện thoại nhận hàng.', 'warning');
+                    return;
+                }
+
+                isSubmittingRating.value = true;
+                try {
+                    const payload = {
+                        trackingCode: currentShipment.value.trackingCode,
+                        serviceRating: serviceScore.value,
+                        shipperRating: shipperScore.value,
+                        tags: selectedRatingTags.value,
+                        comment: ratingComment.value.trim(),
+                        verifiedPhone: phone,
+                        courierCode: currentShipment.value.courierCode || currentShipment.value.shipperCode || null
+                    };
+
+                    const result = await RatingService.submitRating(payload);
+                    ratingState.value.alreadyRated = true;
+                    ratingState.value.canRate = false;
+                    ratingState.value.serviceRating = result.serviceRating || serviceScore.value;
+                    ratingState.value.shipperRating = result.shipperRating || shipperScore.value;
+
+                    if (result.suggestTicket || serviceScore.value <= 2 || shipperScore.value <= 2) {
+                        ratingResultView.value = 'negative';
+                    } else if (serviceScore.value >= 4) {
+                        ratingResultView.value = 'positive';
+                    } else {
+                        ratingResultView.value = 'neutral';
+                    }
+
+                    showToast('Đánh Giá Thành Công', `Cảm ơn bạn đã đánh giá dịch vụ ${serviceScore.value} sao.`, 'success');
+                } catch (err) {
+                    showToast('Không Thể Gửi Đánh Giá', err.message || 'Có lỗi xảy ra khi lưu đánh giá.', 'error');
+                } finally {
+                    isSubmittingRating.value = false;
+                }
+            };
+
             return {
                 searchCode,
                 isLoading,
@@ -1387,6 +1562,25 @@
                 isWsConnected,
                 isLiveTracking,
                 navigateToSupport,
+                ratingState,
+                isRatingModalOpen,
+                serviceScore,
+                shipperScore,
+                hoveredServiceScore,
+                hoveredShipperScore,
+                ratingComment,
+                ratingPhone,
+                selectedRatingTags,
+                isSubmittingRating,
+                ratingResultView,
+                lastBouncedStar,
+                ratingMeta,
+                loadRatingStatus,
+                openRatingModal,
+                closeRatingModal,
+                setServiceScore,
+                toggleRatingTag,
+                submitRating,
                 Utils: getUtilsApi() || {}
             };
         },
@@ -1989,6 +2183,41 @@
                                     <span class="text-slate-600 text-[11px] block mt-0.5 leading-relaxed">{{ currentShipment.receiverAddress || 'N/A' }}</span>
                                 </div>
 
+                                <!-- Nút đánh giá bưu gửi & Shipper khi đã DELIVERED -->
+                                <div v-if="currentShipment.status === 'DELIVERED'" class="pt-3 mt-1 border-t border-slate-100">
+                                    <button 
+                                        v-if="!ratingState.alreadyRated"
+                                        type="button" 
+                                        @click="openRatingModal()" 
+                                        class="w-full py-2.5 px-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white rounded-lg text-xs font-bold transition-all shadow-md shadow-amber-500/25 hover:shadow-amber-500/40 flex items-center justify-center space-x-1.5 cursor-pointer group"
+                                        title="Đánh giá chất lượng phục vụ và bưu tá giao hàng"
+                                    >
+                                        <svg class="w-4 h-4 text-white group-hover:rotate-12 transition-transform" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                        </svg>
+                                        <span>Đánh Giá Bưu Gửi &amp; Shipper</span>
+                                        <svg class="w-3.5 h-3.5 opacity-80 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                    </button>
+
+                                    <div v-else class="p-2.5 rounded-lg bg-amber-50/80 border border-amber-200/70 flex items-center justify-between text-xs">
+                                        <div class="flex items-center space-x-1.5">
+                                            <div class="flex text-amber-500">
+                                                <svg v-for="s in (ratingState.serviceRating || 5)" :key="s" class="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
+                                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                                </svg>
+                                            </div>
+                                            <span class="font-bold text-amber-800 text-[11px]">Đã đánh giá {{ ratingState.serviceRating }}/5 sao</span>
+                                        </div>
+                                        <button 
+                                            type="button" 
+                                            @click="openRatingModal()" 
+                                            class="text-[10px] text-blue-600 hover:text-blue-800 font-semibold underline cursor-pointer"
+                                        >
+                                            Chi tiết
+                                        </button>
+                                    </div>
+                                </div>
+
                                 <!-- Nút chuyển tiếp Hỗ Trợ & Khiếu Nại Bưu Gửi -->
                                 <div class="pt-3 mt-1 border-t border-slate-100">
                                     <button 
@@ -2124,6 +2353,236 @@
                     </div>
                     <div v-else class="text-center py-10 text-xs text-slate-400">
                         Chưa có lịch sử luân chuyển nào cho mã bưu gửi này.
+                    </div>
+                <!-- 5. MODAL ĐÁNH GIÁ BƯU GỬI & SHIPPER (VNPT LIGHT THEME) -->
+                <div v-if="isRatingModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs modal-backdrop-enter">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden modal-box-enter text-slate-800">
+                        <!-- Modal Header -->
+                        <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+                            <div class="flex items-center space-x-2.5">
+                                <div class="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200/60 text-amber-500 flex items-center justify-center">
+                                    <svg class="w-4.5 h-4.5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-slate-900 font-bold text-sm sm:text-base leading-tight">Đánh giá bưu gửi &amp; Shipper</h3>
+                                    <p class="text-slate-500 text-xs">Vận đơn: <span class="font-mono font-semibold text-[#0055bb]">{{ currentShipment?.trackingCode }}</span></p>
+                                </div>
+                            </div>
+                            <button @click="closeRatingModal" type="button" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+
+                        <!-- Form View -->
+                        <div v-if="!ratingResultView" class="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+                            <!-- Shipper Info Card -->
+                            <div class="p-3 rounded-xl border border-slate-200 bg-slate-50/70 flex items-center justify-between">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-10 h-10 rounded-full bg-[#0055bb] text-white font-bold flex items-center justify-center text-xs shadow-xs">
+                                        NV
+                                    </div>
+                                    <div>
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="text-xs sm:text-sm font-bold text-slate-900">{{ currentShipment?.courierName || currentShipment?.shipperName || 'Bưu tá VNPT Post' }}</span>
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-[#004488]">Tài xế giao hàng</span>
+                                        </div>
+                                        <p class="text-[11px] text-slate-500">Mã bưu tá: <span class="font-mono font-semibold text-slate-700">{{ currentShipment?.courierCode || currentShipment?.shipperCode || 'VNPT-POST' }}</span></p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="flex items-center text-amber-500 text-xs font-bold justify-end gap-0.5">
+                                        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                                        <span>4.9</span>
+                                    </div>
+                                    <span class="text-[10px] text-slate-400">Đơn đã giao</span>
+                                </div>
+                            </div>
+
+                            <!-- Phone Verification (4 digits) -->
+                            <div class="space-y-1">
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                    Xác thực người nhận <span class="text-rose-500">*</span>
+                                </label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                    </div>
+                                    <input 
+                                        type="text" 
+                                        maxlength="4"
+                                        v-model="ratingPhone"
+                                        placeholder="Nhập 4 số cuối SĐT người nhận (vd: 7890)"
+                                        class="w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0055bb] focus:bg-white text-slate-900 transition font-mono font-semibold"
+                                    />
+                                </div>
+                                <p class="text-[11px] text-slate-500">Nhập 4 số cuối số điện thoại nhận hàng của đơn này để bảo mật thông tin.</p>
+                            </div>
+
+                            <!-- Star Rating Section -->
+                            <div class="text-center py-2 space-y-2.5 bg-slate-50/60 rounded-xl border border-slate-100 p-3.5">
+                                <p class="text-xs sm:text-sm font-bold text-slate-800">Mức độ hài lòng của bạn</p>
+                                
+                                <div class="flex items-center justify-center space-x-2">
+                                    <button 
+                                        v-for="star in 5" 
+                                        :key="star"
+                                        type="button" 
+                                        @mouseenter="hoveredServiceScore = star"
+                                        @mouseleave="hoveredServiceScore = 0"
+                                        @click="setServiceScore(star)"
+                                        :class="[
+                                            'p-1 rounded-lg focus:outline-none transition-transform hover:scale-125 active:scale-95 cursor-pointer',
+                                            lastBouncedStar === star ? 'animate-star-bounce' : ''
+                                        ]"
+                                    >
+                                        <svg 
+                                            :class="[
+                                                'w-8 h-8 sm:w-9 sm:h-9 transition-all duration-200',
+                                                (hoveredServiceScore || serviceScore) >= star 
+                                                    ? 'text-amber-400 star-glow fill-amber-400' 
+                                                    : 'text-slate-300 fill-transparent stroke-slate-300 hover:text-amber-300'
+                                            ]" 
+                                            viewBox="0 0 24 24" 
+                                            stroke="currentColor" 
+                                            stroke-width="1.5"
+                                        >
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.175 0l-3.976 2.888c-.783.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                <div class="h-7 flex items-center justify-center">
+                                    <span :class="['px-3.5 py-0.5 rounded-full text-xs font-bold border transition-all duration-200', ratingMeta[hoveredServiceScore || serviceScore]?.badgeClass]">
+                                        {{ (hoveredServiceScore || serviceScore) }} Sao: {{ ratingMeta[hoveredServiceScore || serviceScore]?.label }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Adaptive Quick Tags -->
+                            <div class="space-y-1.5">
+                                <div class="flex items-center justify-between">
+                                    <label class="text-xs font-bold text-slate-700">Cảm nhận nhanh của bạn:</label>
+                                    <span class="text-[11px] text-slate-400">Chọn 1 hoặc nhiều tiêu chí</span>
+                                </div>
+                                <div class="flex flex-wrap gap-1.5">
+                                    <button 
+                                        v-for="tag in (ratingMeta[serviceScore]?.tags || [])" 
+                                        :key="tag"
+                                        type="button" 
+                                        @click="toggleRatingTag(tag)"
+                                        :class="[
+                                            'px-3 py-1 text-xs rounded-xl border transition-all duration-200 select-none cursor-pointer',
+                                            selectedRatingTags.includes(tag) 
+                                                ? 'bg-[#0055bb] text-white border-[#0055bb] shadow-2xs font-semibold scale-[1.02]' 
+                                                : 'border-slate-200 text-slate-600 hover:border-blue-400 hover:text-slate-900 bg-white'
+                                        ]"
+                                    >
+                                        {{ tag }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Comment Box with Counter -->
+                            <div class="space-y-1">
+                                <div class="flex items-center justify-between">
+                                    <label class="text-xs font-bold text-slate-700">Nhận xét chi tiết (Tùy chọn)</label>
+                                    <span class="text-[11px] text-slate-400 font-mono">{{ ratingComment.length }} / 500</span>
+                                </div>
+                                <textarea 
+                                    v-model="ratingComment"
+                                    rows="3" 
+                                    maxlength="500"
+                                    :placeholder="ratingMeta[serviceScore]?.placeholder"
+                                    class="w-full p-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0055bb] focus:bg-white text-slate-900 resize-none transition placeholder:text-slate-400"
+                                ></textarea>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="pt-2 border-t border-slate-100 flex items-center justify-end space-x-2">
+                                <button 
+                                    type="button" 
+                                    @click="closeRatingModal" 
+                                    class="px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                                >
+                                    Hủy bỏ
+                                </button>
+                                <button 
+                                    type="button"
+                                    @click="submitRating" 
+                                    :disabled="isSubmittingRating"
+                                    class="px-5 py-2 text-xs font-bold rounded-xl vnpt-gradient text-white hover:opacity-95 shadow-md shadow-blue-600/20 active:scale-95 transition flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer"
+                                >
+                                    <span v-if="isSubmittingRating" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                    <span>{{ isSubmittingRating ? 'Đang gửi...' : 'Xác nhận gửi đánh giá' }}</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Result View (Branching) -->
+                        <div v-else class="p-6 text-center space-y-4">
+                            <div :class="[
+                                'w-14 h-14 mx-auto rounded-full flex items-center justify-center shadow-md animate-check-pop',
+                                ratingResultView === 'positive' ? 'bg-emerald-100 text-emerald-600 border border-emerald-300' : 'bg-rose-100 text-rose-600 border border-rose-300'
+                            ]">
+                                <svg v-if="ratingResultView === 'positive'" class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                <svg v-else class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                </svg>
+                            </div>
+
+                            <div class="space-y-1">
+                                <h4 class="text-base font-extrabold text-slate-900">
+                                    {{ ratingResultView === 'positive' ? 'Cảm ơn bạn đã đánh giá dịch vụ!' : 'VNPT Post xin lỗi vì trải nghiệm chưa tốt!' }}
+                                </h4>
+                                <p class="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
+                                    {{ ratingResultView === 'positive' 
+                                        ? 'Đánh giá tích cực của bạn đã được ghi nhận và cộng trực tiếp vào chỉ số KPI thưởng dịch vụ của bưu tá.' 
+                                        : 'Hệ thống đã tự động ghi nhận góp ý phản ánh. Đội ngũ CSKH và trưởng bưu cục sẽ kiểm tra và hỗ trợ bạn kịp thời.' }}
+                                </p>
+                            </div>
+
+                            <div class="p-3.5 rounded-xl border border-slate-200 text-left text-xs space-y-2 bg-slate-50 max-w-sm mx-auto">
+                                <div class="flex items-center justify-between text-xs text-slate-600">
+                                    <span>Mức đánh giá:</span>
+                                    <span class="font-bold text-amber-500">{{ serviceScore }} ⭐ ({{ ratingMeta[serviceScore]?.label }})</span>
+                                </div>
+                                <div v-if="ratingResultView === 'positive'" class="flex items-center justify-between text-xs text-slate-600">
+                                    <span>Điểm thưởng KPI Shipper:</span>
+                                    <span class="font-bold text-emerald-600">+5 Điểm thưởng dịch vụ</span>
+                                </div>
+                                <div v-if="ratingResultView === 'negative'" class="flex items-center justify-between text-xs text-slate-600">
+                                    <span>Hỗ trợ khẩn cấp CSKH:</span>
+                                    <span class="font-bold text-[#0055bb]">1800 1060 (Miễn phí)</span>
+                                </div>
+                                <div class="flex items-center justify-between text-xs text-slate-600">
+                                    <span>Đồng bộ trạng thái:</span>
+                                    <span class="font-mono font-semibold text-[#0055bb]">Kafka: shipment-feedbacks</span>
+                                </div>
+                            </div>
+
+                            <div class="pt-2 flex items-center justify-center gap-2">
+                                <button 
+                                    v-if="ratingResultView === 'negative'"
+                                    type="button" 
+                                    @click="closeRatingModal(); navigateToSupport();" 
+                                    class="px-4 py-2 text-xs font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-600/20 transition flex items-center gap-1.5 cursor-pointer"
+                                >
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                                    <span>Mở phiếu khiếu nại CSKH</span>
+                                </button>
+                                <button 
+                                    type="button" 
+                                    @click="closeRatingModal" 
+                                    class="px-4 py-2 text-xs font-bold rounded-xl border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 transition cursor-pointer"
+                                >
+                                    Đóng
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

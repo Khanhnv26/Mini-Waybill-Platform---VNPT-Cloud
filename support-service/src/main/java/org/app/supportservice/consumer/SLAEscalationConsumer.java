@@ -34,7 +34,7 @@ public class SLAEscalationConsumer {
             log.warn(" [CẢNH BÁO VI PHẠM SLA] Ticket [{}] - {} đã quá 2 phút chưa ai xử lý!", ticket.getTicketCode(), ticket.getTitle());
             log.warn(" Hệ thống tự động nâng trạng thái thành: ESCALATED để báo động cấp quản lý!");
             SendEmailEvent alertEmail = SendEmailEvent.builder()
-                    .toEmail(alertEmailTo) // Email của Quản lý / Trưởng bưu cục
+                    .toEmail(alertEmailTo) // Email của Quản lý
                     .subject("[CẢNH BÁO KHẨN CẤP] Vi phạm SLA Ticket: " + ticket.getTicketCode())
                     .body("Kính gửi Quản lý ca trực,\n\nKhiếu nại mã " + ticket.getTicketCode()
                             + " với tiêu đề '" + ticket.getTitle() + "' đã quá 2 phút chưa có nhân viên CSKH tiếp nhận!\n"

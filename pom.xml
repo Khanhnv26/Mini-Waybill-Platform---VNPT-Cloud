@@ -35,8 +35,8 @@
         <module>shared-events</module>
         <module>shipper-service</module>
         <module>report-service</module>
-        <module>pricing-service</module>
         <module>support-service</module>
+        <module>rating-service</module>
     </modules>
 
     <dependencyManagement>

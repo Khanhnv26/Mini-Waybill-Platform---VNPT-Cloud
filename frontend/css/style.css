@@ -1065,3 +1065,29 @@ body {
 .btn-press:active {
     transform: scale(0.97);
 }
+
+@keyframes starBounce {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.35) rotate(-8deg); }
+    70% { transform: scale(0.9) rotate(4deg); }
+    100% { transform: scale(1) rotate(0deg); }
+}
+
+@keyframes checkmarkPop {
+    0% { transform: scale(0); opacity: 0; }
+    60% { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(1); }
+}
+
+.animate-star-bounce {
+    animation: starBounce 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.animate-check-pop {
+    animation: checkmarkPop 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.star-glow {
+    filter: drop-shadow(0 2px 6px rgba(245, 158, 11, 0.45));
+}
+

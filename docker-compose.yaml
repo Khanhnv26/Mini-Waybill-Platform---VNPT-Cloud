@@ -405,10 +405,14 @@ services:
       - SPRING_DATASOURCE_PASSWORD=Replica@123456
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
     depends_on:
       - sqlserver-replica
       - eureka-peer1
       - eureka-peer2
+      - kafka-1
+      - kafka-2
+      - kafka-3
     restart: always
 
   report-service:
@@ -456,6 +460,29 @@ services:
       - eureka-peer1
       - eureka-peer2
       - minio
+    restart: always
+
+  rating-service:
+    build:
+      context: .
+      dockerfile: rating-service/Dockerfile
+    container_name: waybill-rating-service
+    ports:
+      - "8092:8092"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=rating_db;encrypt=true;trustServerCertificate=true;
+      - SPRING_DATASOURCE_USERNAME=sa
+      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
+    depends_on:
+      - sqlserver-replica
+      - eureka-peer1
+      - eureka-peer2
+      - kafka-1
+      - kafka-2
+      - kafka-3
     restart: always
 
 volumes:
