@@ -22,6 +22,7 @@
 [![Spring AI](https://img.shields.io/badge/Spring%20AI-Tool%20Calling%20Agent-6DB33F?style=for-the-badge&logo=spring&logoColor=white)](https://spring.io/projects/spring-ai)
 [![Ollama](https://img.shields.io/badge/Ollama-Local%20LLM%20Qwen%202.5-black?style=for-the-badge&logo=ollama&logoColor=white)](https://ollama.com/)
 [![RabbitMQ](https://img.shields.io/badge/RabbitMQ-Priority%20Queue%20%26%20SLA%20DLX-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)](https://www.rabbitmq.com/)
+[![MinIO](https://img.shields.io/badge/MinIO-S3%20Compatible%20Storage-C72C48?style=for-the-badge&logo=minio&logoColor=white)](https://min.io/)
 
 ---
 
@@ -101,12 +102,19 @@ Khác với các ứng dụng giao hàng nội thành đơn chặng, hệ thốn
 * **Quản trị khiếu nại toàn trình (Dispute & Ticketing):** Tiếp nhận và quản lý vòng đời khiếu nại bưu gửi (giao chậm, hư hỏng, mất mát, sai lệch COD) qua quy trình 4 bước: `SUBMITTED` -> `INVESTIGATING` -> `RESOLVED` / `REJECTED`, tích hợp CSDL độc lập quản lý bằng Flyway.
 * *Tài liệu chi tiết:* Xem chi tiết kiến trúc Spring AI Tool Calling và System Prompting tại [Cẩm nang 14 - Trợ Lý Ảo GenAI & Cơ Chế Spring AI Tool Calling](docs/14-spring-ai-agent-and-support-ticketing.md).
 
-### 2.11. Hàng Đợi Ưu Tiên RabbitMQ & Đếm Ngược SLA Bằng Dead-Letter Exchange (Polyglot Messaging)
-* **Mô hình Polyglot Messaging phân tầng:** Ứng dụng RabbitMQ cho quản trị hàng đợi thông minh nội bộ `support-service`, Kafka làm xương sống truyền phát sự kiện toàn mạng (`email-events`, `tracking-status-events`), và OpenFeign kết nối đồng bộ tức thời khi cần hủy đơn bưu gửi (`POST /api/shipments/{code}/cancel`).
-* **Hàng đợi ưu tiên 10 cấp (Priority Queuing):** Cấu hình `x-max-priority: 10`, tự động ánh xạ mức độ nghiêm trọng của khiếu nại (`URGENT`/`CRITICAL` điểm 9, `HIGH` điểm 7, `NORMAL` điểm 4, `LOW` điểm 2). RabbitMQ tự động đẩy các sự cố nghiêm trọng lên đầu hàng đợi để nhân viên CSKH tiếp nhận thụ lý trước.
-* **Bộ đếm lùi SLA 2 phút (Zero-Polling Timer):** Áp dụng Message TTL (120 giây) trên hàng đợi tạm `support.ticket.sla.queue` kết hợp Dead-Letter Exchange (`support.sla.dlx.exchange`). Khi quá 2 phút không có chuyên viên tiếp nhận (`IN_PROGRESS`), tin nhắn tự động chuyển sang `support.ticket.outdate.queue`, kích hoạt `SLAEscalationConsumer` nâng trạng thái vé lên `ESCALATED` và bắn email cảnh báo khẩn cấp tới Quản lý qua Kafka mà không tốn 1% tải quét CSDL (Zero Database Polling).
-* **Xử lý khiếu nại đơn đang vận chuyển (`IN_TRANSIT`):** Bảo đảm an toàn vận tải, không tự ý hủy đơn làm gãy chuỗi luân chuyển xe tải giữa các Hub. Chỉ khi CSKH xác minh hàng hỏng/mất/hủy và giải quyết khiếu nại, hệ thống mới gọi Feign Client hủy đơn bên `shipment-service`, phát sự kiện Kafka `tracking-status-events` (`CANCELLED`) để giữ hàng tại trạm và thông báo tức thời tới khách hàng qua WebSocket STOMP.
+### 2.11. Đếm Ngược SLA RabbitMQ & Xử Lý Hủy Đơn Liên Dịch Vụ (Polyglot Messaging)
+* **Mô hình Polyglot Messaging phân tầng:** Ứng dụng RabbitMQ cho quản trị đếm lùi SLA thông minh nội bộ `support-service`, Kafka làm xương sống truyền phát sự kiện toàn mạng (`email-events`, `tracking-status-events`, `trip-events`, `trip-progress-events`), và OpenFeign kết nối đồng bộ tức thời khi cần hủy đơn bưu gửi (`POST /api/shipments/{code}/cancel`).
+* **Bộ đếm lùi SLA 2 phút chuẩn cơ học (Zero-Polling Timer):** Áp dụng Message TTL ($120.000\text{ms}$) trên hàng đợi tạm `support.ticket.sla.queue` kết hợp Dead-Letter Exchange (`support.sla.dlx.exchange`). Khi quá 2 phút không có chuyên viên tiếp nhận (`IN_PROGRESS`), tin nhắn tự động chuyển sang `support.ticket.outdate.queue`, kích hoạt `SLAEscalationConsumer` nâng trạng thái vé lên `ESCALATED` và bắn email cảnh báo khẩn cấp tới Quản lý qua Kafka mà không tốn $1\%$ tải quét CSDL (Zero Database Polling). Tinh giản hàng đợi ưu tiên không có consumer tiêu thụ, tập trung toàn bộ tài nguyên cho SLA.
+* **Xử lý hủy đơn liên dịch vụ & giải phóng tồn kho:** Khi CSKH chốt khiếu nại thuộc các danh mục `DAMAGED_GOODS`, `LOST_SHIPMENT`, `LOST_GOODS`, hoặc `CANCEL_REQUEST`, hệ thống tự động gọi Feign Client hủy đơn bên `shipment-service` với quyền `shipment:cancel_all` (kèm vai trò `ROLE_CS`).
+* **Đồng bộ đa định dạng thời gian & giải phóng tải xe (routing-service):** `ShipmentCancelledConsumer` trong `routing-service` đọc sự kiện hủy đơn từ `tracking-status-events`, hỗ trợ tương thích kép cả mảng số của Kafka Jackson `[yyyy,MM,dd,HH,mm,ss]` lẫn chuỗi ISO string (nhận cả `updateAt` và `updatedAt`). Nếu chuyến xe đang chờ xuất bến (`SCHEDULED`), hệ thống lập tức gỡ kiện khỏi bảng kê (Manifest `REMOVED`), trừ tải trọng xe và giải phóng tồn kho kho bãi (`CANCELLED`); nếu xe đang chạy (`IN_TRANSIT`), hệ thống gắn nhãn `HOLD_FOR_RETURN` để trạm kế tiếp tự động dỡ kiện nhập kho chờ chuyển hoàn.
 * *Tài liệu chi tiết:* Xem chi tiết kiến trúc và boilerplate độc lập tại [Cẩm nang 15 - Hàng Đợi Ưu Tiên RabbitMQ & Cơ Chế Đếm Ngược SLA](docs/15-rabbitmq-priority-queue-and-sla-dead-letter-patterns.md).
+
+### 2.12. Lưu Trữ Tệp Đính Kèm Khiếu Nại Với MinIO Object Storage (S3 Standard)
+* **Kiến trúc S3 Object Storage phân tầng:** Tách rời hoàn toàn tầng tính toán (Stateless `support-service`) và tầng lưu trữ tệp tin. Toàn bộ hình ảnh sự cố hư hỏng kiện hàng (`DAMAGED_GOODS`), hóa đơn bưu gửi (`LOST_SHIPMENT`), và biên bản giải quyết đền bù (`RESOLVED`) được lưu trữ tại cụm MinIO Object Storage chuẩn AWS S3 API, giải phóng $100\%$ tải lưu trữ BLOB nhị phân khỏi CSDL SQL Server và tránh mất mát dữ liệu do Pod container bị tiêu hủy (Ephemeral storage).
+* **Cơ chế tự phục hồi Bucket (Auto-Healing Bucket Support):** Áp dụng mẫu thiết kế Lazy Initialization & Double-Checked Locking (`MinioBucketSupport`) kết hợp cờ nguyên tử `AtomicBoolean`. Hệ thống tự động kiểm tra `bucketExists()`, tự tạo `support-tickets` và cấu hình chính sách `s3:GetObject` công khai trong runtime ngay khi có tệp tải lên đầu tiên, khắc phục triệt để lỗi xung đột khởi động chậm (Startup Race Condition) và lỗi `NoSuchBucket`.
+* **Mô hình bảo mật truy cập lai (Hybrid Access Control):** Cấu hình Anonymous Download Policy cho phép trình duyệt hiển thị tức thời ảnh kiện hàng trong luồng chat mà không bị lỗi đứt link hết hạn (Expired Presigned Link); đồng thời hỗ trợ cơ chế Presigned URLs (ký chữ ký số điện tử HMAC-SHA256 có thời hạn sống TTL 15-60 phút) cho các chứng từ nhạy cảm như hóa đơn tài chính và biên bản đền bù.
+* **Hạ tầng Container Chainguard Distroless bảo mật cao:** Triển khai image `cgr.dev/chainguard/minio:latest`, loại bỏ hoàn toàn các shell/package dư thừa, đạt $0$ lỗ hổng bảo mật (Zero Known CVEs) và phân định rành mạch giữa Port 9000 (S3 REST API) và Port 9001 (MinIO Web Console).
+* *Tài liệu chi tiết:* Xem chi tiết kiến trúc S3, phân tích Erasure Coding và bộ Boilerplate Spring Boot 3 độc lập tại [Cẩm nang 16 - Lưu Trữ Đối Tượng MinIO & S3 Boilerplate](docs/16-minio-object-storage-and-s3-boilerplate.md).
 
 ---
 
@@ -154,10 +162,11 @@ flowchart TB
         OllamaLocal[("Ollama Local LLM (Port 11434)\n• Model: qwen2.5:7b\n• OpenAI-compatible API\n• Autonomous Tool Calling")]
     end
 
-    subgraph EventAndCache [" Message Broker HA & Caching Layer "]
+    subgraph EventAndCache [" Message Broker HA, Caching & Object Storage Layer "]
         KafkaCluster[("Apache Kafka 3-Broker KRaft Cluster (Quorum)\n• kafka-1 (9092), kafka-2 (9094), kafka-3 (9096)\n• RF=3, MinISR=2\n• Quorum Voters (Broker 1, 2, 3)")]
         RabbitMQ[("RabbitMQ Broker (Port 5672 / 15672)\n• Priority Queue (MaxPri 10)\n• SLA 120s TTL + DLX Outdate Queue")]
         Redis[("Redis In-Memory (Port 6379)\n• shipment-status Cache\n• Rate Limit Buckets (Bucket4j)\n• OTP & Station Cache")]
+        MinIO[("MinIO Object Storage (Port 9000 / 9001)\n• S3 REST API & Web Console\n• Bucket: support-tickets\n• Public Policy + Presigned S3")]
         KafkaUI["Kafka UI Dashboard (Port 8090)"]
     end
 
@@ -206,6 +215,8 @@ flowchart TB
     RabbitMQ -->|"DLX Consumer: SLAEscalation"| SupportSvc
     SupportSvc -->|"Kafka: email-events"| KafkaCluster
     SupportSvc -.->|"Feign: /api/shipments/cancel"| ShipSvc
+    SupportSvc -->|"S3 API: /api/tickets/upload"| MinIO
+    UI -.->|"HTTP GET: Render ảnh đính kèm (Port 9000)"| MinIO
 
     AuthSvc --> DB_Auth
     CustSvc --> DB_Cust
@@ -240,7 +251,8 @@ Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, m�
 | **12** | [**Điều Phối Toàn Trình Trên Kubernetes (K8s Architecture & Troubleshooting)**](docs/12-kubernetes-orchestration-and-deployment.md) | Kiến trúc cụm K8s 16 Pods (`namespace: waybill`), lưu trữ bền vững SQL Server PVC 5GB, phân biệt ClusterIP vs LoadBalancer, giải quyết 4 bẫy kỹ thuật kinh điển (Eureka IP discovery, Gateway LoadBalancer, Redis host, Kafka consumer bootstrap) và sổ tay kubectl thực chiến. |
 | **13** | [**Động Cơ Định Giá & Ma Trận Cước Bưu Chính**](docs/13-pricing-engine-and-tariff-matrix.md) | Công thức quy đổi khối lượng thể tích ($L \times W \times H / 5000$), phân vùng cước Nội tỉnh vs Liên miền, 3 gói phân tầng `ECO`, `STANDARD`, `EXPRESS`, cơ cấu phụ phí (Xăng dầu 6%, COD 1%, Bảo hiểm 0.5%) và Boilerplate Bảng cước động lưu CSDL. |
 | **14** | [**Trợ Lý Ảo GenAI & Cơ Chế Spring AI Tool Calling**](docs/14-spring-ai-agent-and-support-ticketing.md) | Kiến trúc On-Premise LLM với Ollama (`qwen2.5:7b`), cơ chế Spring AI `ChatClient` Function Calling tự động gọi Feign Client tra cứu vận đơn & tính cước, kỹ thuật Prompt Engineering chống ảo giác và xử lý dự phòng khi AI quá tải. |
-| **15** | [**Hàng Đợi Ưu Tiên RabbitMQ & Đếm Ngược SLA**](docs/15-rabbitmq-priority-queue-and-sla-dead-letter-patterns.md) | Kiến trúc Polyglot Messaging (RabbitMQ + Kafka + OpenFeign), hàng đợi ưu tiên 10 cấp, bộ đếm ngược SLA 120s bằng Message TTL + Dead-Letter Exchange (DLX), luồng xử lý khiếu nại đơn đang vận chuyển (IN_TRANSIT) và tự động hủy đơn liên dịch vụ. |
+| **15** | [**Đếm Ngược SLA RabbitMQ & Xử Lý Hủy Đơn Liên Dịch Vụ**](docs/15-rabbitmq-priority-queue-and-sla-dead-letter-patterns.md) | Kiến trúc Polyglot Messaging (RabbitMQ + Kafka + OpenFeign), bộ đếm ngược SLA 120s bằng Message TTL + Dead-Letter Exchange (DLX), tự động hủy đơn liên dịch vụ qua Feign (`shipment:cancel_all`), giải phóng tải chuyến xe & tồn kho kho bãi (`routing-service`), và cơ chế tương thích kép mốc thời gian Kafka. |
+| **16** | [**Lưu Trữ Đối Tượng MinIO & S3 Boilerplate**](docs/16-minio-object-storage-and-s3-boilerplate.md) | Kiến trúc S3 Object Storage, phân định Storage vs BLOB, cơ chế tự phục hồi Bucket (`MinioBucketSupport`), bảo mật Presigned URLs vs Public Download, xử lý sự cố Docker Hub & di trú Chainguard Distroless, cẩm nang lệnh `mc` CLI và **Bộ Boilerplate Spring Boot 3 độc lập** sẵn sàng copy vào dự án doanh nghiệp. |
 
 ---
 
@@ -275,6 +287,8 @@ docker compose up -d
 ```
 * **Kafka UI:** [http://localhost:8090](http://localhost:8090) (Kiểm tra 3 Brokers online).
 * **RabbitMQ Management:** [http://localhost:15672](http://localhost:15672) (`admin` / `admin`).
+* **MinIO Web Console:** [http://localhost:9001](http://localhost:9001) (`minioadmin` / `minioadmin`).
+* **MinIO S3 API:** `http://localhost:9000` (Bucket: `support-tickets`).
 * **Nginx Load Balancer:** [http://localhost:80](http://localhost:80).
 * **Redis:** Port `6379`.
 * **SQL Server Replica:** Port `2433` (`sa` / `Replica@123456`).
@@ -351,7 +365,8 @@ mini-waybill-platform/
 │   ├── 12-kubernetes-orchestration-and-deployment.md
 │   ├── 13-pricing-engine-and-tariff-matrix.md
 │   ├── 14-spring-ai-agent-and-support-ticketing.md
-│   └── 15-rabbitmq-priority-queue-and-sla-dead-letter-patterns.md
+│   ├── 15-rabbitmq-priority-queue-and-sla-dead-letter-patterns.md
+│   └── 16-minio-object-storage-and-s3-boilerplate.md
 │
 ├── k8s/                       # Manifests Kubernetes (00-namespace, 01-infrastructure, 02-services)
 ├── scripts/                   # Script tự động hóa đồng bộ DB (sync-db-to-k8s.ps1)

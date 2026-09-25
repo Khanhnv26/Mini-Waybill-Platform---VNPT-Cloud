@@ -28,6 +28,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
@@ -35,6 +36,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class TicketServiceImpl implements TicketService {
+
+    private static final Set<String> CANCEL_SHIPMENT_CATEGORIES = Set.of(
+            "DAMAGED_GOODS", "LOST_GOODS", "LOST_SHIPMENT", "CANCEL_REQUEST");
 
     private final SupportTicketRepository ticketRepository;
     private final TicketMessageRepository messageRepository;
@@ -67,12 +71,6 @@ public class TicketServiceImpl implements TicketService {
                 .build();
 
         SupportTicket savedTicket = ticketRepository.save(ticket);
-
-        int priorityScore = mapPriorityToScore(savedTicket.getPriority());
-        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_PRIMARY, RabbitMQConfig.ROUTING_KEY_PRIMARY, savedTicket.getId(), message -> {
-            message.getMessageProperties().setPriority(priorityScore);
-            return message;
-        });
 
         rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_PRIMARY, RabbitMQConfig.ROUTING_KEY_SLA, savedTicket.getId());
 
@@ -175,13 +173,13 @@ public class TicketServiceImpl implements TicketService {
 
         if(updated.getTrackingCode() != null && !updated.getTrackingCode().isBlank()) {
             String category = updated.getCategory() != null ? updated.getCategory().toUpperCase() : "";
-            if ("DAMAGED_GOODS".equals(category) || "LOST_GOODS".equals(category) || "CANCEL_REQUEST".equals(category)) {
+            if (CANCEL_SHIPMENT_CATEGORIES.contains(category)) {
                 try {
                     Map<String, String> cancelReq = Map.of(
                             "reasonCode", "CSKH_RESOLVED",
                             "reasonNote", "Hủy theo khiếu nại " + updated.getTicketCode() + ": " + updated.getResolutionNote()
                     );
-                    shipmentClient.cancelShipment(updated.getTrackingCode(), cancelReq, "ROLE_CS", "SHIPMENT:CANCEL");
+                    shipmentClient.cancelShipment(updated.getTrackingCode(), cancelReq, "ROLE_CS", "shipment:cancel_all");
                     log.info(">>> Đã tự động kích hoạt HỦY ĐƠN HÀNG [{}] bên shipment-service!", updated.getTrackingCode());
                 } catch (Exception e) {
                     log.warn("Không thể tự động hủy đơn bên shipment-service: {}", e.getMessage());
@@ -229,17 +227,6 @@ public class TicketServiceImpl implements TicketService {
             }
         }
         throw new BadRequestException("Không sinh được mã phiếu duy nhất. Vui lòng thử lại");
-    }
-
-    private int mapPriorityToScore(String priority) {
-        if (priority == null) return 4;
-        return switch(priority.toUpperCase()) {
-            case "URGENT", "CRITICAL" -> 9;
-            case "HIGH" -> 7;
-            case "NORMAL", "MEDIUM" -> 4;
-            case "LOW" -> 2;
-            default -> 4;
-        };
     }
 
 

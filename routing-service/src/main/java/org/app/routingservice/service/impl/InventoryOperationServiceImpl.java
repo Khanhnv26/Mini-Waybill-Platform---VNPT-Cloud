@@ -249,7 +249,7 @@ public class InventoryOperationServiceImpl implements InventoryOperationService 
                 .status(status)
                 .locationCode(locationCode)
                 .note(note)
-                .updateAt(occurredAt.toString())
+                .updateAt(occurredAt)
                 .build());
     }
 

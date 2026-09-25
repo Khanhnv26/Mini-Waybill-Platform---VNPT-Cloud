@@ -7,7 +7,7 @@
  */
 
 (function () {
-    const { ref, reactive, computed, onMounted, nextTick, watch } = Vue;
+    const { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } = Vue;
 
     const PRESET_ROUTES = [
         {
@@ -2727,12 +2727,90 @@
                 return !!(trip.readyToDepart && trip.status === 'SCHEDULED');
             };
 
+            let tripProgressClient = null;
+            let tripProgressSubscription = null;
+
+            const applyTripProgressEvent = (event) => {
+                if (!event || !event.tripCode) return;
+                const code = String(event.tripCode).trim().toUpperCase();
+                const matches = (trip) => String(trip?.tripCode || '').trim().toUpperCase() === code;
+                const merge = (trip) => {
+                    if (!matches(trip)) return trip;
+                    const next = { ...trip };
+                    if (event.locationCode) next.currentHub = event.locationCode;
+                    if (event.currentLatitude != null && event.currentLatitude !== '') {
+                        next.currentLatitude = Number(event.currentLatitude);
+                    }
+                    if (event.currentLongitude != null && event.currentLongitude !== '') {
+                        next.currentLongitude = Number(event.currentLongitude);
+                    }
+                    if (event.progressPercent != null && event.progressPercent !== '') {
+                        next.progressPercent = Number(event.progressPercent);
+                    }
+                    if (event.occurredAt) next.lastProgressAt = event.occurredAt;
+                    return next;
+                };
+                tripsList.value = (Array.isArray(tripsList.value) ? tripsList.value : []).map(merge);
+                if (!matches(activeTripDetail.value)) return;
+                activeTripDetail.value = merge(activeTripDetail.value);
+                if (showDetailModal.value && detailActiveTab.value === 'route') {
+                    nextTick(() => renderLeafletMap(activeTripDetail.value));
+                }
+            };
+
+            const connectTripProgressSocket = () => {
+                if (typeof SockJS === 'undefined' || typeof Stomp === 'undefined') return;
+                if (tripProgressClient && tripProgressClient.connected) return;
+                const host = window.location.hostname || 'localhost';
+                const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+                const port = window.location.port;
+                const endpoint = (!port || port === '80' || port === '443')
+                    ? `${protocol}//${host}/api/notifications/ws`
+                    : `${protocol}//${host}:8080/api/notifications/ws`;
+                try {
+                    const socket = new SockJS(endpoint);
+                    tripProgressClient = Stomp.over(socket);
+                    tripProgressClient.debug = null;
+                    tripProgressClient.connect({}, () => {
+                        tripProgressSubscription = tripProgressClient.subscribe('/topic/trips/progress', (message) => {
+                            try {
+                                applyTripProgressEvent(JSON.parse(message.body));
+                            } catch (error) {
+                                console.warn('[TripsView] Bỏ qua tiến độ chuyến không đọc được:', error);
+                            }
+                        });
+                    }, () => {
+                        tripProgressClient = null;
+                    });
+                } catch (error) {
+                    console.warn('[TripsView] Không kết nối được tiến độ chuyến:', error);
+                }
+            };
+
+            const disconnectTripProgressSocket = () => {
+                if (tripProgressSubscription) {
+                    try { tripProgressSubscription.unsubscribe(); } catch (error) { /* socket already closed */ }
+                    tripProgressSubscription = null;
+                }
+                if (tripProgressClient) {
+                    try {
+                        if (tripProgressClient.connected) tripProgressClient.disconnect();
+                    } catch (error) { /* socket already closed */ }
+                    tripProgressClient = null;
+                }
+            };
+
             onMounted(() => {
                 loadTrips();
                 loadHubs();
                 loadSchedulerConfig();
                 loadShipmentsData();
                 loadHubInventoryState();
+                connectTripProgressSocket();
+            });
+
+            onUnmounted(() => {
+                disconnectTripProgressSocket();
             });
 
             watch(destinationFeederStation, () => {

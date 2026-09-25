@@ -143,6 +143,21 @@
                 throw new Error(extractErrorMessage(errData, 'Không thể gửi tin nhắn phản hồi'));
             }
             return response.json();
+        },
+
+        /**
+         * Tải lên hình ảnh / tài liệu đính kèm (Lưu trữ Object Storage MinIO)
+         * @param {File} file
+         */
+        async uploadAttachment(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            const response = await Api.upload('/api/tickets/upload', formData, {}, { skip403Toast: true });
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(extractErrorMessage(errData, 'Không thể tải ảnh lên máy chủ lưu trữ MinIO'));
+            }
+            return response.json();
         }
     };
 

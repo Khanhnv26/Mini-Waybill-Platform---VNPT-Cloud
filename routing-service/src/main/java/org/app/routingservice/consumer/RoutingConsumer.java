@@ -117,7 +117,7 @@ public class RoutingConsumer {
                 .status("ROUTE_ASSIGNED")
                 .locationCode(originPostOffice != null ? originPostOffice : sourceHub)
                 .note(initialNote)
-                .updateAt(LocalDateTime.now().toString())
+                .updateAt(LocalDateTime.now())
                 .build();
         kafkaTemplate.send("tracking-status-events", event.getTrackingCode(), statusEvent);
         log.info("[ROUTING-SERVICE] Đã bắn event ShipmentStatusUpdatedEvent (ROUTE_ASSIGNED) lên topic 'tracking-status-events'");

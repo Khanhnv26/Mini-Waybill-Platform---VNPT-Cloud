@@ -23,6 +23,7 @@
                 receiverDistrict: 'Q. 6',
                 weightGram: 500,
                 codAmount: 350000,
+                declaredValue: 0,
                 lengthCm: 25,
                 widthCm: 15,
                 heightCm: 10
@@ -116,7 +117,7 @@
                 scheduleCalculation();
             });
 
-            watch([() => form.senderDistrict, () => form.receiverDistrict, () => form.weightGram, () => form.codAmount, () => form.lengthCm, () => form.widthCm, () => form.heightCm], () => {
+            watch([() => form.senderDistrict, () => form.receiverDistrict, () => form.weightGram, () => form.codAmount, () => form.declaredValue, () => form.lengthCm, () => form.widthCm, () => form.heightCm], () => {
                 scheduleCalculation();
             });
 
@@ -154,6 +155,7 @@
                     receiverDistrict: form.receiverDistrict,
                     weightGram: Number(form.weightGram) || 500,
                     codAmount: Number(form.codAmount) || 0,
+                    declaredValue: Number(form.declaredValue) || 0,
                     lengthCm: Number(form.lengthCm) || 25,
                     widthCm: Number(form.widthCm) || 15,
                     heightCm: Number(form.heightCm) || 10
@@ -363,7 +365,7 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-start pt-1">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-start pt-1">
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-700 mb-1">Trọng lượng (Gram) <span class="text-rose-500">*</span></label>
                                 <div class="relative">
@@ -380,6 +382,15 @@
                                     <span class="absolute right-2.5 top-1.5 text-[11px] font-bold text-slate-400">đ</span>
                                 </div>
                                 <p class="text-[10px] text-slate-400 mt-0.5">Nhập 0 nếu không thu COD</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Giá trị khai báo (VNĐ)</label>
+                                <div class="relative">
+                                    <input v-model.number="form.declaredValue" type="number" step="10000" min="0" class="w-full text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-lg py-1.5 pl-3 pr-7 focus:bg-white focus:border-blue-500 focus:outline-none transition">
+                                    <span class="absolute right-2.5 top-1.5 text-[11px] font-bold text-slate-400">đ</span>
+                                </div>
+                                <p class="text-[10px] text-slate-400 mt-0.5">Phí bảo hiểm 0,5% nếu có khai giá</p>
                             </div>
 
                             <div class="relative">
@@ -531,6 +542,10 @@
                                     <div class="flex justify-between">
                                         <span>Phí thu hộ COD:</span>
                                         <span class="font-semibold text-slate-700">{{ formatMoney(plan.codFee) }} đ</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span>Phí bảo hiểm (0,5%):</span>
+                                        <span class="font-semibold text-slate-700">{{ formatMoney(plan.insuranceFee) }} đ</span>
                                     </div>
                                 </div>
                             </div>

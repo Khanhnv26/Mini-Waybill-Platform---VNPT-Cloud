@@ -17,7 +17,7 @@ const Api = {
         const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
         
         const headers = {
-            'Content-Type': 'application/json',
+            ...(options.isUpload ? {} : { 'Content-Type': 'application/json' }),
             ...(options.headers || {})
         };
 
@@ -213,6 +213,16 @@ const Api = {
 
     delete(endpoint, headers = {}, options = {}) {
         return this.request(endpoint, { method: 'DELETE', headers, ...options });
+    },
+
+    upload(endpoint, formData, headers = {}, options = {}) {
+        return this.request(endpoint, {
+            method: 'POST',
+            body: formData,
+            isUpload: true,
+            headers,
+            ...options
+        });
     }
 };
 

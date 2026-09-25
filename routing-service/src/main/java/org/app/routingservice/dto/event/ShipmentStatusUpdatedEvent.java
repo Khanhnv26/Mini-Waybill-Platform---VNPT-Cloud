@@ -8,6 +8,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -20,15 +22,11 @@ public class ShipmentStatusUpdatedEvent {
     private String note;
 
     @JsonProperty("updateAt")
-    @JsonAlias({"updateAt", "updatedAt"})
-    private String updateAt;
+    @JsonAlias("updatedAt")
+    private LocalDateTime updateAt;
 
     @JsonProperty("updatedAt")
-    public String getUpdatedAt() {
+    public LocalDateTime getUpdatedAt() {
         return updateAt;
-    }
-
-    public void setUpdatedAt(String updatedAt) {
-        this.updateAt = updatedAt;
     }
 }

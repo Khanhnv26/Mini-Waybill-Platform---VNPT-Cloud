@@ -7,13 +7,16 @@ import org.app.supportservice.dto.request.CreateTicketRequest;
 import org.app.supportservice.dto.request.ResolveTicketRequest;
 import org.app.supportservice.dto.response.MessageResponse;
 import org.app.supportservice.dto.response.TicketResponse;
+import org.app.supportservice.service.MinioStorageService;
 import org.app.supportservice.service.TicketService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/tickets")
@@ -21,6 +24,7 @@ import java.util.Locale;
 public class TicketController {
 
     private final TicketService ticketService;
+    private final MinioStorageService minioStorageService;
 
     @PostMapping
     public ResponseEntity<TicketResponse> createTicket(
@@ -89,6 +93,15 @@ public class TicketController {
         Long senderId = parseUserId(headerUserId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ticketService.addMessage(id, request, senderId != null ? senderId : 0L, resolveSenderRole(headerRoles)));
+    }
+
+    @PostMapping("/upload")
+    public ResponseEntity<Map<String, String>> uploadAttachment(@RequestParam("file") MultipartFile file) {
+        String fileUrl = minioStorageService.uploadFile(file);
+        return ResponseEntity.ok(Map.of(
+                "url", fileUrl,
+                "originalName", file.getOriginalFilename() != null ? file.getOriginalFilename() : "image"
+        ));
     }
 
     private String resolveSenderRole(String headerRoles) {

@@ -1029,6 +1029,14 @@ body {
     animation: chatPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Bảo đảm bong bóng tin nhắn và nội dung văn bản luôn ngắt từ chuẩn, không làm vỡ hoặc giãn ngang giao diện */
+.chat-bubble-wrap {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    max-width: 100%;
+}
+
 @keyframes modalBackdropFade {
     from { opacity: 0; }
     to { opacity: 1; }
