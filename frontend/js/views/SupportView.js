@@ -744,8 +744,38 @@
         template: `
             <div class="space-y-3.5 pb-10 text-slate-800">
 
-                <!-- 1. HERO BANNER: GRADIENT VNPT VÀ KHỐI KPI STATS -->
-                <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden transition-all duration-300">
+                <!-- 1. HERO BANNER: BRANDED BANNER CHO KHÁCH VÃNG LAI, GIỮ NGUYÊN BANNER NỘI BỘ CHO NHÂN VIÊN -->
+                <div v-if="!currentUser" class="page-header-banner rounded-3xl p-6 sm:p-7 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden transition-all duration-300 hover:shadow-md">
+                    <div class="flex items-start space-x-4">
+                        <div class="w-14 h-14 rounded-2xl bg-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-600/30 flex-shrink-0 ring-4 ring-purple-100">
+                            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                        </div>
+                        <div>
+                            <div class="flex items-center space-x-2 text-xs font-semibold text-purple-700 mb-1 whitespace-nowrap">
+                                <span @click="$emit('switch-tab', 'tracking')" class="cursor-pointer hover:underline">Trang Chủ</span>
+                                <span>/</span>
+                                <span>Trung Tâm Hỗ Trợ</span>
+                                <span>/</span>
+                                <span class="text-slate-500">CSKH &amp; Khiếu Nại</span>
+                            </div>
+                            <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight sm:whitespace-nowrap">Cổng Tiếp Nhận Hỗ Trợ &amp; Xử Lý Khiếu Nại</h1>
+                            <p class="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl leading-relaxed">Tiếp nhận sự cố vận chuyển, giải quyết quyền lợi bưu chính và cam kết phản hồi đối soát bưu phẩm minh bạch.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-3 self-start md:self-center flex-shrink-0">
+                        <div class="px-4 py-2.5 rounded-2xl bg-white border border-purple-200/80 shadow-xs text-center min-w-[110px] flex-shrink-0">
+                            <span class="text-[10.5px] uppercase font-bold text-slate-400 block tracking-wider whitespace-nowrap">Hotline</span>
+                            <span class="text-xs sm:text-sm font-black text-purple-700 whitespace-nowrap">1900 54 54 81</span>
+                        </div>
+                        <div class="px-4 py-2.5 rounded-2xl bg-white border border-purple-200/80 shadow-xs text-center min-w-[110px] flex-shrink-0">
+                            <span class="text-[10.5px] uppercase font-bold text-slate-400 block tracking-wider whitespace-nowrap">Cam Kết CSKH</span>
+                            <span class="text-xs sm:text-sm font-black text-emerald-600 whitespace-nowrap">Phản Hồi &lt; 2h</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-else class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden transition-all duration-300">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
 
                     <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">

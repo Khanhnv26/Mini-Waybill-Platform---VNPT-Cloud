@@ -3,6 +3,7 @@ package org.app.ratingservice.service.impl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.app.ratingservice.client.ShipmentClient;
+import org.app.ratingservice.client.TrackingClient;
 import org.app.ratingservice.dto.request.CreateRatingRequest;
 import org.app.ratingservice.dto.response.RatingResponse;
 import org.app.ratingservice.dto.response.RatingStatusResponse;
@@ -29,6 +30,7 @@ public class RatingServiceImpl implements RatingService {
     public static final String TOPIC_FEEDBACK = "shipment-feedbacks";
     private final ShipmentRatingRepository shipmentRatingRepository;
     private final ShipmentClient shipmentClient;
+    private final TrackingClient trackingClient;
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Override
@@ -84,25 +86,26 @@ public class RatingServiceImpl implements RatingService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bưu gửi chưa được giao thành công, không thể đánh giá.");
         }
 
-        if (request.getVerifiedPhone() != null && !request.getVerifiedPhone().isBlank()) {
-            String rawPhone = shipment.getReceiverPhone();
-            if (rawPhone == null || rawPhone.length() < 4) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số điện thoại người nhận trên đơn hàng không hợp lệ.");
-            }
+        String rawPhone = shipment.getReceiverPhone();
+        String cleanDigits = rawPhone != null ? rawPhone.replaceAll("\\D+", "") : "";
+        if (cleanDigits.length() < 4) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số điện thoại người nhận trên đơn hàng không hợp lệ.");
+        }
+        String expectedLast4Digits = cleanDigits.substring(cleanDigits.length() - 4);
+        if (!expectedLast4Digits.equals(request.getVerifiedPhone().trim())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số điện thoại xác thực không khớp.");
+        }
 
-            String cleanDigits = rawPhone.replaceAll("\\D+", "");
-            String expectedLast4Digits = cleanDigits.substring(Math.max(0, cleanDigits.length() - 4));
-            String inputLast4Digits = request.getVerifiedPhone().trim();
-            if (!expectedLast4Digits.equals(inputLast4Digits)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số điện thoại xác thực không khớp.");
-            }
+        String courierCode = findCourierCode(trackingCode);
+        if (courierCode == null) {
+            log.warn("Không tìm thấy mã bưu tá bàn giao trong lịch sử tracking cho đơn {}. Đánh giá vẫn được lưu nhưng KPI bưu tá sẽ không được cập nhật.", trackingCode);
         }
 
         String tagsStr = (request.getTags() != null && !request.getTags().isEmpty()) ? String.join(",", request.getTags()) : null;
         String attachStr = (request.getAttachmentUrls() != null && !request.getAttachmentUrls().isEmpty()) ? String.join(",", request.getAttachmentUrls()) : null;
         ShipmentRating rating = ShipmentRating.builder()
                 .trackingCode(trackingCode)
-                .courierCode(shipment.getTrackingCode())
+                .courierCode(courierCode)
                 .serviceRating(request.getServiceRating())
                 .shipperRating(request.getShipperRating())
                 .tags(tagsStr)
@@ -125,8 +128,14 @@ public class RatingServiceImpl implements RatingService {
                 .build();
 
         try {
-            kafkaTemplate.send(TOPIC_FEEDBACK, savedRating.getTrackingCode(), event);
-            log.info("Đã phát sự kiện ShipmentFeedbackEvent lên Kafka cho đơn {}", savedRating.getTrackingCode());
+            kafkaTemplate.send(TOPIC_FEEDBACK, savedRating.getTrackingCode(), event)
+                    .whenComplete((result, exception) -> {
+                        if (exception != null) {
+                            log.error("Lỗi khi phát sự kiện ShipmentFeedbackEvent lên Kafka cho đơn {}", savedRating.getTrackingCode(), exception);
+                        } else {
+                            log.info("Đã phát sự kiện ShipmentFeedbackEvent lên Kafka cho đơn {}", savedRating.getTrackingCode());
+                        }
+                    });
         } catch (Exception e) {
             log.error("Lỗi khi phát sự kiện ShipmentFeedbackEvent lên Kafka cho đơn {}", savedRating.getTrackingCode(), e);
         }
@@ -141,6 +150,21 @@ public class RatingServiceImpl implements RatingService {
                 .suggestTicket(suggestTicket)
                 .createdAt(savedRating.getCreatedAt())
                 .build();
+    }
+
+    private String findCourierCode(String trackingCode) {
+        try {
+            return trackingClient.getTrackingHistory(trackingCode).stream()
+                    .filter(history -> "HANDED_TO_COURIER".equalsIgnoreCase(history.getOperationType()))
+                    .map(TrackingClient.TrackingHistoryDto::getActorId)
+                    .filter(actorId -> actorId != null && !actorId.isBlank())
+                    .map(String::trim)
+                    .reduce((earlier, later) -> later)
+                    .orElse(null);
+        } catch (Exception e) {
+            log.warn("Không thể lấy mã bưu tá từ tracking-service cho đơn {}: {}", trackingCode, e.getMessage());
+            return null;
+        }
     }
 }
 

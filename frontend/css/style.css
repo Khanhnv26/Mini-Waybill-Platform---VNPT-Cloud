@@ -1091,3 +1091,78 @@ body {
     filter: drop-shadow(0 2px 6px rgba(245, 158, 11, 0.45));
 }
 
+/* ==========================================================================
+   PUBLIC PORTAL REDESIGN - DESIGN SYSTEM STYLES
+   ========================================================================== */
+.vnpt-blue-gradient {
+    background: linear-gradient(135deg, #004b99 0%, #0066cc 55%, #0088ff 100%);
+}
+
+.hero-pattern {
+    background: linear-gradient(145deg, #083b77 0%, #0a4d9c 60%, #0f5eb8 100%);
+    position: relative;
+}
+
+.hero-pattern::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1.5px, transparent 1.5px);
+    background-size: 24px 24px;
+    pointer-events: none;
+}
+
+/* BRANDED HEADER BANNER TIỆN ÍCH CAO CẤP */
+.page-header-banner {
+    background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 60%, #e1effe 100%);
+    border: 1px solid #dbeafe;
+}
+
+/* ANIMATIONS & TRANSITIONS MƯỢT MÀ */
+@keyframes fadeInSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes radarWave {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(0, 102, 204, 0.45);
+    }
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 10px rgba(0, 102, 204, 0);
+    }
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(0, 102, 204, 0);
+    }
+}
+
+.animate-fade-slide {
+    animation: fadeInSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.radar-pulse-effect {
+    animation: radarWave 2s infinite ease-in-out;
+}
+
+.map-collapse-wrapper {
+    transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+    overflow: hidden;
+}
+.map-collapsed {
+    max-height: 0px !important;
+    opacity: 0;
+}
+.map-expanded {
+    max-height: 540px !important;
+    opacity: 1;
+}
+

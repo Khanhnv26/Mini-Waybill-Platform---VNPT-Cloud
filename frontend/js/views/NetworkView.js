@@ -257,52 +257,33 @@
         },
         template: `
             <div class="space-y-5 pb-12 text-slate-800">
-                <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
-                    <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
-
-                    <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div>
-                            <div class="flex items-center space-x-2">
-                                <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
-                                    GIS Postal Locator
-                                </span>
-                                <span class="text-blue-100 text-xs font-medium flex items-center gap-1.5">
-                                    <span class="w-2 h-2 rounded-full bg-cyan-300 animate-pulse"></span>
-                                    Định Vị &amp; Bản Đồ Số Hóa
-                                </span>
-                            </div>
-                            <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
-                                Mạng Lưới Hub &amp; Bưu Cục Toàn Quốc
-                            </h1>
-                            <p class="text-xs text-blue-100/90 mt-0.5 leading-normal">
-                                Tra cứu điểm gửi hàng, kho trung chuyển, giờ hoạt động và hotline bưu cục VNPT Post.
-                            </p>
+                <!-- BRANDED PAGE HEADER BANNER: MẠNG LƯỚI BƯU CỤC -->
+                <div class="page-header-banner rounded-3xl p-6 sm:p-7 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden transition-all duration-300 hover:shadow-md">
+                    <div class="flex items-start space-x-4">
+                        <div class="w-14 h-14 rounded-2xl bg-teal-600 text-white flex items-center justify-center shadow-lg shadow-teal-600/30 flex-shrink-0 ring-4 ring-teal-100">
+                            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                         </div>
+                        <div>
+                            <div class="flex items-center space-x-2 text-xs font-semibold text-teal-700 mb-1 whitespace-nowrap">
+                                <span @click="goBack" class="cursor-pointer hover:underline">Trang Chủ</span>
+                                <span>/</span>
+                                <span>Hạ Tầng Vận Hành</span>
+                                <span>/</span>
+                                <span class="text-slate-500">Mạng Lưới Bưu Cục</span>
+                            </div>
+                            <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight sm:whitespace-nowrap">Mạng Lưới Siêu Hub &amp; Bưu Cục Toàn Quốc</h1>
+                            <p class="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl leading-relaxed">Hơn 10.000 điểm giao dịch và Siêu Hub tự động phủ khắp 63 tỉnh thành sẵn sàng phục vụ quý khách gửi và nhận bưu phẩm.</p>
+                        </div>
+                    </div>
 
-                        <div class="flex items-center space-x-2 self-start sm:self-auto">
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px]">
-                                <div class="text-sm sm:text-base font-bold leading-tight text-white">63 Tỉnh</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Độ Phủ</div>
-                            </div>
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px]">
-                                <div class="text-sm sm:text-base font-bold leading-tight text-cyan-300 font-mono">{{ superHubCount }} Hubs</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Kho Trục</div>
-                            </div>
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px]">
-                                <div class="text-sm sm:text-base font-bold leading-tight text-amber-300 font-mono">{{ postOffices.length }} Trạm</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Điểm Gửi</div>
-                            </div>
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px]">
-                                <div class="text-sm sm:text-base font-bold leading-tight text-emerald-300">T7 &amp; CN</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Mở Cửa</div>
-                            </div>
-                            <button 
-                                type="button" 
-                                @click="goBack" 
-                                class="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 border border-white/30 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-sm cursor-pointer ml-1"
-                            >
-                                <span>← Về Tra Cứu</span>
-                            </button>
+                    <div class="flex items-center space-x-3 self-start md:self-center flex-shrink-0">
+                        <div class="px-4 py-2.5 rounded-2xl bg-white border border-teal-200/80 shadow-xs text-center min-w-[110px] flex-shrink-0">
+                            <span class="text-[10.5px] uppercase font-bold text-slate-400 block tracking-wider whitespace-nowrap">Độ Phủ</span>
+                            <span class="text-xs sm:text-sm font-black text-teal-700 whitespace-nowrap">63 Tỉnh Thành</span>
+                        </div>
+                        <div class="px-4 py-2.5 rounded-2xl bg-white border border-teal-200/80 shadow-xs text-center min-w-[110px] flex-shrink-0">
+                            <span class="text-[10.5px] uppercase font-bold text-slate-400 block tracking-wider whitespace-nowrap">Điểm Phục Vụ</span>
+                            <span class="text-xs sm:text-sm font-black text-blue-700 whitespace-nowrap">10.000+ Trạm</span>
                         </div>
                     </div>
                 </div>
