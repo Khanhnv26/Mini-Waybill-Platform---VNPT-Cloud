@@ -1,10 +1,3 @@
-/**
- * ==============================================================================
- * VNPT CLOUD - VIEW: BƯU TÁ GIAO VẬN & QUYẾT TOÁN COD (SHIPPER VIEW)
- * Phong Cách B2B Tối Giản, Chuẩn Hóa Thuật Ngữ Bưu Chính & Kết Nối Dữ Liệu Thật
- * Phân quyền: ROLE_SHIPPER / ROLE_ADMIN (Quyền: tracking:update_delivery)
- * ==============================================================================
- */
 
 (function () {
     const { ref, computed, watch, onMounted } = Vue;
@@ -13,20 +6,17 @@
         name: 'ShipperView',
         emits: ['view-tracking'],
         setup(props, { emit }) {
-            const currentSubtab = ref('active'); // 'active' | 'cod'
+            const currentSubtab = ref('active');
             const isLoading = ref(false);
             const isActionRunning = ref(false);
 
-            // Dữ liệu bưu gửi thật từ backend
             const shipmentsList = ref([]);
             const searchQuery = ref('');
             const selectedStatusFilter = ref('ALL');
 
-            // Phân trang
             const currentPage = ref(1);
             const pageSize = ref(10);
 
-            // Modal Báo Phát Thất Bại
             const showFailedModal = ref(false);
             const failedTargetShipment = ref(null);
             const failedReason = ref('KHONG_NGHE_MAY');
@@ -427,7 +417,6 @@
             };
 
 
-            // 1. Tải dữ liệu bưu gửi thật từ backend (Hỗ trợ nạp ngầm không nháy màn hình)
             const loadShipmentsData = async (silent = false) => {
                 if (!silent) isLoading.value = true;
                 try {
@@ -464,7 +453,6 @@
                 }
             };
 
-            // 2. Danh sách nền: chỉ gồm bưu gửi chặng cuối (không lộ hàng trung tuyến)
             const deliveryShipments = computed(() => {
                 const finalMileStatuses = new Set([
                     'ARRIVED_DEST_HUB', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED',
@@ -501,7 +489,6 @@
                 return list;
             });
 
-            // 4. Phân trang
             const totalPages = computed(() => {
                 if (pageSize.value === -1) return 1;
                 return Math.ceil(filteredShipments.value.length / pageSize.value) || 1;
@@ -517,7 +504,6 @@
                 currentPage.value = 1;
             });
 
-            // 4. Thống kê KPI bưu tá
             const kpiAwaitingDispatch = computed(() => {
                 return shipmentsList.value.filter(s => getShipmentStatus(s) === 'ARRIVED_DEST_HUB' && isAtDestinationPostOffice(s)).length;
             });
@@ -530,14 +516,12 @@
                 return shipmentsList.value.filter(s => getShipmentStatus(s) === 'DELIVERED').length;
             });
 
-            // Tổng tiền COD đã thu từ các đơn DELIVERED
             const kpiTotalDeliveredCod = computed(() => {
                 return shipmentsList.value
                     .filter(s => getShipmentStatus(s) === 'DELIVERED')
                     .reduce((acc, cur) => acc + (cur.codAmount || 0), 0);
             });
 
-            // Tổng tiền COD cần thu từ các đơn OUT_FOR_DELIVERY
             const kpiPendingCod = computed(() => {
                 return shipmentsList.value
                     .filter(s => getShipmentStatus(s) === 'OUT_FOR_DELIVERY')
@@ -577,7 +561,6 @@
                 response?.status || response?.currentStatus || response?.newStatus || fallback
             ).trim().toUpperCase();
 
-            // 5. Thao tác phát thành công (DELIVERED) chỉ sau khi xác nhận đang ở bưu cục phát.
             const handleDeliverSuccess = async (shipment) => {
                 if (!canShowDeliveryActions(shipment)) {
                     Utils.showToast('Chưa Thể Phát', 'Bưu gửi chưa có xác nhận đang ở bưu cục phát hoặc trạng thái đã thay đổi. Vui lòng làm mới dữ liệu.', 'warning');
@@ -626,7 +609,6 @@
                 }
             };
 
-            // Mở modal báo phát không thành công
             const openFailedModal = (shipment) => {
                 if (!canShowDeliveryActions(shipment)) {
                     Utils.showToast('Chưa Thể Báo Thất Bại', 'Bưu gửi chưa có xác nhận đang ở bưu cục phát hoặc trạng thái đã thay đổi.', 'warning');
@@ -639,7 +621,6 @@
                 showFailedModal.value = true;
             };
 
-            // Xác nhận báo phát thất bại (DELIVERY_FAILED)
             const handleDeliverFailed = async () => {
                 if (!failedTargetShipment.value) return;
 
@@ -801,16 +782,12 @@
                 }
             };
 
-            // Mở chi tiết hành trình & bản đồ tại TrackingView
             const viewTrackingDetail = (code) => {
                 if (code && code.trim()) {
                     emit('view-tracking', code.trim(), 'shipper');
                 }
             };
 
-            // ===============================================================
-            // QUẢN LÝ QUYẾT TOÁN COD CUỐI CA (SETTLEMENT)
-            // ===============================================================
             const selectedCodCodes = ref([]);
             const isSubmittingSettlement = ref(false);
             const showSettlementModal = ref(false);
@@ -1023,7 +1000,6 @@
         },
         template: `
         <div class="space-y-3.5 pb-8 text-slate-800">
-            <!-- 1. HERO BANNER: THIẾT KẾ VNPT GRADIENT CHUẨN RBAC VIEW -->
             <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                 <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
 
@@ -1043,7 +1019,6 @@
                         </p>
                     </div>
 
-                    <!-- Thống kê nhanh KPI theo phong cách RBAC -->
                     <div class="flex items-center space-x-2 self-start sm:self-auto">
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[76px]">
                             <div class="text-sm sm:text-base font-bold leading-tight text-amber-300">{{ kpiAwaitingDispatch }}</div>
@@ -1065,7 +1040,6 @@
                 </div>
             </div>
 
-            <!-- 2. SUBTABS ĐIỀU HƯỚNG GẠCH CHÂN CHUẨN RBAC -->
             <div class="flex items-center justify-between border-b border-slate-200">
                 <div class="flex space-x-4 sm:space-x-6 overflow-x-auto no-scrollbar pb-px">
                     <button 
@@ -1103,13 +1077,8 @@
                 </button>
             </div>
 
-            <!-- =============================================================== -->
-            <!-- TRANSITION CHUYỂN SUBTAB MƯỢT MÀ                             -->
-            <!-- =============================================================== -->
             <transition name="subtab" mode="out-in">
-                <!-- SUBTAB 1: DANH SÁCH BƯU GỬI PHÁT HÔM NAY -->
                 <div v-if="currentSubtab === 'active'" key="active" class="space-y-3">
-                <!-- THANH TOOLBAR TÌM KIẾM & LỌC -->
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2.5 shadow-sm text-xs">
                     <div class="flex flex-wrap items-center gap-2 flex-1">
                         <div class="relative w-56 sm:w-64">
@@ -1149,7 +1118,6 @@
                     </div>
                 </div>
 
-                <!-- BẢNG BƯU GỬI PHÁT HÀNG TẬN NƠI -->
                 <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden text-xs">
                     <div v-if="isLoading" class="p-8 text-center text-slate-400">
                         <div class="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
@@ -1200,7 +1168,6 @@
                                         </span>
                                     </td>
                                     <td class="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">
-                                        <!-- Chỉ cho phép phát khi trạng thái OUT_FOR_DELIVERY và đã xác nhận ở bưu cục phát -->
                                         <template v-if="getShipmentStatus(item) === 'OUT_FOR_DELIVERY' && canShowDeliveryActions(item)">
                                             <button
                                                 @click="handleDeliverSuccess(item)"
@@ -1224,7 +1191,6 @@
                                             </span>
                                         </template>
 
-                                        <!-- Handoff mới chỉ xuất hiện khi tồn kho xác nhận kiện đã ở đúng bưu cục phát -->
                                         <template v-else-if="getShipmentStatus(item) === 'ARRIVED_DEST_HUB' && isReadyForCourierHandoff(item)">
                                             <button
                                                 @click="handleReDispatch(item)"
@@ -1245,7 +1211,6 @@
                                             </span>
                                         </template>
 
-                                        <!-- Retry DELIVERY_FAILED chỉ giữ cho state machine legacy hợp lệ -->
                                         <template v-else-if="getShipmentStatus(item) === 'DELIVERY_FAILED' && canRetryDelivery(item)">
                                             <button
                                                 @click="handleReDispatch(item)"
@@ -1271,7 +1236,6 @@
                                             </span>
                                         </template>
 
-                                        <!-- Đơn IN_TRANSIT: Hàng còn trên xe đường dài, chưa về tới bưu cục phát -->
                                         <template v-else-if="getShipmentStatus(item) === 'IN_TRANSIT'">
                                             <span
                                                 class="inline-flex items-center gap-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded-md"
@@ -1291,7 +1255,6 @@
                         </table>
                     </div>
 
-                    <!-- Phân trang bưu tá -->
                     <div class="px-4 py-2.5 bg-slate-50/50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                         <div class="text-slate-500">
                             Hiển thị trang {{ currentPage }} / {{ totalPages }} (Tổng số {{ filteredShipments.length }} kết quả)
@@ -1329,11 +1292,7 @@
                 </div>
             </div>
 
-            <!-- =============================================================== -->
-            <!-- SUBTAB 2: QUYẾT TOÁN TIỀN THU HỘ COD CUỐI CA -->
-            <!-- =============================================================== -->
             <div v-else-if="currentSubtab === 'cod'" key="cod" class="space-y-3.5">
-                <!-- 1. TIÊU ĐỀ VÀ KPI STRIP -->
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
                     <div>
                         <h2 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Quyết Toán Tiền Mặt Thu Hộ (COD)</h2>
@@ -1346,7 +1305,6 @@
                     </div>
                 </div>
 
-                <!-- 2. KPI BREAKDOWN CARDS -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                     <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
                         <div class="flex items-center justify-between">
@@ -1386,7 +1344,6 @@
                     </div>
                 </div>
 
-                <!-- 3. OPERATION ACTION BAR -->
                 <div class="operation-action-bar p-3 sm:p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
                     <div class="flex items-center space-x-2 text-xs">
                         <input 
@@ -1425,7 +1382,6 @@
                     </div>
                 </div>
 
-                <!-- 4. DANH SÁCH BƯU GỬI COD -->
                 <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden text-xs">
                     <table class="w-full text-left border-collapse">
                         <thead>
@@ -1508,7 +1464,6 @@
             </div>
             </transition>
 
-            <!-- MODAL BÁO PHÁT THẤT BẠI -->
             <teleport to="body">
             <Transition name="modal">
             <div v-if="showFailedModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -1553,7 +1508,6 @@
             </Transition>
             </teleport>
 
-            <!-- MODAL XÁC NHẬN NỘP QUỸ COD -->
             <teleport to="body">
             <Transition name="modal">
             <div v-if="showSettlementModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">

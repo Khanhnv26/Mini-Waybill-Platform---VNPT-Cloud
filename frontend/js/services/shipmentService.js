@@ -1,8 +1,3 @@
-/**
- * VNPT CLOUD - SHIPMENT SERVICE CLIENT
- * Quản lý khởi tạo đơn hàng và phát hành vận đơn
- */
-
 (function () {
     const ShipmentService = {
         async createShipment(payload) {

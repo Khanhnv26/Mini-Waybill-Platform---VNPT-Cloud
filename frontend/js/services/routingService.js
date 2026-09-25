@@ -1,8 +1,3 @@
-/**
- * VNPT CLOUD - ROUTING SERVICE CLIENT
- * Quản lý Hubs, Điều phối Chuyến xe trục (Trips) & Gom đơn liên tỉnh
- */
-
 (function () {
     const encodePath = (value) => encodeURIComponent(String(value ?? ''));
 

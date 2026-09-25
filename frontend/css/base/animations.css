@@ -1,9 +1,7 @@
-/* VNPT CLOUD - GLOBAL ANIMATIONS & TRANSITIONS */
 .smooth-transition {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Status Milestone Pulse Animations */
 @keyframes pulse-ring {
     0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5); }
     70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(37, 99, 235, 0); }
@@ -40,7 +38,6 @@
     animation: pulse-ring-emerald 2s infinite;
 }
 
-/* Entrance Animations */
 @keyframes fadeInUp {
     from {
         opacity: 0;
@@ -74,7 +71,6 @@
 .delay-300 { animation-delay: 100ms; }
 .delay-400 { animation-delay: 130ms; }
 
-/* 60fps SPA Page Transitions */
 .page-enter-active,
 .page-appear-active {
     transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
@@ -99,7 +95,6 @@
     transform: translateY(-8px);
 }
 
-/* Subtab Transitions */
 .subtab-enter-active {
     transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
     will-change: transform, opacity;
@@ -127,7 +122,6 @@
     transform: scale(1.02);
 }
 
-/* Modal Transitions */
 .modal-enter-active,
 .modal-leave-active {
     transition: opacity 300ms cubic-bezier(0.16, 1, 0.3, 1);

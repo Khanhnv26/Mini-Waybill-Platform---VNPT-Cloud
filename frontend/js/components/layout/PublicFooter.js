@@ -1,8 +1,3 @@
-/**
- * VNPT CLOUD - PUBLIC FOOTER COMPONENT
- * Footer thông tin dịch vụ, hỗ trợ khách hàng và pháp lý bưu chính quốc gia.
- * Angular-Ready Standalone Component.
- */
 (function () {
     const template = `
     <footer class="bg-slate-900 text-slate-300 text-xs border-t border-slate-800 pt-10 pb-8 px-4 sm:px-8 mt-auto flex-shrink-0">

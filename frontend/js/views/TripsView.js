@@ -1,11 +1,3 @@
-/**
- * ==============================================================================
- * VNPT CLOUD - VIEW: ĐIỀU PHỐI CHUYẾN XE TRỤC (LINEHAUL TRIPS VIEW)
- * Không icon, tối giản chuẩn Enterprise B2B
- * Bản đồ đồng bộ chuẩn xác với bản đồ đơn hàng (Google Maps hl=vi, Leaflet, OSRM)
- * ==============================================================================
- */
-
 (function () {
     const { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } = Vue;
 
@@ -80,7 +72,6 @@
     });
 
     const HUB_COORDINATES = {
-        // 5 KHO TỔNG CẤP 1 (SUPER HUBS / CENTRAL HUBS)
         'HUB-HN-01': { 
             name: 'Kho Tổng Hà Nội', 
             address: 'Lô 12-A, KCN Minh Khai, Phường Minh Khai, Quận Bắc Từ Liêm, Hà Nội',
@@ -127,8 +118,6 @@
             level: 1 
         },
 
-        // 17 BƯU CỤC PHÁT CẤP 2/3 (SUB-HUBS / LOCAL POST OFFICES)
-        // [Hà Nội]
         'POST-HN-CG': { 
             name: 'Bưu Cục Cầu Giấy', 
             address: 'Số 165 Cầu Giấy, Phường Dịch Vọng, Quận Cầu Giấy, Hà Nội',
@@ -180,7 +169,6 @@
             parent: 'HUB-HN-01' 
         },
 
-        // [TP. Hồ Chí Minh]
         'POST-HCM-Q1': { 
             name: 'Bưu Cục Bến Nghé (Quận 1)', 
             address: 'Số 2 Công Xã Paris, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh',
@@ -232,7 +220,6 @@
             parent: 'HUB-HCM-01' 
         },
 
-        // [Đà Nẵng]
         'POST-DN-HC': { 
             name: 'Bưu Cục Hải Châu', 
             address: 'Số 4 Lê Duẩn, Phường Hải Châu 1, Quận Hải Châu, Đà Nẵng',
@@ -264,7 +251,6 @@
             parent: 'HUB-DN-01' 
         },
 
-        // [Hải Phòng]
         'POST-HP-NQ': { 
             name: 'Bưu Cục Ngô Quyền', 
             address: 'Số 147 Lương Khánh Thiện, Phường Cầu Đất, Quận Ngô Quyền, Hải Phòng',
@@ -286,7 +272,6 @@
             parent: 'HUB-HP-01' 
         },
 
-        // [Cần Thơ]
         'POST-CT-NK': { 
             name: 'Bưu Cục Ninh Kiều', 
             address: 'Số 2 Hòa Bình, Phường Tân An, Quận Ninh Kiều, Cần Thơ',
@@ -341,7 +326,6 @@
             const minLat = Math.min(current.lat, next.lat);
             const maxLat = Math.max(current.lat, next.lat);
 
-            // Tìm các điểm chốt hành lang nội địa nằm giữa 2 trạm dừng liên tiếp
             const intermediates = VIETNAM_CORRIDOR_WAYPOINTS.filter(wp => {
                 return wp.lat > minLat + 0.35 && wp.lat < maxLat - 0.35;
             });
@@ -387,34 +371,28 @@
             const isLoading = ref(false);
             const searchQuery = ref('');
             const selectedStatusFilter = ref('ALL');
-            const tripDirectionTab = ref('OUTBOUND'); // 'OUTBOUND' | 'INBOUND'
+            const tripDirectionTab = ref('OUTBOUND');
             const selectedStationHub = ref(props.currentStation || 'ALL');
-            // Quy trình 3 bước trực quan: 1. Gom hàng bưu cục, 2. Xe trục liên tỉnh, 3. Phát hàng bưu cục
             const currentStep = ref(1);
 
-            // Chế độ vận tải: giữ các enum nghiệp vụ để dùng trực tiếp khi lập chuyến.
-            const transportMode = ref('LINEHAUL'); // 'LINEHAUL' | 'ORIGIN_FEEDER' | 'DESTINATION_FEEDER'
-            const feederDirectionTab = ref('OUTBOUND'); // legacy state, retained for compatibility
+            const transportMode = ref('LINEHAUL');
+            const feederDirectionTab = ref('OUTBOUND');
             const feederVehiclePlate = ref('29C-556.12 (Tải 1.5T)');
             const feederDriverName = ref('Vũ Văn Gom');
             const originFeederStation = ref('ALL');
             const destinationFeederStation = ref('ALL');
-            const feederSubtab = ref('pending'); // 'pending' | 'trips'
+            const feederSubtab = ref('pending');
             const shipmentsList = ref([]);
             const isLoadingShipments = ref(false);
             const isFeederActionRunning = ref(false);
             const selectedOriginFeederCodes = ref(new Set());
             const selectedDestinationFeederCodes = ref(new Set());
-            // Trạng thái tồn kho thật tại kho tổng: chỉ hàng STORED mới được gom/xuất xe tiếp.
             const hubStoredCodes = ref(new Set());
             const hubReceivedCodes = ref(new Set());
             const isLoadingHubInventory = ref(false);
 
-            // Danh sách các mã bưu gửi vừa được nạp/xếp lên chuyến xe (Optimistic UI)
             const optimisticConsolidatedCodes = ref(new Set());
 
-            // Toàn bộ các mã bưu gửi đang nằm trên manifest các chuyến xe đang lập lịch/chạy
-            // hoặc vừa được gom lên xe (optimistic).
             const activeLoadedTrackingCodes = computed(() => {
                 const set = new Set(optimisticConsolidatedCodes.value);
                 (tripsList.value || []).forEach(trip => {
@@ -478,17 +456,14 @@
                 }
             };
 
-            // Danh sách các đơn chờ gom xe trung chuyển lên Hub (Xe Đi)
             const pendingFeederItems = computed(() => {
                 return shipmentsList.value.filter(s => {
                     if (s.currentStatus !== 'PICKED_UP') return false;
                     const code = String(s.trackingCode || '').trim().toUpperCase();
                     if (!code) return false;
 
-                    // 1. Đã nằm trong manifest của chuyến xe đang lập lịch/vận hành hoặc vừa được nạp (optimistic)
                     if (activeLoadedTrackingCodes.value.has(code)) return false;
 
-                    // 2. Đã gắn chuyến xe hoặc trạng thái kho đã nạp/giữ chỗ
                     const hasActiveTrip = Boolean(s.activeTripId || s.activeTripCode || s.activeTrip || s.tripCode);
                     const invStatus = String(s.inventoryStatus || s.inventory_status || '').trim().toUpperCase();
                     if (hasActiveTrip || ['RESERVED', 'LOADED', 'HANDED_TO_COURIER'].includes(invStatus)) return false;
@@ -504,10 +479,6 @@
                 return pendingFeederItems.value.reduce((acc, cur) => acc + (cur.weight || 0), 0);
             });
 
-            // Danh sách các đơn xe trung chuyển từ Kho Tổng đang về Bưu cục (Xe Đến)
-            // ĐỒNG BỘ CHẶT CHẼ VỚI XE TRỤC CONTAINER LIÊN TỈNH:
-            // Chỉ hiển thị các đơn mà xe trục đã cập bến và dỡ hàng tại Kho Tổng Đích (ARRIVED_DEST_HUB tại Kho Tổng)
-            // Tuyệt đối không cho phép nhập kho bưu cục khi xe trục container vẫn đang chạy trên đường (IN_TRANSIT)
             const incomingFeederItems = computed(() => {
                 return shipmentsList.value.filter(s => {
                     const code = String(s.trackingCode || '').trim().toUpperCase();
@@ -524,16 +495,13 @@
                     const hasActiveTrip = !!(s.activeTripId || s.activeTripCode || s.activeTrip || s.tripCode);
                     if (hasActiveTrip || ['RESERVED', 'LOADED', 'HANDED_TO_COURIER'].includes(inventoryStatus)) return false;
 
-                    // Bưu phẩm phải thực tế đã dỡ tại Kho Tổng Đích (xe trục đã cập bến Kho Tổng)
                     const targetDestHub = (s.destinationHub || '').toUpperCase();
                     const isUnloadedAtDestHub = s.currentStatus === 'ARRIVED_DEST_HUB' && (loc === targetDestHub || loc.startsWith('HUB-'));
                     if (!isUnloadedAtDestHub) return false;
-                    // Chỉ kiện đã được thủ kho xác nhận lưu kho (STORED) mới được lập xe phát.
                     return hubStoredCodes.value.has(code);
                 });
             });
 
-            // Tồn kho thật tại các kho tổng: RECEIVED (chờ lưu kho) vs STORED (sẵn sàng gom).
             const loadHubInventoryState = async () => {
                 const routing = window.RoutingService;
                 if (!routing || typeof routing.getInventory !== 'function') return;
@@ -652,8 +620,6 @@
 
             const isMigrationUnavailable = (error) => [404, 405, 501].includes(getErrorStatus(error));
 
-            // Ghi nhận kiện qua routing inventory API để đồng bộ tồn kho và lifecycle event.
-            // Chỉ dùng đường POST trực tiếp như fallback cho deployment cũ chưa có wrapper chuẩn.
             const receiveFeederInventory = async ({ locationCode, trackingCode, transportLeg, shipmentStatus, note }) => {
                 const request = {
                     trackingCodes: [trackingCode],
@@ -797,7 +763,6 @@
                 }
             };
 
-            // Xuất xe gom trung chuyển cho 1 đơn cụ thể.
             const handleDispatchFeederItem = async (item) => {
                 const poInfo = getOriginPostOfficeInfo(item, false);
                 const originHub = String(poInfo.code || '').trim().toUpperCase();
@@ -809,7 +774,6 @@
                 const plate = feederVehiclePlate.value.trim() || '29C-556.12';
                 const driver = feederDriverName.value.trim() || 'Vũ Văn Gom';
                 const cleanCode = String(item.trackingCode || '').trim().toUpperCase();
-                // Optimistic: ẩn ngay lập tức khỏi danh sách chờ gom
                 optimisticConsolidatedCodes.value.add(cleanCode);
                 const nextSelected = new Set(selectedOriginFeederCodes.value);
                 nextSelected.delete(cleanCode);
@@ -849,7 +813,6 @@
                 }
             };
 
-            // Xuất chuyến xe gom trung chuyển hàng loạt (Xe Đi).
             const handleDispatchAllFeeder = async () => {
                 const batchItems = selectedOriginFeederItems.value;
                 if (batchItems.length === 0) {
@@ -869,7 +832,6 @@
                     tone: 'primary'
                 }, async () => {
                     const batchCodes = batchItems.map(i => String(i.trackingCode || '').trim().toUpperCase()).filter(Boolean);
-                    // Optimistic: ẩn ngay lập tức các kiện khỏi danh sách chờ gom
                     batchCodes.forEach(code => optimisticConsolidatedCodes.value.add(code));
                     clearFeederSelections();
 
@@ -927,8 +889,6 @@
                 });
             };
 
-            // Lập và xuất chuyến feeder đích. Việc cập bến/dỡ hàng phải do
-            // handleArriveNextStop thực hiện theo đúng thứ tự stopOrder.
             const handleReceiveIncomingFeeder = async (item) => {
                 const targetPO = String(
                     destinationFeederStation.value !== 'ALL'
@@ -943,7 +903,6 @@
                 const plate = feederVehiclePlate.value.trim() || '29C-556.12';
                 const driver = feederDriverName.value.trim() || 'Vũ Văn Gom';
                 const cleanCode = String(item.trackingCode || '').trim().toUpperCase();
-                // Optimistic: ẩn ngay khỏi danh sách chờ phát
                 optimisticConsolidatedCodes.value.add(cleanCode);
                 const nextSelected = new Set(selectedDestinationFeederCodes.value);
                 nextSelected.delete(cleanCode);
@@ -984,7 +943,6 @@
                 }
             };
 
-            // Lập và xuất các chuyến feeder đích theo từng cặp HUB -> bưu cục.
             const handleReceiveAllIncomingFeeder = async () => {
                 const batchItems = selectedDestinationFeederItems.value;
                 if (batchItems.length === 0) {
@@ -1002,7 +960,6 @@
                     tone: 'primary'
                 }, async () => {
                     const batchCodes = batchItems.map(i => String(i.trackingCode || '').trim().toUpperCase()).filter(Boolean);
-                    // Optimistic: ẩn ngay khỏi danh sách chờ phát
                     batchCodes.forEach(code => optimisticConsolidatedCodes.value.add(code));
                     clearFeederSelections();
 
@@ -1086,7 +1043,6 @@
                 return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
             };
 
-            // Cấu hình Bộ Lập Lịch Gom Đơn (Tự Động vs Thủ Công)
             const schedulerConfig = reactive({
                 enabled: true,
                 intervalSeconds: 300,
@@ -1099,7 +1055,6 @@
             const isUpdatingScheduler = ref(false);
             const isConsolidatingAll = ref(false);
 
-            // Modal Lập Chuyến Xe Mới
             const showCreateModal = ref(false);
             const isSubmittingTrip = ref(false);
             const selectedPresetIndex = ref(0);
@@ -1117,7 +1072,6 @@
                 stopHubCodes: [...PRESET_ROUTES[0].stops]
             });
 
-            // Biểu mẫu cập nhật tiến độ chuyến xe (được hiển thị trong modal chi tiết).
             const isUpdatingProgress = ref(false);
             const progressForm = reactive({
                 locationCode: '',
@@ -1128,7 +1082,6 @@
             });
             const progressOperationSeeds = new Map();
 
-            // Modal Chi Tiết & Bản Đồ
             const showDetailModal = ref(false);
             const activeTripDetail = ref(null);
             const isLoadingDetail = ref(false);
@@ -1139,14 +1092,12 @@
                 return (activeTripDetail.value?.manifests || []).filter(m => m.status !== 'REMOVED');
             });
 
-            // Quản lý Đơn hàng Chờ Khả Dụng
             const eligibleAssignments = ref([]);
             const isLoadingEligible = ref(false);
             const eligibleSearchQuery = ref('');
             const selectedEligibleCodes = ref([]);
             const isConsolidatingSelected = ref(false);
 
-            // Confirmation modal dùng chung cho các mutation có tác động vật lý hoặc thay đổi trạng thái chuyến.
             const showConfirmationModal = ref(false);
             const confirmationState = reactive({
                 title: 'Xác Nhận Thao Tác',
@@ -1387,9 +1338,6 @@
                 return { key: 'VIEW', label: 'Xem chuyến', stop: null };
             };
 
-            // Khối lượng hiển thị trên thanh tải trọng:
-            // - Chuyến đang chờ/đang chạy: hàng đang trên xe (currentWeight).
-            // - Chuyến đã hoàn tất: tổng khối lượng manifest đã chở (đã dỡ xuống).
             const getTripLoadInfo = (trip, fallbackCapacity = 5000) => {
                 const manifests = Array.isArray(trip?.manifests) ? trip.manifests : [];
                 const activeWeight = manifests
@@ -1833,7 +1781,6 @@
                 initTripMap();
                 if (!leafletMap) return;
 
-                // Dọn dẹp layer cũ
                 routeLayers.forEach(l => {
                     try { leafletMap.removeLayer(l); } catch (e) {}
                 });
@@ -1863,7 +1810,6 @@
                     return;
                 }
 
-                // 1. Đặt các mốc điểm trạm dừng (Pins) chuẩn tối giản
                 validStops.forEach(({ stop, coord }, index) => {
                     const point = [coord.lat, coord.lng];
 
@@ -1901,7 +1847,6 @@
                     stopMarkers.push(marker);
                 });
 
-                // 2. Tính toán lộ trình đường bộ dọc QL1A/CT01 qua OSRM hoặc corridor fallback
                 const stopCoords = validStops.map(item => item.coord);
                 let routePoints = [];
 
@@ -1930,9 +1875,6 @@
 
                 tripRoutePoints = routePoints;
 
-                // 3. Phân đoạn tuyến chuẩn Map Tracking:
-                // - completedPolyline: Màu xanh dương đậm #0066cc
-                // - remainingPolyline: Nét đứt Tím Indigo #6366f1
                 const findClosestPointIndex = (targetCoord, points) => {
                     let bestIdx = 0;
                     let minDist = Infinity;
@@ -1965,7 +1907,6 @@
                     statusText = tripData.status === 'LOADING' ? 'Đang Xếp Hàng Lên Xe' : 'Chờ Khởi Hành';
                     subText = `Đậu tại ${validStops[0].coord.name}`;
                 } else {
-                    // IN_TRANSIT hoặc DEPARTED
                     let arrivedStopIdx = -1;
                     validStops.forEach((s, idx) => {
                         if (s.stop.status === 'ARRIVED' || (tripData.currentHub && tripData.currentHub === s.stop.hubCode)) {
@@ -1997,7 +1938,6 @@
                     }
                 }
 
-                // 4. Vẽ phân đoạn đã hoàn thành (Xanh dương đậm #0066cc)
                 if (targetIdx > 0) {
                     const completedCoords = routePoints.slice(0, targetIdx + 1);
                     if (completedCoords.length >= 2) {
@@ -2012,7 +1952,6 @@
                     }
                 }
 
-                // 5. Vẽ phân đoạn còn lại (Nét đứt Tím Indigo #6366f1)
                 const remainingCoords = targetIdx === 0 ? routePoints : routePoints.slice(targetIdx);
                 if (remainingCoords.length >= 2) {
                     const remainingPolyline = L.polyline(remainingCoords, {
@@ -2026,7 +1965,6 @@
                     routeLayers.push(remainingPolyline);
                 }
 
-                // 6. Cập nhật Pin Radar phát sóng di động (.hub-pin-current)
                 if (currentPoint) {
                     const radarIcon = L.divIcon({
                         className: 'hub-pin-current',
@@ -2106,7 +2044,6 @@
                     }));
 
                 const codes = itemsToLoad.map(i => String(i.trackingCode || '').trim().toUpperCase()).filter(Boolean);
-                // Optimistic: ghi nhận các mã vừa nạp
                 codes.forEach(c => optimisticConsolidatedCodes.value.add(c));
 
                 isConsolidatingSelected.value = true;
@@ -2140,7 +2077,6 @@
                     try {
                         const res = await RoutingService.removeManifestItem(tripId, trackingCode);
                         activeTripDetail.value = res;
-                        // Xóa khỏi optimistic để kiện lập tức tái xuất hiện trong danh sách chờ
                         optimisticConsolidatedCodes.value.delete(cleanCode);
                         Utils.showToast('Đã Gỡ Kiện Hàng', `Kiện hàng ${trackingCode} đã được gỡ và hoàn lại tải trọng xe.`, 'success');
                         await loadTrips();
@@ -2868,7 +2804,6 @@
         },
         template: `
         <div :class="embedded ? 'space-y-3.5 text-slate-800' : 'p-5 max-w-7xl mx-auto space-y-4 text-slate-800'">
-            <!-- 1. HERO BANNER VNPT GRADIENT -->
             <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                 <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
 
@@ -2887,8 +2822,6 @@
                             Mô hình quy trình 3 chặng khép kín: Gom hàng từ bưu cục ➔ Xe container trục liên tỉnh ➔ Phát hàng về bưu cục đích.
                         </p>
                     </div>
-
-                    <!-- Thống kê nhanh KPI 3 Chặng -->
                     <div class="flex items-center gap-2 self-start sm:self-auto">
                         <div class="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/15 text-center min-w-[80px]">
                             <div class="text-base font-black leading-tight">{{ pendingFeederItems.length }}</div>
@@ -2914,10 +2847,7 @@
                     </div>
                 </div>
             </div>
-
-            <!-- 2. THANH TIẾN TRÌNH 3 BƯỚC TRỰC QUAN (3-STEP PIPELINE) -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <!-- BƯỚC 1 -->
                 <button 
                     type="button"
                     @click="currentStep = 1; transportMode = 'ORIGIN_FEEDER'; feederSubtab = 'pending'"
@@ -2943,8 +2873,6 @@
                         <div class="text-[11px] text-slate-500 mt-0.5">Xe tải gom bưu phẩm tại quầy</div>
                     </div>
                 </button>
-
-                <!-- BƯỚC 2 -->
                 <button 
                     type="button"
                     @click="currentStep = 2; transportMode = 'LINEHAUL'"
@@ -2970,8 +2898,6 @@
                         <div class="text-[11px] text-slate-500 mt-0.5">Đầu kéo 30T kết nối các Hub trung tâm</div>
                     </div>
                 </button>
-
-                <!-- BƯỚC 3 -->
                 <button 
                     type="button"
                     @click="currentStep = 3; transportMode = 'DESTINATION_FEEDER'; feederSubtab = 'pending'"
@@ -2998,13 +2924,8 @@
                     </div>
                 </button>
             </div>
-
-            <!-- ========================================================================= -->
-            <!-- NỘI DUNG: BƯỚC 1 - GOM HÀNG VỀ KHO TỔNG (ORIGIN FEEDER)                   -->
-            <!-- ========================================================================= -->
             <transition name="subtab" mode="out-in">
             <div v-if="currentStep === 1" key="step-1" class="space-y-3">
-                <!-- Subtabs chuyển đổi: Kiện chờ xếp vs Chuyến xe đang chạy -->
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                     <div class="flex space-x-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200 w-fit text-xs font-bold">
                         <button 
@@ -3037,8 +2958,6 @@
                         </button>
                     </div>
                 </div>
-
-                <!-- Thanh lọc bưu cục và thông tin xe -->
                 <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
                     <div class="flex flex-wrap items-center gap-2.5">
                         <div class="flex items-center space-x-1.5">
@@ -3079,8 +2998,6 @@
                         <span v-else>Tổng số xe vận hành: <strong class="text-blue-700 font-mono">{{ filteredOriginFeederTrips.length }} chuyến</strong></span>
                     </div>
                 </div>
-
-                <!-- Bảng 1.1: Kiện hàng chờ xếp xe gom -->
                 <div v-if="feederSubtab === 'pending'" class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden text-xs">
                     <div v-if="pendingFeederItems.length === 0" class="p-12 text-center text-slate-400">
                         Không có bưu phẩm nào đang chờ gom tại bưu cục đã chọn.
@@ -3150,8 +3067,6 @@
                          </table>
                      </div>
                  </div>
-
-                 <!-- Bảng 1.2: Chuyến xe gom bưu cục vận hành (Enterprise Table) -->
                  <div v-else class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden text-xs">
                      <div v-if="filteredOriginFeederTrips.length === 0" class="p-12 text-center text-slate-400">
                          Chưa có chuyến xe gom nào được khởi tạo cho bưu cục đang chọn. Nhấn "Xuất Xe Gom Đã Chọn" hoặc "+ Lập Chuyến Xe Gom" để tạo chuyến.
@@ -3235,12 +3150,7 @@
                     </div>
                 </div>
             </div>
-
-            <!-- ========================================================================= -->
-            <!-- NỘI DUNG: BƯỚC 2 - XE CONTAINER TRỤC LIÊN TỈNH (LINEHAUL)                 -->
-            <!-- ========================================================================= -->
             <div v-else-if="currentStep === 2" key="step-2" class="space-y-3">
-                <!-- Hướng xe: Xuất bến vs Cập bến & Chế độ Lập lịch -->
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                     <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg border border-slate-200 w-fit text-xs font-bold">
                         <button 
@@ -3282,8 +3192,6 @@
                         </button>
                     </div>
                 </div>
-
-                <!-- Thanh công cụ lọc: Tìm kiếm, Kho tổng, Trạng thái, Phân trang -->
                 <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
                     <div class="flex flex-wrap items-center gap-2.5">
                         <div class="relative w-52 sm:w-60">
@@ -3319,8 +3227,6 @@
                         Mô hình: <strong class="text-slate-800">Xe đầu kéo 30T kết nối 5 Siêu Kho Tổng</strong>
                     </div>
                 </div>
-
-                <!-- Bảng chuyến xe container trục liên tỉnh (Enterprise Table) -->
                 <div class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden text-xs">
                     <div v-if="filteredTrips.length === 0" class="p-12 text-center text-slate-400">
                         Không có chuyến xe container nào phù hợp với bộ lọc hiện tại.
@@ -3415,8 +3321,6 @@
                             </tbody>
                         </table>
                     </div>
-
-                    <!-- Pagination Footer -->
                     <div v-if="filteredTrips.length > 0" class="p-3 bg-slate-50/60 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                         <span class="text-slate-500 font-medium">Hiển thị {{ startIndex }}–{{ endIndex }} / {{ filteredTrips.length }} chuyến</span>
                         <div class="flex items-center gap-1">
@@ -3427,12 +3331,7 @@
                     </div>
                 </div>
             </div>
-
-            <!-- ========================================================================= -->
-            <!-- NỘI DUNG: BƯỚC 3 - PHÁT HÀNG VỀ BƯU CỤC (DESTINATION FEEDER)              -->
-            <!-- ========================================================================= -->
             <div v-else-if="currentStep === 3" key="step-3" class="space-y-3">
-                <!-- Subtabs chuyển đổi: Kiện chờ xe phát vs Chuyến xe phát đang chạy -->
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                     <div class="flex space-x-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200 w-fit text-xs font-bold">
                         <button 
@@ -3454,8 +3353,6 @@
                             <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-blue-100 text-blue-800 font-mono">{{ filteredDestinationFeederTrips.length }}</span>
                         </button>
                     </div>
-
-                    <!-- Thao tác gom kiện phát hàng loạt / Lập chuyến mới -->
                     <div v-if="feederSubtab === 'pending'" class="flex items-center space-x-2 text-xs">
                         <span class="text-slate-500 font-medium hidden sm:inline">Đã chọn: <strong class="text-emerald-700">{{ selectedDestinationFeederItems.length }} kiện</strong> ({{ selectedDestinationFeederWeight.toFixed(1) }} kg)</span>
                         <button 
@@ -3478,8 +3375,6 @@
                         </button>
                     </div>
                 </div>
-
-                <!-- Thanh lọc bưu cục phát đích -->
                 <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
                     <div class="flex items-center space-x-2">
                         <span class="font-bold text-slate-700">Lọc Bưu Cục Phát:</span>
@@ -3517,8 +3412,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Bảng 3.1: Kiện hàng đã dỡ xe trục chờ lập xe phát -->
                 <div v-if="feederSubtab === 'pending'" class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden text-xs">
                     <div v-if="incomingFeederItems.length === 0" class="p-12 text-center text-slate-400">
                         Hiện không có kiện hàng nào chờ phát về bưu cục đã chọn.
@@ -3588,8 +3481,6 @@
                         </table>
                     </div>
                 </div>
-
-                <!-- Bảng 3.2: Chuyến xe phát bưu cục vận hành (Enterprise Table) -->
                 <div v-else class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden text-xs">
                     <div v-if="filteredDestinationFeederTrips.length === 0" class="p-12 text-center text-slate-400">
                         Chưa có chuyến xe phát nào được khởi tạo cho bưu cục đang chọn. Nhấn "Lập &amp; Xuất Xe Phát" hoặc "+ Lập Chuyến Xe Phát" để tạo chuyến.
@@ -3685,10 +3576,6 @@
                 </div>
             </div>
             </transition>
-
-            <!-- ================================================================= -->
-            <!-- MODAL 1: LẬP CHUYẾN XE MỚI (BỐ CỤC 2 CỘT GỌN GÀNG KHÔNG TRÀN)     -->
-            <!-- ================================================================= -->
             <teleport to="body">
             <Transition name="modal">
             <div v-if="showCreateModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
@@ -3704,7 +3591,6 @@
                     </div>
 
                     <form @submit.prevent="submitCreateTrip" class="p-5 space-y-4 text-xs">
-                        <!-- 1. Bộ Chọn Phân Loại Chuyến Xe (Xe Trục Tuyến Chính vs Xe Trung Chuyển Nội Đô) -->
                         <div>
                             <label class="block font-bold text-slate-700 uppercase tracking-wider text-[10.5px] mb-1.5">
                                 Phân Loại Nghiệp Vụ Chuyến Xe
@@ -3751,8 +3637,6 @@
                                 • <b>Xe Phát Cuối Nguồn</b>: Chuyển hàng từ Kho Tổng đích về các bưu cục con trực thuộc.
                             </p>
                         </div>
-
-                        <!-- 2. Tuyến mẫu nhanh dạng Grid Buttons -->
                         <div>
                             <label class="block font-bold text-slate-700 uppercase tracking-wider text-[10.5px] mb-1.5">
                                 Chọn Tuyến Mẫu Nhanh
@@ -3773,10 +3657,7 @@
                                 </button>
                             </div>
                         </div>
-
-                        <!-- Bố Cục 2 Cột Cân Đối -->
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            <!-- Cột Trái: Thông Tin Tuyến & Xe -->
                             <div class="space-y-3">
                                 <div>
                                     <label class="block font-semibold text-slate-700 mb-1">Tên Tuyến Xe *</label>
@@ -3812,8 +3693,6 @@
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- Cột Phải: Lịch Trình & Các Trạm Dừng -->
                             <div class="space-y-3">
                                 <div class="p-3 bg-blue-50/50 rounded-lg border border-blue-200 space-y-1.5">
                                     <div class="flex items-center justify-between">
@@ -3857,7 +3736,6 @@
                                             </button>
                                         </div>
                                         <div class="flex items-center gap-2">
-                                            <!-- Chế độ 1: Chọn từ danh bạ Hubs / Bưu Cục -->
                                             <select 
                                                 v-if="!isManualStopInput && availableHubsGrouped.total > 0" 
                                                 v-model="selectedStopToAdd" 
@@ -3876,8 +3754,6 @@
                                                     </option>
                                                 </optgroup>
                                             </select>
-
-                                            <!-- Chế độ 2: Nhập mã trạm thủ công (hoặc khi danh bạ đã hết trạm phù hợp) -->
                                             <input 
                                                 v-else 
                                                 v-model="customStopCode" 
@@ -3886,8 +3762,6 @@
                                                 class="flex-1 min-w-0 rounded-lg border border-slate-300 px-2.5 py-1.5 bg-white text-xs outline-none font-mono font-bold text-blue-800 focus:border-blue-600 uppercase"
                                                 @keyup.enter.prevent="addNewStop"
                                             />
-
-                                            <!-- Nút Thêm Trạm NỔI BẬT, KHÔNG BỊ CO HAY BỊ ĐẨY MẤT -->
                                             <button 
                                                 type="button"
                                                 @click="addNewStop"
@@ -3900,8 +3774,6 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Footer Modal -->
                         <div class="pt-3 border-t border-slate-100 flex justify-end space-x-2">
                             <button type="button" @click="showCreateModal = false" class="px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
                                 Hủy Bỏ
@@ -3915,8 +3787,6 @@
             </div>
             </Transition>
             </teleport>
-
-            <!-- MODAL XÁC NHẬN TÁC VỤ: dùng chung cho dispatch, cập bến, xuất bến và gỡ kiện -->
             <teleport to="body">
             <Transition name="modal">
             <div
@@ -3967,16 +3837,10 @@
             </div>
             </Transition>
             </teleport>
-
-            <!-- ================================================================= -->
-            <!-- MODAL 2: CHI TIẾT CHUYẾN XE (3 SUBTABS CHUYÊN BIỆT CHUẨN B2B)    -->
-            <!-- ================================================================= -->
             <teleport to="body">
             <Transition name="modal">
             <div v-if="showDetailModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
                 <div class="bg-white rounded-xl shadow-2xl max-w-5xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[88vh]">
-                    
-                    <!-- Header Modal -->
                     <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
                         <div>
                             <div class="flex items-center space-x-2">
@@ -4012,8 +3876,6 @@
                             </button>
                         </div>
                     </div>
-
-                    <!-- Subtabs Điều Hướng Modal (Chuẩn Gạch Chân B2B) -->
                     <div class="px-5 bg-white border-b border-slate-200 flex items-center justify-between flex-shrink-0">
                         <div class="flex space-x-5">
                             <button 
@@ -4055,11 +3917,8 @@
                             </button>
                         </div>
                     </div>
-
-                    <!-- Body Modal (Chuyển Tab Chuyên Biệt Không Bị Chồng Chéo) -->
                     <div class="p-5 overflow-y-auto space-y-4 text-xs flex-1">
                         <transition name="subtab" mode="out-in">
-                            <!-- TAB 1: LỘ TRÌNH & BẢN ĐỒ -->
                             <div v-if="detailActiveTab === 'route'" key="tab-route" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             <div>
                                 <div class="font-bold text-slate-700 uppercase tracking-wider text-[11px] mb-2 flex justify-between">
@@ -4111,8 +3970,6 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- TAB 2: KIỆN HÀNG TRÊN XE (MANIFESTS) -->
                         <div v-else-if="detailActiveTab === 'manifests'" key="tab-manifests" class="space-y-3">
                             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                 <div class="flex items-center space-x-2">
@@ -4187,8 +4044,6 @@
                                 </table>
                             </div>
                         </div>
-
-                        <!-- TAB 3: ĐƠN HÀNG CHỜ XẾP XE (ELIGIBLE ASSIGNMENTS) -->
                         <div v-else-if="detailActiveTab === 'eligible'" key="tab-eligible" class="space-y-3">
                             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                 <div class="flex-1 max-w-xs">
@@ -4271,8 +4126,6 @@
                         </transition>
 
                     </div>
-
-                    <!-- Footer Modal -->
                     <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex justify-end space-x-2 flex-shrink-0">
                         <button 
                             type="button" 

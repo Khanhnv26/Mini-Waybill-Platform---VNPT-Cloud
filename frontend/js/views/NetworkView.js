@@ -257,7 +257,6 @@
         },
         template: `
             <div class="space-y-5 pb-12 text-slate-800">
-                <!-- BRANDED PAGE HEADER BANNER: MẠNG LƯỚI BƯU CỤC -->
                 <div class="page-header-banner rounded-3xl p-6 sm:p-7 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden transition-all duration-300 hover:shadow-md">
                     <div class="flex items-start space-x-4">
                         <div class="w-14 h-14 rounded-2xl bg-teal-600 text-white flex items-center justify-center shadow-lg shadow-teal-600/30 flex-shrink-0 ring-4 ring-teal-100">

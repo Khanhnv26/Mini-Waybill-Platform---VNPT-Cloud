@@ -1,11 +1,3 @@
-/**
- * ==============================================================================
- * VNPT CLOUD - VIEW: TRUNG TÂM ĐIỀU PHỐI & MÔ PHỎNG LỘ TRÌNH (CONTROL TOWER)
- * Phong Cách B2B Tối Giản, Dữ Liệu Thật 100% Từ CSDL & Kafka Event Stream
- * Phân quyền: ROLE_ADMIN / Điều Phối Viên Toàn Tuyến
- * ==============================================================================
- */
-
 (function () {
     const { ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
 
@@ -17,14 +9,13 @@
             const isRefreshing = ref(false);
             const isDetailLoading = ref(false);
             const isSimulating = ref(false);
-            const simSpeedMultiplier = ref(1); // 1x | 2x | 4x
+            const simSpeedMultiplier = ref(1);
             const errorMessage = ref('');
             const routingErrorMessage = ref('');
             const lastOperationId = ref('');
             let simTimer = null;
             let selectionRequestId = 0;
 
-            // Dữ liệu bưu gửi thật từ backend
             const shipmentsList = ref([]);
             const selectedTrackingCode = ref('');
             const currentShipment = ref(null);
@@ -36,10 +27,8 @@
             const routingAssignment = ref(null);
             const activeRoutingTrip = ref(null);
 
-            // Màn hình này được giữ lại cho vai trò admin legacy; routing operations luôn được ưu tiên.
             const isLegacySimulator = ref(true);
 
-            // Chuỗi trạng thái hợp lệ của shipment. ARRIVED_DEST_HUB là mốc vật lý bắt buộc trước khi bàn giao bưu tá.
             const STATE_FLOW = [
                 { status: 'CREATED', loc: 'HUB-HN-01', note: 'Đơn hàng vừa được tạo, chờ khởi tạo hành trình' },
                 { status: 'PENDING_ROUTING', loc: 'HUB-HN-01', note: 'Khởi tạo bưu gửi, chờ phân tuyến liên bưu cục' },
@@ -103,7 +92,6 @@
                 if (typeof method !== 'function') {
                     throw new Error(`Routing wrapper ${methodName} không khả dụng`);
                 }
-                // Chỉ truyền operationId khi wrapper khai báo thêm tham số; wrapper cũ vẫn giữ nguyên chữ ký.
                 const invocationArgs = method.length > args.length ? [...args, operationId] : args;
                 return method.apply(service, invocationArgs);
             };
@@ -164,7 +152,6 @@
                 return trips.find(trip => Boolean(getTripManifestForShipment(trip, trackingCode))) || null;
             };
 
-            // 1. Tải danh sách đơn hàng thật từ database để đưa vào dropdown
             const loadShipments = async (silent = false) => {
                 if (!silent) {
                     isLoading.value = true;
@@ -189,7 +176,6 @@
                 }
             };
 
-            // 2. Nạp thêm dữ liệu routing nếu service client cung cấp các wrapper mới.
             const refreshRoutingContext = async (code, shipment, silent = false) => {
                 const service = getRoutingService();
                 if (!service || !code) return;
@@ -280,7 +266,6 @@
                 }
             };
 
-            // 3. Chọn một bưu gửi thật và nạp dữ liệu chi tiết
             const selectShipment = async (code, options = {}) => {
                 if (!code) return;
                 const requestId = ++selectionRequestId;
@@ -323,7 +308,6 @@
 
                     await refreshRoutingContext(code, currentShipment.value, options.silent);
 
-                    // Vẽ lại bản đồ OSRM
                     await nextTick();
                     if (requestId !== selectionRequestId) return;
                     if (window.MapManager) {
@@ -346,7 +330,6 @@
                 }
             };
 
-            // 4. Tải lại Kafka audit logs thật từ CSDL
             const refreshKafkaLogs = async (code, silent = false) => {
                 if (!code) return;
                 try {
@@ -604,12 +587,10 @@
                     return { mode: 'routing', operationId: payload.operationId, locationCode: destinationPostOffice };
                 }
 
-                // Chỉ dùng TrackingService khi không có wrapper vật lý tương ứng.
                 await executeLegacyStatusTransition(shipment, nextStep);
                 return { mode: 'legacy', operationId: null, locationCode: getTransitionLocation(shipment, nextStep) };
             };
 
-            // 5. Bước chuyển trạng thái đơn (Step-by-step), không cho phép nhảy cóc trạng thái.
             const advanceOneStep = async () => {
                 if (!currentShipment.value) return;
                 const currentStatus = currentShipment.value.status || currentShipment.value.currentStatus;
@@ -656,7 +637,6 @@
                 }
             };
 
-            // 6. Chạy mô phỏng tự động liên tục (Play / Pause)
             const togglePlaySimulation = () => {
                 if (isSimulating.value) {
                     stopSimulation();
@@ -733,7 +713,6 @@
                 selectionRequestId += 1;
             });
 
-            // Mở chi tiết hành trình & bản đồ tại TrackingView
             const viewTrackingDetail = (code) => {
                 if (code && code.trim()) {
                     emit('view-tracking', code.trim(), 'dispatch-simulation');
@@ -769,7 +748,6 @@
         },
         template: `
         <div class="space-y-3.5 pb-8 text-slate-800">
-            <!-- 1. HERO BANNER: THIẾT KẾ VNPT GRADIENT CHUẨN RBAC VIEW -->
             <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                 <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
 
@@ -792,7 +770,6 @@
                         </p>
                     </div>
 
-                    <!-- KPI Thống kê -->
                     <div class="flex items-center space-x-2 self-start sm:self-auto">
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[68px]">
                             <div class="text-sm sm:text-base font-bold leading-tight">5</div>
@@ -810,7 +787,6 @@
                 </div>
             </div>
 
-            <!-- 2. THANH CÔNG CỤ ĐIỀU KHIỂN MÔ PHỎNG NÂNG CAO (SIMULATION CONTROL TOOLBAR) -->
             <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-wrap items-center justify-between gap-3 text-xs">
                 <div v-if="errorMessage || routingErrorMessage" class="basis-full flex items-center justify-between gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700">
                     <span>{{ errorMessage || routingErrorMessage }}</span>
@@ -824,7 +800,6 @@
                     </button>
                 </div>
 
-                <!-- Chọn mã bưu gửi THẬT từ CSDL -->
                 <div class="flex items-center space-x-2">
                     <span class="text-slate-600 font-bold uppercase tracking-wider text-[11px]">Bưu Gửi Khảo Sát:</span>
                     <select 
@@ -837,7 +812,6 @@
                     </select>
                 </div>
 
-                <!-- Cụm nút Play / Pause / Step-by-step -->
                 <div class="flex flex-wrap items-center gap-2">
                     <button
                         type="button"
@@ -871,7 +845,6 @@
                         </button>
                     </div>
 
-                    <!-- Bộ nút chọn tốc độ -->
                     <div class="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 font-bold text-[11px]">
                         <span class="text-slate-400 px-1.5">Tốc độ:</span>
                         <button 
@@ -894,7 +867,6 @@
                         </button>
                     </div>
 
-                    <!-- Badge trạng thái hiện tại -->
                     <div v-if="currentShipment" class="flex items-center space-x-1.5">
                         <span class="text-slate-400 font-medium">Trạng thái:</span>
                         <span :class="['px-2.5 py-1 rounded-md font-bold text-xs border inline-block', Utils.getStatusBadgeClass(currentShipment.status)]">
@@ -907,9 +879,7 @@
                 </div>
             </div>
 
-            <!-- 3. KHU VỰC BẢN ĐỒ TOÀN QUỐC (TRÁI) & KAFKA LIVE EVENT STREAM (PHẢI) -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <!-- Cột trái (2/3): Bản đồ Leaflet OSRM -->
                 <div class="lg:col-span-2 b2b-card bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col">
                     <div class="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-2.5">
                         <div class="flex items-center space-x-2">
@@ -928,9 +898,7 @@
                     </div>
                 </div>
 
-                <!-- Cột phải (1/3): Bảng thông số & Live Kafka Event Stream -->
                 <div class="space-y-4">
-                    <!-- Thẻ thông số bưu gửi thật -->
                     <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm text-xs space-y-2.5">
                         <div class="flex items-center justify-between border-b border-slate-100 pb-2">
                             <span class="font-extrabold text-slate-800 uppercase tracking-wider text-[11px]">Chi Tiết Bưu Gửi</span>
@@ -959,7 +927,6 @@
                         </div>
                     </div>
 
-                    <!-- Bảng Luồng Sự Kiện Kafka THẬT Từ CSDL audit_events -->
                     <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm text-xs flex flex-col">
                         <div class="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
                             <div class="flex items-center space-x-2">

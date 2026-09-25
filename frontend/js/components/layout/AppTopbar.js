@@ -1,12 +1,6 @@
-/**
- * VNPT CLOUD - APP TOPBAR COMPONENT
- * Top navigation header dành cho khu vực nội bộ: Breadcrumb, Hotline, Notification Bell & Center Popover.
- * Angular-Ready Standalone Component.
- */
 (function () {
     const template = `
     <header class="h-16 bg-white border-b border-slate-200 pl-8 pr-6 flex items-center justify-between flex-shrink-0 relative z-20">
-        <!-- Breadcrumb Navigation -->
         <div class="flex items-center space-x-2 text-xs">
             <span class="text-slate-400">Nền Tảng</span>
             <span class="text-slate-300">/</span>
@@ -17,7 +11,6 @@
             <span v-if="currentTrackingCode" class="font-mono text-slate-500 font-semibold">{{ currentTrackingCode }}</span>
         </div>
 
-        <!-- Hotline & Notification Bell -->
         <div class="flex items-center space-x-3">
             <a href="tel:1900545481" class="hidden sm:flex text-xs font-semibold text-slate-600 hover:text-blue-600 items-center space-x-1.5 transition">
                 <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -28,7 +21,6 @@
 
             <div class="h-4 w-px bg-slate-200 hidden sm:block"></div>
 
-            <!-- Notification Bell & Dropdown Popover -->
             <div class="relative z-50" id="notification-bell-dropdown">
                 <button 
                     type="button"
@@ -39,7 +31,6 @@
                     <svg class="w-5 h-5 transition-transform" :class="{ 'bell-ring-active text-blue-600': unreadNotificationsCount > 0 }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                     </svg>
-                    <!-- Badge số lượng chưa đọc -->
                     <span 
                         v-if="unreadNotificationsCount > 0" 
                         class="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white font-black text-[10px] rounded-full flex items-center justify-center ring-2 ring-white shadow-sm animate-pulse"

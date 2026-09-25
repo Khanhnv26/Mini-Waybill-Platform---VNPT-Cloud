@@ -1,8 +1,3 @@
-/**
- * VNPT CLOUD - TOAST NOTIFICATION CONTAINER COMPONENT
- * Hiển thị thông báo phản hồi thao tác người dùng (thành công, cảnh báo, lỗi mạng).
- * Angular-Ready Standalone Component.
- */
 (function () {
     const template = `
     <Transition name="toast">

@@ -1,8 +1,3 @@
-/**
- * VNPT CLOUD - APP SIDEBAR NAVIGATION COMPONENT
- * Master Layout Sidebar dành cho nhân sự nội bộ đã đăng nhập.
- * Angular-Ready Standalone Component.
- */
 (function () {
     const template = `
     <aside 
@@ -10,7 +5,6 @@
         :style="{ width: isSidebarCollapsed ? '72px' : '260px' }"
         class="h-full bg-white border-r border-slate-200 flex flex-col justify-between smooth-transition relative z-40 shadow-sm flex-shrink-0 !overflow-visible"
     >
-        <!-- Floating Border Toggle -->
         <button 
             @click="$emit('toggle-sidebar')" 
             :title="isSidebarCollapsed ? 'Mở rộng thanh bên' : 'Thu gọn thanh bên'" 
@@ -22,7 +16,6 @@
             </svg>
         </button>
 
-        <!-- Top: Logo & Thương hiệu VNPT -->
         <div>
             <div 
                 @click="$emit('logo-click')"
@@ -43,7 +36,6 @@
                 </div>
             </div>
 
-            <!-- Menu Phân Hệ Nghiệp Vụ -->
             <div class="p-3 space-y-1">
                 <div v-show="!isSidebarCollapsed" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Phân Hệ Nghiệp Vụ
@@ -70,7 +62,6 @@
             </div>
         </div>
 
-        <!-- Bottom: Thẻ Hồ Sơ Người Dùng Nội Bộ -->
         <div class="p-3 border-t border-slate-100 bg-slate-50/50">
             <div class="flex items-center justify-between p-1.5 rounded-xl bg-white border border-slate-200 shadow-sm" :class="{ 'justify-center !p-1': isSidebarCollapsed }">
                 <button 

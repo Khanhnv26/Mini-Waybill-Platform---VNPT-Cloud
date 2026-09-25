@@ -1,11 +1,3 @@
-/**
- * ==============================================================================
- * VNPT CLOUD - VIEW: KHAI THÁC & TIẾP NHẬN BƯU GỬI TẠI BƯU CỤC (POST OFFICE OPS)
- * Phong Cách B2B Tối Giản, Chuẩn Hóa Thuật Ngữ Bưu Chính & Kết Nối Dữ Liệu Thật
- * Phân quyền: ROLE_POST_OFFICE_OPERATOR / ROLE_ADMIN (Quyền: tracking:update_post_office)
- * ==============================================================================
- */
-
 (function () {
     const { ref, reactive, computed, watch, onMounted } = Vue;
 
@@ -13,11 +5,10 @@
         name: 'PostOfficeOpsView',
         emits: ['view-tracking'],
         setup(props, { emit }) {
-            const currentSubtab = ref('outbound'); // 'outbound' (Cửa gửi đi) | 'inbound' (Cửa trả phát) | 'inventory'
+            const currentSubtab = ref('outbound');
             const isLoading = ref(false);
             const isActionRunning = ref(false);
 
-            // Dữ liệu bưu gửi thật từ backend
             const shipmentsList = ref([]);
             const scanInputCode = ref('');
             const selectedStatusFilter = ref('ALL');
@@ -114,10 +105,8 @@
                     : code || 'Chưa được gán bưu cục';
             });
 
-            // ALL là phạm vi toàn mạng lưới hoặc mặc định khi chưa được gán bưu cục cụ thể.
             const selectedPostOffice = ref(isAdmin.value ? 'ALL' : (stationCode.value || 'ALL'));
 
-            // Phân trang
             const currentPage = ref(1);
             const pageSize = ref(10);
             const selectedTrackingCodes = ref(new Set());
@@ -197,12 +186,10 @@
                 if (!selected || selected === 'ALL' || !item) return false;
 
                 const location = normalizeCode(item.locationCode).toUpperCase();
-                // 1. Tồn kho bưu cục: BẮT BUỘC 100% kiện phải thực tế nằm tại kho của bưu cục này
                 if (currentSubtab.value === 'inventory') {
                     return location === selected;
                 }
 
-                // 2. Khai thác đi: Phải xuất phát từ bưu cục này và đang tại bưu cục hoặc vừa xuất bến
                 if (currentSubtab.value === 'outbound') {
                     const originPo = normalizeCode(getOriginPostOfficeInfo(item).code).toUpperCase();
                     if (originPo !== selected && location !== selected) return false;
@@ -211,28 +198,23 @@
                     );
                 }
 
-                // 3. Khai thác đến: Phải có điểm đích là bưu cục này và đã cập bến/đang phát
                 if (currentSubtab.value === 'inbound') {
                     const destPo = normalizeCode(getDestPostOfficeInfo(item).code).toUpperCase();
                     if (destPo !== selected) return false;
                     return location === selected || !location.startsWith('HUB-');
                 }
 
-                // 4. Quản lý quỹ COD: Phải phát sinh tiền COD và thuộc bưu cục phát / tác nghiệp này
                 if (currentSubtab.value === 'cod-settlement') {
                     const destPo = normalizeCode(getDestPostOfficeInfo(item).code).toUpperCase();
                     if (destPo !== selected && location !== selected) return false;
                     return Number(item.codAmount) > 0;
                 }
 
-                // Mặc định chung cho tra cứu: chỉ nhận kiện liên quan
                 const originPo = normalizeCode(getOriginPostOfficeInfo(item).code).toUpperCase();
                 const destPo = normalizeCode(getDestPostOfficeInfo(item).code).toUpperCase();
                 return location === selected || originPo === selected || destPo === selected;
             };
 
-            // Bucket trạng thái là nguồn chân lý duy nhất: dùng chung cho bộ lọc,
-            // số đếm trên nút lọc và KPI để con số luôn khớp danh sách hiển thị.
             const getShipmentStatusText = (item) => normalizeCode(item?.currentStatus || item?.status).toUpperCase();
 
             const isOutboundStaged = (item) => {
@@ -249,10 +231,8 @@
                 if (!item) return false;
                 if (getShipmentStatusText(item) !== 'ARRIVED_DEST_HUB') return false;
                 const inventory = getInventoryStatus(item);
-                // Kiện còn trên xe trung chuyển chưa được dỡ xuống bưu cục.
                 if (['LOADED', 'RESERVED'].includes(inventory)) return false;
                 const location = normalizeCode(item.locationCode).toUpperCase();
-                // Loại kiện còn nằm ở kho tổng, chỉ nhận kiện đã thực sự về bưu cục.
                 return !location.startsWith('HUB-');
             };
 
@@ -294,8 +274,6 @@
                 return '';
             };
 
-            // Phân định chuẩn theo luồng nghiệp vụ logistics:
-            // 1. Khai thác đi: Chỉ nhận kiện có điểm gửi thuộc trạm này
             const isOutboundShipment = (item) => {
                 if (!item) return false;
                 const poCode = normalizeCode(selectedPostOffice.value).toUpperCase();
@@ -307,7 +285,6 @@
                 return Boolean(getOutboundBucket(item));
             };
 
-            // 2. Khai thác đến: Chỉ nhận kiện có điểm nhận thuộc trạm này
             const isInboundShipment = (item) => {
                 if (!item) return false;
                 const poCode = normalizeCode(selectedPostOffice.value).toUpperCase();
@@ -318,7 +295,6 @@
                 return Boolean(getInboundBucket(item));
             };
 
-            // 3. Quản lý tồn kho: BẮT BUỘC 100% kiện phải thực tế nằm tại kho bưu cục (Physical Location)
             const isInventoryShipment = (item) => {
                 if (!item) return false;
                 const poCode = normalizeCode(selectedPostOffice.value).toUpperCase();
@@ -331,7 +307,6 @@
                 return Boolean(getInventoryBucket(item));
             };
 
-            // 4. Quản lý quỹ & đối soát COD: Kiện có phát sinh tiền COD thuộc bưu cục phát này
             const isCodSettlementShipment = (item) => {
                 if (!item || !(Number(item.codAmount) > 0)) return false;
                 const poCode = normalizeCode(selectedPostOffice.value).toUpperCase();
@@ -344,7 +319,6 @@
                 return ['DELIVERED', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED'].includes(status) || Boolean(item.codSettlementStatus);
             };
 
-            // Bộ lọc phạm vi bưu cục: Chỉ lấy kiện thuộc luồng đi, luồng đến, thực tế tồn kho hoặc đối soát COD của trạm
             const scopedShipments = computed(() => {
                 const poCode = normalizeCode(selectedPostOffice.value).toUpperCase();
                 if (!poCode || poCode === 'ALL') return shipmentsList.value;
@@ -353,7 +327,6 @@
                 });
             });
 
-            // UI-only resolver: luôn đưa ra một hành động kế tiếp, không thay đổi state machine.
             const getNextPostOfficeAction = (item) => {
                 if (!item) return { key: 'LOOKUP', label: 'Tra cứu bưu gửi', targetStatus: '' };
                 const status = normalizeCode(item.currentStatus || item.status).toUpperCase();
@@ -547,8 +520,6 @@
                     };
                 });
 
-                // Bổ sung các vận đơn mới tạo từ ShipmentService chưa có bản ghi tồn kho vật lý
-                // để giao dịch viên có thể thấy ở mục "Chờ Tiếp Nhận Quầy" và thực hiện tiếp nhận
                 normalizedShipments.forEach(shipment => {
                     const code = (shipment.trackingCode || '').toUpperCase();
                     if (code && !processedTrackingCodes.has(code)) {
@@ -636,8 +607,6 @@
 
             const loadAuthoritativeInventory = async () => {
                 const routingService = getRoutingService();
-                // Luôn nạp phạm vi đầy đủ (admin: toàn mạng; tài khoản trạm: đúng trạm)
-                // để bộ lọc bưu cục chạy client-side, không phải gọi lại mạng mỗi lần đổi filter.
                 const location = isAdmin.value ? '' : normalizeCode(stationCode.value);
 
                 if (!isAdmin.value && !location) {
@@ -739,7 +708,6 @@
                 return operation.call(routingService, locationCode, payload);
             };
 
-            // Thống kê nhanh KPI Bưu Cục (cùng bucket predicate với bộ lọc)
             const kpiAwaitingIntake = computed(() =>
                 scopedShipments.value.filter(s => isOutboundShipment(s) && getOutboundBucket(s) === 'WAITING_INTAKE').length
             );
@@ -779,8 +747,6 @@
                 return codSettlementPendingCount.value;
             });
 
-            // 1. Tải tồn kho từ RoutingService; ShipmentService chỉ là fallback migration.
-            // requestId đảm bảo chỉ kết quả của lần tải mới nhất được áp dụng (chống ghi đè).
             let latestLoadRequestId = 0;
             const loadShipmentsData = async (silent = false) => {
                 const requestId = ++latestLoadRequestId;
@@ -801,11 +767,9 @@
                 }
             };
 
-            // 2. Lọc danh sách bưu gửi theo Bưu Cục & Luồng Tác Nghiệp (Dual-Stream + Inventory + COD)
             const filteredShipments = computed(() => {
                 let list = scopedShipments.value;
 
-                // Phân luồng Cửa Gửi Đi vs Cửa Trả Phát vs Quản Lý Tồn Kho vs Quản Lý Quỹ COD
                 if (currentSubtab.value === 'outbound') {
                     list = list.filter(s => isOutboundShipment(s));
                 } else if (currentSubtab.value === 'inbound') {
@@ -816,8 +780,6 @@
                     list = list.filter(s => isCodSettlementShipment(s));
                 }
 
-                // Bộ lọc trạng thái chi tiết: so khớp đúng bucket của từng luồng,
-                // nhờ vậy số trên nút lọc luôn bằng số dòng hiển thị.
                 const sf = normalizeCode(selectedStatusFilter.value).toUpperCase();
                 if (sf && sf !== 'ALL') {
                     if (currentSubtab.value === 'cod-settlement') {
@@ -860,7 +822,6 @@
             const inventoryCount = computed(() => scopedShipments.value.filter(s => isInventoryShipment(s)).length);
             const allShipmentsCount = computed(() => scopedShipments.value.length);
 
-            // Quản lý Quỹ & Đối Soát Tiền Thu Hộ COD Bưu Cục
             const allOfficeCodShipments = computed(() => scopedShipments.value.filter(s => isCodSettlementShipment(s)));
             const codSettlementPendingShipments = computed(() => allOfficeCodShipments.value.filter(s => s.codSettlementStatus === 'PENDING_SETTLEMENT'));
             const codSettlementPendingCount = computed(() => codSettlementPendingShipments.value.length);
@@ -1006,7 +967,6 @@
                 };
             };
 
-            // 3. Phân trang
             const totalPages = computed(() => {
                 if (pageSize.value === -1) return 1;
                 return Math.ceil(filteredShipments.value.length / pageSize.value) || 1;
@@ -1092,9 +1052,6 @@
                 selectedCodSettlementCodes.value = [];
             });
 
-
-
-            // 5. Thao tác nghiệp vụ Bưu Cục
             const executePhysicalOperation = async ({ cleanCode, targetStatus, locationCode, targetShipment, note, courierId: customCourierId }) => {
                 let hadConflict = false;
                 const run = async (operationName, extra = {}) => {
@@ -1139,27 +1096,23 @@
                 };
 
                 if (targetStatus === 'PICKED_UP' || targetStatus === 'ARRIVED_DEST_HUB') {
-                    // Receiving and storing are deliberately separate physical steps.
                     await run('receiveAtLocation');
                 } else if (targetStatus === 'OUT_FOR_DELIVERY') {
                     const currentCourierId = customCourierId || courierId.value || getCourierId();
                     if (!currentCourierId) {
                         throw new Error('Chưa có mã bưu tá nhận hàng. Vui lòng chọn hoặc nhập mã bưu tá.');
                     }
-                    // Tự động hoàn tất ngầm các bước tiếp nhận và lưu kho bưu cục nếu chưa qua STORED
                     const currentInv = getInventoryStatus(targetShipment);
                     if (currentInv !== 'STORED') {
                         if (currentInv !== 'RECEIVED') {
                             try {
                                 await run('receiveAtLocation');
                             } catch (ignore) {
-                                // Bỏ qua nếu đã tiếp nhận trước đó
                             }
                         }
                         try {
                             await run('storeAtLocation');
                         } catch (ignore) {
-                            // Bỏ qua nếu đã lưu kho trước đó
                         }
                     }
                     await run('handoffToCourier', { courierId: currentCourierId });
@@ -1247,9 +1200,7 @@
                 );
             };
 
-            // Danh mục bưu tá giao hàng dự phòng phân theo bưu cục
             const COURIER_PRESETS = [
-                // Hà Nội
                 { code: 'BT-HN-CG-01', name: 'Nguyễn Văn Nam', phone: '0912.345.678', station: 'POST-HN-CG', area: 'Cầu Giấy', hasLinkedTelegram: false },
                 { code: 'BT-HN-CG-02', name: 'Đỗ Văn Hùng', phone: '0912.345.679', station: 'POST-HN-CG', area: 'Dịch Vọng', hasLinkedTelegram: false },
                 { code: 'BT-HN-DDA-01', name: 'Lê Văn Cường', phone: '0912.345.680', station: 'POST-HN-DDA', area: 'Đống Đa', hasLinkedTelegram: false },
@@ -1257,12 +1208,10 @@
                 { code: 'BT-HN-TX-01', name: 'Vũ Văn Long', phone: '0912.345.682', station: 'POST-HN-TX', area: 'Thanh Xuân', hasLinkedTelegram: false },
                 { code: 'BT-HN-HD-01', name: 'Bùi Văn Tuấn', phone: '0912.345.683', station: 'POST-HN-HD', area: 'Hà Đông', hasLinkedTelegram: false },
 
-                // Đà Nẵng
                 { code: 'BT-DN-HC-01', name: 'Phan Văn Sơn', phone: '0913.456.789', station: 'POST-DN-HC', area: 'Hải Châu', hasLinkedTelegram: false },
                 { code: 'BT-DN-TK-01', name: 'Ngô Văn Đức', phone: '0913.456.790', station: 'POST-DN-TK', area: 'Thanh Khê', hasLinkedTelegram: false },
                 { code: 'BT-DN-ST-01', name: 'Hoàng Văn Thái', phone: '0913.456.791', station: 'POST-DN-ST', area: 'Sơn Trà', hasLinkedTelegram: false },
 
-                // TP.HCM
                 { code: 'BT-HCM-Q1-01', name: 'Nguyễn Văn Phát', phone: '0918.765.432', station: 'POST-HCM-Q1', area: 'Bến Nghé - Bến Thành (Quận 1)', hasLinkedTelegram: false },
                 { code: 'BT-HCM-Q1-02', name: 'Trần Thanh Bình', phone: '0918.765.433', station: 'POST-HCM-Q1', area: 'Đa Kao - Tân Định (Quận 1)', hasLinkedTelegram: false },
                 { code: 'BT-HCM-TB-01', name: 'Phạm Văn Minh', phone: '0918.765.434', station: 'POST-HCM-TB', area: 'Tân Bình', hasLinkedTelegram: false },
@@ -1270,11 +1219,9 @@
                 { code: 'BT-HCM-TD-01', name: 'Trịnh Văn Sang', phone: '0918.765.436', station: 'POST-HCM-TD', area: 'Thủ Đức', hasLinkedTelegram: false },
                 { code: 'BT-HCM-Q7-01', name: 'Lý Văn Hải', phone: '0918.765.437', station: 'POST-HCM-Q7', area: 'Quận 7', hasLinkedTelegram: false },
 
-                // Toàn quốc / Tài khoản mẫu hệ thống
                 { code: 'shipper@waybill.vn', name: 'Bưu Tá Hệ Thống (Mẫu RBAC)', phone: '0909.000.999', station: 'ALL', area: 'Toàn Mạng Lưới', hasLinkedTelegram: false }
             ];
 
-            // Danh bạ bưu tá nạp động từ shipper-service
             const shippersList = ref([]);
             const isShippersLoading = ref(false);
 
@@ -1357,7 +1304,6 @@
                 showHandoffModal.value = true;
             };
 
-            // Bàn giao hàng loạt: 1 bưu tá + 1 ghi chú chung cho tất cả kiện đã chọn.
             const openBulkHandoffModal = () => {
                 const items = handoffSelectedItems.value;
                 if (!items.length) {
@@ -1457,11 +1403,9 @@
                     );
                     showHandoffModal.value = false;
                 } catch (err) {
-                    // handleUpdateStatus already shows error toast
                 }
             };
 
-            // Quét mã nhanh: tự chọn đúng transition kế tiếp theo trạng thái vật lý.
             const handleQuickScan = (requestedStatus = '') => {
                 const cleanCode = normalizeCode(scanInputCode.value);
                 if (!cleanCode) {
@@ -1485,7 +1429,6 @@
                     return;
                 }
 
-                // Tự động chuyển sang subtab phù hợp với bưu gửi vừa quét
                 if (isInboundShipment(target)) {
                     currentSubtab.value = 'inbound';
                 } else if (isOutboundShipment(target)) {
@@ -1587,7 +1530,6 @@
                 }
             };
 
-            // Mở chi tiết hành trình & bản đồ
             const viewTrackingDetail = (code) => {
                 if (code && code.trim()) {
                     emit('view-tracking', code.trim(), 'post-office');
@@ -1704,7 +1646,6 @@
         },
         template: `
         <div class="space-y-3.5 pb-8 text-slate-800">
-            <!-- 1. HERO BANNER: CHUẨN VNPT GRADIENT ĐỒNG BỘ HỆ THỐNG -->
             <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-sm relative overflow-hidden">
                 <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
 
@@ -1728,8 +1669,6 @@
                             <span v-else>Đang làm việc tại: <strong>{{ stationName }}<span v-if="stationCode"> ({{ stationCode }})</span></strong></span>
                         </p>
                     </div>
-
-                    <!-- 4 Khối KPI Tinh Gọn Chuẩn Nghiệp Vụ Bưu Chính -->
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 self-start sm:self-auto">
                         <div class="px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[85px]">
                             <div class="text-base sm:text-lg font-bold leading-tight text-white">{{ kpiAwaitingIntake }}</div>
@@ -1750,8 +1689,6 @@
                     </div>
                 </div>
             </div>
-
-            <!-- 2. SUBTABS ĐIỀU HƯỚNG TINH GỌN (CHỈ TÊN TAB + SỐ ĐẾM ĐƠN SẮC) -->
             <div class="flex items-center justify-between border-b border-slate-200">
                 <div class="flex space-x-4 sm:space-x-6 overflow-x-auto no-scrollbar pb-px flex-1 min-w-0 mr-3">
                     <button 
@@ -1838,11 +1775,8 @@
                 </div>
                 <span class="font-mono font-bold text-amber-900 shrink-0 bg-amber-200/60 px-2.5 py-1 rounded-md">{{ filteredShipments.length }} bưu gửi</span>
             </div>
-
-            <!-- 3. THANH CÔNG CỤ TẬP TRUNG (TOOLBAR): TÌM KIẾM, BƯU CỤC, PILLS LỌC & SCAN -->
             <div class="b2b-card p-3 flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs shadow-xs">
                 <div class="flex flex-wrap items-center gap-2.5 flex-1">
-                    <!-- Ô Tìm Kiếm -->
                     <div class="relative w-52 sm:w-60">
                         <input 
                             v-model="searchQuery"
@@ -1852,8 +1786,6 @@
                         />
                         <span v-if="searchQuery" @click="searchQuery = ''" class="absolute right-2.5 top-1.5 text-slate-400 hover:text-slate-600 cursor-pointer font-bold">X</span>
                     </div>
-
-                    <!-- Lựa chọn Bưu Cục Làm Việc -->
                     <select
                         v-model="selectedPostOffice"
                         :disabled="!isAdmin && Boolean(stationCode)"
@@ -1892,8 +1824,6 @@
                     </select>
 
                     <div class="h-4 w-px bg-slate-200 hidden sm:block"></div>
-
-                    <!-- HÀNG NÚT LỌC NHANH (SEGMENTED PILLS) -->
                     <transition name="subtab" mode="out-in">
                         <div v-if="currentSubtab === 'outbound'" key="pills-outbound" class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
                             <button 
@@ -2012,8 +1942,6 @@
                             </button>
                         </div>
                     </transition>
-
-                    <!-- Dropdown Phân Trang (Số dòng trên trang) -->
                     <select 
                         v-model.number="pageSize"
                         class="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white outline-none"
@@ -2024,8 +1952,6 @@
                         <option :value="-1">Tất cả</option>
                     </select>
                 </div>
-
-                <!-- Ô Quét Mã Vạch Nhanh -->
                 <div class="flex items-center gap-2 border-t lg:border-t-0 pt-2 lg:pt-0 border-slate-100">
                     <input
                         v-model="scanInputCode"
@@ -2044,16 +1970,8 @@
                     </button>
                 </div>
             </div>
-
-            <!-- =============================================================== -->
-            <!-- BẢNG DỮ LIỆU ĐỒNG NHẤT (CỬA GỬI ĐI, CỬA TRẢ PHÁT, TỒN KHO, QUỸ COD) -->
-            <!-- =============================================================== -->
             <transition name="subtab" mode="out-in">
-                <!-- =============================================================== -->
-                <!-- LUỒNG 4: QUẢN LÝ QUỸ & ĐỐI SOÁT COD BƯU CỤC                    -->
-                <!-- =============================================================== -->
                 <div v-if="currentSubtab === 'cod-settlement'" key="cod-settlement" class="space-y-3.5">
-                    <!-- 1. KPI STRIP FOR COD SETTLEMENT -->
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
                         <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
                             <div class="flex items-center justify-between">
@@ -2104,8 +2022,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- 2. OPERATION ACTION BAR CHO QUẢN LÝ QUỸ COD -->
                     <div class="operation-action-bar p-3 sm:p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
                         <div class="flex items-center space-x-2 text-xs">
                             <input 
@@ -2143,8 +2059,6 @@
                             </button>
                         </div>
                     </div>
-
-                    <!-- 3. BẢNG DỮ LIỆU ĐỐI SOÁT QUỸ COD -->
                     <div class="b2b-card overflow-hidden text-xs shadow-xs">
                         <div v-if="isLoading" class="p-8 text-center text-slate-400">
                             <div class="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
@@ -2241,8 +2155,6 @@
                                 </tbody>
                             </table>
                         </div>
-
-                        <!-- THANH PHÂN TRANG -->
                         <div class="px-4 py-2.5 bg-slate-50/50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                             <div class="text-slate-500">
                                 Hiển thị trang {{ currentPage }} / {{ totalPages }} (Tổng số {{ filteredShipments.length }} kết quả)
@@ -2279,11 +2191,7 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- CÁC SUBTAB KHAI THÁC HIỆN CÓ (OUTBOUND, INBOUND, INVENTORY) -->
                 <div v-else :key="currentSubtab" class="space-y-3">
-                
-                <!-- BẢNG DANH SÁCH BƯU GỬI TẠI BƯU CỤC -->
                 <div v-if="selectedPostOfficeItems.length" class="selection-summary-bar px-3 py-2 rounded-lg bg-slate-100 border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                     <div>
                         <strong>{{ selectedPostOfficeItems.length }} kiện đã chọn</strong>
@@ -2359,9 +2267,7 @@
                                         </span>
                                     </td>
                                     <td class="py-3 px-3.5 text-right whitespace-nowrap">
-                                        <!-- LUỒNG 1: CỬA GỬI ĐI TẠI QUẦY (OUTBOUND) -->
                                         <template v-if="currentSubtab === 'outbound'">
-                                            <!-- Đơn mới: Tiếp nhận tại quầy -->
                                             <template v-if="['ROUTE_ASSIGNED', 'PENDING_ROUTING', 'CREATED'].includes(item.currentStatus || item.status)">
                                                 <button 
                                                     @click="handleUpdateStatus(item.trackingCode, 'PICKED_UP', getOriginPostOfficeInfo(item).code, 'Bưu cục đã tiếp nhận bưu phẩm tại quầy từ người gửi')"
@@ -2372,8 +2278,6 @@
                                                     Chấp Nhận Bưu Gửi
                                                 </button>
                                             </template>
-
-                                            <!-- Đã nhận quầy: Lưu kho bưu cục chờ xe gom -->
                                             <template v-else-if="(item.currentStatus || item.status) === 'PICKED_UP' && getInventoryStatus(item) !== 'STORED'">
                                                 <button 
                                                     @click="handleStoreAtLocation(item.trackingCode, item.locationCode || selectedPostOffice, 'Bưu cục đã xác nhận lưu kho sau khi tiếp nhận tại quầy')"
@@ -2397,16 +2301,11 @@
                                             <template v-else-if="(item.currentStatus || item.status) === 'RETURNING'">
                                                 <span class="text-orange-700 text-[11px] font-bold">Chưa về bưu cục gửi</span>
                                             </template>
-
-                                            <!-- Đã xong tác vụ (đã lưu kho, đang vận chuyển): Hiển thị dấu gạch mờ, KHÔNG GẮN BADGE LẶP LẠI -->
                                             <template v-else>
                                                 <span class="text-slate-400 font-mono text-[11px]">—</span>
                                             </template>
                                         </template>
-
-                                        <!-- LUỒNG 2: CỬA TRẢ HÀNG PHÁT (INBOUND) -->
                                         <template v-else-if="currentSubtab === 'inbound'">
-                                            <!-- Hàng đến bưu cục phát: Bàn giao bưu tá -->
                                             <template v-if="(item.currentStatus || item.status) === 'ARRIVED_DEST_HUB'">
                                                 <button 
                                                     @click="openHandoffModal(item)"
@@ -2434,14 +2333,10 @@
                                             <template v-else-if="(item.currentStatus || item.status) === 'RETURNED'">
                                                 <span class="text-slate-500 text-[11px] font-bold">Đã hoàn người gửi</span>
                                             </template>
-
-                                            <!-- Đã xong tác vụ (đang đi phát, đã phát thành công): Hiển thị dấu gạch mờ, KHÔNG GẮN BADGE LẶP LẠI -->
                                             <template v-else>
                                                 <span class="text-slate-400 font-mono text-[11px]">—</span>
                                             </template>
                                         </template>
-
-                                        <!-- LUỒNG 3: QUẢN LÝ TỒN KHO BƯU CỤC (INVENTORY) -->
                                         <template v-else-if="currentSubtab === 'inventory'">
                                             <template v-if="['ROUTE_ASSIGNED', 'PENDING_ROUTING', 'CREATED'].includes(item.currentStatus || item.status)">
                                                 <button 
@@ -2489,8 +2384,6 @@
                             </tbody>
                         </table>
                     </div>
-
-                    <!-- THANH PHÂN TRANG -->
                     <div class="px-4 py-2.5 bg-slate-50/50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                         <div class="text-slate-500">
                             Hiển thị trang {{ currentPage }} / {{ totalPages }} (Tổng số {{ filteredShipments.length }} kết quả)
@@ -2528,10 +2421,6 @@
                 </div>
             </div>
             </transition>
-
-            <!-- =============================================================== -->
-            <!-- MODAL: BÀN GIAO BƯU PHẨM CHO BƯU TÁ ĐI PHÁT (OUT_FOR_DELIVERY)   -->
-            <!-- =============================================================== -->
             <teleport to="body">
                 <div v-if="showHandoffModal" class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
                     <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-5 border border-slate-200">
@@ -2551,7 +2440,6 @@
                         </div>
 
                         <div class="py-3 space-y-3">
-                            <!-- Thông tin bưu gửi tóm tắt -->
                             <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1">
                                 <div class="flex justify-between">
                                     <span class="text-slate-500">Bưu cục phát:</span>
@@ -2570,8 +2458,6 @@
                                     </span>
                                 </div>
                             </div>
-
-                            <!-- Chọn Bưu Tá -->
                             <div>
                                 <div class="flex items-center justify-between mb-1">
                                     <label class="block text-xs font-bold text-slate-700">
@@ -2598,8 +2484,6 @@
                                     <option value="CUSTOM">Khác (Chỉ định mã bưu tá thủ công)...</option>
                                 </select>
                             </div>
-
-                            <!-- Hiển thị trạng thái Telegram Bot của Bưu tá đã chọn -->
                             <div v-if="selectedCourierInfo && handoffForm.selectedCourier !== 'CUSTOM'" class="p-2.5 rounded-lg border text-xs" :class="selectedCourierInfo.hasLinkedTelegram ? 'bg-blue-50/70 border-blue-200 text-blue-800' : 'bg-slate-50 border-slate-200 text-slate-600'">
                                 <div class="flex items-center justify-between">
                                     <span class="font-semibold">Kênh thông báo Telegram Bot:</span>
@@ -2617,8 +2501,6 @@
                                     Bưu tá chưa kích hoạt Telegram Bot. Bưu tá có thể liên kết tài khoản qua mã liên kết trong trang cá nhân.
                                 </p>
                             </div>
-
-                            <!-- Ô nhập mã tùy chọn nếu chọn CUSTOM -->
                             <div v-if="handoffForm.selectedCourier === 'CUSTOM'">
                                 <label class="block text-xs font-medium text-slate-600 mb-1">Mã bưu tá / Số điện thoại:</label>
                                 <input 
@@ -2628,8 +2510,6 @@
                                     class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs font-mono font-bold text-blue-800 focus:border-blue-600 outline-none"
                                 />
                             </div>
-
-                            <!-- Ghi chú bàn giao -->
                             <div>
                                 <label class="block text-xs font-medium text-slate-600 mb-1">Ghi chú bàn giao:</label>
                                 <input 
@@ -2660,10 +2540,6 @@
                     </div>
                 </div>
             </teleport>
-
-            <!-- =============================================================== -->
-            <!-- MODAL: XÁC NHẬN THU QUỸ TIỀN MẶT COD BƯU CỤC                    -->
-            <!-- =============================================================== -->
             <teleport to="body">
                 <Transition name="modal">
                     <div v-if="showCodConfirmModal" class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">

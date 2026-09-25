@@ -1,9 +1,3 @@
-/**
- * VNPT CLOUD - USER PROFILE MODAL COMPONENT
- * Modal quản lý hồ sơ cá nhân, phân định quyền hạn nhân sự (Staff) vs thông tin Shop (Customer).
- * Tuân thủ cơ chế Station Context Binding: Trạm công tác và chức danh bảo vệ theo JWT server.
- * Angular-Ready Standalone Component.
- */
 (function () {
     const template = `
     <Transition name="modal">
@@ -13,7 +7,6 @@
             @click.self="$emit('close')"
         >
             <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
-                <!-- Header chuẩn VNPT Gradient -->
                 <div class="vnpt-gradient text-white p-4 sm:p-5 flex items-center justify-between relative overflow-hidden">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 14px 14px;"></div>
                     <div class="relative z-10 flex items-center space-x-3">
@@ -52,15 +45,12 @@
                     </button>
                 </div>
 
-                <!-- Loading State -->
                 <div v-if="isLoading" class="p-8 text-center space-y-3">
                     <div class="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
                     <div class="text-xs text-slate-500 font-medium">Đang tải hồ sơ bưu chính...</div>
                 </div>
 
-                <!-- Profile Form -->
                 <form v-else @submit.prevent="$emit('save')" class="p-5 space-y-4 text-xs text-slate-800">
-                    <!-- Thẻ Tóm Tắt Định Danh Dành Cho Nhân Viên Nội Bộ -->
                     <div v-if="isStaffUser" class="p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-xl space-y-2.5">
                         <div class="flex items-center justify-between">
                             <div>
@@ -90,7 +80,6 @@
                         </div>
                     </div>
 
-                    <!-- Thẻ Tóm Tắt Định Danh Dành Cho Khách Hàng / Đối Tác -->
                     <div v-else class="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between">
                         <div>
                             <div class="text-[10px] uppercase font-bold text-slate-400">Mã Đối Tác / Khách Hàng</div>
@@ -106,7 +95,6 @@
                         </div>
                     </div>
 
-                    <!-- Email & Google Link -->
                     <div>
                         <div class="flex items-center justify-between mb-1">
                             <label class="block text-[11px] font-bold text-slate-700">
@@ -134,7 +122,6 @@
                         <div id="googleLinkModalBtn" class="mt-2 hidden flex justify-center"></div>
                     </div>
 
-                    <!-- Họ tên / Tên Shop -->
                     <div>
                         <label class="block text-[11px] font-bold text-slate-700 mb-1">
                             {{ isStaffUser ? 'Họ Và Tên Cán Bộ / Nhân Viên' : 'Họ Và Tên / Tên Cửa Hàng (Shop)' }} <span class="text-rose-500">*</span>
@@ -148,7 +135,6 @@
                         />
                     </div>
 
-                    <!-- Số điện thoại (Bắt buộc cho khách hàng, tùy chọn/ẩn cho nhân sự) -->
                     <div v-if="!isStaffUser">
                         <label class="block text-[11px] font-bold text-slate-700 mb-1">
                             Số Điện Thoại Liên Hệ <span class="text-rose-500">*</span>
@@ -162,7 +148,6 @@
                         />
                     </div>
 
-                    <!-- Địa chỉ lấy hàng mặc định (Khách hàng / Shop) -->
                     <div v-if="!isStaffUser">
                         <label class="block text-[11px] font-bold text-slate-700 mb-1">
                             Địa Chỉ Kho Hàng / Địa Chỉ Lấy Hàng Mặc Định <span class="text-rose-500">*</span>
@@ -176,12 +161,10 @@
                         ></textarea>
                     </div>
 
-                    <!-- Ghi chú nguyên tắc Station Context Binding -->
                     <div v-if="isStaffUser" class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-500 leading-relaxed">
                         <span class="font-bold text-slate-700">Lưu ý nghiệp vụ:</span> Trạm công tác và chức danh vận hành được bảo vệ và cấu hình bởi Quản trị viên hệ thống theo nguyên tắc Station Context Binding.
                     </div>
 
-                    <!-- Actions -->
                     <div class="pt-2 flex items-center justify-end space-x-2 border-t border-slate-100">
                         <button 
                             type="button" 

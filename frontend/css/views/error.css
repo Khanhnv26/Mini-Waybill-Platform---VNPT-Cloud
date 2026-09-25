@@ -1,5 +1,3 @@
-/* VNPT CLOUD - ERROR VIEW ANIMATIONS (403, 404, 429, 500, 502, 503) */
-
 @keyframes errorCardEntrance {
     0% {
         opacity: 0;
@@ -40,7 +38,6 @@
     animation: errorAuraPulse 3.6s ease-in-out infinite;
 }
 
-/* 404: Magnifier scan motion */
 @keyframes scanMagnifier {
     0%, 100% {
         transform: translate(0, 0) rotate(0deg);
@@ -74,7 +71,6 @@
     animation: dotSignalPulse 1.5s ease-in-out infinite;
 }
 
-/* 403: Security lock shake */
 @keyframes lockWarningShake {
     0%, 75%, 100% {
         transform: rotate(0deg);
@@ -103,7 +99,6 @@
     animation: dotSignalPulse 2s ease-in-out infinite;
 }
 
-/* 503: Counter-rotating dual gears */
 @keyframes spinGearCW {
     from {
         transform: rotate(0deg);
@@ -129,7 +124,6 @@
     animation: spinGearCCW 4.8s linear infinite;
 }
 
-/* 502: Lightning pulse */
 @keyframes pulseZap {
     0%, 100% {
         opacity: 0.85;
@@ -156,7 +150,6 @@
     animation: pulseZap 2.2s ease-in-out infinite;
 }
 
-/* 429: Clock rate-limit animation */
 @keyframes clockMinuteHand {
     from {
         transform: rotate(0deg);

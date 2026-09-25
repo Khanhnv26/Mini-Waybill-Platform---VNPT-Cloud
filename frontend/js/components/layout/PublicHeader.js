@@ -1,15 +1,9 @@
-/**
- * VNPT CLOUD - PUBLIC GUEST HEADER NAVIGATION COMPONENT
- * Top navigation header tinh gọn 1 tầng dành cho khách vãng lai / công khai.
- * Angular-Ready Standalone Component.
- */
 (function () {
     const { ref } = Vue;
 
     const template = `
     <header class="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 shadow-xs flex-shrink-0">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-            <!-- Brand Logo & Main Navigation -->
             <div class="flex items-center">
                 <div @click="$emit('switch-tab', 'tracking')" class="flex items-center space-x-3 cursor-pointer group select-none flex-shrink-0">
                     <div class="w-10 h-10 rounded-xl vnpt-blue-gradient text-white flex items-center justify-center shadow-md shadow-blue-600/25 border border-white/25 flex-shrink-0 transition-transform duration-300 group-hover:scale-105 p-2 overflow-hidden">
@@ -27,7 +21,6 @@
                     </div>
                 </div>
 
-                <!-- Desktop Navigation Menu -->
                 <nav class="hidden md:flex items-center ml-8 lg:ml-12 space-x-1 lg:space-x-1.5 text-xs text-slate-600">
                     <button 
                         v-for="tab in publicGuestTabs"
@@ -49,7 +42,6 @@
                 </nav>
             </div>
 
-            <!-- Action Area: Hotline & Login Button -->
             <div class="flex items-center space-x-3 sm:space-x-4 lg:space-x-5 flex-shrink-0">
                 <a href="tel:1900545481" class="hidden xl:flex items-center space-x-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors whitespace-nowrap group">
                     <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -66,7 +58,6 @@
                     <span>Đăng Nhập</span>
                 </a>
 
-                <!-- Mobile Drawer Button -->
                 <button 
                     @click="showMobileMenu = !showMobileMenu" 
                     type="button"
@@ -78,7 +69,6 @@
             </div>
         </div>
 
-        <!-- Mobile Drawer Menu -->
         <div v-show="showMobileMenu" class="md:hidden border-t border-slate-100 bg-white/95 backdrop-blur-md px-4 py-3 space-y-1 text-xs font-semibold animate-fade-slide">
             <button 
                 v-for="tab in publicGuestTabs" 

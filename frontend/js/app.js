@@ -1,16 +1,8 @@
-/**
- * ==============================================================================
- * VNPT CLOUD - MASTER LAYOUT APPLICATION ENTRY POINT
- * Khởi Tạo Ứng Dụng Vue 3, Điều Phối Dynamic Tabs, Route Guard & Phân Quyền
- * ==============================================================================
- */
-
 (function () {
     const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
 
     const app = createApp({
         setup() {
-            // Đọc thông số lỗi hoặc tham số URL (nếu có)
             const urlParams = new URLSearchParams(window.location.search);
             const initialCodeParam = parseInt(urlParams.get('code'), 10);
             const rawPath = window.location.pathname.toLowerCase();
@@ -36,8 +28,6 @@
                     }
                 });
             }
-
-            // Chuẩn hóa giao diện sáng mặc định (Đã loại bỏ Dark Theme khỏi hệ thống)
             try {
                 localStorage.removeItem('theme');
                 document.documentElement.classList.remove('dark');
@@ -51,8 +41,6 @@
                 currentErrorMessage.value = message;
                 currentTab.value = 'error';
             };
-
-            // Quản lý Trung Tâm Thông Báo Hệ Thống (Notification Center Dữ Liệu Thật)
             const showNotificationDropdown = ref(false);
             const notifications = ref([]);
 
@@ -331,55 +319,54 @@
                 }, 300);
             };
 
-            // 1. Danh bạ toàn bộ Tabs nghiệp vụ trong hệ thống kèm mã Permission tương ứng
             const allNavigationTabs = [
                 { 
                     id: 'tracking', 
                     name: 'Tra Cứu Bưu Gửi', 
                     component: 'TrackingView', 
-                    permission: null, // Public: Khách vãng lai cũng xem được
+                    permission: null,
                     icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
                 },
                 { 
                     id: 'shipment', 
                     name: 'Khởi Tạo Vận Đơn', 
                     component: 'ShipmentView', 
-                    permission: 'shipment:create', // Khách hàng & Admin
+                    permission: 'shipment:create',
                     icon: 'M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
                 },
                 { 
                     id: 'trips', 
                     name: 'Quản Lý Chuyến Xe', 
                     component: 'TripsView', 
-                    permission: 'routing:trip_manage', // Điều phối viên Vận tải (ROLE_DISPATCHER) & Admin
+                    permission: 'routing:trip_manage',
                     icon: 'M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8h4.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h2a1 1 0 001-1'
                 },
                 { 
                     id: 'post-office', 
                     name: 'Khai Thác Bưu Cục', 
                     component: 'PostOfficeOpsView', 
-                    permission: 'tracking:update_post_office', // Giao dịch viên bưu cục & Admin
+                    permission: 'tracking:update_post_office',
                     icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
                 },
                 { 
                     id: 'hub-ops', 
                     name: 'Khai Thác Hub Chia Chọn', 
                     component: 'HubOpsView', 
-                    permission: 'tracking:update_hub', // Thủ kho Hub & Admin
+                    permission: 'tracking:update_hub',
                     icon: 'M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z'
                 },
                 { 
                     id: 'shipper', 
                     name: 'Bưu Tá Phát Hàng', 
                     component: 'ShipperView', 
-                    permission: 'tracking:update_delivery', // Bưu tá & Admin
+                    permission: 'tracking:update_delivery',
                     icon: 'M13 10V3L4 14h7v7l9-11h-7z'
                 },
                 { 
                     id: 'customers', 
                     name: 'Danh Bạ Khách Hàng', 
                     component: 'CustomerView', 
-                    permission: 'user:read', // CS & Admin
+                    permission: 'user:read',
                     icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z'
                 },
                 {
@@ -393,33 +380,32 @@
                     id: 'reports', 
                     name: 'Báo Cáo & Đối Soát', 
                     component: 'ReportView', 
-                    permission: null, // Khách hàng & Nhân viên đều xem được (theo phạm vi tài khoản)
+                    permission: null,
                     icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'
                 },
                 { 
                     id: 'rbac', 
                     name: 'Quản Trị Hệ Thống & RBAC', 
                     component: 'AdminRbacView', 
-                    permission: 'user:assign_role', // Chỉ Admin (hoặc có quyền assign_role)
+                    permission: 'user:assign_role',
                     icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z'
                 },
                 { 
                     id: 'support', 
                     name: 'Hỗ Trợ & Khiếu Nại', 
                     component: 'SupportView', 
-                    permission: null, // Khách hàng & CS & Admin đều xem được
+                    permission: null,
                     icon: 'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z'
                 },
                 { 
                     id: 'profile', 
                     name: 'Hồ Sơ & Thiết Lập', 
                     component: 'ProfileView', 
-                    permission: null, // Tất cả người dùng đăng nhập đều truy cập được
+                    permission: null,
                     icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
                 }
             ];
 
-            // 1.1. Danh mục tiện ích công khai dành cho khách chưa đăng nhập (Hướng B)
             const publicGuestTabs = [
                 {
                     id: 'tracking',
@@ -450,20 +436,18 @@
 
             const showPublicMobileMenu = ref(false);
 
-            // 2. Dynamic Navigation: Chỉ hiển thị các Tab mà tài khoản có quyền truy cập
             const navigationTabs = computed(() => {
                 return allNavigationTabs.filter(tab => {
                     if (tab.role) {
                         if (typeof Auth === 'undefined') return false;
                         return Auth.hasRole(tab.role);
                     }
-                    if (!tab.permission) return true; // Tab công khai
+                    if (!tab.permission) return true;
                     if (typeof Auth === 'undefined') return false;
                     return Auth.hasPermission(tab.permission);
                 });
             });
 
-            // Tiêu đề tab hiện tại hiển thị trên Breadcrumb
             const currentTabTitle = computed(() => {
                 if (currentTab.value === 'error') {
                     return currentErrorTitle.value || `Mã Trạng Thái ${currentErrorCode.value}`;
@@ -475,10 +459,8 @@
                 return 'Hệ Thống';
             });
 
-            // Quản lý tính năng tiện ích công khai đang được chọn (UnderDevelopmentView)
             const currentFeatureId = ref('network');
 
-            // Xử lý khi khách vãng lai bấm các tiện ích ở sidebar (Hướng B)
             const handleGuestTabClick = (tab, param = null) => {
                 if (tab.id === 'support' && param) {
                     currentTrackingCode.value = String(param).trim();
@@ -495,7 +477,6 @@
                 }
             };
 
-            // Quay lại trang Tra Cứu chính từ màn hình Đang Phát Triển hoặc Màn Hình Lỗi
             const handleBackToHome = () => {
                 if (!isKnownAppPath) {
                     window.location.href = 'index.html';
@@ -561,14 +542,13 @@
                     }
                 }
 
-                // Nếu tab yêu cầu quyền mà tài khoản không có -> Chặn ngay lập tức và hiển thị màn hình lỗi 403
                 if (targetTab.permission) {
                     if (typeof Auth === 'undefined' || !Auth.hasPermission(targetTab.permission)) {
                         showError(403, 'Truy Cập Bị Chặn (403)', 'Tài khoản của bạn không có quyền truy cập tab này!');
                         return;
                     }
                 }
-                previousTab.value = null; // Người dùng chủ động chuyển tab từ sidebar -> xóa lịch sử quay lại
+                previousTab.value = null;
                 if (tabId !== 'shipment') {
                     selectedCustomerForShipment.value = null;
                     selectedTariffForShipment.value = null;
@@ -580,7 +560,6 @@
                 activateTab(tabId);
             };
 
-            // Khi click xem chi tiết vận đơn từ bất kỳ màn hình nào (Kho, Bưu tá, Khởi tạo, Điều phối)
             const handleViewTracking = (trackingCode, sourceTabId = null) => {
                 if (!trackingCode) return;
                 const srcId = sourceTabId || currentTab.value;
@@ -592,7 +571,6 @@
                 activateTab('tracking');
             };
 
-            // Khi người dùng bấm nút "Quay lại trang trước" từ TrackingView
             const handleBackToPreviousTab = () => {
                 if (previousTab.value && previousTab.value.id) {
                     activateTab(previousTab.value.id);
@@ -600,17 +578,14 @@
                 previousTab.value = null;
             };
 
-            // Khi tạo vận đơn thành công ở ShipmentView, nhận sự kiện và chuyển sang Tra Cứu
             const handleShipmentCreated = (trackingCode) => {
                 selectedCustomerForShipment.value = null;
                 selectedTariffForShipment.value = null;
-                // Đồng bộ thông báo thực tế từ server
                 fetchNotifications();
                 setTimeout(fetchNotifications, 1500);
                 handleViewTracking(trackingCode, 'shipment');
             };
 
-            // Khi chọn tạo vận đơn nhanh cho đối tác từ CustomerView
             const handleCreateShipmentFor = (customer) => {
                 if (!customer || customer.status !== 'ACTIVE') {
                     if (window.Utils && window.Utils.showToast) {
@@ -669,7 +644,6 @@
                 }
             };
 
-            // 6. Quản Lý Hồ Sơ Cá Nhân & Phân Định Vai Trò (Staff vs Customer Profile)
             const handleUserUpdated = (updated) => {
                 if (updated && currentUser.value) {
                     currentUser.value = { ...currentUser.value, ...updated };
@@ -692,7 +666,6 @@
                 isLoadingUserProfile.value = true;
                 try {
                     if (isStaffUser.value) {
-                        // Cán bộ / Nhân viên nội bộ: Tải thông tin từ auth-service (/api/auth/me)
                         const prof = await Auth.getMyProfile();
                         if (prof) {
                             userProfile.value = prof;
@@ -702,7 +675,6 @@
                             profileFormData.address = prof.address || '';
                         }
                     } else {
-                        // Khách hàng / Chủ shop: Tải thông tin từ customer-service (/api/customers/me)
                         const prof = await CustomerService.getMyProfile();
                         if (prof) {
                             userProfile.value = prof;
@@ -733,7 +705,6 @@
                 isSavingUserProfile.value = true;
                 try {
                     if (isStaffUser.value) {
-                        // Cập nhật thông tin cán bộ qua auth-service
                         const updated = await Auth.updateMyProfile({
                             fullName: profileFormData.fullName.trim()
                         });
@@ -746,7 +717,6 @@
                         Utils.showToast('Thành Công', 'Đã cập nhật hồ sơ cán bộ / nhân viên!');
                         showUserProfileModal.value = false;
                     } else {
-                        // Cập nhật thông tin khách hàng / shop qua customer-service
                         const updated = await CustomerService.updateMyProfile({
                             fullName: profileFormData.fullName.trim(),
                             phoneNumber: profileFormData.phoneNumber.trim(),
@@ -770,7 +740,6 @@
                 }
             };
 
-            // 7. Liên kết tài khoản Google từ Modal Hồ Sơ Cá Nhân
             const isLinkingGoogle = ref(false);
             const GOOGLE_CLIENT_ID = "530674460360-7q1qf5lchbkj7sp7kslvttf7mqt92klg.apps.googleusercontent.com";
 
@@ -836,11 +805,9 @@
             };
 
             onMounted(() => {
-                // Kiểm tra trạng thái đăng nhập
                 if (typeof Auth !== 'undefined') {
                     currentUser.value = Auth.getUser();
 
-                    // Đảm bảo tab ban đầu hợp lệ với quyền của người dùng (trừ khi đang ở tab error)
                     if (currentTab.value !== 'error') {
                         const currentTabObj = allNavigationTabs.find(t => t.id === currentTab.value);
                         if (currentTabObj && currentTabObj.permission && !Auth.hasPermission(currentTabObj.permission)) {
@@ -849,7 +816,6 @@
                     }
                 }
 
-                // Hỗ trợ hash URL khi chuyển từ error.html sang index.html#...
                 const hash = window.location.hash.replace('#', '');
                 if (hash && currentTab.value !== 'error') {
                     const foundNav = allNavigationTabs.find(t => t.id === hash);
@@ -879,7 +845,6 @@
                     } catch (e) {}
                 }
 
-                // Tự động đóng dropdown thông báo khi click ra ngoài
                 const handleDocumentClick = (e) => {
                     const dropdownEl = document.getElementById('notification-bell-dropdown');
                     if (dropdownEl && !dropdownEl.contains(e.target)) {
@@ -888,7 +853,6 @@
                 };
                 document.addEventListener('click', handleDocumentClick);
 
-                // Lắng nghe sự kiện thông báo thời gian thực từ các view tác nghiệp (COD settlement, v.v.)
                 const handleSystemNotificationEvent = (e) => {
                     const detail = e.detail || {};
                     const visuals = getNotificationVisuals(detail.title, detail.message);
@@ -931,7 +895,6 @@
                     }
                 };
 
-                // Tải thông báo thực tế và thiết lập định kỳ đồng bộ (mỗi 30 giây)
                 let pollTimer = null;
                 let bellStomp = null;
                 let bellSubscription = null;
@@ -945,7 +908,6 @@
                     }, 30000);
                 }
 
-                // Lắng nghe điều hướng từ Chatbot sang màn hình Tra cứu
                 const handleNavigateToTracking = (e) => {
                     if (e.detail && e.detail.trackingCode) {
                         handleViewTracking(e.detail.trackingCode);
@@ -1001,7 +963,6 @@
                 handleLogout,
                 currentFeatureId,
                 handleBackToHome,
-                // Notification Center
                 showNotificationDropdown,
                 notifications,
                 unreadNotificationsCount,
@@ -1009,12 +970,10 @@
                 closeNotificationDropdown,
                 markAllNotificationsAsRead,
                 handleNotificationClick,
-                // Error State Management
                 currentErrorCode,
                 currentErrorTitle,
                 currentErrorMessage,
                 showError,
-                // Profile Modal Global
                 showUserProfileModal,
                 userProfile,
                 isLoadingUserProfile,
@@ -1028,7 +987,6 @@
                 isLinkingGoogle,
                 triggerGoogleLink,
                 handleUserUpdated,
-                // Dark Mode Theme Engine
                 isDarkMode,
                 toggleDarkMode,
                 toast: window.Utils ? window.Utils.toastState : { show: false },
@@ -1037,7 +995,6 @@
         }
     });
 
-    // Đăng ký Layout & Shared UI Components
     if (window.AppSidebar) {
         app.component('AppSidebar', window.AppSidebar);
         app.component('app-sidebar', window.AppSidebar);
@@ -1075,7 +1032,6 @@
         app.component('public-layout', window.PublicLayout);
     }
 
-    // Đăng ký các View Components
     if (window.TrackingView) app.component('TrackingView', window.TrackingView);
     if (window.ShipmentView) app.component('ShipmentView', window.ShipmentView);
     if (window.PostOfficeOpsView) app.component('PostOfficeOpsView', window.PostOfficeOpsView);
@@ -1103,6 +1059,5 @@
         console.error('VUE_APP_ERROR:', err, err ? err.stack : '', info);
     };
 
-    // Gắn ứng dụng vào DOM
     app.mount('#app');
 })();

@@ -1,8 +1,3 @@
-/**
- * VNPT CLOUD - NOTIFICATION SERVICE CLIENT
- * Lịch sử gửi thông báo đến khách hàng & Trung tâm thông báo Topbar
- */
-
 (function () {
     const NotificationService = {
         async getByTrackingCode(trackingCode) {

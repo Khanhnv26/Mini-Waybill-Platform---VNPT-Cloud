@@ -5,19 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VNPT Waybill Platform - Hệ Thống Điều Phối & Quản Trị Vận Đơn Bưu Chính</title>
     
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- SockJS và STOMP Client -->
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
-
-    <!-- Google Identity Services SDK -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <script>
@@ -44,14 +38,10 @@
         }
     </script>
     
-    <!-- Leaflet CSS & JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <!-- Custom Enterprise B2B Styles (Modular CSS System) -->
     <link rel="stylesheet" href="css/style.css?v=2.6.0" />
 
-    <!-- Theme Initialization Script (Light Theme Only) -->
     <script>
         (function () {
             try {
@@ -61,12 +51,10 @@
         })();
     </script>
 
-    <!-- Vue 3 CDN -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 </head>
 <body class="bg-[#f8fafc] text-slate-900 antialiased min-h-full flex flex-col selection:bg-blue-600 selection:text-white font-sans">
 
-    <!-- VNPT Splash Preloader -->
     <div id="vnpt-page-preloader" class="fixed inset-0 z-[99999] bg-slate-50 flex flex-col items-center justify-center transition-opacity duration-300">
         <div class="flex flex-col items-center text-center space-y-4 max-w-xs px-4">
             <div class="relative w-24 h-24 flex items-center justify-center">
@@ -106,10 +94,7 @@
         })();
     </script>
 
-    <!-- Master Application Mount -->
     <div id="app" v-cloak class="w-full min-h-screen bg-slate-50 selection:bg-blue-600 selection:text-white font-sans">
-        
-        <!-- Dynamic Master Layout (Internal vs Public) -->
         <component
             :is="currentUser ? 'InternalLayout' : 'PublicLayout'"
             :current-user="currentUser"
@@ -132,7 +117,6 @@
             @notification-click="handleNotificationClick"
             @guest-tab-click="handleGuestTabClick"
         >
-            <!-- 60fps SPA Dynamic View Routing -->
             <transition name="page" mode="out-in" appear>
                 <keep-alive>
                     <component 
@@ -160,10 +144,8 @@
             </transition>
         </component>
 
-        <!-- Global Toast Container -->
         <toast-container :toast="toast"></toast-container>
 
-        <!-- Global User Profile Modal -->
         <user-profile-modal
             :show="showUserProfileModal"
             :current-user="currentUser"
@@ -179,17 +161,14 @@
             @trigger-google-link="triggerGoogleLink"
         ></user-profile-modal>
 
-        <!-- CSKH 24/7 AI Chatbot Assistant -->
         <chatbot-widget v-if="!isStaffUser"></chatbot-widget>
     </div>
 
-    <!-- 1. Core Utilities & Auth Layer -->
     <script src="js/auth.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/api.js"></script>
     <script src="js/map.js"></script>
 
-    <!-- 2. Microservices Service Layer -->
     <script src="js/services/routingService.js"></script>
     <script src="js/services/shipmentService.js"></script>
     <script src="js/services/trackingService.js"></script>
@@ -203,7 +182,6 @@
     <script src="js/services/shipperService.js"></script>
     <script src="js/services/ratingService.js"></script>
 
-    <!-- 3. Master Layout & Shared UI Components (Angular-Ready) -->
     <script src="js/components/layout/AppSidebar.js"></script>
     <script src="js/components/layout/AppTopbar.js"></script>
     <script src="js/components/layout/InternalFooter.js"></script>
@@ -214,7 +192,6 @@
     <script src="js/layouts/InternalLayout.js"></script>
     <script src="js/layouts/PublicLayout.js"></script>
 
-    <!-- 4. Feature Views Layer -->
     <script src="js/views/TrackingView.js"></script>
     <script src="js/views/ShipmentView.js"></script>
     <script src="js/views/PostOfficeOpsView.js"></script>
@@ -235,7 +212,6 @@
     <script src="js/views/ProfileView.js?v=2.6.0"></script>
     <script src="js/components/ChatbotWidget.js?v=2.6.0"></script>
 
-    <!-- 5. Application Bootstrapper -->
     <script src="js/app.js?v=2.6.0"></script>
 </body>
 </html>

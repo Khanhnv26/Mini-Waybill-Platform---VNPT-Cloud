@@ -1,24 +1,12 @@
-/* ==========================================================================
-   VNPT CLOUD - HỆ THỐNG QUẢN TRỊ BƯU CHÍNH & VẬN ĐƠN
-   Design System Enterprise - Modular CSS Architecture (Angular-Ready)
-   ========================================================================== */
-
-/* 1. Base Styles & Global Keyframe Animations */
 @import './base/reset.css';
 @import './base/animations.css';
-
-/* 2. Master Layout Components */
 @import './layout/layout.css';
 @import './layout/sidebar.css';
 @import './layout/topbar.css';
 @import './layout/footer.css';
-
-/* 3. Reusable Enterprise UI Components */
 @import './components/cards.css';
 @import './components/toast.css';
 @import './components/map.css';
 @import './components/chatbot.css';
-
-/* 4. Page / View-Specific Micro-Motions */
 @import './views/error.css';
 @import './views/support.css';

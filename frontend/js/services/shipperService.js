@@ -1,7 +1,3 @@
-/**
- * VNPT CLOUD - SHIPPER SERVICE CLIENT
- * Danh bạ bưu tá: tạo, sửa, ngừng hoạt động.
- */
 (function () {
     function extractErrorMessage(errData, defaultMsg) {
         if (!errData) return defaultMsg;

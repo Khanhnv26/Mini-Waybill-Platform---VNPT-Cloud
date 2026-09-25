@@ -1,11 +1,5 @@
-/**
- * VNPT CLOUD - TRACKING SERVICE CLIENT
- * Quản lý theo dõi hành trình và cập nhật nghiệp vụ trạng thái
- */
-
 (function () {
     const TrackingService = {
-        // Trạng thái hiện tại: { trackingCode, currentStatus, source }
         async getTracking(trackingCode) {
             const response = await Api.get(`/api/tracking/${encodeURIComponent(trackingCode)}`);
             if (!response.ok) {
@@ -18,7 +12,6 @@
             return response.json();
         },
 
-        // Toàn bộ các mốc quét hành trình (TrackingHistory[])
         async getHistory(trackingCode) {
             const response = await Api.get(`/api/tracking/${encodeURIComponent(trackingCode)}/history`);
             if (!response.ok) {

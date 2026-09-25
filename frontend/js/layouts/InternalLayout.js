@@ -1,13 +1,6 @@
-/**
- * VNPT CLOUD - INTERNAL MASTER LAYOUT
- * Layout khung làm việc dành cho nhân sự nội bộ (Bưu tá, Giao dịch viên, Điều phối Hub, Quản trị).
- * Bố cục Flex Row tràn màn hình, cố định Sidebar và cuộn nội dung độc lập.
- * Angular Equivalent: src/app/layouts/internal-layout/internal-layout.component.ts
- */
 (function () {
     const template = `
     <div class="flex h-screen w-full overflow-hidden">
-        <!-- Sidebar Navigation -->
         <app-sidebar
             :current-user="currentUser"
             :current-tab="currentTab"
@@ -20,9 +13,7 @@
             @logout="$emit('logout')"
         ></app-sidebar>
 
-        <!-- Right Main Shell -->
         <div class="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
-            <!-- Topbar Navigation -->
             <app-topbar
                 :current-tab-title="currentTabTitle"
                 :current-tracking-code="currentTrackingCode"
@@ -34,14 +25,12 @@
                 @notification-click="$emit('notification-click', $event)"
             ></app-topbar>
 
-            <!-- Dynamic View Container (Angular: <router-outlet>) -->
             <main class="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50">
                 <div class="max-w-7xl mx-auto relative">
                     <slot></slot>
                 </div>
             </main>
 
-            <!-- Internal System Footer -->
             <internal-footer></internal-footer>
         </div>
     </div>
