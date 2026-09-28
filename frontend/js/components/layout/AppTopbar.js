@@ -1,14 +1,14 @@
 (function () {
     const template = `
     <header class="h-16 bg-white border-b border-slate-200 pl-8 pr-6 flex items-center justify-between flex-shrink-0 relative z-20">
-        <div class="flex items-center space-x-2 text-xs">
-            <span class="text-slate-400">Nền Tảng</span>
-            <span class="text-slate-300">/</span>
-            <span class="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+        <div class="flex items-center space-x-2 text-xs min-w-0 mr-3">
+            <span class="text-slate-400 flex-shrink-0">Nền Tảng</span>
+            <span class="text-slate-300 flex-shrink-0">/</span>
+            <span class="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md flex-shrink-0">
                 {{ currentTabTitle }}
             </span>
-            <span v-if="currentTrackingCode" class="text-slate-300">/</span>
-            <span v-if="currentTrackingCode" class="font-mono text-slate-500 font-semibold">{{ currentTrackingCode }}</span>
+            <span v-if="currentTrackingCode" class="text-slate-300 flex-shrink-0">/</span>
+            <span v-if="currentTrackingCode" :title="currentTrackingCode" class="font-mono text-slate-500 font-semibold truncate max-w-[140px] sm:max-w-[240px]">{{ currentTrackingCode }}</span>
         </div>
 
         <div class="flex items-center space-x-3">

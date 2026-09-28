@@ -139,11 +139,11 @@
                             <div :class="['space-y-1 max-w-[88%] min-w-0', msg.sender === 'user' ? 'text-right' : '']">
                                 <div
                                     v-if="msg.type === 'text' && msg.sender === 'user'"
-                                    class="rounded-2xl p-3.5 leading-relaxed text-left inline-block shadow-sm chat-bubble-wrap bg-blue-600 text-white rounded-tr-sm shadow-blue-500/15"
+                                    class="rounded-2xl p-3.5 leading-relaxed text-left inline-block shadow-sm chat-bubble-wrap bg-blue-600 text-white rounded-tr-sm shadow-blue-500/15 break-words break-all"
                                 >{{ msg.text }}</div>
                                 <div
                                     v-else-if="msg.type === 'text'"
-                                    class="rounded-2xl p-3.5 leading-relaxed text-left inline-block shadow-sm chat-bubble-wrap bg-white border border-slate-200/90 text-slate-700 rounded-tl-sm"
+                                    class="rounded-2xl p-3.5 leading-relaxed text-left inline-block shadow-sm chat-bubble-wrap bg-white border border-slate-200/90 text-slate-700 rounded-tl-sm break-words break-all"
                                     v-html="msg.html"
                                 ></div>
 
@@ -316,6 +316,7 @@
                                     ref="inputField"
                                     v-model="inputText" 
                                     type="text" 
+                                    maxlength="500"
                                     placeholder="Nhập mã vận đơn (WB...) hoặc câu hỏi..." 
                                     class="w-full min-w-0 px-3.5 py-2.5 text-xs bg-slate-100/90 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-slate-800 placeholder-slate-400 transition-all duration-200"
                                     autocomplete="off"

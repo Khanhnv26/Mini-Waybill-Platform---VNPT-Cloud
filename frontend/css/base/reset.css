@@ -63,3 +63,31 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
 }
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+input, textarea, select {
+    min-width: 0;
+    max-width: 100%;
+}
+
+textarea {
+    resize: vertical;
+    overflow-y: auto;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.break-word-smart {
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.table-cell-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+

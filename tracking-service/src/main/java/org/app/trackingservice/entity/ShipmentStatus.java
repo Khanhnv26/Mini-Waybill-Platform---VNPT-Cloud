@@ -42,7 +42,7 @@ public enum ShipmentStatus {
             case ARRIVED_DEST_HUB:
                 return nextStatus == OUT_FOR_DELIVERY;
             case OUT_FOR_DELIVERY:
-                return Set.of(DELIVERED, DELIVERY_FAILED).contains(nextStatus);
+                return Set.of(DELIVERED, DELIVERY_FAILED, RETURNING).contains(nextStatus);
             case DELIVERY_FAILED:
                 return Set.of(OUT_FOR_DELIVERY, RETURNING).contains(nextStatus);
             case RETURNING:

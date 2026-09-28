@@ -292,6 +292,7 @@
                             <input 
                                 v-model="searchQuery" 
                                 type="text" 
+                                maxlength="100"
                                 placeholder="Tìm theo tên, SĐT, mã KH, địa chỉ..." 
                                 class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                             />
@@ -372,8 +373,8 @@
                                             <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-xs flex-shrink-0">
                                                 {{ (c.fullName || 'K').charAt(0).toUpperCase() }}
                                             </div>
-                                            <div>
-                                                <div class="font-bold text-slate-800 text-xs leading-tight">
+                                            <div class="min-w-0 max-w-[240px]">
+                                                <div class="font-bold text-slate-800 text-xs leading-tight truncate" :title="c.fullName">
                                                     {{ c.fullName }}
                                                 </div>
                                                 <div class="text-[10px] mt-0.5 font-medium">
@@ -536,6 +537,7 @@
                                     v-model="newCustomer.fullName" 
                                     type="text" 
                                     required 
+                                    maxlength="100"
                                     placeholder="VD: Công ty CP Viễn Thông VNPT..." 
                                     class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
                                 />
@@ -548,6 +550,7 @@
                                         v-model="newCustomer.phoneNumber" 
                                         type="tel" 
                                         required 
+                                        maxlength="15"
                                         placeholder="09... (10 số)" 
                                         class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
                                     />
@@ -558,6 +561,7 @@
                                         v-model="newCustomer.email" 
                                         type="email" 
                                         required
+                                        maxlength="100"
                                         placeholder="name@company.com" 
                                         class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
                                     />
@@ -565,12 +569,16 @@
                             </div>
 
                             <div>
-                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Địa Chỉ Trụ Sở / Kho Hàng</label>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label class="block text-[11px] font-bold text-slate-700">Địa Chỉ Trụ Sở / Kho Hàng</label>
+                                    <span class="text-[10px] text-slate-400 font-mono">{{ (newCustomer.address || '').length }}/255</span>
+                                </div>
                                 <textarea 
                                     v-model="newCustomer.address" 
                                     rows="2" 
+                                    maxlength="255"
                                     placeholder="Số nhà, đường, phường/xã, tỉnh/thành (để trống sẽ lưu: Chưa cập nhật địa chỉ)..." 
-                                    class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition resize-none"
                                 ></textarea>
                             </div>
 

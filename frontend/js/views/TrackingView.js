@@ -767,23 +767,37 @@
                 return currentShipment.value?.receiverAddress || 'Địa chỉ phát hàng tận tay người nhận';
             });
 
+            const senderShortAddress = computed(() => {
+                const addr = currentShipment.value?.senderAddress;
+                if (!addr) return currentShipment.value?.senderName || 'Người Gửi';
+                const parts = addr.split(',').map(p => p.trim()).filter(Boolean);
+                if (parts.length >= 2) {
+                    return parts.slice(-2).join(', ');
+                }
+                return addr;
+            });
+
+            const senderFullAddress = computed(() => {
+                return currentShipment.value?.senderAddress || 'Địa chỉ người gửi ban đầu';
+            });
+
             const appendReturnStage = (stages) => {
                 const status = currentShipment.value?.status;
                 if (status !== 'RETURNING' && status !== 'RETURNED') return stages;
-                const senderAddress = currentShipment.value?.senderAddress || 'Địa chỉ người gửi';
                 return [...stages, {
                     key: 'return-sender',
                     stageName: `${stages.length + 1}. Chuyển Hoàn`,
                     roleLabel: 'Người Gửi',
                     subLabel: status === 'RETURNED' ? 'Đã Hoàn Về Người Gửi' : 'Đang Chuyển Hoàn',
                     code: 'NGƯỜI GỬI',
-                    displayName: senderAddress,
-                    address: senderAddress
+                    displayName: senderShortAddress.value,
+                    address: senderFullAddress.value
                 }];
             };
 
             const routeCheckpoints = computed(() => {
                 const inter = isInterProvincial.value;
+                const isReturningStatus = currentShipment.value?.status === 'RETURNING' || currentShipment.value?.status === 'RETURNED';
                 const stages = inter ? [
                         {
                             key: 'origin-po',
@@ -832,9 +846,9 @@
                         },
                         {
                             key: 'recipient',
-                            stageName: '6. Phát Thành Công',
+                            stageName: isReturningStatus ? '6. Phát Không Thành' : '6. Phát Thành Công',
                             roleLabel: 'Người Nhận',
-                            subLabel: 'Giao Tận Tay',
+                            subLabel: isReturningStatus ? 'Giao Thất Bại' : 'Giao Tận Tay',
                             code: 'NGƯỜI NHẬN',
                             displayName: recipientShortAddress.value,
                             address: recipientFullAddress.value
@@ -869,9 +883,9 @@
                         },
                         {
                             key: 'recipient',
-                            stageName: '4. Phát Thành Công',
+                            stageName: isReturningStatus ? '4. Phát Không Thành' : '4. Phát Thành Công',
                             roleLabel: 'Người Nhận',
-                            subLabel: 'Giao Tận Tay',
+                            subLabel: isReturningStatus ? 'Giao Thất Bại' : 'Giao Tận Tay',
                             code: 'NGƯỜI NHẬN',
                             displayName: recipientShortAddress.value,
                             address: recipientFullAddress.value
@@ -911,6 +925,7 @@
                 const s = currentShipment.value?.status;
                 if (s === 'DELIVERED') return 'success';
                 if (s === 'OUT_FOR_DELIVERY') return 'shipper';
+                if (s === 'RETURNING' || s === 'RETURNED') return 'return';
                 return 'truck';
             });
 
@@ -1518,7 +1533,7 @@
             const hoveredShipperScore = ref(0);
             const ratingComment = ref('');
             const ratingPhone = ref('');
-            const selectedRatingTags = ref(['Giao siêu tốc ⚡', 'Shipper cực kỳ thân thiện 😊']);
+            const selectedRatingTags = ref(['Giao siêu tốc', 'Shipper cực kỳ thân thiện']);
             const isSubmittingRating = ref(false);
             const ratingResultView = ref(null);
             const lastBouncedStar = ref(null);
@@ -1549,9 +1564,9 @@
                     placeholder: 'Bạn ấn tượng nhất điểm nào ở dịch vụ hôm nay?'
                 },
                 5: {
-                    label: 'Rất tuyệt vời! ⭐⭐⭐⭐⭐',
+                    label: 'Rất tuyệt vời',
                     badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-                    tags: ['Giao siêu tốc ⚡', 'Shipper cực kỳ thân thiện 😊', 'Kiện hàng nguyên vẹn 📦', 'Hỗ trợ nhiệt tình 👏', 'Đúng hẹn chuẩn xác ⏱️'],
+                    tags: ['Giao siêu tốc', 'Shipper cực kỳ thân thiện', 'Kiện hàng nguyên vẹn', 'Hỗ trợ nhiệt tình', 'Đúng hẹn chuẩn xác'],
                     placeholder: 'Gửi vài lời khen ngợi hoặc động viên đến shipper nhé...'
                 }
             };
@@ -1582,7 +1597,7 @@
                 hoveredShipperScore.value = 0;
                 ratingComment.value = '';
                 ratingResultView.value = null;
-                selectedRatingTags.value = ['Giao siêu tốc ⚡', 'Shipper cực kỳ thân thiện 😊'];
+                selectedRatingTags.value = ['Giao siêu tốc', 'Shipper cực kỳ thân thiện'];
 
                 const rawPhone = currentShipment.value.receiverPhone || '';
                 const cleanPhone = rawPhone.replace(/\D+/g, '');
@@ -1692,6 +1707,8 @@
                 activePinType,
                 recipientShortAddress,
                 recipientFullAddress,
+                senderShortAddress,
+                senderFullAddress,
                 currentSourceHub,
                 currentDestHub,
                 currentOriginPostOffice,
@@ -1793,7 +1810,7 @@
                             </div>
                             <div v-show="publicHeroTab === 'tracking'" class="p-3 sm:p-4 transition-all duration-200">
                                 <form @submit.prevent="fetchTrackingData()" class="flex flex-col sm:flex-row gap-2.5">
-                                    <div class="relative flex-1">
+                                    <div class="relative flex-1 min-w-0">
                                         <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                                         </div>
@@ -1801,8 +1818,9 @@
                                             v-model="searchCode" 
                                             @input="validationError = ''" 
                                             type="text" 
+                                            maxlength="35"
                                             placeholder="Nhập mã vận đơn (VD: VNPT-HN-SG-9821 hoặc WB...)..." 
-                                            class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all duration-200"
+                                            class="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all duration-200"
                                         />
                                         <button 
                                             v-if="searchCode" 
@@ -2080,31 +2098,35 @@
                             </div>
                             <div class="pt-3 pb-1">
                                 <div class="hidden sm:grid gap-2 relative text-center" :style="{ gridTemplateColumns: 'repeat(' + routeCheckpoints.length + ', minmax(0, 1fr))' }">
-                                    <div class="absolute top-5 left-10 right-10 h-1 bg-slate-200 z-0">
+                                    <div class="absolute top-5 h-1 bg-slate-200 z-0" :style="{ left: 'calc(' + (100 / (routeCheckpoints.length * 2)) + '%)', right: 'calc(' + (100 / (routeCheckpoints.length * 2)) + '%)' }">
                                         <div class="h-full bg-blue-600 transition-all duration-700" :style="{ width: ((currentCheckpointIndex / Math.max(1, routeCheckpoints.length - 1)) * 100) + '%' }"></div>
                                     </div>
-                                    <div v-for="(cp, idx) in routeCheckpoints" :key="cp.key" class="relative z-10 flex flex-col items-center">
+                                    <div v-for="(cp, idx) in routeCheckpoints" :key="cp.key" class="relative z-10 flex flex-col items-center min-w-0 w-full px-0.5">
                                         <div 
                                             :class="[
                                                 'w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold ring-4 ring-white transition-all duration-300',
                                                 idx < currentCheckpointIndex 
-                                                    ? 'bg-blue-600 text-white shadow-sm'
+                                                    ? ((cp.key === 'recipient' && (currentShipment.status === 'RETURNING' || currentShipment.status === 'RETURNED')) ? 'bg-rose-500 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm')
                                                     : (idx === currentCheckpointIndex 
-                                                        ? (currentShipment.status === 'DELIVERED' ? 'bg-emerald-600 text-white shadow-md ring-emerald-100' : 'bg-amber-500 text-white shadow-md ring-amber-100 radar-pulse-effect')
+                                                        ? (currentShipment.status === 'DELIVERED' 
+                                                            ? 'bg-emerald-600 text-white shadow-md ring-emerald-100' 
+                                                            : ((currentShipment.status === 'RETURNING' || currentShipment.status === 'RETURNED') ? 'bg-amber-600 text-white shadow-md ring-amber-100 radar-pulse-effect' : 'bg-amber-500 text-white shadow-md ring-amber-100 radar-pulse-effect'))
                                                         : 'bg-slate-100 text-slate-400 border-2 border-slate-300')
                                             ]"
                                         >
-                                            <svg v-if="idx < currentCheckpointIndex" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                            <svg v-if="idx < currentCheckpointIndex && cp.key === 'recipient' && (currentShipment.status === 'RETURNING' || currentShipment.status === 'RETURNED')" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                                            <svg v-else-if="idx < currentCheckpointIndex" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                            <svg v-else-if="idx === currentCheckpointIndex && (cp.key === 'return-sender' || currentShipment.status === 'RETURNING' || currentShipment.status === 'RETURNED')" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
                                             <svg v-else-if="idx === currentCheckpointIndex && currentShipment.status === 'DELIVERED'" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                                             <svg v-else-if="idx === currentCheckpointIndex && (cp.key === 'dest-po' || currentShipment.status === 'OUT_FOR_DELIVERY')" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                                             <svg v-else-if="idx === currentCheckpointIndex && cp.key === 'linehaul'" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>
                                             <svg v-else-if="idx === currentCheckpointIndex" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
                                             <span v-else>{{ idx + 1 }}</span>
                                         </div>
-                                        <div :class="['text-xs font-bold mt-2.5 whitespace-nowrap', idx === currentCheckpointIndex ? (currentShipment.status === 'DELIVERED' ? 'text-emerald-700' : 'text-blue-700') : (idx < currentCheckpointIndex ? 'text-slate-800' : 'text-slate-400')]">
+                                        <div :class="['text-xs font-bold mt-2.5 max-w-full truncate px-0.5', idx === currentCheckpointIndex ? (currentShipment.status === 'DELIVERED' ? 'text-emerald-700' : ((currentShipment.status === 'RETURNING' || currentShipment.status === 'RETURNED') ? 'text-amber-700' : 'text-blue-700')) : (idx < currentCheckpointIndex ? ((cp.key === 'recipient' && (currentShipment.status === 'RETURNING' || currentShipment.status === 'RETURNED')) ? 'text-rose-600' : 'text-slate-800') : 'text-slate-400')]" :title="cp.stageName">
                                             {{ cp.stageName }}
                                         </div>
-                                        <div class="text-[10.5px] truncate max-w-[125px]" :class="idx <= currentCheckpointIndex ? 'text-slate-500 font-medium' : 'text-slate-400'">
+                                        <div class="text-[10.5px] truncate max-w-full px-0.5" :class="idx <= currentCheckpointIndex ? 'text-slate-500 font-medium' : 'text-slate-400'" :title="cp.displayName + (cp.address ? ' - ' + cp.address : '')">
                                             {{ cp.displayName }}
                                         </div>
                                     </div>
@@ -2232,16 +2254,16 @@
                                                 <span class="text-slate-400 text-[10.5px] uppercase font-bold">Người Gửi (Đã che SĐT):</span>
                                                 <span class="font-mono text-slate-600 text-[11px] bg-slate-100 px-2 py-0.5 rounded font-semibold">{{ maskPhone(currentShipment.senderPhone) || '0912***888' }}</span>
                                             </div>
-                                            <div class="font-bold text-slate-800 text-[12.5px]">{{ currentShipment.senderName || 'Bưu cục tiếp nhận VNPT' }}</div>
-                                            <div class="text-slate-500 text-[11px] mt-0.5">{{ currentShipment.senderAddress || 'Quận Đống Đa, TP. Hà Nội' }}</div>
+                                            <div class="font-bold text-slate-800 text-[12.5px] break-words break-all">{{ currentShipment.senderName || 'Bưu cục tiếp nhận VNPT' }}</div>
+                                            <div class="text-slate-500 text-[11px] mt-0.5 break-words break-all">{{ currentShipment.senderAddress || 'Quận Đống Đa, TP. Hà Nội' }}</div>
                                         </div>
                                         <div class="py-2">
                                             <div class="flex items-center justify-between mb-1">
                                                 <span class="text-slate-400 text-[10.5px] uppercase font-bold">Người Nhận (Đã che SĐT):</span>
                                                 <span class="font-mono text-slate-600 text-[11px] bg-slate-100 px-2 py-0.5 rounded font-semibold">{{ maskPhone(currentShipment.receiverPhone) || '0988***112' }}</span>
                                             </div>
-                                            <div class="font-bold text-slate-800 text-[12.5px]">{{ currentShipment.receiverName || 'Khách hàng nhận' }}</div>
-                                            <div class="text-slate-500 text-[11px] mt-0.5">{{ recipientFullAddress }}</div>
+                                            <div class="font-bold text-slate-800 text-[12.5px] break-words break-all">{{ currentShipment.receiverName || 'Khách hàng nhận' }}</div>
+                                            <div class="text-slate-500 text-[11px] mt-0.5 break-words break-all">{{ recipientFullAddress }}</div>
                                         </div>
                                     </div>
                                     <div class="pt-3 border-t border-slate-100 space-y-2.5">
@@ -2347,14 +2369,15 @@
                 </div>
                 <div v-if="!currentShipment" class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-2">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div class="flex items-center space-x-2 w-full sm:w-auto flex-1 max-w-lg">
-                            <div class="relative w-full">
+                        <div class="flex items-center space-x-2 w-full sm:w-auto flex-1 max-w-lg min-w-0">
+                            <div class="relative w-full min-w-0">
                                 <input 
                                     id="tracking-search-input"
                                     v-model="searchCode" 
                                     @keyup.enter="fetchTrackingData()"
                                     @input="validationError = ''"
                                     type="text" 
+                                    maxlength="35"
                                     placeholder="Nhập mã số bưu gửi (VD: WB...)" 
                                     class="w-full pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                                 />
@@ -2582,94 +2605,125 @@
                         </div>
                         <div class="bg-slate-50/70 border border-slate-200 rounded-xl p-3 sm:p-3.5">
                             <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5 border-b border-slate-200/60 pb-1.5">
-                                <div class="flex items-center space-x-2">
-                                    <span class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
-                                    <span class="text-xs font-bold text-slate-800 tracking-tight uppercase">Vị trí bưu gửi:</span>
-                                    <strong class="text-blue-700 text-xs">
+                                <div class="flex items-center space-x-2 min-w-0 flex-1">
+                                    <span class="w-2 h-2 rounded-full bg-blue-600 animate-pulse flex-shrink-0"></span>
+                                    <span class="text-xs font-bold text-slate-800 tracking-tight uppercase flex-shrink-0">Vị trí bưu gửi:</span>
+                                    <strong class="text-blue-700 text-xs truncate max-w-[200px] sm:max-w-xs" :title="routeCheckpoints[currentCheckpointIndex]?.displayName">
                                         {{ routeCheckpoints[currentCheckpointIndex]?.displayName }}
                                     </strong>
-                                    <span class="text-slate-400 text-[10px]">({{ routeCheckpoints[currentCheckpointIndex]?.roleLabel }})</span>
+                                    <span class="text-slate-400 text-[10px] flex-shrink-0">({{ routeCheckpoints[currentCheckpointIndex]?.roleLabel }})</span>
                                 </div>
-                                <div class="font-mono text-[10.5px] font-bold text-blue-700">
+                                <div class="font-mono text-[10.5px] font-bold text-blue-700 flex-shrink-0">
                                     Chặng {{ currentCheckpointIndex + 1 }} / {{ routeCheckpoints.length }}
                                 </div>
                             </div>
-                            <div class="flex items-start justify-between relative pt-0.5 pb-0.5">
-                                <div 
-                                    v-for="(cp, idx) in routeCheckpoints" 
-                                    :key="cp.key" 
-                                    class="flex-1 flex flex-col items-center text-center relative px-0.5"
-                                >
+                            <div class="overflow-x-auto pb-1 -mb-1">
+                                <div class="flex items-start justify-between relative pt-0.5 pb-0.5 min-w-[560px] sm:min-w-0">
                                     <div 
-                                        v-if="idx < routeCheckpoints.length - 1" 
-                                        class="absolute top-[36px] -translate-y-1/2 left-1/2 w-full h-[2.5px] z-0 transition-colors duration-300"
-                                        :class="idx < currentCheckpointIndex ? 'bg-blue-600' : 'bg-slate-200'"
-                                    ></div>
-                                    <div class="mb-1 h-4 flex items-center justify-center relative z-10">
-                                        <span 
-                                            :class="[
-                                                'text-[10.5px] leading-none transition-colors',
-                                                idx === currentCheckpointIndex ? (currentShipment?.status === 'DELIVERED' ? 'text-emerald-700 font-bold' : 'text-blue-700 font-bold') : (idx < currentCheckpointIndex ? 'text-slate-700 font-semibold' : 'text-slate-400 font-medium')
-                                            ]"
-                                        >
-                                            {{ cp.stageName }}
-                                        </span>
-                                    </div>
-                                    <div class="relative my-0.5 flex items-center justify-center h-7 z-10">
+                                        v-for="(cp, idx) in routeCheckpoints" 
+                                        :key="cp.key" 
+                                        class="flex-1 min-w-0 flex flex-col items-center text-center relative px-0.5"
+                                    >
                                         <div 
-                                            v-if="idx === currentCheckpointIndex"
-                                            :class="[
-                                                'w-7 h-7 rounded-full text-white flex items-center justify-center transition-transform hover:scale-105 cursor-pointer shadow-sm',
-                                                currentShipment?.status === 'DELIVERED' ? 'bg-emerald-600 ring-4 ring-emerald-100 shadow-emerald-500/20' : 'bg-blue-600 ring-4 ring-blue-100 pulse-active shadow-blue-500/20'
-                                            ]"
-                                            :title="'Đang xử lý tại: ' + cp.displayName + (cp.address ? ' | ' + cp.address : '')"
-                                        >
-                                            <svg v-if="activePinType === 'shipper'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                <circle cx="5" cy="18" r="3"/><circle cx="19" cy="18" r="3"/><path d="M12 18V8l3 3h4"/><circle cx="12" cy="5" r="1"/>
-                                            </svg>
-                                            <svg v-else-if="activePinType === 'success'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                                            </svg>
-                                            <svg v-else class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                                                <path d="M18 18.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM6 18.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
-                                                <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 17c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm11-7h2.5l2 2.67V15H17v-5zm1 7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z" />
-                                            </svg>
+                                            v-if="idx < routeCheckpoints.length - 1" 
+                                            class="absolute top-[36px] -translate-y-1/2 left-1/2 w-full h-[2.5px] z-0 transition-colors duration-300"
+                                            :class="idx < currentCheckpointIndex ? ((idx === currentCheckpointIndex - 1 && (currentShipment?.status === 'RETURNING' || currentShipment?.status === 'RETURNED')) ? 'bg-amber-500' : 'bg-blue-600') : 'bg-slate-200'"
+                                        ></div>
+                                        <div class="mb-1 h-4 flex items-center justify-center relative z-10 w-full px-0.5">
+                                            <span 
+                                                :class="[
+                                                    'text-[10px] sm:text-[10.5px] leading-none max-w-full truncate transition-colors',
+                                                    idx === currentCheckpointIndex 
+                                                        ? (currentShipment?.status === 'DELIVERED' 
+                                                            ? 'text-emerald-700 font-bold' 
+                                                            : ((currentShipment?.status === 'RETURNING' || currentShipment?.status === 'RETURNED') ? 'text-amber-700 font-bold' : 'text-blue-700 font-bold'))
+                                                        : (idx < currentCheckpointIndex 
+                                                            ? ((cp.key === 'recipient' && (currentShipment?.status === 'RETURNING' || currentShipment?.status === 'RETURNED')) ? 'text-rose-600 font-medium' : 'text-slate-700 font-semibold')
+                                                            : 'text-slate-400 font-medium')
+                                                ]"
+                                                :title="cp.stageName"
+                                            >
+                                                {{ cp.stageName }}
+                                            </span>
                                         </div>
-                                        <div 
-                                            v-else-if="idx < currentCheckpointIndex"
-                                            class="w-6 h-6 rounded-full bg-blue-600 text-white shadow-2xs flex items-center justify-center cursor-pointer hover:bg-blue-700 transition"
-                                            :title="'Đã hoàn thành qua: ' + cp.displayName"
-                                        >
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                                            </svg>
+                                        <div class="relative my-0.5 flex items-center justify-center h-7 z-10">
+                                            <div 
+                                                v-if="idx === currentCheckpointIndex"
+                                                :class="[
+                                                    'w-7 h-7 rounded-full text-white flex items-center justify-center transition-transform hover:scale-105 cursor-pointer shadow-sm',
+                                                    currentShipment?.status === 'DELIVERED' 
+                                                        ? 'bg-emerald-600 ring-4 ring-emerald-100 shadow-emerald-500/20' 
+                                                        : ((currentShipment?.status === 'RETURNING' || currentShipment?.status === 'RETURNED') 
+                                                            ? 'bg-amber-600 ring-4 ring-amber-100 pulse-active shadow-amber-500/20' 
+                                                            : 'bg-blue-600 ring-4 ring-blue-100 pulse-active shadow-blue-500/20')
+                                                ]"
+                                                :title="'Đang xử lý tại: ' + cp.displayName + (cp.address ? ' | ' + cp.address : '')"
+                                            >
+                                                <svg v-if="cp.key === 'return-sender' || currentShipment?.status === 'RETURNING' || currentShipment?.status === 'RETURNED'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
+                                                </svg>
+                                                <svg v-else-if="activePinType === 'shipper'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <circle cx="5" cy="18" r="3"/><circle cx="19" cy="18" r="3"/><path d="M12 18V8l3 3h4"/><circle cx="12" cy="5" r="1"/>
+                                                </svg>
+                                                <svg v-else-if="activePinType === 'success'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                                                </svg>
+                                                <svg v-else class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M18 18.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM6 18.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
+                                                    <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 17c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm11-7h2.5l2 2.67V15H17v-5zm1 7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z" />
+                                                </svg>
+                                            </div>
+                                            <div 
+                                                v-else-if="idx < currentCheckpointIndex && cp.key === 'recipient' && (currentShipment?.status === 'RETURNING' || currentShipment?.status === 'RETURNED')"
+                                                class="w-6 h-6 rounded-full bg-rose-500 text-white shadow-2xs flex items-center justify-center cursor-pointer hover:bg-rose-600 transition"
+                                                :title="'Phát không thành công tới người nhận'"
+                                            >
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                                                </svg>
+                                            </div>
+                                            <div 
+                                                v-else-if="idx < currentCheckpointIndex"
+                                                class="w-6 h-6 rounded-full bg-blue-600 text-white shadow-2xs flex items-center justify-center cursor-pointer hover:bg-blue-700 transition"
+                                                :title="'Đã hoàn thành qua: ' + cp.displayName"
+                                            >
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                                                </svg>
+                                            </div>
+                                            <div 
+                                                v-else
+                                                class="w-6 h-6 rounded-full bg-white border-2 border-slate-300 text-slate-400 flex items-center justify-center text-[10px] font-bold font-mono shadow-2xs"
+                                                :title="'Chờ xử lý: ' + cp.displayName"
+                                            >
+                                                {{ idx + 1 }}
+                                            </div>
                                         </div>
-                                        <div 
-                                            v-else
-                                            class="w-6 h-6 rounded-full bg-white border-2 border-slate-300 text-slate-400 flex items-center justify-center text-[10px] font-bold font-mono shadow-2xs"
-                                            :title="'Chờ xử lý: ' + cp.displayName"
-                                        >
-                                            {{ idx + 1 }}
-                                        </div>
-                                    </div>
-                                    <div class="mt-1.5 w-full max-w-[115px] flex flex-col items-center">
-                                        <div 
-                                            :class="[
-                                                'text-[11px] font-semibold leading-tight text-center max-w-full truncate px-0.5 transition-colors',
-                                                idx === currentCheckpointIndex ? (currentShipment?.status === 'DELIVERED' ? 'text-emerald-700 font-bold' : 'text-blue-700 font-bold') : (idx < currentCheckpointIndex ? 'text-slate-700' : 'text-slate-400 font-normal')
-                                            ]"
-                                            :title="cp.displayName + (cp.code ? ' (' + cp.code + ')' : '') + (cp.roleLabel ? ' • ' + cp.roleLabel : '') + (cp.address ? ' | ' + cp.address : '')"
-                                        >
-                                            {{ cp.displayName }}
-                                        </div>
-                                        <div 
-                                            v-if="cp.code && cp.code !== cp.displayName && cp.code !== 'NGƯỜI NHẬN'"
-                                            :class="[
-                                                'text-[9.5px] font-mono mt-0.5 tracking-tight px-1 rounded transition-colors',
-                                                idx === currentCheckpointIndex ? (currentShipment?.status === 'DELIVERED' ? 'text-emerald-600 font-medium' : 'text-blue-600 font-medium') : (idx < currentCheckpointIndex ? 'text-slate-500' : 'text-slate-400')
-                                            ]"
-                                        >
-                                            {{ cp.code }}
+                                        <div class="mt-1.5 w-full flex flex-col items-center min-w-0 px-0.5">
+                                            <div 
+                                                :class="[
+                                                    'text-[10.5px] sm:text-[11px] font-semibold leading-tight text-center max-w-full truncate px-0.5 transition-colors',
+                                                    idx === currentCheckpointIndex 
+                                                        ? (currentShipment?.status === 'DELIVERED' 
+                                                            ? 'text-emerald-700 font-bold' 
+                                                            : ((currentShipment?.status === 'RETURNING' || currentShipment?.status === 'RETURNED') ? 'text-amber-700 font-bold' : 'text-blue-700 font-bold'))
+                                                        : (idx < currentCheckpointIndex ? 'text-slate-700' : 'text-slate-400 font-normal')
+                                                ]"
+                                                :title="cp.displayName + (cp.code ? ' (' + cp.code + ')' : '') + (cp.roleLabel ? ' • ' + cp.roleLabel : '') + (cp.address ? ' | ' + cp.address : '')"
+                                            >
+                                                {{ cp.displayName }}
+                                            </div>
+                                            <div 
+                                                v-if="cp.code && cp.code !== cp.displayName && cp.code !== 'NGƯỜI NHẬN' && cp.code !== 'NGƯỜI GỬI'"
+                                                :class="[
+                                                    'text-[9px] sm:text-[9.5px] font-mono mt-0.5 tracking-tight px-1 rounded transition-colors max-w-full truncate',
+                                                    idx === currentCheckpointIndex 
+                                                        ? (currentShipment?.status === 'DELIVERED' ? 'text-emerald-600 font-medium' : 'text-blue-600 font-medium') 
+                                                        : (idx < currentCheckpointIndex ? 'text-slate-500' : 'text-slate-400')
+                                                ]"
+                                            >
+                                                {{ cp.code }}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -2690,13 +2744,14 @@
                             </div>
 
                             <div class="space-y-2.5">
-                                <div class="relative">
+                                <div class="relative min-w-0">
                                     <input 
                                         id="tracking-search-input"
                                         v-model="searchCode" 
                                         @keyup.enter="fetchTrackingData()"
                                         @input="validationError = ''"
                                         type="text" 
+                                        maxlength="35"
                                         placeholder="Nhập mã số bưu gửi (VD: WB...)" 
                                         class="w-full pl-8 pr-7 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                                     />
@@ -2967,8 +3022,10 @@
                         <div v-if="!ratingResultView" class="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
                             <div class="p-3 rounded-xl border border-slate-200 bg-slate-50/70 flex items-center justify-between">
                                 <div class="flex items-center space-x-3">
-                                    <div class="w-10 h-10 rounded-full bg-[#0055bb] text-white font-bold flex items-center justify-center text-xs shadow-xs">
-                                        NV
+                                    <div class="w-10 h-10 rounded-full bg-blue-100 text-[#0055bb] flex items-center justify-center shadow-xs">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
                                     </div>
                                     <div>
                                         <div class="flex items-center gap-1.5">
@@ -3123,7 +3180,7 @@
                             <div class="p-3.5 rounded-xl border border-slate-200 text-left text-xs space-y-2 bg-slate-50 max-w-sm mx-auto">
                                 <div class="flex items-center justify-between text-xs text-slate-600">
                                     <span>Mức đánh giá:</span>
-                                    <span class="font-bold text-amber-500">{{ serviceScore }} ⭐ ({{ ratingMeta[serviceScore]?.label }})</span>
+                                    <span class="font-bold text-amber-500">{{ serviceScore }}/5 sao ({{ ratingMeta[serviceScore]?.label }})</span>
                                 </div>
                                 <div v-if="ratingResultView === 'positive'" class="flex items-center justify-between text-xs text-slate-600">
                                     <span>Điểm thưởng KPI Shipper:</span>
@@ -3132,10 +3189,6 @@
                                 <div v-if="ratingResultView === 'negative'" class="flex items-center justify-between text-xs text-slate-600">
                                     <span>Hỗ trợ khẩn cấp CSKH:</span>
                                     <span class="font-bold text-[#0055bb]">1800 1060 (Miễn phí)</span>
-                                </div>
-                                <div class="flex items-center justify-between text-xs text-slate-600">
-                                    <span>Đồng bộ trạng thái:</span>
-                                    <span class="font-mono font-semibold text-[#0055bb]">Kafka: shipment-feedbacks</span>
                                 </div>
                             </div>
 

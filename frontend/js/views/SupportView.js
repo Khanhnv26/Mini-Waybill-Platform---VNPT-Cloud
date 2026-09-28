@@ -851,19 +851,20 @@
                             
                             <div>
                                 <label class="block font-semibold text-slate-700 mb-1">Mã Vận Đơn Bưu Chính (Tracking Code) <span class="text-rose-500">*</span>:</label>
-                                <div class="flex items-center space-x-2">
+                                <div class="flex items-center space-x-2 min-w-0">
                                     <input 
                                         type="text" 
                                         v-model="formData.trackingCode" 
+                                        maxlength="30"
                                         placeholder="Ví dụ: WB12345678"
-                                        class="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold uppercase focus:bg-white focus:border-blue-600 outline-none transition"
+                                        class="flex-1 min-w-0 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold uppercase focus:bg-white focus:border-blue-600 outline-none transition"
                                         required
                                     />
                                     <button 
                                         type="button" 
                                         @click="checkShipment"
                                         :disabled="isCheckingShipment"
-                                        class="btn-press px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition text-xs border border-slate-200 flex items-center space-x-1"
+                                        class="btn-press px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition text-xs border border-slate-200 flex items-center space-x-1 shrink-0"
                                     >
                                         <span v-if="isCheckingShipment" class="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
                                         <span>{{ isCheckingShipment ? 'Đang tra...' : 'Kiểm tra đơn' }}</span>
@@ -873,17 +874,17 @@
 
                             <div v-if="shipmentInfo" class="tab-content-enter p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5 transition-all text-[11px]">
                                 <div class="flex items-center justify-between">
-                                    <div class="flex items-center space-x-2">
-                                        <span class="font-mono font-bold text-blue-700">{{ shipmentInfo.trackingCode }}</span>
-                                        <span class="text-slate-500">Bưu gửi bưu chính</span>
+                                    <div class="flex items-center space-x-2 min-w-0">
+                                        <span class="font-mono font-bold text-blue-700 truncate max-w-[140px]" :title="shipmentInfo.trackingCode">{{ shipmentInfo.trackingCode }}</span>
+                                        <span class="text-slate-500 shrink-0">Bưu gửi bưu chính</span>
                                     </div>
-                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border" :class="formatShipmentBadge(shipmentInfo.status)">
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0" :class="formatShipmentBadge(shipmentInfo.status)">
                                         {{ formatStatusText(shipmentInfo.status) }}
                                     </span>
                                 </div>
                                 <div v-if="shipmentInfo.senderName || shipmentInfo.receiverName || shipmentInfo.codAmount" class="grid grid-cols-2 gap-2 text-slate-600 pt-1 border-t border-slate-200/60 mt-1">
-                                    <div v-if="shipmentInfo.senderName"><span class="text-slate-400">Người gửi/Chủ hàng:</span> {{ shipmentInfo.senderName }}</div>
-                                    <div v-if="shipmentInfo.receiverName"><span class="text-slate-400">Người nhận:</span> {{ shipmentInfo.receiverName }}</div>
+                                    <div v-if="shipmentInfo.senderName" class="truncate" :title="shipmentInfo.senderName"><span class="text-slate-400">Người gửi/Chủ hàng:</span> {{ shipmentInfo.senderName }}</div>
+                                    <div v-if="shipmentInfo.receiverName" class="truncate" :title="shipmentInfo.receiverName"><span class="text-slate-400">Người nhận:</span> {{ shipmentInfo.receiverName }}</div>
                                     <div v-if="shipmentInfo.codAmount"><span class="text-slate-400">Tiền COD:</span> {{ formatCurrency(shipmentInfo.codAmount) }}</div>
                                 </div>
                             </div>
@@ -896,6 +897,7 @@
                                     <input 
                                         type="text" 
                                         v-model="formData.creatorName" 
+                                        maxlength="100"
                                         placeholder="Nhập họ và tên..."
                                         class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-blue-600 outline-none transition"
                                         required
@@ -908,6 +910,7 @@
                                     <input 
                                         type="tel" 
                                         v-model="formData.creatorPhone" 
+                                        maxlength="15"
                                         placeholder="Nhập số điện thoại nhận kết quả..."
                                         class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:bg-white focus:border-blue-600 outline-none transition"
                                         required
@@ -943,6 +946,7 @@
                                 <input 
                                     type="text" 
                                     v-model="formData.title" 
+                                    maxlength="150"
                                     placeholder="Tóm tắt ngắn gọn sự cố..."
                                     class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-blue-600 outline-none transition"
                                     required
@@ -950,12 +954,16 @@
                             </div>
 
                             <div>
-                                <label class="block font-semibold text-slate-700 mb-1">Mô tả sự việc chi tiết <span class="text-rose-500">*</span>:</label>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label class="block font-semibold text-slate-700">Mô tả sự việc chi tiết <span class="text-rose-500">*</span>:</label>
+                                    <span class="text-[10px] text-slate-400 font-mono">{{ (formData.description || '').length }}/1000</span>
+                                </div>
                                 <textarea 
                                     v-model="formData.description" 
                                     rows="3" 
+                                    maxlength="1000"
                                     placeholder="Mô tả cụ thể thời gian nhận, tình trạng bao bì, hư hỏng sản phẩm bên trong..."
-                                    class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-blue-600 outline-none transition"
+                                    class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-blue-600 outline-none transition resize-none"
                                     required
                                 ></textarea>
                             </div>
@@ -1026,7 +1034,8 @@
                                     v-model="searchCode" 
                                     @keydown.enter="handleSearch"
                                     placeholder="Nhập mã TKT... hoặc WB..."
-                                    class="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold uppercase focus:bg-white focus:border-blue-600 outline-none transition"
+                                    maxlength="35"
+                                    class="flex-1 min-w-0 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold uppercase focus:bg-white focus:border-blue-600 outline-none transition"
                                 />
                                 <button 
                                     type="button" 
@@ -1274,8 +1283,8 @@
                                     
                                     <div v-if="msg.senderRole === 'CUSTOMER'" class="flex justify-end chat-bubble-in">
                                         <div class="max-w-[85%] sm:max-w-[75%] min-w-0 space-y-1">
-                                            <div class="bg-blue-600 text-white rounded-2xl rounded-tr-xs p-3 shadow-xs text-xs leading-relaxed space-y-2 chat-bubble-wrap">
-                                                <p v-if="msg.content" class="chat-bubble-wrap">{{ msg.content }}</p>
+                                            <div class="bg-blue-600 text-white rounded-2xl rounded-tr-xs p-3 shadow-xs text-xs leading-relaxed space-y-2 chat-bubble-wrap break-words break-all">
+                                                <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
                                                 <div v-if="msg.attachmentUrls" class="pt-1.5 border-t border-blue-400/40">
                                                     <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-white/20 bg-blue-700/50 hover:bg-blue-700 transition">
                                                         <img :src="msg.attachmentUrls" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
@@ -1298,8 +1307,8 @@
                                         </div>
                                         <div class="max-w-[85%] sm:max-w-[75%] min-w-0 space-y-1">
                                             <div class="text-[10px] font-bold text-slate-700 pl-1">{{ msg.senderName || 'CSKH VNPT' }}</div>
-                                            <div class="bg-white text-slate-800 rounded-2xl rounded-tl-xs border border-slate-200 p-3 shadow-2xs text-xs leading-relaxed space-y-2 chat-bubble-wrap">
-                                                <p v-if="msg.content" class="chat-bubble-wrap">{{ msg.content }}</p>
+                                            <div class="bg-white text-slate-800 rounded-2xl rounded-tl-xs border border-slate-200 p-3 shadow-2xs text-xs leading-relaxed space-y-2 chat-bubble-wrap break-words break-all">
+                                                <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
                                                 <div v-if="msg.attachmentUrls" class="pt-1.5 border-t border-slate-100">
                                                     <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition">
                                                         <img :src="msg.attachmentUrls" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
@@ -1421,6 +1430,7 @@
                                 v-model="chatInput" 
                                 @keydown.enter="sendMessage()" 
                                 :disabled="!activeTicket || isSendingMessage"
+                                maxlength="1000"
                                 :placeholder="isUploadingAttachment ? 'Đang tải ảnh lên MinIO...' : 'Nhập tin nhắn trao đổi với CSKH... (nhấn Enter để gửi)'" 
                                 class="flex-1 min-w-0 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-blue-600 transition"
                             />
@@ -1449,6 +1459,7 @@
                                 <input 
                                     type="text" 
                                     v-model="opsSearchQuery" 
+                                    maxlength="100"
                                     placeholder="Tìm theo mã vé, mã đơn, người gửi..."
                                     class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-blue-600 transition"
                                 />
@@ -1484,10 +1495,10 @@
                                 </thead>
                                 <tbody class="divide-y divide-slate-100">
                                     <tr v-for="t in filteredOpsTickets" :key="t.id" class="hover:bg-slate-50/80 transition-colors">
-                                        <td class="px-4 py-3 font-mono font-bold text-slate-900">{{ t.ticketCode }}</td>
-                                        <td class="px-4 py-3 font-mono font-bold text-blue-700">{{ t.trackingCode }}</td>
-                                        <td class="px-4 py-3">
-                                            <div class="font-semibold text-slate-800">{{ t.creatorName }}</div>
+                                        <td class="px-4 py-3 font-mono font-bold text-slate-900 truncate max-w-[130px]" :title="t.ticketCode">{{ t.ticketCode }}</td>
+                                        <td class="px-4 py-3 font-mono font-bold text-blue-700 truncate max-w-[140px]" :title="t.trackingCode">{{ t.trackingCode }}</td>
+                                        <td class="px-4 py-3 max-w-[160px]">
+                                            <div class="font-semibold text-slate-800 truncate" :title="t.creatorName">{{ t.creatorName }}</div>
                                             <div class="text-[10px] text-slate-400 font-mono">{{ t.creatorPhone }}</div>
                                         </td>
                                         <td class="px-4 py-3">
@@ -1501,8 +1512,8 @@
                                                 <span>{{ formatStatusText(t.status) }}</span>
                                             </span>
                                         </td>
-                                        <td class="px-4 py-3">
-                                            <span v-if="t.assignedToName" class="font-semibold text-slate-700">{{ t.assignedToName }}</span>
+                                        <td class="px-4 py-3 max-w-[140px]">
+                                            <span v-if="t.assignedToName" class="font-semibold text-slate-700 truncate block" :title="t.assignedToName">{{ t.assignedToName }}</span>
                                             <span v-else class="text-slate-400 italic">Chưa phân công</span>
                                         </td>
                                         <td class="px-4 py-3 text-right space-x-1.5 whitespace-nowrap">
@@ -1594,11 +1605,15 @@
                                     </div>
 
                                     <div>
-                                        <label class="block font-bold text-slate-700 mb-1">Kết luận xử lý &amp; Trách nhiệm bưu cục:</label>
+                                        <div class="flex items-center justify-between mb-1">
+                                            <label class="block font-bold text-slate-700">Kết luận xử lý &amp; Trách nhiệm bưu cục:</label>
+                                            <span class="text-[10px] text-slate-400 font-mono">{{ (modalNote || '').length }}/500</span>
+                                        </div>
                                         <textarea 
                                             v-model="modalNote" 
                                             rows="3" 
-                                            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-blue-600 outline-none transition"
+                                            maxlength="500"
+                                            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:border-blue-600 outline-none transition resize-none"
                                         ></textarea>
                                     </div>
                                 </div>
@@ -1621,8 +1636,8 @@
                                             </div>
                                             <div class="max-w-[80%] min-w-0 space-y-0.5">
                                                 <div class="text-[10px] text-slate-500">{{ msg.senderName }} • {{ formatTime(msg.createdAt) }}</div>
-                                                <div class="p-2.5 bg-white text-slate-700 rounded-2xl rounded-tl-xs border border-slate-200 shadow-2xs text-[11px] leading-relaxed space-y-1.5 chat-bubble-wrap">
-                                                    <p v-if="msg.content" class="chat-bubble-wrap">{{ msg.content }}</p>
+                                                <div class="p-2.5 bg-white text-slate-700 rounded-2xl rounded-tl-xs border border-slate-200 shadow-2xs text-[11px] leading-relaxed space-y-1.5 chat-bubble-wrap break-words break-all">
+                                                    <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
                                                     <div v-if="msg.attachmentUrls" class="pt-1 border-t border-slate-100">
                                                         <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
                                                             <img :src="msg.attachmentUrls" alt="Ảnh đính kèm" class="max-w-full max-h-40 rounded-lg object-contain mx-auto" loading="lazy" />
@@ -1635,8 +1650,8 @@
                                         <div v-else class="flex justify-end chat-bubble-in">
                                             <div class="max-w-[80%] min-w-0 space-y-0.5 text-right">
                                                 <div class="text-[10px] text-slate-400">Bạn (CSKH) • {{ formatTime(msg.createdAt) }}</div>
-                                                <div class="p-2.5 bg-blue-600 text-white rounded-2xl rounded-tr-xs shadow-xs text-[11px] text-left leading-relaxed space-y-1.5 chat-bubble-wrap">
-                                                    <p v-if="msg.content" class="chat-bubble-wrap">{{ msg.content }}</p>
+                                                <div class="p-2.5 bg-blue-600 text-white rounded-2xl rounded-tr-xs shadow-xs text-[11px] text-left leading-relaxed space-y-1.5 chat-bubble-wrap break-words break-all">
+                                                    <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
                                                     <div v-if="msg.attachmentUrls" class="pt-1 border-t border-blue-400/40">
                                                         <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-white/20 bg-blue-700/50">
                                                             <img :src="msg.attachmentUrls" alt="Ảnh đính kèm" class="max-w-full max-h-40 rounded-lg object-contain mx-auto" loading="lazy" />
@@ -1684,6 +1699,7 @@
                                         type="text" 
                                         v-model="modalCsReply" 
                                         @keydown.enter="handleSendCsMessageInModal"
+                                        maxlength="1000"
                                         :placeholder="isUploadingModalAttachment ? 'Đang tải ảnh lên MinIO...' : 'Nhập tin nhắn giải thích hoặc trao đổi với khách...'" 
                                         class="flex-1 min-w-0 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:bg-white focus:border-blue-600 transition"
                                     />

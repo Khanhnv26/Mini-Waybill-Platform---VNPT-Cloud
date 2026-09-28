@@ -17,10 +17,6 @@
             const currentPage = ref(1);
             const pageSize = ref(10);
 
-            const showFailedModal = ref(false);
-            const failedTargetShipment = ref(null);
-            const failedReason = ref('KHONG_NGHE_MAY');
-            const failedNote = ref('');
 
             // Phép chiếu tồn kho/lịch sử tác nghiệp là dữ liệu phụ trợ. Không để việc
             // nạp phụ trợ làm hỏng danh sách vận đơn legacy nếu endpoint chưa tồn tại.
@@ -561,29 +557,150 @@
                 response?.status || response?.currentStatus || response?.newStatus || fallback
             ).trim().toUpperCase();
 
-            const handleDeliverSuccess = async (shipment) => {
+            const showDeliveryActionModal = ref(false);
+            const deliveryTargetShipment = ref(null);
+            const deliveryActiveTab = ref('SUCCESS');
+            const deliveryPaymentMethod = ref('CASH');
+            const deliverySuccessNote = ref('');
+            const failedReason = ref('KHONG_NGHE_MAY');
+            const failedNote = ref('');
+
+            const qrTargetShipment = ref(null);
+            const qrPaymentData = ref(null);
+            const isQrLoading = ref(false);
+            const qrCountdown = ref(600);
+            const isMockPaying = ref(false);
+            const isQrPaidSuccess = ref(false);
+            let qrInterval = null;
+            let qrPollInterval = null;
+
+            const formatCountdown = (seconds) => {
+                const m = Math.floor(seconds / 60);
+                const s = seconds % 60;
+                return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            };
+
+            const closeDeliveryActionModal = () => {
+                if (qrInterval) clearInterval(qrInterval);
+                if (qrPollInterval) clearInterval(qrPollInterval);
+                showDeliveryActionModal.value = false;
+                deliveryTargetShipment.value = null;
+                qrTargetShipment.value = null;
+                qrPaymentData.value = null;
+                isQrLoading.value = false;
+                isMockPaying.value = false;
+                isQrPaidSuccess.value = false;
+            };
+
+            const handlePaymentSuccessRealtime = async (payment) => {
+                if (qrInterval) clearInterval(qrInterval);
+                if (qrPollInterval) clearInterval(qrPollInterval);
+                isQrPaidSuccess.value = true;
+                Utils.showToast('Thanh Toán Thành Công', `Đã nhận ${Utils.formatCurrency(payment.amount)} qua VietQR!`, 'success');
+                if (deliveryTargetShipment.value) {
+                    await refreshServerProjections(deliveryTargetShipment.value.trackingCode);
+                }
+                await loadShipmentsData();
+                setTimeout(() => {
+                    closeDeliveryActionModal();
+                }, 1800);
+            };
+
+            const generateDeliveryQr = async (shipment) => {
+                if (!shipment) return;
+                qrPaymentData.value = null;
+                isQrLoading.value = true;
+                isQrPaidSuccess.value = false;
+                qrCountdown.value = 600;
+
+                try {
+                    const res = await PaymentService.createQrPayment({
+                        trackingCode: shipment.trackingCode,
+                        amount: shipment.codAmount || 0,
+                        paymentType: 'COD',
+                        note: `Thu COD don ${shipment.trackingCode}`
+                    });
+                    qrPaymentData.value = res;
+                    isQrLoading.value = false;
+
+                    if (qrInterval) clearInterval(qrInterval);
+                    qrInterval = setInterval(() => {
+                        if (qrCountdown.value > 0) {
+                            qrCountdown.value--;
+                        } else {
+                            clearInterval(qrInterval);
+                        }
+                    }, 1000);
+
+                    if (qrPollInterval) clearInterval(qrPollInterval);
+                    qrPollInterval = setInterval(async () => {
+                        try {
+                            const check = await PaymentService.getPaymentByTracking(shipment.trackingCode);
+                            if (check && check.status === 'SUCCESS') {
+                                handlePaymentSuccessRealtime(check);
+                            }
+                        } catch (e) {}
+                    }, 3000);
+                } catch (err) {
+                    isQrLoading.value = false;
+                    Utils.showToast('Lỗi Tạo QR', err.message || 'Không thể tạo mã VietQR', 'error');
+                }
+            };
+
+            const switchDeliveryPaymentMethod = async (method) => {
+                deliveryPaymentMethod.value = method;
+                if (method === 'QR' && !qrPaymentData.value && deliveryTargetShipment.value) {
+                    await generateDeliveryQr(deliveryTargetShipment.value);
+                }
+            };
+
+            const openDeliveryActionModal = (shipment) => {
                 if (!canShowDeliveryActions(shipment)) {
                     Utils.showToast('Chưa Thể Phát', 'Bưu gửi chưa có xác nhận đang ở bưu cục phát hoặc trạng thái đã thay đổi. Vui lòng làm mới dữ liệu.', 'warning');
-                    await loadRoutingProjection(shipment, true).catch(() => null);
+                    loadRoutingProjection(shipment, true).catch(() => null);
                     return;
                 }
+                deliveryTargetShipment.value = shipment;
+                qrTargetShipment.value = shipment;
+                deliveryActiveTab.value = 'SUCCESS';
+                deliveryPaymentMethod.value = 'CASH';
+                deliverySuccessNote.value = '';
+                failedReason.value = 'KHONG_NGHE_MAY';
+                failedNote.value = '';
+                qrPaymentData.value = null;
+                isQrLoading.value = false;
+                isQrPaidSuccess.value = false;
+                qrCountdown.value = 600;
+                if (qrInterval) clearInterval(qrInterval);
+                if (qrPollInterval) clearInterval(qrPollInterval);
+                showDeliveryActionModal.value = true;
+            };
 
-                const codText = shipment.codAmount && shipment.codAmount > 0
-                    ? `kèm xác nhận thu tiền mặt COD: ${Utils.formatCurrency(shipment.codAmount)}`
-                    : 'không có tiền COD';
-
-                if (!confirm(`Xác nhận bưu gửi ${shipment.trackingCode} đã phát thành công đến người nhận ${codText}?`)) {
+            const submitDeliverySuccess = async (isCash = true) => {
+                if (!deliveryTargetShipment.value) return;
+                const shipment = deliveryTargetShipment.value;
+                if (!canShowDeliveryActions(shipment)) {
+                    closeDeliveryActionModal();
+                    Utils.showToast('Chưa Thể Phát', 'Bưu gửi chưa có xác nhận đang ở bưu cục phát hoặc trạng thái đã thay đổi. Vui lòng làm mới dữ liệu.', 'warning');
+                    await loadRoutingProjection(shipment, true).catch(() => null);
                     return;
                 }
 
                 isActionRunning.value = true;
                 try {
                     const locationCode = getLastMileLocation(shipment) || 'DELIVERY_OFFICE';
+                    const defaultNote = shipment.codAmount && shipment.codAmount > 0 && isCash
+                        ? `Bưu tá phát thành công tận nơi cho ${shipment.receiverName || 'người nhận'} (đã thu tiền mặt COD ${Utils.formatCurrency(shipment.codAmount)})`
+                        : `Bưu tá phát thành công tận nơi cho ${shipment.receiverName || 'người nhận'}`;
+                    const noteText = deliverySuccessNote.value && deliverySuccessNote.value.trim()
+                        ? `${defaultNote} - Ghi chú: ${deliverySuccessNote.value.trim()}`
+                        : defaultNote;
+
                     const result = await TrackingService.updateStatus(
                         shipment.trackingCode,
                         'DELIVERED',
                         locationCode,
-                        `Bưu tá phát thành công tận nơi cho ${shipment.receiverName || 'người nhận'}`
+                        noteText
                     );
                     const savedStatus = getActionStatus(result, 'DELIVERED');
                     updateOptimisticShipment(shipment.trackingCode, savedStatus, locationCode);
@@ -591,7 +708,7 @@
                         shipment.trackingCode,
                         savedStatus === 'DELIVERED' ? 'DELIVERED' : savedStatus,
                         locationCode,
-                        `Bưu tá phát thành công tận nơi cho ${shipment.receiverName || 'người nhận'}`
+                        noteText
                     );
 
                     Utils.showToast(
@@ -600,7 +717,9 @@
                             ? `Đã ghi nhận phát thành công cho bưu gửi ${shipment.trackingCode}`
                             : `Bưu gửi ${shipment.trackingCode}: ${formatShipmentStatus(savedStatus)}`
                     );
+                    closeDeliveryActionModal();
                     await refreshServerProjections(shipment.trackingCode);
+                    await loadShipmentsData();
                 } catch (err) {
                     console.error('[ShipperView] Lỗi báo phát:', err);
                     Utils.showToast('Lỗi Tác Nghiệp', err.message || 'Không thể cập nhật trạng thái', 'error');
@@ -609,26 +728,27 @@
                 }
             };
 
-            const openFailedModal = (shipment) => {
-                if (!canShowDeliveryActions(shipment)) {
-                    Utils.showToast('Chưa Thể Báo Thất Bại', 'Bưu gửi chưa có xác nhận đang ở bưu cục phát hoặc trạng thái đã thay đổi.', 'warning');
-                    loadRoutingProjection(shipment, true).catch(() => null);
-                    return;
+            const handleMockQrPay = async () => {
+                if (!deliveryTargetShipment.value || isMockPaying.value) return;
+                isMockPaying.value = true;
+                try {
+                    const res = await PaymentService.mockPay(deliveryTargetShipment.value.trackingCode);
+                    await handlePaymentSuccessRealtime(res.data || { amount: deliveryTargetShipment.value.codAmount });
+                } catch (err) {
+                    Utils.showToast('Lỗi Giả Lập', err.message || 'Không thể giả lập thanh toán', 'error');
+                } finally {
+                    isMockPaying.value = false;
                 }
-                failedTargetShipment.value = shipment;
-                failedReason.value = 'KHONG_NGHE_MAY';
-                failedNote.value = '';
-                showFailedModal.value = true;
             };
 
             const handleDeliverFailed = async () => {
-                if (!failedTargetShipment.value) return;
+                if (!deliveryTargetShipment.value) return;
 
                 const shipment = shipmentsList.value.find(
-                    item => item.trackingCode === failedTargetShipment.value.trackingCode
-                ) || failedTargetShipment.value;
+                    item => item.trackingCode === deliveryTargetShipment.value.trackingCode
+                ) || deliveryTargetShipment.value;
                 if (!canShowDeliveryActions(shipment)) {
-                    showFailedModal.value = false;
+                    closeDeliveryActionModal();
                     Utils.showToast('Chưa Thể Báo Thất Bại', 'Bưu gửi không còn ở bưu cục phát hoặc trạng thái đã thay đổi. Vui lòng làm mới dữ liệu.', 'warning');
                     await loadRoutingProjection(shipment, true).catch(() => null);
                     return;
@@ -666,11 +786,12 @@
                             ? `Bưu gửi ${code} đã phát thất bại đủ số lần và đang chuyển hoàn về người gửi.`
                             : `Bưu gửi ${code} đã chuyển trạng thái ${formatShipmentStatus(savedStatus)}`
                     );
-                    showFailedModal.value = false;
+                    closeDeliveryActionModal();
                     await refreshServerProjections(code);
+                    await loadShipmentsData();
                 } catch (err) {
-                    console.error('[ShipperView] Lỗi báo thất bại:', err);
-                    Utils.showToast('Lỗi Tác Nghiệp', err.message || 'Không thể cập nhật trạng thái', 'error');
+                    console.error('[ShipperView] Lỗi báo phát thất bại:', err);
+                    Utils.showToast('Lỗi Tác Nghiệp', err.message || 'Không thể cập nhật trạng thái phát thất bại', 'error');
                 } finally {
                     isActionRunning.value = false;
                 }
@@ -986,10 +1107,22 @@
                 getShipmentStatusBadgeClass,
                 refreshServerProjections,
                 loadShipmentsData,
-                handleDeliverSuccess,
-                openFailedModal,
-                showFailedModal,
-                failedTargetShipment,
+                showDeliveryActionModal,
+                deliveryTargetShipment,
+                deliveryActiveTab,
+                deliveryPaymentMethod,
+                deliverySuccessNote,
+                openDeliveryActionModal,
+                closeDeliveryActionModal,
+                switchDeliveryPaymentMethod,
+                submitDeliverySuccess,
+                qrPaymentData,
+                isQrLoading,
+                qrCountdown,
+                formatCountdown,
+                handleMockQrPay,
+                isMockPaying,
+                isQrPaidSuccess,
                 failedReason,
                 failedNote,
                 handleDeliverFailed,
@@ -1085,6 +1218,7 @@
                             <input 
                                 v-model="searchQuery"
                                 type="text" 
+                                maxlength="100"
                                 placeholder="Tìm mã vận đơn, người nhận, SĐT, địa chỉ..."
                                 class="w-full pl-3 pr-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                             />
@@ -1137,7 +1271,7 @@
                                     <th class="py-2.5 px-3">Địa Chỉ Phát Tận Nơi</th>
                                     <th class="py-2.5 px-3">Tiền Thu Hộ COD</th>
                                     <th class="py-2.5 px-3 whitespace-nowrap w-28">Trạng Thái</th>
-                                    <th class="py-2.5 px-3 text-right">Tác Nghiệp Bưu Tá</th>
+                                    <th class="py-2.5 px-3 text-right w-32 whitespace-nowrap">Tác Nghiệp</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 font-medium">
@@ -1153,10 +1287,10 @@
                                         </button>
                                     </td>
                                     <td class="py-2.5 px-3">
-                                        <div class="font-bold text-slate-800">{{ item.receiverName || 'Chưa cập nhật' }}</div>
+                                        <div class="font-bold text-slate-800 truncate max-w-[160px]" :title="item.receiverName">{{ item.receiverName || 'Chưa cập nhật' }}</div>
                                         <div class="text-[10.5px] font-mono text-slate-500">{{ item.receiverPhone || 'Chưa có SĐT' }}</div>
                                     </td>
-                                    <td class="py-2.5 px-3 text-slate-700 max-w-xs truncate">
+                                    <td class="py-2.5 px-3 text-slate-700 max-w-xs truncate" :title="item.receiverAddress || ''">
                                         {{ item.receiverAddress || 'Chưa có địa chỉ' }}
                                     </td>
                                     <td class="py-2.5 px-3 font-mono font-bold text-emerald-700">
@@ -1167,21 +1301,17 @@
                                             {{ formatShipmentStatus(getShipmentStatus(item)) }}
                                         </span>
                                     </td>
-                                    <td class="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">
+                                    <td class="py-2.5 px-3 text-right whitespace-nowrap">
                                         <template v-if="getShipmentStatus(item) === 'OUT_FOR_DELIVERY' && canShowDeliveryActions(item)">
                                             <button
-                                                @click="handleDeliverSuccess(item)"
+                                                @click="openDeliveryActionModal(item)"
                                                 :disabled="isActionRunning"
-                                                class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold transition shadow-sm"
+                                                class="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg font-bold text-xs inline-flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                                                title="Bấm để xử lý giao hàng hoặc báo phát thất bại"
                                             >
-                                                Xác Nhận Phát Thành Công
-                                            </button>
-                                            <button
-                                                @click="openFailedModal(item)"
-                                                :disabled="isActionRunning"
-                                                class="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 rounded-md font-bold transition"
-                                            >
-                                                Báo Phát Không Thành Công
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                                <span>Xử lý giao</span>
+                                                <span v-if="item.codAmount && item.codAmount > 0" class="text-[9.5px] bg-blue-800/80 px-1 py-0.2 rounded font-mono">COD</span>
                                             </button>
                                         </template>
                                         <template v-else-if="getShipmentStatus(item) === 'OUT_FOR_DELIVERY'">
@@ -1464,49 +1594,7 @@
             </div>
             </transition>
 
-            <teleport to="body">
-            <Transition name="modal">
-            <div v-if="showFailedModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-                <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-5 space-y-4 text-xs">
-                    <div class="border-b border-slate-100 pb-3 flex justify-between items-center">
-                        <div>
-                            <h3 class="font-bold text-slate-900 text-sm">Ghi Nhận Phát Không Thành Công</h3>
-                            <p class="text-slate-500 font-mono text-[11px] mt-0.5 whitespace-nowrap">Bưu gửi: {{ failedTargetShipment?.trackingCode }}</p>
-                        </div>
-                        <button @click="showFailedModal = false" class="text-slate-400 hover:text-slate-600 p-1 rounded hover:bg-slate-100 transition" aria-label="Đóng">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                        </button>
-                    </div>
 
-                    <div class="space-y-3">
-                        <div>
-                            <label class="block font-semibold text-slate-700 mb-1">Lý do phát không thành công:</label>
-                            <select v-model="failedReason" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-medium outline-none focus:bg-white focus:border-blue-600">
-                                <option value="KHONG_NGHE_MAY">Khách không nghe máy / Thuê bao</option>
-                                <option value="SAI_DIA_CHI">Sai địa chỉ / Không tìm thấy nhà người nhận</option>
-                                <option value="HEN_LAI_NGAY">Người nhận hẹn giao lại vào ngày sau</option>
-                                <option value="TU_CHOI_NHAN">Người nhận từ chối nhận hàng (Hoàn đơn)</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block font-semibold text-slate-700 mb-1">Ghi chú bổ sung (nếu có):</label>
-                            <textarea v-model="failedNote" rows="2" placeholder="Nhập ghi chú chi tiết từ cuộc gọi hoặc địa chỉ..." class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs outline-none focus:bg-white focus:border-blue-600"></textarea>
-                        </div>
-                    </div>
-
-                    <div class="border-t border-slate-100 pt-3 flex justify-end space-x-2">
-                        <button @click="showFailedModal = false" class="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold transition">
-                            Hủy Bỏ
-                        </button>
-                        <button @click="handleDeliverFailed()" :disabled="isActionRunning" class="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold shadow-sm transition disabled:opacity-50">
-                            Xác Nhận Phát Không Thành Công
-                        </button>
-                    </div>
-                </div>
-            </div>
-            </Transition>
-            </teleport>
 
             <teleport to="body">
             <Transition name="modal">
@@ -1548,6 +1636,248 @@
                         <button @click="executeCodSettlement()" :disabled="isSubmittingSettlement" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm transition disabled:opacity-50 inline-flex items-center justify-center min-w-[150px]">
                             <span>{{ isSubmittingSettlement ? 'Đang Xử Lý...' : 'Xác Nhận Nộp Quỹ' }}</span>
                         </button>
+                    </div>
+                </div>
+            </div>
+            </Transition>
+            </teleport>
+
+            <teleport to="body">
+            <Transition name="modal">
+            <div v-if="showDeliveryActionModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden text-xs animate-in fade-in zoom-in duration-150">
+                    <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-extrabold text-slate-900 text-sm">Tác Nghiệp Phát Bưu Gửi</h3>
+                                <p class="text-slate-500 font-mono text-[11px]">Mã đơn: <span class="text-blue-700 font-bold">{{ deliveryTargetShipment?.trackingCode }}</span></p>
+                            </div>
+                        </div>
+                        <button @click="closeDeliveryActionModal" class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition" aria-label="Đóng">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="p-5 space-y-4">
+                        <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-xs space-y-1">
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-500">Người nhận:</span>
+                                <span class="font-bold text-slate-800">{{ deliveryTargetShipment?.receiverName || 'Chưa cập nhật' }}</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-500">Số điện thoại:</span>
+                                <span class="font-mono font-bold text-slate-800">{{ deliveryTargetShipment?.receiverPhone || 'Chưa có SĐT' }}</span>
+                            </div>
+                            <div class="flex items-start justify-between gap-2">
+                                <span class="text-slate-500 shrink-0">Địa chỉ:</span>
+                                <span class="text-slate-700 text-right">{{ deliveryTargetShipment?.receiverAddress || 'Chưa có địa chỉ' }}</span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 p-1 bg-slate-100 rounded-xl text-xs font-bold">
+                            <button
+                                type="button"
+                                @click="deliveryActiveTab = 'SUCCESS'"
+                                :class="['py-2 rounded-lg transition flex items-center justify-center gap-1.5', deliveryActiveTab === 'SUCCESS' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700']"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                                <span>Phát Thành Công</span>
+                            </button>
+                            <button
+                                type="button"
+                                @click="deliveryActiveTab = 'FAILED'"
+                                :class="['py-2 rounded-lg transition flex items-center justify-center gap-1.5', deliveryActiveTab === 'FAILED' ? 'bg-white text-rose-700 shadow-sm' : 'text-slate-500 hover:text-slate-700']"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                                <span>Báo Thất Bại</span>
+                            </button>
+                        </div>
+
+                        <div v-if="deliveryActiveTab === 'SUCCESS'" class="space-y-3.5">
+                            <template v-if="deliveryTargetShipment?.codAmount && deliveryTargetShipment.codAmount > 0">
+                                <div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between">
+                                    <div>
+                                        <span class="text-[11px] font-bold uppercase tracking-wider text-amber-800">Tiền thu hộ COD:</span>
+                                        <p class="text-[10px] text-amber-600">Thu đủ trước khi giao kiện</p>
+                                    </div>
+                                    <div class="font-mono font-extrabold text-lg text-amber-700">
+                                        {{ Utils.formatCurrency(deliveryTargetShipment.codAmount) }}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-2">Chọn phương thức thu tiền:</label>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <button
+                                            type="button"
+                                            @click="switchDeliveryPaymentMethod('CASH')"
+                                            :class="['p-2.5 rounded-xl border-2 text-left transition flex items-center gap-2', deliveryPaymentMethod === 'CASH' ? 'border-blue-600 bg-blue-50/50 text-blue-900 font-bold' : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700 font-bold']"
+                                        >
+                                            <div class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <div class="text-xs">Tiền Mặt</div>
+                                                <div class="text-[10px] text-slate-500 font-normal">Cầm tiền mặt</div>
+                                            </div>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            @click="switchDeliveryPaymentMethod('QR')"
+                                            :class="['p-2.5 rounded-xl border-2 text-left transition flex items-center gap-2', deliveryPaymentMethod === 'QR' ? 'border-blue-600 bg-blue-50/50 text-blue-900 font-bold' : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700 font-bold']"
+                                        >
+                                            <div class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <div class="text-xs">Quét VietQR</div>
+                                                <div class="text-[10px] text-slate-500 font-normal">Chuyển khoản</div>
+                                            </div>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div v-if="deliveryPaymentMethod === 'CASH'" class="space-y-3 pt-1">
+                                    <div class="p-2.5 bg-amber-50/70 border border-amber-200 rounded-xl text-[11px] text-amber-800 flex items-start gap-2">
+                                        <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        <span>Kiểm đếm đủ tiền mặt từ khách. Khoản tiền sẽ nộp quỹ cuối ca.</span>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] font-medium text-slate-600 mb-1">Ghi chú phát (tùy chọn):</label>
+                                        <input v-model="deliverySuccessNote" type="text" placeholder="Người nhận trực tiếp / gửi người thân..." class="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                    <button
+                                        type="button"
+                                        @click="submitDeliverySuccess(true)"
+                                        :disabled="isActionRunning"
+                                        class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl font-bold text-xs transition shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                        </svg>
+                                        <span>Xác Nhận Đã Thu Tiền & Giao Hàng</span>
+                                    </button>
+                                </div>
+
+                                <div v-else-if="deliveryPaymentMethod === 'QR'" class="space-y-3 pt-1">
+                                    <div v-if="isQrPaidSuccess" class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-center space-y-1">
+                                        <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                        </div>
+                                        <h4 class="font-extrabold text-emerald-900 text-xs">Thanh Toán VietQR Thành Công!</h4>
+                                        <p class="text-[11px] text-emerald-700">Đã tự động quyết toán COD và hoàn tất phát hàng.</p>
+                                    </div>
+
+                                    <div v-else class="flex flex-col items-center p-3 bg-slate-50 border border-slate-200 rounded-xl relative">
+                                        <div class="absolute top-2 right-2 flex items-center gap-1 text-[10px] font-mono text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                            <span>{{ formatCountdown(qrCountdown) }}</span>
+                                        </div>
+                                        <div class="bg-white p-2 rounded-lg shadow-sm border border-slate-200 mb-2 min-h-[150px] flex items-center justify-center">
+                                            <div v-if="isQrLoading" class="flex flex-col items-center space-y-2 text-slate-400 py-6">
+                                                <svg class="animate-spin h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                <span>Đang tạo VietQR...</span>
+                                            </div>
+                                            <img v-else-if="qrPaymentData?.qrUrl" :src="qrPaymentData.qrUrl" alt="VietQR COD" class="w-36 h-36 object-contain" />
+                                        </div>
+                                        <div class="text-center text-[11px] space-y-0.5">
+                                            <p class="font-extrabold text-blue-900">{{ qrPaymentData?.bankCode || 'MB Bank' }} • {{ qrPaymentData?.accountNo || '0987654321' }}</p>
+                                            <p class="font-bold text-slate-700">{{ qrPaymentData?.accountName || 'VNPT POST LOGISTICS' }}</p>
+                                            <div class="text-[10px] bg-blue-50 text-blue-800 py-0.5 px-2 rounded font-mono font-bold border border-blue-200 inline-block mt-0.5">
+                                                Nội dung: COD {{ deliveryTargetShipment?.trackingCode }}
+                                            </div>
+                                        </div>
+                                        <div class="mt-2 text-[10.5px] text-blue-700 flex items-center gap-1.5">
+                                            <span class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                                            <span>Đang chờ khách quét mã thanh toán...</span>
+                                        </div>
+                                    </div>
+
+                                    <div v-if="!isQrPaidSuccess" class="pt-1">
+                                        <button
+                                            type="button"
+                                            @click="handleMockQrPay"
+                                            :disabled="isMockPaying || isQrLoading"
+                                            class="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                                        >
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                            <span>{{ isMockPaying ? 'Đang giả lập...' : 'Giả lập khách chuyển khoản thành công (Mock)' }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <template v-else>
+                                <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 flex items-start gap-2">
+                                    <svg class="w-4 h-4 text-blue-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>Bưu gửi không có tiền COD. Bưu tá bàn giao bưu phẩm cho người nhận và bấm xác nhận.</span>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-medium text-slate-600 mb-1">Ghi chú phát (tùy chọn):</label>
+                                    <input v-model="deliverySuccessNote" type="text" placeholder="Người nhận trực tiếp / gửi người thân..." class="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <button
+                                    type="button"
+                                    @click="submitDeliverySuccess(false)"
+                                    :disabled="isActionRunning"
+                                    class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl font-bold text-xs transition shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                    <span>Xác Nhận Đã Giao Hàng Cho Người Nhận</span>
+                                </button>
+                            </template>
+                        </div>
+
+                        <div v-else-if="deliveryActiveTab === 'FAILED'" class="space-y-3 pt-1">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">Lý do phát không thành công:</label>
+                                <select v-model="failedReason" class="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium">
+                                    <option value="KHONG_NGHE_MAY">Khách không nghe máy / Thuê bao</option>
+                                    <option value="SAI_DIA_CHI">Sai địa chỉ / Không tìm thấy nhà</option>
+                                    <option value="HEN_LAI_NGAY">Người nhận hẹn phát lại ngày sau</option>
+                                    <option value="TU_CHOI_NHAN">Người nhận từ chối nhận hàng (Hoàn đơn)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label class="block text-[11px] font-medium text-slate-600">Ghi chú bổ sung (nếu có):</label>
+                                    <span class="text-[10px] text-slate-400 font-mono">{{ (failedNote || '').length }}/255</span>
+                                </div>
+                                <textarea v-model="failedNote" rows="2" maxlength="255" placeholder="Nhập ghi chú chi tiết từ cuộc gọi hoặc địa chỉ..." class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs outline-none focus:bg-white focus:border-rose-500 resize-none"></textarea>
+                            </div>
+                            <button
+                                type="button"
+                                @click="handleDeliverFailed"
+                                :disabled="isActionRunning"
+                                class="w-full py-2.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl font-bold text-xs transition shadow-md shadow-rose-600/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                </svg>
+                                <span>Xác Nhận Báo Phát Thất Bại</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

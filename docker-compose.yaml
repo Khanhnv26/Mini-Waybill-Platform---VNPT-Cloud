@@ -166,7 +166,7 @@ services:
           fi
           sleep 2
         done
-        /opt/mssql-tools18/bin/sqlcmd -S sqlserver-replica -U sa -P "$$SA_PASSWORD" -C -b -Q "IF DB_ID(N'rating_db') IS NULL CREATE DATABASE [rating_db];"
+        /opt/mssql-tools18/bin/sqlcmd -S sqlserver-replica -U sa -P "$$SA_PASSWORD" -C -b -Q "IF DB_ID(N'rating_db') IS NULL CREATE DATABASE [rating_db]; IF DB_ID(N'payment_db') IS NULL CREATE DATABASE [payment_db];"
     environment:
       SA_PASSWORD: "Replica@123456"
     depends_on:

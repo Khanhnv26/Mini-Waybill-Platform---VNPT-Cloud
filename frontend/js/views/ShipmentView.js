@@ -764,6 +764,113 @@
                 emit('created-shipment', trackingCode);
             };
 
+            const showCheckoutModal = ref(false);
+            const checkoutTargetShipment = ref(null);
+            const checkoutPaymentData = ref(null);
+            const isCheckoutLoading = ref(false);
+            const checkoutCountdown = ref(600);
+            const isCheckoutPaidSuccess = ref(false);
+            const isCheckingPayment = ref(false);
+            const activeCheckoutTab = ref('vietqr');
+            let checkoutTimer = null;
+            let checkoutPollTimer = null;
+
+            const formatCheckoutCountdown = (seconds) => {
+                const m = Math.floor(seconds / 60);
+                const s = seconds % 60;
+                return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            };
+
+            const closeCheckoutModal = () => {
+                if (checkoutTimer) clearInterval(checkoutTimer);
+                if (checkoutPollTimer) clearInterval(checkoutPollTimer);
+                showCheckoutModal.value = false;
+                checkoutTargetShipment.value = null;
+                checkoutPaymentData.value = null;
+                isCheckoutLoading.value = false;
+                isCheckoutPaidSuccess.value = false;
+                isCheckingPayment.value = false;
+            };
+
+            const handleCheckoutSuccessRealtime = (payment) => {
+                if (checkoutTimer) clearInterval(checkoutTimer);
+                if (checkoutPollTimer) clearInterval(checkoutPollTimer);
+                isCheckoutPaidSuccess.value = true;
+                Utils.showToast('Thanh Toán Cước Thành Công', `Đã nhận ${Utils.formatCurrency(payment.amount)} qua VietQR!`, 'success');
+                loadShipments();
+            };
+
+            const openCheckoutModal = async (shipment) => {
+                checkoutTargetShipment.value = shipment;
+                checkoutPaymentData.value = null;
+                isCheckoutLoading.value = true;
+                isCheckoutPaidSuccess.value = false;
+                activeCheckoutTab.value = 'vietqr';
+                checkoutCountdown.value = 600;
+                showCheckoutModal.value = true;
+
+                try {
+                    const feeToPay = shipment.totalFee || shipment.shippingFee || 35000;
+                    const res = await PaymentService.createQrPayment({
+                        trackingCode: shipment.trackingCode,
+                        amount: feeToPay,
+                        paymentType: 'SHIPPING_FEE',
+                        note: `CUOC ${shipment.trackingCode}`
+                    });
+                    checkoutPaymentData.value = res;
+                    isCheckoutLoading.value = false;
+
+                    if (checkoutTimer) clearInterval(checkoutTimer);
+                    checkoutTimer = setInterval(() => {
+                        if (checkoutCountdown.value > 0) {
+                            checkoutCountdown.value--;
+                        } else {
+                            clearInterval(checkoutTimer);
+                        }
+                    }, 1000);
+
+                    if (checkoutPollTimer) clearInterval(checkoutPollTimer);
+                    checkoutPollTimer = setInterval(async () => {
+                        try {
+                            const check = await PaymentService.getPaymentByTracking(shipment.trackingCode);
+                            if (check && check.status === 'SUCCESS') {
+                                handleCheckoutSuccessRealtime(check);
+                            }
+                        } catch (e) {}
+                    }, 3000);
+                } catch (err) {
+                    isCheckoutLoading.value = false;
+                    Utils.showToast('Lỗi Khởi Tạo Thanh Toán', err.message || 'Không thể tạo mã VietQR', 'error');
+                }
+            };
+
+            const handleCheckoutRecheck = async () => {
+                if (!checkoutTargetShipment.value || isCheckingPayment.value) return;
+                isCheckingPayment.value = true;
+                try {
+                    const check = await PaymentService.getPaymentByTracking(checkoutTargetShipment.value.trackingCode);
+                    if (check && check.status === 'SUCCESS') {
+                        handleCheckoutSuccessRealtime(check);
+                    } else {
+                        Utils.showToast('Chưa Nhận Tiền', 'Hệ thống chưa ghi nhận biến động số dư cho mã đơn này.', 'info');
+                    }
+                } catch (err) {
+                    Utils.showToast('Lỗi Kiểm Tra', err.message || 'Không thể kiểm tra giao dịch', 'error');
+                } finally {
+                    isCheckingPayment.value = false;
+                }
+            };
+
+            const handleCheckoutMockPay = async () => {
+                if (!checkoutTargetShipment.value) return;
+                try {
+                    const res = await PaymentService.mockPay(checkoutTargetShipment.value.trackingCode);
+                    handleCheckoutSuccessRealtime(res.data || { amount: checkoutTargetShipment.value.totalFee || 53295 });
+                } catch (err) {
+                    Utils.showToast('Lỗi Giả Lập', err.message || 'Không thể giả lập thanh toán', 'error');
+                }
+            };
+
             onMounted(() => {
                 loadHubs();
                 loadShipments();
@@ -846,6 +953,19 @@
                 onSenderAddressInput,
                 selectSenderAddressSuggestion,
                 clearVerifiedSenderAddress,
+                showCheckoutModal,
+                checkoutTargetShipment,
+                checkoutPaymentData,
+                isCheckoutLoading,
+                checkoutCountdown,
+                isCheckoutPaidSuccess,
+                isCheckingPayment,
+                activeCheckoutTab,
+                formatCheckoutCountdown,
+                closeCheckoutModal,
+                openCheckoutModal,
+                handleCheckoutRecheck,
+                handleCheckoutMockPay,
                 Utils
             };
         },
@@ -1198,6 +1318,7 @@
                                             <input 
                                                 v-model="form.senderName" 
                                                 type="text" 
+                                                maxlength="100"
                                                 required 
                                                 placeholder="Tên người gửi..." 
                                                 class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
@@ -1209,6 +1330,7 @@
                                             <input 
                                                 v-model="form.senderPhone" 
                                                 type="text" 
+                                                maxlength="15"
                                                 required 
                                                 placeholder="024... hoặc 09..." 
                                                 class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
@@ -1230,6 +1352,7 @@
                                                     v-model="senderAddressQuery"
                                                     @input="onSenderAddressInput"
                                                     type="text" 
+                                                    maxlength="255"
                                                     placeholder="Gõ số nhà, tên đường, quận/huyện kho gửi..." 
                                                     class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 bg-slate-50/70 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
                                                 />
@@ -1287,13 +1410,17 @@
                                         </div>
 
                                         <div>
-                                            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Địa Chỉ Chi Tiết (Số nhà, phố, phường)</label>
+                                            <div class="flex items-center justify-between mb-1">
+                                                <label class="block text-[11px] font-semibold text-slate-600">Địa Chỉ Chi Tiết (Số nhà, phố, phường)</label>
+                                                <span class="text-[10px] text-slate-400 font-mono">{{ (form.senderDetail || '').length }}/255</span>
+                                            </div>
                                             <textarea 
                                                 v-model="form.senderDetail" 
                                                 rows="2" 
+                                                maxlength="255"
                                                 required 
                                                 placeholder="VD: Số 57 Huỳnh Thúc Kháng, Đống Đa..." 
-                                                class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
+                                                class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition resize-none"
                                             ></textarea>
                                             <p class="text-[10.5px] text-slate-400 mt-1">Bưu tá (Shipper) sẽ đến tận địa chỉ người gửi để nhận bưu phẩm mang về Bưu Cục giao dịch, hoặc người gửi mang trực tiếp ra Bưu Cục gần nhất (Kho Tổng không tiếp nhận gửi hàng trực tiếp).</p>
                                         </div>
@@ -1319,6 +1446,7 @@
                                             <input 
                                                 v-model="form.receiverName" 
                                                 type="text" 
+                                                maxlength="100"
                                                 required 
                                                 placeholder="Tên cá nhân / Đơn vị nhận..." 
                                                 class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
@@ -1330,6 +1458,7 @@
                                             <input 
                                                 v-model="form.receiverPhone" 
                                                 type="text" 
+                                                maxlength="15"
                                                 required 
                                                 placeholder="028... hoặc 09..." 
                                                 class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
@@ -1351,6 +1480,7 @@
                                                     v-model="receiverAddressQuery"
                                                     @input="onAddressInput"
                                                     type="text" 
+                                                    maxlength="255"
                                                     placeholder="Gõ số nhà, tên đường, quận/huyện để gợi ý..." 
                                                     class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 bg-slate-50/70 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
                                                 />
@@ -1408,13 +1538,17 @@
                                         </div>
 
                                         <div>
-                                            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Địa Chỉ Chi Tiết (Số nhà, phố, phường)</label>
+                                            <div class="flex items-center justify-between mb-1">
+                                                <label class="block text-[11px] font-semibold text-slate-600">Địa Chỉ Chi Tiết (Số nhà, phố, phường)</label>
+                                                <span class="text-[10px] text-slate-400 font-mono">{{ (form.receiverDetail || '').length }}/255</span>
+                                            </div>
                                             <textarea 
                                                 v-model="form.receiverDetail" 
                                                 rows="2" 
+                                                maxlength="255"
                                                 required 
                                                 placeholder="VD: Số 121 Pasteur, Phường Võ Thị Sáu, Quận 3..." 
-                                                class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
+                                                class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition resize-none"
                                             ></textarea>
                                             <p class="text-[10.5px] text-slate-400 mt-1">Bưu gửi sẽ được trung chuyển về {{ receiverPostOfficeInfo.name }} ({{ receiverPostOfficeInfo.code }}) trước khi bưu tá nhận đi phát tận tay người nhận.</p>
                                         </div>
@@ -1544,12 +1678,13 @@
 
                     <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3 sm:p-3.5 shadow-sm">
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                            <div class="relative flex-1">
+                            <div class="relative flex-1 min-w-0">
                                 <input 
                                     v-model="shipmentSearchQuery"
                                     type="text"
+                                    maxlength="50"
                                     placeholder="Tìm kiếm theo mã vận đơn, người gửi, người nhận, SĐT..."
-                                    class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
+                                    class="w-full pl-3.5 pr-12 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                                 />
                                 <button 
                                     v-if="shipmentSearchQuery" 
@@ -1650,7 +1785,7 @@
                                                     class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group text-left transition-colors tracking-tight whitespace-nowrap"
                                                     title="Click để xem chi tiết hành trình & bản đồ"
                                                 >
-                                                    <span>{{ s.trackingCode }}</span>
+                                                    <span class="truncate max-w-[140px] inline-block align-bottom" :title="s.trackingCode">{{ s.trackingCode }}</span>
                                                 </button>
                                             </div>
                                             <div class="flex items-center space-x-1.5 mt-0.5">
@@ -1703,6 +1838,15 @@
                                         </td>
 
                                         <td class="py-3 px-3.5 text-right whitespace-nowrap space-x-1.5">
+                                            <button 
+                                                type="button"
+                                                @click="openCheckoutModal(s)"
+                                                class="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white rounded-lg text-xs font-bold transition-all border border-emerald-200 hover:border-emerald-600 shadow-sm inline-flex items-center gap-1"
+                                                title="Thanh toán cước vận đơn"
+                                            >
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                                <span>Trả Cước</span>
+                                            </button>
                                             <button 
                                                 type="button"
                                                 @click="viewTracking(s.trackingCode)"
@@ -1774,6 +1918,7 @@
                                 <input 
                                     v-model="profileForm.fullName" 
                                     type="text" 
+                                    maxlength="100"
                                     required 
                                     placeholder="VD: Công ty TNHH Giải Pháp VNPT..." 
                                     class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none"
@@ -1785,6 +1930,7 @@
                                 <input 
                                     v-model="profileForm.phoneNumber" 
                                     type="text" 
+                                    maxlength="15"
                                     required 
                                     placeholder="0912..." 
                                     class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none"
@@ -1796,6 +1942,7 @@
                                 <input 
                                     v-model="profileForm.address" 
                                     type="text" 
+                                    maxlength="255"
                                     placeholder="Địa chỉ gửi hàng mặc định..." 
                                     class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none"
                                 />
@@ -1860,12 +2007,16 @@
                             </div>
 
                             <div>
-                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Ghi Chú Chi Tiết (Không bắt buộc)</label>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label class="block text-[11px] font-bold text-slate-700">Ghi Chú Chi Tiết (Không bắt buộc)</label>
+                                    <span class="text-[10px] text-slate-400 font-mono">{{ (cancelReasonNote || '').length }}/255</span>
+                                </div>
                                 <textarea 
                                     v-model="cancelReasonNote" 
                                     rows="2" 
+                                    maxlength="255"
                                     placeholder="Ghi rõ chi tiết lý do hủy để đối soát..."
-                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none" 
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none resize-none" 
                                 ></textarea>
                             </div>
                         </div>
@@ -1886,6 +2037,160 @@
                             >
                                 {{ isCancellingShipment ? 'Đang Xử Lý Hủy...' : 'Xác Nhận Hủy' }}
                             </button>
+                        </div>
+                    </div>
+                </div>
+                </Transition>
+                </teleport>
+
+                <teleport to="body">
+                <Transition name="modal">
+                <div v-if="showCheckoutModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                    <div class="bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl max-w-4xl w-full p-5 sm:p-6 space-y-4 text-xs text-slate-100 max-h-[92vh] overflow-y-auto">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-sm">V</div>
+                                <div>
+                                    <h3 class="font-bold text-white text-sm">Thanh Toán Cước Vận Chuyển B2B</h3>
+                                    <p class="text-slate-400 font-mono text-[11px] mt-0.5">Vận đơn: {{ checkoutTargetShipment?.trackingCode }}</p>
+                                </div>
+                            </div>
+                            <button @click="closeCheckoutModal" class="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                            <div class="lg:col-span-5 bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 space-y-3">
+                                <div class="flex items-center justify-between border-b border-slate-700/60 pb-2">
+                                    <span class="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Thông Tin Kiện Hàng</span>
+                                    <span class="px-2 py-0.5 text-[10px] font-bold rounded" :class="isCheckoutPaidSuccess ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'">
+                                        {{ isCheckoutPaidSuccess ? 'CƯỚC ĐÃ THU' : 'CHỜ THANH TOÁN' }}
+                                    </span>
+                                </div>
+
+                                <div class="space-y-2 text-[11px]">
+                                    <div class="flex justify-between">
+                                        <span class="text-slate-400">Người gửi:</span>
+                                        <span class="font-semibold text-white truncate max-w-[160px]">{{ checkoutTargetShipment?.senderName }}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-slate-400">Người nhận:</span>
+                                        <span class="font-semibold text-white truncate max-w-[160px]">{{ checkoutTargetShipment?.receiverName }}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-slate-400">Khối lượng:</span>
+                                        <span class="font-mono text-slate-200">{{ checkoutTargetShipment?.weight }} kg</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-slate-400">Gói cước:</span>
+                                        <span class="font-bold text-blue-400">{{ checkoutTargetShipment?.serviceType === 'EXPRESS' ? 'VNPT Hỏa Tốc' : 'VNPT Tiêu Chuẩn' }}</span>
+                                    </div>
+                                </div>
+
+                                <div class="border-t border-slate-700/60 pt-2 space-y-1.5 text-[11px]">
+                                    <div class="flex justify-between">
+                                        <span class="text-slate-400">Cước vận chuyển:</span>
+                                        <span class="font-mono">{{ Utils.formatCurrency(checkoutTargetShipment?.shippingFee || 35000) }}</span>
+                                    </div>
+                                    <div class="flex justify-between text-slate-400">
+                                        <span>Phụ phí nhiên liệu &amp; cầu đường:</span>
+                                        <span class="font-mono">Đã tính gộp</span>
+                                    </div>
+                                    <div class="bg-blue-950/40 border border-blue-900/60 p-2.5 rounded-lg flex justify-between items-center mt-2">
+                                        <span class="text-[11px] text-blue-300 font-bold uppercase">Tổng cước:</span>
+                                        <span class="text-base font-extrabold text-white font-mono">{{ Utils.formatCurrency(checkoutTargetShipment?.totalFee || checkoutTargetShipment?.shippingFee || 35000) }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="lg:col-span-7 bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 space-y-4">
+                                <div class="flex items-center gap-1 p-1 bg-slate-900/80 rounded-lg border border-slate-700/60 text-xs">
+                                    <button @click="activeCheckoutTab = 'vietqr'" :class="activeCheckoutTab === 'vietqr' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'" class="flex-1 py-1.5 px-2 rounded-md transition flex items-center justify-center gap-1">
+                                        <span>VietQR Động</span>
+                                    </button>
+                                    <button @click="activeCheckoutTab = 'wallet'" :class="activeCheckoutTab === 'wallet' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'" class="flex-1 py-1.5 px-2 rounded-md transition flex items-center justify-center gap-1">
+                                        <span>Ví B2B (1.25M)</span>
+                                    </button>
+                                    <button @click="activeCheckoutTab = 'gateway'" :class="activeCheckoutTab === 'gateway' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'" class="flex-1 py-1.5 px-2 rounded-md transition flex items-center justify-center gap-1">
+                                        <span>Cổng VNPAY</span>
+                                    </button>
+                                </div>
+
+                                <div v-if="isCheckoutPaidSuccess" class="py-6 text-center space-y-3 bg-slate-900/90 border border-emerald-500/40 rounded-xl p-4">
+                                    <div class="w-12 h-12 bg-emerald-500/20 border-2 border-emerald-500 rounded-full flex items-center justify-center mx-auto text-emerald-400">
+                                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+                                    </div>
+                                    <h4 class="text-sm font-bold text-white">THANH TOÁN CƯỚC THÀNH CÔNG!</h4>
+                                    <p class="text-[11px] text-slate-400">Hệ thống đã nhận đủ cước phí và sẵn sàng phát hành phiếu gửi.</p>
+                                    <div class="pt-2 flex gap-2 justify-center">
+                                        <button @click="viewTracking(checkoutTargetShipment.trackingCode); closeCheckoutModal()" class="py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition">
+                                            Theo Dõi Hành Trình
+                                        </button>
+                                        <button @click="closeCheckoutModal()" class="py-2 px-3 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg text-xs transition">
+                                            Đóng Cửa Sổ
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div v-else-if="activeCheckoutTab === 'vietqr'" class="space-y-3">
+                                    <div class="flex items-center justify-between text-[11px]">
+                                        <span class="text-slate-300 font-semibold flex items-center gap-1.5">
+                                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                                            Chờ quét mã thanh toán...
+                                        </span>
+                                        <span class="font-mono text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                                            {{ formatCheckoutCountdown(checkoutCountdown) }}
+                                        </span>
+                                    </div>
+
+                                    <div class="bg-slate-900 border border-slate-700/60 rounded-xl p-3 flex flex-col sm:flex-row items-center gap-4">
+                                        <div class="bg-white p-2.5 rounded-xl shadow-lg shrink-0">
+                                            <div v-if="isCheckoutLoading" class="w-36 h-36 flex items-center justify-center text-slate-400 text-xs">
+                                                <span>Đang tạo QR...</span>
+                                            </div>
+                                            <img v-else-if="checkoutPaymentData?.qrUrl" :src="checkoutPaymentData.qrUrl" alt="VietQR" class="w-36 h-36 object-contain rounded" />
+                                        </div>
+                                        <div class="space-y-1.5 text-[11px] w-full">
+                                            <div class="flex justify-between">
+                                                <span class="text-slate-400">Ngân hàng:</span>
+                                                <span class="font-bold text-white">{{ checkoutPaymentData?.bankCode || 'MB Bank' }}</span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-slate-400">Số tài khoản:</span>
+                                                <span class="font-mono text-white">{{ checkoutPaymentData?.accountNo || '0987654321' }}</span>
+                                            </div>
+                                            <div class="flex justify-between border-t border-slate-800 pt-1">
+                                                <span class="text-slate-400">Nội dung:</span>
+                                                <span class="font-mono font-bold text-blue-400">CUOC {{ checkoutTargetShipment?.trackingCode }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-2 pt-1">
+                                        <button @click="handleCheckoutRecheck" :disabled="isCheckingPayment" class="py-2 px-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-xs transition">
+                                            {{ isCheckingPayment ? 'Đang Kiểm Tra...' : 'Kiểm Tra Giao Dịch' }}
+                                        </button>
+                                        <button @click="handleCheckoutMockPay" class="py-2 px-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-xs transition shadow-sm">
+                                            Thanh Toán Thử (Test)
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div v-else-if="activeCheckoutTab === 'wallet'" class="py-6 text-center space-y-3">
+                                    <p class="text-xs text-slate-300">Khấu trừ trực tiếp vào số dư ví doanh nghiệp.</p>
+                                    <button @click="handleCheckoutMockPay" class="py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-xs transition">
+                                        Xác Nhận Trừ Ví
+                                    </button>
+                                </div>
+
+                                <div v-else-if="activeCheckoutTab === 'gateway'" class="py-6 text-center space-y-3">
+                                    <p class="text-xs text-slate-300">Chuyển hướng sang cổng thanh toán đối tác VNPAY.</p>
+                                    <button @click="handleCheckoutMockPay" class="py-2 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs transition">
+                                        Mở Cổng VNPAY
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

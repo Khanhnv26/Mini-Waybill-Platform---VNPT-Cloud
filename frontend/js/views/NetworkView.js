@@ -294,6 +294,7 @@
                                 <input 
                                     v-model="searchQuery"
                                     type="text" 
+                                    maxlength="100"
                                     placeholder="Tìm tên bưu cục, đường phố, mã trạm..." 
                                     class="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg py-1.5 pl-8 pr-3 focus:bg-white focus:border-blue-500 focus:outline-none transition"
                                 />

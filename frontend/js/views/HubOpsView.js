@@ -1193,6 +1193,7 @@
                         v-model="scanInputCode"
                         @keyup.enter="handleQuickScan()"
                         type="text"
+                        maxlength="35"
                         placeholder="Quét mã để nhận hành động kế tiếp..."
                         class="pl-3 pr-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono font-bold text-blue-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none w-56 transition"
                     />
@@ -1217,6 +1218,7 @@
                     <input
                         v-model="searchQuery"
                         type="text"
+                        maxlength="100"
                         placeholder="Tìm mã vận đơn, chuyến, vị trí..."
                         class="w-56 sm:w-64 pl-3 pr-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                     />
@@ -1317,8 +1319,8 @@
                                     <div v-if="item.senderName" class="text-[10px] text-slate-500 mt-1">Gửi: {{ item.senderName }}</div>
                                 </td>
                                 <td class="py-2.5 px-3 align-top text-slate-800 max-w-xs">
-                                    <div class="font-bold truncate">{{ item.receiverName || 'Chưa cập nhật' }}</div>
-                                    <div class="text-[10.5px] text-slate-500 truncate">{{ item.receiverAddress || 'Chưa có địa chỉ' }}</div>
+                                    <div class="font-bold truncate" :title="item.receiverName || ''">{{ item.receiverName || 'Chưa cập nhật' }}</div>
+                                    <div class="text-[10.5px] text-slate-500 truncate" :title="item.receiverAddress || ''">{{ item.receiverAddress || 'Chưa có địa chỉ' }}</div>
                                 </td>
                                 <td class="py-2.5 px-3 align-top whitespace-nowrap">
                                     <span :class="['px-2 py-0.5 rounded-md text-[10.5px] font-bold border inline-flex items-center whitespace-nowrap', Utils.getStatusBadgeClass(operationalStatus(item))]">

@@ -20,6 +20,7 @@ class ShipmentStatusTest {
     void testOutForDeliveryTransition() {
         assertTrue(ShipmentStatus.OUT_FOR_DELIVERY.canTransitionTo(ShipmentStatus.DELIVERED));
         assertTrue(ShipmentStatus.OUT_FOR_DELIVERY.canTransitionTo(ShipmentStatus.DELIVERY_FAILED));
+        assertTrue(ShipmentStatus.OUT_FOR_DELIVERY.canTransitionTo(ShipmentStatus.RETURNING));
         assertFalse(ShipmentStatus.OUT_FOR_DELIVERY.canTransitionTo(ShipmentStatus.PICKED_UP), "Không được lùi về PICKED_UP");
         assertFalse(ShipmentStatus.OUT_FOR_DELIVERY.canTransitionTo(ShipmentStatus.IN_TRANSIT), "Không được lùi về IN_TRANSIT");
     }

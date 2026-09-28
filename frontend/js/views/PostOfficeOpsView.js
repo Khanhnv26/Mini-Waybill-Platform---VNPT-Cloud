@@ -193,7 +193,7 @@
                 if (currentSubtab.value === 'outbound') {
                     const originPo = normalizeCode(getOriginPostOfficeInfo(item).code).toUpperCase();
                     if (originPo !== selected && location !== selected) return false;
-                    return location === selected || ['ROUTE_ASSIGNED', 'PENDING_ROUTING', 'PICKED_UP', 'IN_TRANSIT'].includes(
+                    return location === selected || ['ROUTE_ASSIGNED', 'PENDING_ROUTING', 'PICKED_UP', 'IN_TRANSIT', 'RETURNING', 'RETURNED'].includes(
                         normalizeCode(item.currentStatus || item.status).toUpperCase()
                     );
                 }
@@ -241,6 +241,7 @@
                 const status = getShipmentStatusText(item);
                 const inventory = getInventoryStatus(item);
                 if (status === 'RETURNING') return 'RETURNING';
+                if (status === 'RETURNED') return 'RETURNED';
                 if (['CREATED', 'PENDING_ROUTING', 'ROUTE_ASSIGNED'].includes(status)) return 'WAITING_INTAKE';
                 if (isOutboundStaged(item)) return 'STORED_OFFICE';
                 if (status === 'IN_TRANSIT' || ['LOADED', 'RESERVED'].includes(inventory)) return 'IN_TRANSIT';
@@ -252,7 +253,9 @@
                 if (status !== 'RETURNING') return false;
                 const origin = normalizeCode(getOriginPostOfficeInfo(item).code).toUpperCase();
                 const location = normalizeCode(item?.locationCode).toUpperCase();
-                return Boolean(location && origin && location === origin);
+                const poCode = normalizeCode(selectedPostOffice.value).toUpperCase();
+                const isOriginScope = !poCode || poCode === 'ALL' || poCode === origin;
+                return Boolean(isOriginScope || (location && origin && location === origin));
             };
 
             const getInboundBucket = (item) => {
@@ -336,7 +339,9 @@
 
                 if (status === 'RETURNING') {
                     const origin = normalizeCode(getOriginPostOfficeInfo(item).code).toUpperCase();
-                    const backAtOrigin = location && origin && location === origin;
+                    const poCode = normalizeCode(selectedPostOffice.value).toUpperCase();
+                    const isOriginScope = !poCode || poCode === 'ALL' || poCode === origin;
+                    const backAtOrigin = isOriginScope || (location && origin && location === origin);
                     return backAtOrigin
                         ? { key: 'CONFIRM_RETURN', label: 'Xác nhận đã hoàn người gửi', targetStatus: 'RETURNED' }
                         : { key: 'WAITING', label: 'Đang chuyển hoàn về bưu cục gửi', targetStatus: '' };
@@ -669,7 +674,7 @@
                 }
 
                 let derivedLocation = '';
-                if (targetStatus === 'PICKED_UP') {
+                if (targetStatus === 'PICKED_UP' || targetStatus === 'RETURNED') {
                     derivedLocation = getOriginPostOfficeInfo(targetShipment).code;
                 } else if (targetStatus === 'OUT_FOR_DELIVERY' || targetStatus === 'ARRIVED_DEST_HUB') {
                     derivedLocation = getDestPostOfficeInfo(targetShipment).code;
@@ -718,6 +723,10 @@
 
             const kpiInTransitOutbound = computed(() =>
                 scopedShipments.value.filter(s => isOutboundShipment(s) && getOutboundBucket(s) === 'IN_TRANSIT').length
+            );
+
+            const kpiReturningOutbound = computed(() =>
+                scopedShipments.value.filter(s => isOutboundShipment(s) && ['RETURNING', 'RETURNED'].includes(getOutboundBucket(s))).length
             );
 
             const kpiArrivedFromHub = computed(() =>
@@ -797,6 +806,9 @@
                                 : currentSubtab.value === 'inbound'
                                     ? getInboundBucket(s)
                                     : getInventoryBucket(s);
+                            if (sf === 'RETURNING') {
+                                return ['RETURNING', 'RETURNED'].includes(bucket) || ['RETURNING', 'RETURNED'].includes(getShipmentStatusText(s));
+                            }
                             if (bucket) return bucket === sf;
                             return getShipmentStatusText(s) === sf;
                         });
@@ -1077,9 +1089,10 @@
                                 && ['ROUTE_ASSIGNED', 'PENDING_ROUTING'].includes(currentStatus)
                                 ? 'PICKED_UP'
                                 : currentStatus;
-                            operationExtra.shipmentStatus = publicStatuses.has(receiveStatus)
+                            const validOperationalStatuses = new Set(['PICKED_UP', 'IN_TRANSIT', 'ARRIVED_DEST_HUB']);
+                            operationExtra.shipmentStatus = validOperationalStatuses.has(receiveStatus)
                                 ? receiveStatus
-                                : 'PICKED_UP';
+                                : (locationCode.startsWith('POST-') && targetShipment?.destPostOffice === locationCode ? 'ARRIVED_DEST_HUB' : 'PICKED_UP');
                         }
                         return await callRoutingOperation(
                             operationName,
@@ -1117,7 +1130,25 @@
                     }
                     await run('handoffToCourier', { courierId: currentCourierId });
                 } else if (targetStatus === 'STORED' || targetStatus === 'IN_STORAGE') {
+                    const currentInv = getInventoryStatus(targetShipment);
+                    if (currentInv !== 'STORED' && currentInv !== 'RECEIVED') {
+                        try {
+                            await run('receiveAtLocation');
+                        } catch (ignore) {
+                        }
+                    }
                     await run('storeAtLocation');
+                } else if (targetStatus === 'RETURNED') {
+                    if (window.TrackingService && typeof window.TrackingService.updateStatus === 'function') {
+                        await window.TrackingService.updateStatus(
+                            cleanCode,
+                            'RETURNED',
+                            locationCode,
+                            note || 'Bưu cục gửi đã hoàn trả bưu gửi cho người gửi'
+                        );
+                    } else {
+                        throw new Error('TrackingService không khả dụng để xác nhận hoàn trả.');
+                    }
                 } else {
                     throw new Error(`Thao tác vật lý không hỗ trợ trạng thái ${targetStatus}.`);
                 }
@@ -1501,9 +1532,10 @@
                             && ['ROUTE_ASSIGNED', 'PENDING_ROUTING'].includes(currentStatus)
                             ? 'PICKED_UP'
                             : currentStatus;
-                        const shipmentStatus = ['CREATED', 'PENDING_ROUTING', 'ROUTE_ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'ARRIVED_DEST_HUB', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DELIVERY_FAILED', 'CANCELLED', 'RETURNING', 'RETURNED'].includes(receiveStatus)
+                        const validOperationalStatuses = new Set(['PICKED_UP', 'IN_TRANSIT', 'ARRIVED_DEST_HUB']);
+                        const shipmentStatus = validOperationalStatuses.has(receiveStatus)
                             ? receiveStatus
-                            : 'PICKED_UP';
+                            : (group.locationCode.startsWith('POST-') && first?.destPostOffice === group.locationCode ? 'ARRIVED_DEST_HUB' : 'PICKED_UP');
                         await callRoutingOperation(
                             group.operationName,
                             normalizeCode(first.trackingCode),
@@ -1570,6 +1602,7 @@
                 kpiAwaitingIntake,
                 kpiStagedInOffice,
                 kpiInTransitOutbound,
+                kpiReturningOutbound,
                 kpiArrivedFromHub,
                 kpiOutForDelivery,
                 kpiDeliveredInbound,
@@ -1781,6 +1814,7 @@
                         <input 
                             v-model="searchQuery"
                             type="text" 
+                            maxlength="100"
                             placeholder="Tìm mã vận đơn, người gửi, địa chỉ..."
                             class="w-full pl-3 pr-8 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                         />
@@ -1853,6 +1887,13 @@
                                 class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
                             >
                                 Đang vận chuyển trung chuyển ({{ kpiInTransitOutbound }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'RETURNING'; currentPage = 1"
+                                :class="selectedStatusFilter === 'RETURNING' ? 'bg-white text-orange-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Chuyển hoàn ({{ kpiReturningOutbound }})
                             </button>
                         </div>
 
@@ -1957,6 +1998,7 @@
                         v-model="scanInputCode"
                         @keyup.enter="handleQuickScan()"
                         type="text"
+                        maxlength="35"
                         placeholder="Quét mã vạch / gõ mã..."
                         class="w-48 pl-3 pr-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono font-bold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                     />
@@ -2506,6 +2548,7 @@
                                 <input 
                                     v-model="handoffForm.customCourierId"
                                     type="text" 
+                                    maxlength="50"
                                     placeholder="Ví dụ: SHIPPER_01, 0912345678..."
                                     class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs font-mono font-bold text-blue-800 focus:border-blue-600 outline-none"
                                 />
@@ -2515,6 +2558,7 @@
                                 <input 
                                     v-model="handoffForm.note"
                                     type="text" 
+                                    maxlength="255"
                                     placeholder="Ghi chú tác nghiệp bàn giao..."
                                     class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:border-blue-600 outline-none"
                                 />
