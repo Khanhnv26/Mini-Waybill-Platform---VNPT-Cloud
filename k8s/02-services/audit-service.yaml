@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
         - name: audit-service
-          image: khanhnv26/audit-service:1.0
-          imagePullPolicy: IfNotPresent
+          image: khanhnv26/audit-service:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8086
           env:

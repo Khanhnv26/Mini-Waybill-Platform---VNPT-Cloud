@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
         - name: notification-service
-          image: khanhnv26/notification-service:1.0
-          imagePullPolicy: IfNotPresent
+          image: khanhnv26/notification-service:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8085
           env:

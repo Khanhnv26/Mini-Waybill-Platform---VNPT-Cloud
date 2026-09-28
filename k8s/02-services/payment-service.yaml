@@ -1,29 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: rating-service
+  name: payment-service
   namespace: waybill
   labels:
-    app: rating-service
+    app: payment-service
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: rating-service
+      app: payment-service
   template:
     metadata:
       labels:
-        app: rating-service
+        app: payment-service
     spec:
       containers:
-        - name: rating-service
-          image: khanhnv26/rating-service:latest
+        - name: payment-service
+          image: khanhnv26/payment-service:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 8092
+            - containerPort: 8095
           env:
             - name: SPRING_DATASOURCE_URL
-              value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=rating_db;encrypt=true;trustServerCertificate=true;"
+              value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=payment_db;encrypt=true;trustServerCertificate=true;"
             - name: SPRING_DATASOURCE_USERNAME
               value: "sa"
             - name: SPRING_DATASOURCE_PASSWORD
@@ -32,6 +32,10 @@ spec:
               value: "update"
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
               value: "kafka:9092"
+            - name: SPRING_REDIS_HOST
+              value: "redis"
+            - name: SPRING_REDIS_PORT
+              value: "6379"
             - name: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
               value: "http://eureka-peer1:8761/eureka/"
             - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS
@@ -50,12 +54,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: rating-service
+  name: payment-service
   namespace: waybill
 spec:
   type: ClusterIP
   selector:
-    app: rating-service
+    app: payment-service
   ports:
-    - port: 8092
-      targetPort: 8092
+    - port: 8095
+      targetPort: 8095

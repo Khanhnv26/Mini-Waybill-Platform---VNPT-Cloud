@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
         - name: routing-service
-          image: khanhnv26/routing-service:1.0
-          imagePullPolicy: IfNotPresent
+          image: khanhnv26/routing-service:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8083
           env:

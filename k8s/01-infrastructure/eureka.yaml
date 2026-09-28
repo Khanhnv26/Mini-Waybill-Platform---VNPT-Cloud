@@ -18,6 +18,7 @@ spec:
       containers:
       - name: eureka
         image: khanhnv26/service-registry:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8761
         env:

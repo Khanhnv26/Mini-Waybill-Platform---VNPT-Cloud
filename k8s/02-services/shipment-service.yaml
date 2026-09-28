@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
         - name: shipment-service
-          image: khanhnv26/shipment-service:1.0
-          imagePullPolicy: IfNotPresent
+          image: khanhnv26/shipment-service:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8082
           env:

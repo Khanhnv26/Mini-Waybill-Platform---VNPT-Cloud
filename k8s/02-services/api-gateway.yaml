@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
         - name: api-gateway
-          image: khanhnv26/api-gateway:1.0
-          imagePullPolicy: IfNotPresent
+          image: khanhnv26/api-gateway:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           env:
