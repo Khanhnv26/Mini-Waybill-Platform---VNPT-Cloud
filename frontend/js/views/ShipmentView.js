@@ -461,6 +461,20 @@
                 }
             };
 
+            const paidTrackingCodes = ref(new Set());
+
+            const markShipmentAsPaid = (trackingCode) => {
+                if (!trackingCode) return;
+                const nextSet = new Set(paidTrackingCodes.value);
+                nextSet.add(trackingCode);
+                paidTrackingCodes.value = nextSet;
+            };
+
+            const isShipmentPaid = (shipment) => {
+                if (!shipment || !shipment.trackingCode) return false;
+                return paidTrackingCodes.value.has(shipment.trackingCode);
+            };
+
             const loadShipments = async () => {
                 isLoadingShipments.value = true;
                 try {
@@ -470,9 +484,16 @@
                             customerIdParam = Number(selectedCustomerFilter.value);
                         }
                     }
-                    // Nếu là khách thông thường, customerIdParam = null. Backend sẽ dùng JWT để lấy đơn của khách
-                    const data = await ShipmentService.getShipments(customerIdParam);
+                    const [data, paidList] = await Promise.all([
+                        ShipmentService.getShipments(customerIdParam),
+                        typeof PaymentService !== 'undefined' && PaymentService.getPaidTrackingCodes
+                            ? PaymentService.getPaidTrackingCodes().catch(() => [])
+                            : Promise.resolve([])
+                    ]);
                     shipmentsList.value = Array.isArray(data) ? data : [];
+                    if (Array.isArray(paidList)) {
+                        paidTrackingCodes.value = new Set([...paidTrackingCodes.value, ...paidList]);
+                    }
                 } catch (err) {
                     console.error('[ShipmentView] Lỗi tải danh sách vận đơn:', err);
                     Utils.showToast('Thông Báo', err.message || 'Không thể tải danh sách vận đơn', 'warning');
@@ -745,12 +766,24 @@
                     const res = await ShipmentService.createShipment(payload);
                     Utils.showToast('Thành Công', `Đã khởi tạo vận đơn: ${res.trackingCode}`);
 
-                            form.receiverName = '';
+                    createdShipmentPrompt.value = {
+                        ...res,
+                        receiverName: payload.receiverName,
+                        receiverPhone: payload.receiverPhone,
+                        receiverAddress: payload.receiverAddress,
+                        shippingFee: res.shippingFee || res.totalFee || totalEstimatedFee.value || 35000,
+                        totalFee: res.totalFee || res.shippingFee || totalEstimatedFee.value || 35000,
+                        senderName: (senderMode.value === 'B2B' ? (customersList.value.find(c => c.id === form.customerId)?.fullName || 'Đối Tác Ký Gửi') : (myProfile.value?.fullName || 'Khách Gửi Tại Quầy')),
+                        weight: payload.weight,
+                        serviceType: payload.serviceType
+                    };
+
+                    form.receiverName = '';
                     form.receiverPhone = '';
                     form.receiverDetail = '';
                     clearVerifiedAddress();
 
-                            currentSubtab.value = 'list';
+                    showOrderSuccessPrompt.value = true;
                     await loadShipments();
                 } catch (err) {
                     Utils.showToast('Thất Bại', err.message, 'error');
@@ -782,6 +815,7 @@
             };
 
             const closeCheckoutModal = () => {
+                const wasPaid = isCheckoutPaidSuccess.value;
                 if (checkoutTimer) clearInterval(checkoutTimer);
                 if (checkoutPollTimer) clearInterval(checkoutPollTimer);
                 showCheckoutModal.value = false;
@@ -790,13 +824,39 @@
                 isCheckoutLoading.value = false;
                 isCheckoutPaidSuccess.value = false;
                 isCheckingPayment.value = false;
+
+                if (wasPaid) {
+                    currentSubtab.value = 'list';
+                    loadShipments();
+                }
             };
 
             const handleCheckoutSuccessRealtime = (payment) => {
                 if (checkoutTimer) clearInterval(checkoutTimer);
                 if (checkoutPollTimer) clearInterval(checkoutPollTimer);
                 isCheckoutPaidSuccess.value = true;
-                Utils.showToast('Thanh Toán Cước Thành Công', `Đã nhận ${Utils.formatCurrency(payment.amount)} qua VietQR!`, 'success');
+                const trackingCode = payment?.trackingCode || checkoutTargetShipment.value?.trackingCode;
+                if (trackingCode) {
+                    markShipmentAsPaid(trackingCode);
+                }
+                const resolvedAmount = payment?.amount || checkoutTargetShipment.value?.totalFee || checkoutTargetShipment.value?.shippingFee || 35000;
+                if (payment) {
+                    checkoutPaymentData.value = {
+                        ...(checkoutPaymentData.value || {}),
+                        ...payment,
+                        trackingCode: trackingCode,
+                        amount: resolvedAmount,
+                        paidAt: payment.paidAt || new Date().toISOString()
+                    };
+                    window.dispatchEvent(new CustomEvent('system-notification-created', {
+                        detail: {
+                            title: 'Thanh toán cước vận đơn thành công',
+                            message: `Vận đơn ${trackingCode || ''} đã thanh toán cước phí thành công qua VietQR với số tiền ${Utils.formatCurrency(resolvedAmount)}. Mã GD: ${payment.paymentCode || ''}`,
+                            trackingCode: trackingCode || null
+                        }
+                    }));
+                }
+                Utils.showToast('Thanh Toán Cước Thành Công', `Đã nhận ${Utils.formatCurrency(resolvedAmount)} qua VietQR!`, 'success');
                 loadShipments();
             };
 
@@ -809,6 +869,19 @@
                 checkoutCountdown.value = 600;
                 showCheckoutModal.value = true;
 
+                if (isShipmentPaid(shipment)) {
+                    try {
+                        const existing = await PaymentService.getPaymentByTracking(shipment.trackingCode);
+                        if (existing && existing.status === 'SUCCESS') {
+                            checkoutPaymentData.value = existing;
+                            isCheckoutPaidSuccess.value = true;
+                            isCheckoutLoading.value = false;
+                            markShipmentAsPaid(shipment.trackingCode);
+                            return;
+                        }
+                    } catch (e) {}
+                }
+
                 try {
                     const feeToPay = shipment.totalFee || shipment.shippingFee || 35000;
                     const res = await PaymentService.createQrPayment({
@@ -819,6 +892,12 @@
                     });
                     checkoutPaymentData.value = res;
                     isCheckoutLoading.value = false;
+
+                    if (res && res.status === 'SUCCESS') {
+                        isCheckoutPaidSuccess.value = true;
+                        markShipmentAsPaid(shipment.trackingCode);
+                        return;
+                    }
 
                     if (checkoutTimer) clearInterval(checkoutTimer);
                     checkoutTimer = setInterval(() => {
@@ -863,12 +942,52 @@
 
             const handleCheckoutMockPay = async () => {
                 if (!checkoutTargetShipment.value) return;
+                const targetCode = checkoutTargetShipment.value.trackingCode;
+                const targetAmount = checkoutTargetShipment.value.totalFee || checkoutTargetShipment.value.shippingFee || 35000;
                 try {
-                    const res = await PaymentService.mockPay(checkoutTargetShipment.value.trackingCode);
-                    handleCheckoutSuccessRealtime(res.data || { amount: checkoutTargetShipment.value.totalFee || 53295 });
+                    const res = await PaymentService.mockPay(targetCode);
+                    const paymentInfo = res?.data || res || {};
+                    handleCheckoutSuccessRealtime({
+                        trackingCode: targetCode,
+                        amount: paymentInfo.amount || targetAmount,
+                        paymentCode: paymentInfo.paymentCode || `MOCK_${Date.now()}`,
+                        paidAt: paymentInfo.paidAt || new Date().toISOString(),
+                        status: 'SUCCESS'
+                    });
                 } catch (err) {
                     Utils.showToast('Lỗi Giả Lập', err.message || 'Không thể giả lập thanh toán', 'error');
                 }
+            };
+
+            const showOrderSuccessPrompt = ref(false);
+            const createdShipmentPrompt = ref(null);
+
+            const handlePayPromptQr = () => {
+                showOrderSuccessPrompt.value = false;
+                if (createdShipmentPrompt.value) {
+                    openCheckoutModal(createdShipmentPrompt.value);
+                }
+            };
+
+            const handlePromptCreateAnother = () => {
+                showOrderSuccessPrompt.value = false;
+                currentSubtab.value = 'create';
+                Utils.showToast('Sẵn Sàng', 'Form đã được làm mới để bạn tạo tiếp đơn hàng mới.');
+            };
+
+            const handlePromptGoToList = () => {
+                showOrderSuccessPrompt.value = false;
+                currentSubtab.value = 'list';
+                loadShipments();
+                Utils.showToast('Điều Hướng', 'Chuyển sang trang danh sách vận đơn.');
+            };
+
+            const copyTrackingCode = (code) => {
+                if (!code) return;
+                if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(code);
+                }
+                Utils.showToast('Đã Sao Chép', `Đã sao chép mã vận đơn: ${code}`);
             };
 
             onMounted(() => {
@@ -953,6 +1072,12 @@
                 onSenderAddressInput,
                 selectSenderAddressSuggestion,
                 clearVerifiedSenderAddress,
+                showOrderSuccessPrompt,
+                createdShipmentPrompt,
+                handlePayPromptQr,
+                handlePromptCreateAnother,
+                handlePromptGoToList,
+                copyTrackingCode,
                 showCheckoutModal,
                 checkoutTargetShipment,
                 checkoutPaymentData,
@@ -965,6 +1090,8 @@
                 closeCheckoutModal,
                 openCheckoutModal,
                 handleCheckoutRecheck,
+                isShipmentPaid,
+                paidTrackingCodes,
                 handleCheckoutMockPay,
                 Utils
             };
@@ -1768,7 +1895,7 @@
                                         <th class="py-3 px-3.5">Khối Lượng &amp; COD</th>
                                         <th class="py-3 px-3.5">Trạng Thái Toàn Trình</th>
                                         <th class="py-3 px-3.5">Thời Gian Tạo</th>
-                                        <th class="py-3 px-3.5 text-right">Thao Tác</th>
+                                        <th class="py-3 px-3.5 text-right whitespace-nowrap w-[115px]">Thao Tác</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-xs">
@@ -1837,33 +1964,46 @@
                                             {{ Utils.formatTime(s.createdAt) }}
                                         </td>
 
-                                        <td class="py-3 px-3.5 text-right whitespace-nowrap space-x-1.5">
-                                            <button 
-                                                type="button"
-                                                @click="openCheckoutModal(s)"
-                                                class="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white rounded-lg text-xs font-bold transition-all border border-emerald-200 hover:border-emerald-600 shadow-sm inline-flex items-center gap-1"
-                                                title="Thanh toán cước vận đơn"
-                                            >
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                                                <span>Trả Cước</span>
-                                            </button>
-                                            <button 
-                                                type="button"
-                                                @click="viewTracking(s.trackingCode)"
-                                                class="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white rounded-lg text-xs font-bold transition-all border border-blue-200 hover:border-blue-600 shadow-sm"
-                                                title="Mở bản đồ định tuyến và giám sát vận trình"
-                                            >
-                                                Xem Lộ Trình
-                                            </button>
-                                            <button 
-                                                v-if="canCancelShipment(s)"
-                                                type="button"
-                                                @click="openCancelModal(s)"
-                                                class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white rounded-lg text-xs font-bold transition-all border border-rose-200 hover:border-rose-600 shadow-sm"
-                                                title="Hủy đơn hàng và thông báo đồng bộ tới kho bãi"
-                                            >
-                                                Hủy Đơn
-                                            </button>
+                                        <td class="py-3 px-3.5 text-right whitespace-nowrap">
+                                            <div class="inline-flex items-center justify-end gap-1">
+                                                <button 
+                                                    v-if="!isShipmentPaid(s)"
+                                                    type="button"
+                                                    @click="openCheckoutModal(s)"
+                                                    class="px-2 py-1 bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white rounded-lg text-[11px] font-bold transition border border-emerald-200 hover:border-emerald-600 shadow-xs flex items-center gap-1 cursor-pointer"
+                                                    title="Thanh toán cước vận đơn"
+                                                >
+                                                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+                                                    <span>Trả Cước</span>
+                                                </button>
+                                                <button 
+                                                    v-else
+                                                    type="button"
+                                                    @click="openCheckoutModal(s)"
+                                                    class="px-2 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-[11px] font-bold transition border border-emerald-300 shadow-xs flex items-center gap-1 cursor-pointer"
+                                                    title="Đã thanh toán cước - Bấm xem chi tiết biên lai"
+                                                >
+                                                    <svg class="w-3.5 h-3.5 shrink-0 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+                                                    <span>Đã Thu</span>
+                                                </button>
+                                                <button 
+                                                    type="button"
+                                                    @click="viewTracking(s.trackingCode)"
+                                                    class="p-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white rounded-lg border border-blue-200 hover:border-blue-600 transition shadow-xs cursor-pointer"
+                                                    title="Xem chi tiết hành trình &amp; lộ trình vận chuyển"
+                                                >
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+                                                </button>
+                                                <button 
+                                                    v-if="canCancelShipment(s)"
+                                                    type="button"
+                                                    @click="openCancelModal(s)"
+                                                    class="p-1 bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white rounded-lg border border-rose-200 hover:border-rose-600 transition shadow-xs cursor-pointer"
+                                                    title="Hủy vận đơn này"
+                                                >
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -2045,148 +2185,269 @@
 
                 <teleport to="body">
                 <Transition name="modal">
-                <div v-if="showCheckoutModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-                    <div class="bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl max-w-4xl w-full p-5 sm:p-6 space-y-4 text-xs text-slate-100 max-h-[92vh] overflow-y-auto">
-                        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                            <div class="flex items-center gap-2.5">
-                                <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-sm">V</div>
-                                <div>
-                                    <h3 class="font-bold text-white text-sm">Thanh Toán Cước Vận Chuyển B2B</h3>
-                                    <p class="text-slate-400 font-mono text-[11px] mt-0.5">Vận đơn: {{ checkoutTargetShipment?.trackingCode }}</p>
+                <div v-if="showOrderSuccessPrompt" class="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden text-xs animate-in fade-in zoom-in duration-150">
+                        <div class="p-6 text-center space-y-3 bg-gradient-to-b from-emerald-50/70 to-white border-b border-slate-100 relative">
+                            <button type="button" @click="showOrderSuccessPrompt = false" class="absolute top-3 right-3 text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                            <div class="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
+                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-extrabold text-slate-900">Khởi Tạo Vận Đơn Thành Công!</h3>
+                                <p class="text-xs text-slate-500 mt-0.5">Bưu gửi đã được tiếp nhận vào hệ thống VNPT Post</p>
+                            </div>
+
+                            <div class="inline-flex items-center gap-2 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-xl">
+                                <span class="text-slate-500 text-[11px]">Mã vận đơn:</span>
+                                <span class="font-mono font-extrabold text-blue-700 text-sm">{{ createdShipmentPrompt?.trackingCode }}</span>
+                                <button type="button" @click="copyTrackingCode(createdShipmentPrompt?.trackingCode)" class="text-slate-400 hover:text-blue-600 p-0.5 transition" title="Sao chép mã">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-5 space-y-4">
+                            <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-[11.5px] space-y-1.5">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-slate-500">Người nhận:</span>
+                                    <span class="font-bold text-slate-800">{{ createdShipmentPrompt?.receiverName }} ({{ createdShipmentPrompt?.receiverPhone }})</span>
+                                </div>
+                                <div class="flex justify-between items-start gap-2">
+                                    <span class="text-slate-500 shrink-0">Nơi giao:</span>
+                                    <span class="text-slate-700 text-right truncate max-w-[240px]">{{ createdShipmentPrompt?.receiverAddress }}</span>
+                                </div>
+                                <div class="flex justify-between items-center border-t border-slate-200/60 pt-1.5">
+                                    <span class="text-slate-600 font-bold">Cước phí vận chuyển:</span>
+                                    <span class="font-mono font-extrabold text-blue-700 text-sm">{{ Utils.formatCurrency(createdShipmentPrompt?.shippingFee || createdShipmentPrompt?.totalFee || 35000) }}</span>
                                 </div>
                             </div>
-                            <button @click="closeCheckoutModal" class="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition">
+
+                            <div class="p-3 bg-blue-50/70 border border-blue-200 rounded-xl flex items-start gap-2.5">
+                                <div class="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                    </svg>
+                                </div>
+                                <div class="text-[11.5px] text-blue-900 leading-snug">
+                                    <span class="font-bold">Thanh toán cước ngay qua VietQR</span> để đơn được ưu tiên xử lý lấy hàng và không cần chuẩn bị tiền mặt khi gửi.
+                                </div>
+                            </div>
+
+                            <div class="space-y-2 pt-1">
+                                <button 
+                                    type="button" 
+                                    @click="handlePayPromptQr" 
+                                    class="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs transition shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 cursor-pointer group"
+                                >
+                                    <svg class="w-4 h-4 transition group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                                    </svg>
+                                    <span>Thanh Toán Cước VietQR Ngay ({{ Utils.formatCurrency(createdShipmentPrompt?.shippingFee || createdShipmentPrompt?.totalFee || 35000) }})</span>
+                                </button>
+
+                                <div class="grid grid-cols-2 gap-2 pt-1">
+                                    <button 
+                                        type="button" 
+                                        @click="handlePromptCreateAnother" 
+                                        class="py-2.5 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                                    >
+                                        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                        </svg>
+                                        <span>Tạo Thêm Đơn Khác</span>
+                                    </button>
+
+                                    <button 
+                                        type="button" 
+                                        @click="handlePromptGoToList" 
+                                        class="py-2.5 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                                    >
+                                        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                                        </svg>
+                                        <span>Xem Danh Sách Đơn</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </Transition>
+                </teleport>
+
+                <teleport to="body">
+                <Transition name="modal">
+                <div v-if="showCheckoutModal" class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
+                    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-4xl w-full p-4 sm:p-6 space-y-4 text-xs text-slate-800 max-h-[94vh] overflow-y-auto animate-in fade-in zoom-in duration-150">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-sm shadow-md shadow-blue-500/20">V</div>
+                                <div>
+                                    <h3 class="font-extrabold text-slate-900 text-sm sm:text-base">Thanh Toán Cước Vận Chuyển B2B</h3>
+                                    <p class="text-slate-500 font-mono text-[11px] mt-0.5">Vận đơn: <span class="text-blue-700 font-bold">{{ checkoutTargetShipment?.trackingCode }}</span></p>
+                                </div>
+                            </div>
+                            <button @click="closeCheckoutModal" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                             </button>
                         </div>
 
-                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-                            <div class="lg:col-span-5 bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 space-y-3">
-                                <div class="flex items-center justify-between border-b border-slate-700/60 pb-2">
-                                    <span class="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Thông Tin Kiện Hàng</span>
-                                    <span class="px-2 py-0.5 text-[10px] font-bold rounded" :class="isCheckoutPaidSuccess ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'">
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
+                            <div class="lg:col-span-5 bg-slate-50 border border-slate-200/90 rounded-xl p-4 space-y-3">
+                                <div class="flex items-center justify-between border-b border-slate-200/70 pb-2">
+                                    <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Thông Tin Kiện Hàng</span>
+                                    <span class="px-2 py-0.5 text-[10px] font-bold rounded" :class="isCheckoutPaidSuccess ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'">
                                         {{ isCheckoutPaidSuccess ? 'CƯỚC ĐÃ THU' : 'CHỜ THANH TOÁN' }}
                                     </span>
                                 </div>
 
-                                <div class="space-y-2 text-[11px]">
-                                    <div class="flex justify-between">
-                                        <span class="text-slate-400">Người gửi:</span>
-                                        <span class="font-semibold text-white truncate max-w-[160px]">{{ checkoutTargetShipment?.senderName }}</span>
+                                <div class="space-y-2 text-[11.5px]">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-slate-500">Người gửi:</span>
+                                        <span class="font-bold text-slate-800 truncate max-w-[170px]">{{ checkoutTargetShipment?.senderName }}</span>
                                     </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-slate-400">Người nhận:</span>
-                                        <span class="font-semibold text-white truncate max-w-[160px]">{{ checkoutTargetShipment?.receiverName }}</span>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-slate-500">Người nhận:</span>
+                                        <span class="font-bold text-slate-800 truncate max-w-[170px]">{{ checkoutTargetShipment?.receiverName }}</span>
                                     </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-slate-400">Khối lượng:</span>
-                                        <span class="font-mono text-slate-200">{{ checkoutTargetShipment?.weight }} kg</span>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-slate-500">Khối lượng:</span>
+                                        <span class="font-mono font-semibold text-slate-800">{{ checkoutTargetShipment?.weight }} kg</span>
                                     </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-slate-400">Gói cước:</span>
-                                        <span class="font-bold text-blue-400">{{ checkoutTargetShipment?.serviceType === 'EXPRESS' ? 'VNPT Hỏa Tốc' : 'VNPT Tiêu Chuẩn' }}</span>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-slate-500">Gói cước:</span>
+                                        <span class="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-[10.5px]">{{ checkoutTargetShipment?.serviceType === 'EXPRESS' ? 'VNPT Hỏa Tốc' : 'VNPT Tiêu Chuẩn' }}</span>
                                     </div>
                                 </div>
 
-                                <div class="border-t border-slate-700/60 pt-2 space-y-1.5 text-[11px]">
-                                    <div class="flex justify-between">
-                                        <span class="text-slate-400">Cước vận chuyển:</span>
-                                        <span class="font-mono">{{ Utils.formatCurrency(checkoutTargetShipment?.shippingFee || 35000) }}</span>
+                                <div class="border-t border-slate-200/70 pt-2.5 space-y-1.5 text-[11.5px]">
+                                    <div class="flex justify-between text-slate-600">
+                                        <span>Cước vận chuyển:</span>
+                                        <span class="font-mono font-bold text-slate-800">{{ Utils.formatCurrency(checkoutTargetShipment?.shippingFee || 35000) }}</span>
                                     </div>
-                                    <div class="flex justify-between text-slate-400">
+                                    <div class="flex justify-between text-slate-500 text-[11px]">
                                         <span>Phụ phí nhiên liệu &amp; cầu đường:</span>
-                                        <span class="font-mono">Đã tính gộp</span>
+                                        <span class="font-mono text-slate-600">Đã gộp</span>
                                     </div>
-                                    <div class="bg-blue-950/40 border border-blue-900/60 p-2.5 rounded-lg flex justify-between items-center mt-2">
-                                        <span class="text-[11px] text-blue-300 font-bold uppercase">Tổng cước:</span>
-                                        <span class="text-base font-extrabold text-white font-mono">{{ Utils.formatCurrency(checkoutTargetShipment?.totalFee || checkoutTargetShipment?.shippingFee || 35000) }}</span>
+                                    <div class="bg-blue-50/80 border border-blue-200 p-2.5 rounded-xl flex justify-between items-center mt-2 shadow-xs">
+                                        <span class="text-[11px] text-blue-900 font-bold uppercase">Tổng cước:</span>
+                                        <span class="text-base font-extrabold text-blue-700 font-mono">{{ Utils.formatCurrency(checkoutTargetShipment?.totalFee || checkoutTargetShipment?.shippingFee || 35000) }}</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="lg:col-span-7 bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 space-y-4">
-                                <div class="flex items-center gap-1 p-1 bg-slate-900/80 rounded-lg border border-slate-700/60 text-xs">
-                                    <button @click="activeCheckoutTab = 'vietqr'" :class="activeCheckoutTab === 'vietqr' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'" class="flex-1 py-1.5 px-2 rounded-md transition flex items-center justify-center gap-1">
+                            <div class="lg:col-span-7 bg-slate-50 border border-slate-200/90 rounded-xl p-4 space-y-4">
+                                <div v-if="!isCheckoutPaidSuccess" class="flex items-center gap-1 p-1 bg-slate-200/70 rounded-xl text-xs">
+                                    <button @click="activeCheckoutTab = 'vietqr'" :class="activeCheckoutTab === 'vietqr' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900 font-semibold'" class="flex-1 py-1.5 px-2 rounded-lg transition flex items-center justify-center gap-1.5">
+                                        <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
                                         <span>VietQR Động</span>
                                     </button>
-                                    <button @click="activeCheckoutTab = 'wallet'" :class="activeCheckoutTab === 'wallet' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'" class="flex-1 py-1.5 px-2 rounded-md transition flex items-center justify-center gap-1">
+                                    <button @click="activeCheckoutTab = 'wallet'" :class="activeCheckoutTab === 'wallet' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900 font-semibold'" class="flex-1 py-1.5 px-2 rounded-lg transition flex items-center justify-center gap-1.5">
                                         <span>Ví B2B (1.25M)</span>
                                     </button>
-                                    <button @click="activeCheckoutTab = 'gateway'" :class="activeCheckoutTab === 'gateway' ? 'bg-blue-600 text-white font-bold' : 'text-slate-400 hover:text-white'" class="flex-1 py-1.5 px-2 rounded-md transition flex items-center justify-center gap-1">
+                                    <button @click="activeCheckoutTab = 'gateway'" :class="activeCheckoutTab === 'gateway' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900 font-semibold'" class="flex-1 py-1.5 px-2 rounded-lg transition flex items-center justify-center gap-1.5">
                                         <span>Cổng VNPAY</span>
                                     </button>
                                 </div>
 
-                                <div v-if="isCheckoutPaidSuccess" class="py-6 text-center space-y-3 bg-slate-900/90 border border-emerald-500/40 rounded-xl p-4">
-                                    <div class="w-12 h-12 bg-emerald-500/20 border-2 border-emerald-500 rounded-full flex items-center justify-center mx-auto text-emerald-400">
+                                <div v-if="isCheckoutPaidSuccess" class="py-6 text-center space-y-3 bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                                    <div class="w-12 h-12 bg-emerald-100 border-2 border-emerald-500 rounded-full flex items-center justify-center mx-auto text-emerald-600 shadow-inner">
                                         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
                                     </div>
-                                    <h4 class="text-sm font-bold text-white">THANH TOÁN CƯỚC THÀNH CÔNG!</h4>
-                                    <p class="text-[11px] text-slate-400">Hệ thống đã nhận đủ cước phí và sẵn sàng phát hành phiếu gửi.</p>
+                                    <h4 class="text-sm font-extrabold text-emerald-900">THANH TOÁN CƯỚC THÀNH CÔNG!</h4>
+                                    <p class="text-[11.5px] text-emerald-700">Đơn hàng này đã thanh toán cước phí và sẵn sàng phát hành phiếu gửi.</p>
+                                    <div v-if="checkoutPaymentData" class="text-[11px] text-slate-600 space-y-1.5 bg-white p-3 rounded-xl border border-emerald-200 max-w-sm mx-auto text-left shadow-xs">
+                                        <div class="flex justify-between" v-if="checkoutPaymentData.paymentCode">
+                                            <span class="text-slate-400 font-medium">Mã giao dịch:</span>
+                                            <span class="font-mono font-bold text-slate-800">{{ checkoutPaymentData.paymentCode }}</span>
+                                        </div>
+                                        <div class="flex justify-between" v-if="checkoutPaymentData.paidAt">
+                                            <span class="text-slate-400 font-medium">Thời gian:</span>
+                                            <span class="font-medium text-slate-700">{{ Utils.formatTime(checkoutPaymentData.paidAt) }}</span>
+                                        </div>
+                                        <div class="flex justify-between" v-if="checkoutPaymentData.amount">
+                                            <span class="text-slate-400 font-medium">Số tiền cước:</span>
+                                            <span class="font-mono font-bold text-emerald-700">{{ Utils.formatCurrency(checkoutPaymentData.amount) }}</span>
+                                        </div>
+                                    </div>
                                     <div class="pt-2 flex gap-2 justify-center">
-                                        <button @click="viewTracking(checkoutTargetShipment.trackingCode); closeCheckoutModal()" class="py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition">
+                                        <button @click="viewTracking(checkoutTargetShipment.trackingCode); closeCheckoutModal()" class="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition shadow-sm">
                                             Theo Dõi Hành Trình
                                         </button>
-                                        <button @click="closeCheckoutModal()" class="py-2 px-3 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg text-xs transition">
-                                            Đóng Cửa Sổ
+                                        <button @click="closeCheckoutModal()" class="py-2 px-3.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs transition shadow-xs cursor-pointer">
+                                            Về Danh Sách Đơn
                                         </button>
                                     </div>
                                 </div>
 
                                 <div v-else-if="activeCheckoutTab === 'vietqr'" class="space-y-3">
                                     <div class="flex items-center justify-between text-[11px]">
-                                        <span class="text-slate-300 font-semibold flex items-center gap-1.5">
-                                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                                        <span class="text-slate-600 font-semibold flex items-center gap-1.5">
+                                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
                                             Chờ quét mã thanh toán...
                                         </span>
-                                        <span class="font-mono text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                                        <span class="font-mono text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                                             {{ formatCheckoutCountdown(checkoutCountdown) }}
                                         </span>
                                     </div>
 
-                                    <div class="bg-slate-900 border border-slate-700/60 rounded-xl p-3 flex flex-col sm:flex-row items-center gap-4">
-                                        <div class="bg-white p-2.5 rounded-xl shadow-lg shrink-0">
+                                    <div class="bg-white border border-slate-200 rounded-xl p-3.5 flex flex-col sm:flex-row items-center gap-4 shadow-xs">
+                                        <div class="bg-slate-50 p-2 rounded-xl border border-slate-200 shrink-0">
                                             <div v-if="isCheckoutLoading" class="w-36 h-36 flex items-center justify-center text-slate-400 text-xs">
                                                 <span>Đang tạo QR...</span>
                                             </div>
                                             <img v-else-if="checkoutPaymentData?.qrUrl" :src="checkoutPaymentData.qrUrl" alt="VietQR" class="w-36 h-36 object-contain rounded" />
                                         </div>
-                                        <div class="space-y-1.5 text-[11px] w-full">
-                                            <div class="flex justify-between">
-                                                <span class="text-slate-400">Ngân hàng:</span>
-                                                <span class="font-bold text-white">{{ checkoutPaymentData?.bankCode || 'MB Bank' }}</span>
+                                        <div class="space-y-1.5 text-xs w-full">
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-slate-500">Ngân hàng:</span>
+                                                <span class="font-bold text-slate-900">{{ checkoutPaymentData?.bankCode || 'MB Bank' }}</span>
                                             </div>
-                                            <div class="flex justify-between">
-                                                <span class="text-slate-400">Số tài khoản:</span>
-                                                <span class="font-mono text-white">{{ checkoutPaymentData?.accountNo || '0987654321' }}</span>
+                                            <div class="flex justify-between items-center">
+                                                <span class="text-slate-500">Số tài khoản:</span>
+                                                <span class="font-mono font-bold text-slate-900">{{ checkoutPaymentData?.accountNo || '0987654321' }}</span>
                                             </div>
-                                            <div class="flex justify-between border-t border-slate-800 pt-1">
-                                                <span class="text-slate-400">Nội dung:</span>
-                                                <span class="font-mono font-bold text-blue-400">CUOC {{ checkoutTargetShipment?.trackingCode }}</span>
+                                            <div class="flex justify-between items-center border-t border-slate-100 pt-1.5">
+                                                <span class="text-slate-500">Nội dung:</span>
+                                                <span class="font-mono font-bold text-blue-700">CUOC {{ checkoutTargetShipment?.trackingCode }}</span>
                                             </div>
                                         </div>
                                     </div>
 
                                     <div class="grid grid-cols-2 gap-2 pt-1">
-                                        <button @click="handleCheckoutRecheck" :disabled="isCheckingPayment" class="py-2 px-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-xs transition">
-                                            {{ isCheckingPayment ? 'Đang Kiểm Tra...' : 'Kiểm Tra Giao Dịch' }}
+                                        <button @click="handleCheckoutRecheck" :disabled="isCheckingPayment" class="py-2 px-3 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition shadow-xs flex items-center justify-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                            <span>{{ isCheckingPayment ? 'Đang Kiểm Tra...' : 'Kiểm Tra Giao Dịch' }}</span>
                                         </button>
-                                        <button @click="handleCheckoutMockPay" class="py-2 px-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-xs transition shadow-sm">
-                                            Thanh Toán Thử (Test)
+                                        <button @click="handleCheckoutMockPay" class="py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5 cursor-pointer">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                            <span>Thanh Toán </span>
                                         </button>
                                     </div>
                                 </div>
 
-                                <div v-else-if="activeCheckoutTab === 'wallet'" class="py-6 text-center space-y-3">
-                                    <p class="text-xs text-slate-300">Khấu trừ trực tiếp vào số dư ví doanh nghiệp.</p>
-                                    <button @click="handleCheckoutMockPay" class="py-2 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-xs transition">
+                                <div v-else-if="activeCheckoutTab === 'wallet'" class="py-8 text-center space-y-3 bg-white border border-slate-200 rounded-xl p-4">
+                                    <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                                    </div>
+                                    <p class="text-xs text-slate-600 font-medium">Khấu trừ trực tiếp vào số dư ví doanh nghiệp.</p>
+                                    <button @click="handleCheckoutMockPay" class="py-2 px-5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition shadow-sm">
                                         Xác Nhận Trừ Ví
                                     </button>
                                 </div>
 
-                                <div v-else-if="activeCheckoutTab === 'gateway'" class="py-6 text-center space-y-3">
-                                    <p class="text-xs text-slate-300">Chuyển hướng sang cổng thanh toán đối tác VNPAY.</p>
-                                    <button @click="handleCheckoutMockPay" class="py-2 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-xs transition">
+                                <div v-else-if="activeCheckoutTab === 'gateway'" class="py-8 text-center space-y-3 bg-white border border-slate-200 rounded-xl p-4">
+                                    <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                    </div>
+                                    <p class="text-xs text-slate-600 font-medium">Chuyển hướng sang cổng thanh toán đối tác VNPAY.</p>
+                                    <button @click="handleCheckoutMockPay" class="py-2 px-5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition shadow-sm">
                                         Mở Cổng VNPAY
                                     </button>
                                 </div>

@@ -87,7 +87,7 @@
                                         {{ item.message }}
                                     </p>
                                     <div v-if="item.trackingCode" class="mt-1 inline-flex items-center space-x-1 text-[10.5px] text-blue-600 hover:text-blue-800 font-semibold font-mono">
-                                        <span>Mã bưu gửi: {{ item.trackingCode }}</span>
+                                        <span>{{ item.trackingLabel || 'Mã bưu gửi:' }} {{ item.trackingCode }}</span>
                                         <span>&rarr;</span>
                                     </div>
                                 </div>

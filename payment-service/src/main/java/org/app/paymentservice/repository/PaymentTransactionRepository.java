@@ -2,6 +2,7 @@ package org.app.paymentservice.repository;
 
 import org.app.paymentservice.entity.PaymentStatus;
 import org.app.paymentservice.entity.PaymentTransaction;
+import org.app.paymentservice.entity.PaymentType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -16,6 +17,8 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     Optional<PaymentTransaction> findFirstByTrackingCodeAndStatusOrderByCreatedAtDesc(String trackingCode, PaymentStatus status);
 
     List<PaymentTransaction> findByTrackingCodeOrderByCreatedAtDesc(String trackingCode);
+
+    List<PaymentTransaction> findByStatusAndPaymentType(PaymentStatus status, PaymentType paymentType);
 
     boolean existsByPaymentCode(String paymentCode);
 }

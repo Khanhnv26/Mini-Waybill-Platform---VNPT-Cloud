@@ -23,6 +23,7 @@
 [![Ollama](https://img.shields.io/badge/Ollama-Local%20LLM%20Qwen%202.5-black?style=for-the-badge&logo=ollama&logoColor=white)](https://ollama.com/)
 [![RabbitMQ](https://img.shields.io/badge/RabbitMQ-Priority%20Queue%20%26%20SLA%20DLX-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)](https://www.rabbitmq.com/)
 [![MinIO](https://img.shields.io/badge/MinIO-S3%20Compatible%20Storage-C72C48?style=for-the-badge&logo=minio&logoColor=white)](https://min.io/)
+[![VietQR](https://img.shields.io/badge/VietQR-NAPAS%20247%20Dynamic%20QR-005BAA?style=for-the-badge&logoColor=white)](https://vietqr.net/)
 
 ---
 
@@ -115,6 +116,13 @@ Khác với các ứng dụng giao hàng nội thành đơn chặng, hệ thốn
 * **Mô hình bảo mật truy cập lai (Hybrid Access Control):** Cấu hình Anonymous Download Policy cho phép trình duyệt hiển thị tức thời ảnh kiện hàng trong luồng chat mà không bị lỗi đứt link hết hạn (Expired Presigned Link); đồng thời hỗ trợ cơ chế Presigned URLs (ký chữ ký số điện tử HMAC-SHA256 có thời hạn sống TTL 15-60 phút) cho các chứng từ nhạy cảm như hóa đơn tài chính và biên bản đền bù.
 * **Hạ tầng Container Chainguard Distroless bảo mật cao:** Triển khai image `cgr.dev/chainguard/minio:latest`, loại bỏ hoàn toàn các shell/package dư thừa, đạt $0$ lỗ hổng bảo mật (Zero Known CVEs) và phân định rành mạch giữa Port 9000 (S3 REST API) và Port 9001 (MinIO Web Console).
 * *Tài liệu chi tiết:* Xem chi tiết kiến trúc S3, phân tích Erasure Coding và bộ Boilerplate Spring Boot 3 độc lập tại [Cẩm nang 16 - Lưu Trữ Đối Tượng MinIO & S3 Boilerplate](docs/16-minio-object-storage-and-s3-boilerplate.md).
+ 
+### 2.13. Thanh Toán Điện Tử VietQR Động, Chống Thanh Toán Đúp & Tự Động Hóa Chuông Topbar (Payment Gateway & Event-Driven Notification)
+* **Cổng thanh toán VietQR động chuẩn NAPAS 247:** Khởi tạo mã QR động tích hợp trực tiếp số tiền chính xác và nội dung nhận diện bưu gửi độc nhất cho cả cước vận chuyển B2B (`SHIPPING_FEE`) lẫn tiền thu hộ chặng cuối (`COD`). Người nhận quét mã thanh toán bằng bất kỳ ứng dụng Mobile Banking nào trong 3 giây với phí 0 VNĐ.
+* **Luồng sự kiện Kafka bất đồng bộ (`payment-success-events`):** Sau khi xác thực Webhook ngân hàng an toàn (kiểm tra Secret Key và chống Replay Attack), `payment-service` bắn sự kiện lên Kafka KRaft để đồng bộ trạng thái `PAID` sang `shipment-service` và hạch toán dòng tiền thu hộ sang `shipper-service`.
+* **Tự động hóa chuông 🔔 Topbar thời gian thực (< 50ms):** `notification-service` tiêu thụ sự kiện Kafka, tạo bản ghi `NotificationLog` (người nhận `SYSTEM_ALERT`) và phát sóng STOMP WebSocket tới `/topic/notifications/broadcast`. Quả chuông trên Topbar lập tức nhảy số đỏ +1 với hiệu ứng nhấp nháy `animate-pulse`, icon tiền tệ xanh ngọc emerald (`bg-emerald-600`), hiển thị chi tiết thời gian và dẫn thẳng tới bưu phẩm.
+* **Cơ chế phòng vệ thanh toán đúp đa tầng (Double-Payment Prevention):** Kiểm tra trạng thái giao dịch `SUCCESS` ngăn chặn sinh mã QR mới; cung cấp API `/api/payments/paid-codes` để giao diện tự động chuyển đổi nút bấm sang huy hiệu tĩnh "Đã Thu", triệt tiêu 100% rủi ro khách hàng quét mã trả tiền 2 lần.
+* *Tài liệu chi tiết:* Xem toàn văn kiến trúc, Webhook security và 10 câu hỏi phỏng vấn tại [Cẩm nang 17 - Cổng Thanh Toán VietQR & Đối Soát Tài Chính Tức Thời](docs/17-vietqr-payment-gateway-and-realtime-reconciliation.md).
 
 ---
 
@@ -147,15 +155,16 @@ flowchart TB
     subgraph ServiceLayer [" Business Microservices Layer "]
         AuthSvc["auth-service (8087)\n• OAuth2 / JWT / RBAC\n• Station Context Binding"]
         CustSvc["customer-service (8081)\n• Hồ sơ khách hàng / B2B"]
-        ShipSvc["shipment-service (8082)\n• Quản lý vận đơn\n• Tính cước phí B2B"]
+        ShipSvc["shipment-service (8082)\n• Quản lý vận đơn\n• Động cơ tính cước phí B2B"]
         RouteSvc["routing-service (8083)\n• Multi-leg Trips Management\n• Inventory Operations & Hub Dispatch"]
         TrackSvc["tracking-service (8084 / 8094)\n• Dynamic RoutingDataSource\n• State Machine & Quét barcode"]
-        NotiSvc["notification-service (8085)\n• Telegram Bot / WebSocket STOMP\n• Email / SMS / In-app"]
+        NotiSvc["notification-service (8085)\n• Telegram Bot / WebSocket STOMP\n• Email / SMS / Topbar Bell"]
         AuditSvc["audit-service (8086)\n• Nhật ký kiểm toán toàn mạng"]
         ShipperSvc["shipper-service (8089)\n• Quản lý đội ngũ bưu tá\n• Phân trạm & liên kết Telegram"]
         ReportSvc["report-service (8091)\n• Phân tích đối soát COD & KPI\n• Xuất báo cáo tài chính Excel"]
-        PricingSvc["pricing-service (8092)\n• Động cơ ước tính cước phí\n• Ma trận 3 gói cước & phụ phí"]
+        RatingSvc["rating-service (8092)\n• Đánh giá chất lượng bưu phẩm\n• Phản hồi khách hàng & KPI shipper"]
         SupportSvc["support-service (8093)\n• Tiếp nhận khiếu nại toàn trình\n• Trợ lý ảo GenAI (Spring AI)"]
+        PaymentSvc["payment-service (8095)\n• Cổng thanh toán VietQR động\n• Webhook đối soát & Kafka Events"]
     end
 
     subgraph AIEngine [" Local AI & Intelligence Layer "]
@@ -183,14 +192,16 @@ flowchart TB
         DB_Audit[(audit_db - 1433)]
         DB_Shipper[(shipper_db - 1433)]
         DB_Report[(report_db - 1433)]
+        DB_Rating[(rating_db - 1433)]
         DB_Support[(support_db - 1433)]
+        DB_Payment[(payment_db - 1433)]
     end
 
     UI & Scanner -->|"HTTP Port 80"| Nginx
     Nginx -->|"Upstream /api/"| GW1 & GW2
     Nginx -->|"Upstream /"| UI
     GW1 & GW2 --> Eureka1 & Eureka2
-    GW1 & GW2 --> AuthSvc & CustSvc & ShipSvc & RouteSvc & TrackSvc & NotiSvc & AuditSvc & ShipperSvc & ReportSvc & PricingSvc & SupportSvc
+    GW1 & GW2 --> AuthSvc & CustSvc & ShipSvc & RouteSvc & TrackSvc & NotiSvc & AuditSvc & ShipperSvc & ReportSvc & RatingSvc & SupportSvc & PaymentSvc
 
     TrackSvc -->|"Ghi: Primary DB"| DB_Track_Primary
     TrackSvc -->|"Đọc: Replica DB"| DB_Track_Replica
@@ -207,10 +218,17 @@ flowchart TB
     KafkaCluster --> RouteSvc & TrackSvc & ShipSvc & NotiSvc & AuditSvc & ShipperSvc & ReportSvc
     KafkaCluster -.-> KafkaUI
 
+    PaymentSvc --> DB_Payment
+    RatingSvc --> DB_Rating
+    PaymentSvc -->|"Publish: payment-success-events"| KafkaCluster
+    KafkaCluster -->|"Consumer: PaymentNotification"| NotiSvc
+    KafkaCluster -->|"Consumer: PaymentSync"| ShipSvc & ShipperSvc
+    NotiSvc -->|"STOMP Broadcast: /topic/notifications/broadcast"| UI
+    RatingSvc -.->|"Feign: tra cứu bưu gửi"| TrackSvc & ShipSvc
+
     NotiSvc -.->|"Feign: /internal/link-telegram"| ShipperSvc
-    ShipSvc -.->|"Feign: /api/pricing/calculate"| PricingSvc
     SupportSvc -.->|"ChatClient (HTTP 11434)"| OllamaLocal
-    SupportSvc -.->|"Feign Tools: cước & vận đơn"| PricingSvc & TrackSvc & ShipSvc
+    SupportSvc -.->|"Feign Tools: cước & vận đơn"| TrackSvc & ShipSvc
     SupportSvc -->|"AMQP: priority & sla queue"| RabbitMQ
     RabbitMQ -->|"DLX Consumer: SLAEscalation"| SupportSvc
     SupportSvc -->|"Kafka: email-events"| KafkaCluster
@@ -226,7 +244,9 @@ flowchart TB
     AuditSvc --> DB_Audit
     ShipperSvc --> DB_Shipper
     ReportSvc --> DB_Report
+    RatingSvc --> DB_Rating
     SupportSvc --> DB_Support
+    PaymentSvc --> DB_Payment
 ```
 
 ---
@@ -253,6 +273,7 @@ Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, m�
 | **14** | [**Trợ Lý Ảo GenAI & Cơ Chế Spring AI Tool Calling**](docs/14-spring-ai-agent-and-support-ticketing.md) | Kiến trúc On-Premise LLM với Ollama (`qwen2.5:7b`), cơ chế Spring AI `ChatClient` Function Calling tự động gọi Feign Client tra cứu vận đơn & tính cước, kỹ thuật Prompt Engineering chống ảo giác và xử lý dự phòng khi AI quá tải. |
 | **15** | [**Đếm Ngược SLA RabbitMQ & Xử Lý Hủy Đơn Liên Dịch Vụ**](docs/15-rabbitmq-priority-queue-and-sla-dead-letter-patterns.md) | Kiến trúc Polyglot Messaging (RabbitMQ + Kafka + OpenFeign), bộ đếm ngược SLA 120s bằng Message TTL + Dead-Letter Exchange (DLX), tự động hủy đơn liên dịch vụ qua Feign (`shipment:cancel_all`), giải phóng tải chuyến xe & tồn kho kho bãi (`routing-service`), và cơ chế tương thích kép mốc thời gian Kafka. |
 | **16** | [**Lưu Trữ Đối Tượng MinIO & S3 Boilerplate**](docs/16-minio-object-storage-and-s3-boilerplate.md) | Kiến trúc S3 Object Storage, phân định Storage vs BLOB, cơ chế tự phục hồi Bucket (`MinioBucketSupport`), bảo mật Presigned URLs vs Public Download, xử lý sự cố Docker Hub & di trú Chainguard Distroless, cẩm nang lệnh `mc` CLI và **Bộ Boilerplate Spring Boot 3 độc lập** sẵn sàng copy vào dự án doanh nghiệp. |
+| **17** | [**Cổng Thanh Toán VietQR & Đối Soát Tài Chính Tức Thời**](docs/17-vietqr-payment-gateway-and-realtime-reconciliation.md) | Kiến trúc Cổng thanh toán VietQR động chuẩn NAPAS 247, xác thực Webhook bảo mật, luồng sự kiện Kafka `payment-success-events`, cơ chế tự động hóa quả chuông 🔔 Topbar nhảy số đỏ +1 qua WebSocket STOMP, kỹ thuật phòng vệ chống thanh toán đúp đa tầng, bộ Boilerplate Spring Boot 3 độc lập và 10 câu hỏi phỏng vấn tuyển dụng. |
 
 ---
 
@@ -294,7 +315,7 @@ docker compose up -d
 * **SQL Server Replica:** Port `2433` (`sa` / `Replica@123456`).
 
 #### Bước 2: Chuẩn bị CSDL Primary (SQL Server Port 1433)
-1. Tạo 10 database: `auth_db`, `customer_db`, `shipment_db`, `routing_db`, `tracking_db`, `notification_db`, `audit_db`, `shipper_db`, `report_db`, `support_db`. SQL Server không tự tạo database từ chuỗi JDBC. `support-service` dùng Flyway để tạo bảng trong `support_db` đã có sẵn.
+1. Tạo 12 database: `auth_db`, `customer_db`, `shipment_db`, `routing_db`, `tracking_db`, `notification_db`, `audit_db`, `shipper_db`, `report_db`, `rating_db`, `support_db`, `payment_db`. SQL Server không tự tạo database từ chuỗi JDBC. `support-service`, `rating-service` và `payment-service` dùng Flyway để tự động khởi tạo bảng.
 2. Chạy 2 script seed dữ liệu nền trong thư mục `database/`:
    * [`database/HubSeed.sql`](database/HubSeed.sql) (Nạp 5 Siêu Hub vào `routing_db`).
    * [`database/seed_rbac_data.sql`](database/seed_rbac_data.sql) (Nạp vai trò, quyền hạn vào `auth_db`).
@@ -317,8 +338,9 @@ cd notification-service && ./mvnw spring-boot:run
 cd audit-service && ./mvnw spring-boot:run
 cd shipper-service && ./mvnw spring-boot:run
 cd report-service && ./mvnw spring-boot:run
-cd pricing-service && ./mvnw spring-boot:run
+cd rating-service && ./mvnw spring-boot:run
 cd support-service && ./mvnw spring-boot:run
+cd payment-service && ./mvnw spring-boot:run
 ```
 
 #### Bước 4: Khởi chạy Frontend Portal
@@ -366,7 +388,8 @@ mini-waybill-platform/
 │   ├── 13-pricing-engine-and-tariff-matrix.md
 │   ├── 14-spring-ai-agent-and-support-ticketing.md
 │   ├── 15-rabbitmq-priority-queue-and-sla-dead-letter-patterns.md
-│   └── 16-minio-object-storage-and-s3-boilerplate.md
+│   ├── 16-minio-object-storage-and-s3-boilerplate.md
+│   └── 17-vietqr-payment-gateway-and-realtime-reconciliation.md
 │
 ├── k8s/                       # Manifests Kubernetes (00-namespace, 01-infrastructure, 02-services)
 ├── scripts/                   # Script tự động hóa đồng bộ DB (sync-db-to-k8s.ps1)
@@ -382,8 +405,9 @@ mini-waybill-platform/
 ├── audit-service/             # Nhật ký kiểm toán toàn mạng (Port 8086, audit_db)
 ├── shipper-service/           # Quản lý bưu tá, phân trạm & liên kết Telegram (Port 8089, shipper_db)
 ├── report-service/            # Phân tích đối soát COD, KPI tài chính & xuất Excel (Port 8091, report_db)
-├── pricing-service/           # Động cơ định giá cước phí, ma trận vùng & phụ phí (Port 8092)
+├── rating-service/            # Đánh giá dịch vụ bưu chính, chất lượng bưu phẩm (Port 8092, rating_db)
 ├── support-service/           # Khiếu nại, hỗ trợ bưu gửi & Trợ lý ảo Spring AI (Port 8093, support_db)
+├── payment-service/           # Cổng thanh toán VietQR động & đối soát tự động (Port 8095, payment_db)
 ├── shared-events/             # DTO Event Contracts dùng chung giữa các microservice
 ├── database/                  # Script khởi tạo 5 Siêu Hub và ma trận RBAC
 └── frontend/                  # Giao diện Web SPA (Vue 3 + Tailwind CSS + Leaflet Maps)

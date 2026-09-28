@@ -26,6 +26,14 @@
             return response.json();
         },
 
+        async getPaidTrackingCodes() {
+            const response = await Api.get('/api/payments/paid-codes', {}, { silent: true });
+            if (!response.ok) {
+                return [];
+            }
+            return response.json();
+        },
+
         async mockPay(trackingCode) {
             const response = await Api.post(`/api/payments/mock-pay/${trackingCode}`, {});
             if (!response.ok) {

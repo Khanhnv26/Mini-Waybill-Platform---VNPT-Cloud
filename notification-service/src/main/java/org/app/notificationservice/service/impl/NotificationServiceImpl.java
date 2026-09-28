@@ -26,11 +26,27 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional(readOnly = true)
     public List<NotificationLog> getMyNotifications(String recipientPhone, String roles) {
-        List<NotificationLog> inbox = new ArrayList<>(
-                notificationRepository.findTop20ByRecipientPhoneOrderBySentAtDesc(recipientPhone));
-        if (isOperationalStaff(roles)) {
-            inbox.addAll(notificationRepository.findTop20ByRecipientPhoneOrderBySentAtDesc("SYSTEM_ALERT"));
+        List<NotificationLog> inbox = new ArrayList<>();
+        java.util.Set<Long> seenIds = new java.util.HashSet<>();
+
+        List<NotificationLog> userLogs = notificationRepository.findTop20ByRecipientPhoneOrderBySentAtDesc(recipientPhone);
+        if (userLogs != null) {
+            for (NotificationLog logItem : userLogs) {
+                if (logItem.getId() != null && seenIds.add(logItem.getId())) {
+                    inbox.add(logItem);
+                }
+            }
         }
+
+        List<NotificationLog> systemLogs = notificationRepository.findTop20ByRecipientPhoneOrderBySentAtDesc("SYSTEM_ALERT");
+        if (systemLogs != null) {
+            for (NotificationLog logItem : systemLogs) {
+                if (logItem.getId() != null && seenIds.add(logItem.getId())) {
+                    inbox.add(logItem);
+                }
+            }
+        }
+
         inbox.sort(Comparator.comparing(NotificationLog::getSentAt, Comparator.nullsLast(Comparator.reverseOrder())));
         return inbox.size() > 20 ? inbox.subList(0, 20) : inbox;
     }
@@ -38,12 +54,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public void markAsRead(Long id, String recipientPhone, String roles) {
-        notificationRepository.findByIdAndRecipientPhone(id, recipientPhone).ifPresent(this::markRead);
-        if (isOperationalStaff(roles)) {
-            notificationRepository.findById(id)
-                    .filter(notification -> "SYSTEM_ALERT".equals(notification.getRecipientPhone()))
-                    .ifPresent(this::markRead);
-        }
+        notificationRepository.findById(id).ifPresent(this::markRead);
     }
 
     @Override
@@ -51,9 +62,7 @@ public class NotificationServiceImpl implements NotificationService {
     public void markAllAsRead(String recipientPhone, String roles) {
         List<NotificationLog> notifications = new ArrayList<>(
                 notificationRepository.findByRecipientPhoneAndIsReadFalse(recipientPhone));
-        if (isOperationalStaff(roles)) {
-            notifications.addAll(notificationRepository.findByRecipientPhoneAndIsReadFalse("SYSTEM_ALERT"));
-        }
+        notifications.addAll(notificationRepository.findByRecipientPhoneAndIsReadFalse("SYSTEM_ALERT"));
         notifications.forEach(notification -> notification.setIsRead(true));
         notificationRepository.saveAll(notifications);
     }

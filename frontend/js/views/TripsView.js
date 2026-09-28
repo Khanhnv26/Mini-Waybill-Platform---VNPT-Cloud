@@ -352,6 +352,10 @@
             currentStation: {
                 type: String,
                 default: 'ALL'
+            },
+            trackingCode: {
+                type: String,
+                default: ''
             }
         },
         emits: ['view-tracking'],
@@ -1783,6 +1787,52 @@
                 }
             };
 
+            const openTripByCode = async (code) => {
+                if (!code) return;
+                const clean = String(code).trim().toLowerCase();
+                if (!tripsList.value || tripsList.value.length === 0) {
+                    await loadTrips();
+                }
+                let target = (tripsList.value || []).find(t => 
+                    String(t.tripCode || '').toLowerCase() === clean ||
+                    String(t.id || '') === clean
+                );
+                if (!target) {
+                    await loadTrips();
+                    target = (tripsList.value || []).find(t => 
+                        String(t.tripCode || '').toLowerCase() === clean ||
+                        String(t.id || '') === clean
+                    );
+                }
+                if (!target && clean.length > 2) {
+                    target = (tripsList.value || []).find(t => 
+                        String(t.tripCode || '').toLowerCase().includes(clean)
+                    );
+                }
+                if (target && target.id) {
+                    selectedStatusFilter.value = 'ALL';
+                    tripDirectionTab.value = 'OUTBOUND';
+                    if (target.tripType === 'ORIGIN_FEEDER' || target.tripType === 'DESTINATION_FEEDER') {
+                        transportMode.value = 'FEEDER';
+                    } else {
+                        transportMode.value = 'LINEHAUL';
+                    }
+                    searchQuery.value = target.tripCode || String(code).trim();
+                    await openTripDetail(target.id);
+                } else if (code) {
+                    searchQuery.value = String(code).trim();
+                    if (window.Utils && window.Utils.showToast) {
+                        window.Utils.showToast('Thông Báo Chuyến Xe', `Không tìm thấy chuyến xe có mã ${code} trong hệ thống`, 'warning');
+                    }
+                }
+            };
+
+            const handleOpenTripByCodeEvent = (e) => {
+                if (e.detail && e.detail.tripCode) {
+                    openTripByCode(e.detail.tripCode);
+                }
+            };
+
             const fitTripVietnamView = () => {
                 if (!leafletMap) return;
                 const vnBounds = [
@@ -2839,16 +2889,28 @@
             };
 
             onMounted(() => {
-                loadTrips();
+                loadTrips().then(() => {
+                    if (props.trackingCode) {
+                        openTripByCode(props.trackingCode);
+                    }
+                });
                 loadHubs();
                 loadSchedulerConfig();
                 loadShipmentsData();
                 loadHubInventoryState();
                 connectTripProgressSocket();
+                window.addEventListener('open-trip-by-code', handleOpenTripByCodeEvent);
             });
 
             onUnmounted(() => {
                 disconnectTripProgressSocket();
+                window.removeEventListener('open-trip-by-code', handleOpenTripByCodeEvent);
+            });
+
+            watch(() => props.trackingCode, (newCode) => {
+                if (newCode) {
+                    openTripByCode(newCode);
+                }
             });
 
             watch(destinationFeederStation, () => {

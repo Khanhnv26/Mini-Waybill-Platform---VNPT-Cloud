@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -43,8 +44,29 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentResponse createPayment(CreateQrRequest req) {
-        String paymentCode = "PAY_" + req.getTrackingCode() + "_" + System.currentTimeMillis();
         PaymentType type = req.getPaymentType() != null ? req.getPaymentType() : PaymentType.COD;
+
+        Optional<PaymentTransaction> successfulTx = paymentRepo.findByTrackingCodeOrderByCreatedAtDesc(req.getTrackingCode())
+                .stream()
+                .filter(tx -> tx.getPaymentType() == type && tx.getStatus() == PaymentStatus.SUCCESS)
+                .findFirst();
+
+        if (successfulTx.isPresent()) {
+            log.info("[PAYMENT] Vận đơn {} đã thanh toán {} thành công trước đó: mã={}",
+                    req.getTrackingCode(), type, successfulTx.get().getPaymentCode());
+            return PaymentResponse.from(successfulTx.get());
+        }
+
+        Optional<PaymentTransaction> pendingTx = paymentRepo
+                .findFirstByTrackingCodeAndStatusOrderByCreatedAtDesc(req.getTrackingCode(), PaymentStatus.PENDING);
+        if (pendingTx.isPresent() && pendingTx.get().getPaymentType() == type) {
+            PaymentTransaction existingPending = pendingTx.get();
+            if (existingPending.getCreatedAt() != null && existingPending.getCreatedAt().isAfter(LocalDateTime.now().minusMinutes(10))) {
+                return PaymentResponse.from(existingPending);
+            }
+        }
+
+        String paymentCode = "PAY_" + req.getTrackingCode() + "_" + System.currentTimeMillis();
         String memoPrefix = (type == PaymentType.SHIPPING_FEE) ? "CUOC " : "COD ";
         String qrUrl = vietQrService.generateQrUrl(req.getAmount(), memoPrefix + req.getTrackingCode(), paymentCode);
 
@@ -79,12 +101,29 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public PaymentResponse getLatestByTrackingCode(String trackingCode) {
+        Optional<PaymentTransaction> successTx = paymentRepo.findByTrackingCodeOrderByCreatedAtDesc(trackingCode).stream()
+                .filter(tx -> tx.getStatus() == PaymentStatus.SUCCESS)
+                .findFirst();
+        if (successTx.isPresent()) {
+            return PaymentResponse.from(successTx.get());
+        }
+
         return paymentRepo.findFirstByTrackingCodeAndStatusOrderByCreatedAtDesc(trackingCode, PaymentStatus.PENDING)
                 .map(PaymentResponse::from)
                 .orElseGet(() -> paymentRepo.findByTrackingCodeOrderByCreatedAtDesc(trackingCode).stream()
                         .findFirst()
                         .map(PaymentResponse::from)
                         .orElse(null));
+    }
+
+    @Override
+    public List<String> getPaidTrackingCodes() {
+        return paymentRepo.findByStatusAndPaymentType(PaymentStatus.SUCCESS, PaymentType.SHIPPING_FEE)
+                .stream()
+                .map(PaymentTransaction::getTrackingCode)
+                .filter(code -> code != null && !code.isBlank())
+                .distinct()
+                .toList();
     }
 
     @Override
@@ -170,8 +209,8 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional
     public PaymentResponse mockPay(String trackingCode) {
         PaymentResponse latest = getLatestByTrackingCode(trackingCode);
-        BigDecimal amount = (latest != null && latest.getAmount() != null) ? latest.getAmount() : BigDecimal.valueOf(500000);
-        String prefix = (latest != null && latest.getPaymentType() == PaymentType.SHIPPING_FEE) ? "CUOC " : "COD ";
+        BigDecimal amount = (latest != null && latest.getAmount() != null) ? latest.getAmount() : BigDecimal.valueOf(35000);
+        String prefix = (latest != null && latest.getPaymentType() == PaymentType.COD) ? "COD " : "CUOC ";
 
         WebhookPayloadDto mockDto = WebhookPayloadDto.builder()
                 .gatewayName("MOCK_SEPAY")

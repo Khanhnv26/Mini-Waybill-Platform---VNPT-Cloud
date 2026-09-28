@@ -596,6 +596,16 @@
                 if (qrInterval) clearInterval(qrInterval);
                 if (qrPollInterval) clearInterval(qrPollInterval);
                 isQrPaidSuccess.value = true;
+                const targetCode = (payment && payment.trackingCode) || (deliveryTargetShipment.value && deliveryTargetShipment.value.trackingCode);
+                if (payment) {
+                    window.dispatchEvent(new CustomEvent('system-notification-created', {
+                        detail: {
+                            title: 'Thanh toán COD thành công',
+                            message: `Vận đơn ${targetCode || ''} đã thanh toán tiền COD thành công qua VietQR với số tiền ${Utils.formatCurrency(payment.amount || 0)}. Mã GD: ${payment.paymentCode || ''}`,
+                            trackingCode: targetCode || null
+                        }
+                    }));
+                }
                 Utils.showToast('Thanh Toán Thành Công', `Đã nhận ${Utils.formatCurrency(payment.amount)} qua VietQR!`, 'success');
                 if (deliveryTargetShipment.value) {
                     await refreshServerProjections(deliveryTargetShipment.value.trackingCode);
