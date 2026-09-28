@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
         - name: tracking-service
-          image: khanhnv26/tracking-service:1.0
-          imagePullPolicy: IfNotPresent
+          image: khanhnv26/tracking-service:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8084
           env:

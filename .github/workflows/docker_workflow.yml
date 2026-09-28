@@ -5,82 +5,131 @@ on:
       - main
       - business
   workflow_dispatch:
+    inputs:
+      service:
+        description: 'Dịch vụ cần build (bỏ trống để tự động nhận diện thay đổi, nhập "all" để build tất cả, hoặc nhập tên dịch vụ cụ thể)'
+        required: false
+        default: ''
+
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-        service-changed: ${{steps.filter.outputs.changes}}
+      backend-services: ${{ steps.eval.outputs.backend_services }}
+      frontend-changed: ${{ steps.eval.outputs.frontend_changed }}
     steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
-          with:
-            fetch-depth: 0
-        - name: Detect Changed Services
-          uses: dorny/paths-filter@v3
-          id: filter
-          with:
-            base: ${{ github.ref_name }}
-            filters: |
-              auth-service:
-                - 'auth-service/**'
-                - 'shared-events/**'
-              customer-service:
-                - 'customer-service/**'
-                - 'shared-events/**'
-              shipment-service:
-                - 'shipment-service/**'
-                - 'shared-events/**'
-              routing-service:
-                - 'routing-service/**'
-                - 'shared-events/**'
-              tracking-service:
-                - 'tracking-service/**'
-                - 'shared-events/**'
-              notification-service:
-                - 'notification-service/**'
-                - 'shared-events/**'
-              audit-service:
-                - 'audit-service/**'
-                - 'shared-events/**'
-              shipper-service:
-                - 'shipper-service/**'
-                - 'shared-events/**'
-              report-service:
-                - 'report-service/**'
-                - 'shared-events/**'
-              service-registry:
-                - 'service-registry/**'
-              api-gateway:
-                - 'api-gateway/**'
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect Changed Services
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: ${{ github.ref_name }}
+          filters: |
+            auth-service:
+              - 'auth-service/**'
+              - 'shared-events/**'
+            customer-service:
+              - 'customer-service/**'
+              - 'shared-events/**'
+            shipment-service:
+              - 'shipment-service/**'
+              - 'shared-events/**'
+            routing-service:
+              - 'routing-service/**'
+              - 'shared-events/**'
+            tracking-service:
+              - 'tracking-service/**'
+              - 'shared-events/**'
+            notification-service:
+              - 'notification-service/**'
+              - 'shared-events/**'
+            audit-service:
+              - 'audit-service/**'
+              - 'shared-events/**'
+            shipper-service:
+              - 'shipper-service/**'
+              - 'shared-events/**'
+            report-service:
+              - 'report-service/**'
+              - 'shared-events/**'
+            support-service:
+              - 'support-service/**'
+              - 'shared-events/**'
+            rating-service:
+              - 'rating-service/**'
+              - 'shared-events/**'
+            payment-service:
+              - 'payment-service/**'
+              - 'shared-events/**'
+            service-registry:
+              - 'service-registry/**'
+            api-gateway:
+              - 'api-gateway/**'
+            frontend:
+              - 'frontend/**'
+              - 'server.js'
+
+      - name: Evaluate target services
+        id: eval
+        run: |
+          EVENT="${{ github.event_name }}"
+          MANUAL_SERVICE="${{ github.event.inputs.service }}"
+          ALL_BACKEND='["auth-service","customer-service","shipment-service","routing-service","tracking-service","notification-service","audit-service","shipper-service","report-service","support-service","rating-service","payment-service","service-registry","api-gateway"]'
+
+          if [ "$EVENT" = "workflow_dispatch" ] && [ -n "$MANUAL_SERVICE" ]; then
+            if [ "$MANUAL_SERVICE" = "all" ]; then
+              echo "backend_services=$ALL_BACKEND" >> $GITHUB_OUTPUT
+              echo "frontend_changed=true" >> $GITHUB_OUTPUT
+            elif [ "$MANUAL_SERVICE" = "frontend" ]; then
+              echo "backend_services=[]" >> $GITHUB_OUTPUT
+              echo "frontend_changed=true" >> $GITHUB_OUTPUT
+            else
+              echo "backend_services=[\"$MANUAL_SERVICE\"]" >> $GITHUB_OUTPUT
+              echo "frontend_changed=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            CHANGES='${{ steps.filter.outputs.changes }}'
+            BACKEND=$(echo "$CHANGES" | jq -c '[.[] | select(. != "frontend")]')
+            echo "backend_services=$BACKEND" >> $GITHUB_OUTPUT
+            echo "frontend_changed=${{ steps.filter.outputs.frontend }}" >> $GITHUB_OUTPUT
+          fi
 
   build-and-push:
     needs: detect-changes
-
-    if: ${{needs.detect-changes.outputs.service-changed != '[]' && needs.detect-changes.outputs.service-changed != ''}}
+    if: ${{ needs.detect-changes.outputs.backend-services != '[]' && needs.detect-changes.outputs.backend-services != '' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        service: ${{ fromJson(needs.detect-changes.outputs.service-changed) }}
+        service: ${{ fromJson(needs.detect-changes.outputs.backend-services) }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
           cache: maven
+
       - name: Build JAR with Maven
         run: |
           mvn clean package -pl ${{ matrix.service }} -am -DskipTests
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
@@ -88,12 +137,42 @@ jobs:
           file: ./${{ matrix.service }}/Dockerfile
           push: true
           tags: |
-              ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service }}:latest
-              ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.service }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  build-and-push-frontend:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.frontend-changed == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push Frontend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   notify-telegram:
-    needs: [detect-changes, build-and-push]
+    needs: [detect-changes, build-and-push, build-and-push-frontend]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -104,17 +183,18 @@ jobs:
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           format: html
           message: |
-            <b>Thông báo</b>
+            <b>Thông báo CI/CD</b>
             <b>Dự án:</b> Mini-Waybill Platform
             <b>Developer:</b> ${{ github.actor }}
             <b>Nhánh:</b> <code>${{ github.ref_name }}</code>
             <b>Commit:</b> <code>${{ github.sha }}</code>
 
-            <b>Dịch vụ thay đổi:</b>
-            <code>${{ needs.detect-changes.outputs.service-changed || 'Không có (Skipped)' }}</code>
+            <b>Backend thay đổi:</b>
+            <code>${{ needs.detect-changes.outputs.backend-services != '[]' && needs.detect-changes.outputs.backend-services || 'Không có (Skipped)' }}</code>
+            <b>Frontend thay đổi:</b>
+            <code>${{ needs.detect-changes.outputs.frontend-changed == 'true' && 'frontend' || 'Không có (Skipped)' }}</code>
 
-            <b>Trạng thái Build:</b> <b>${{ needs.build-and-push.result }}</b>
+            <b>Trạng thái Backend:</b> <b>${{ needs.build-and-push.result }}</b>
+            <b>Trạng thái Frontend:</b> <b>${{ needs.build-and-push-frontend.result }}</b>
 
             <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">Xem chi tiết trên GitHub</a>
-
-

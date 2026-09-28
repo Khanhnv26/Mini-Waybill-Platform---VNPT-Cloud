@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
         - name: report-service
-          image: khanhnv26/report-service:1.0
-          imagePullPolicy: IfNotPresent
+          image: khanhnv26/report-service:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8091
           env:

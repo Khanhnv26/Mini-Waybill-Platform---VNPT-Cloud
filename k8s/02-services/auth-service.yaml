@@ -17,8 +17,8 @@ spec:
     spec:
       containers:
         - name: auth-service
-          image: khanhnv26/auth-service:1.0
-          imagePullPolicy: IfNotPresent
+          image: khanhnv26/auth-service:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8087
           env:
