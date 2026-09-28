@@ -188,7 +188,7 @@ public class TrackingServiceImpl implements TrackingService {
             }
 
             if(isPostStaff) {
-                if (!Set.of(ShipmentStatus.PICKED_UP, ShipmentStatus.IN_TRANSIT, ShipmentStatus.ARRIVED_DEST_HUB, ShipmentStatus.OUT_FOR_DELIVERY, ShipmentStatus.RETURNED).contains(newStatus)) {
+                if (!Set.of(ShipmentStatus.PICKED_UP, ShipmentStatus.IN_TRANSIT, ShipmentStatus.ARRIVED_DEST_HUB, ShipmentStatus.OUT_FOR_DELIVERY, ShipmentStatus.OUT_FOR_RETURN, ShipmentStatus.RETURNED).contains(newStatus)) {
                     throw new ForbiddenException("Nhân viên Bưu Cục chỉ có quyền tiếp nhận quầy, xuất/nhận xe trung chuyển, bàn giao bưu tá hoặc xác nhận hoàn hàng!");
                 }
                 if (newStatus == ShipmentStatus.IN_TRANSIT) {
@@ -198,8 +198,8 @@ public class TrackingServiceImpl implements TrackingService {
                 }
             }
 
-            if(isShipper && !Set.of(ShipmentStatus.OUT_FOR_DELIVERY,ShipmentStatus.DELIVERED, ShipmentStatus.DELIVERY_FAILED).contains(newStatus)) {
-                throw new ForbiddenException("Bưu tá chỉ có quyền cập nhật trạng thái giao hàng !");
+            if(isShipper && !Set.of(ShipmentStatus.OUT_FOR_DELIVERY, ShipmentStatus.DELIVERED, ShipmentStatus.DELIVERY_FAILED, ShipmentStatus.OUT_FOR_RETURN, ShipmentStatus.RETURNED).contains(newStatus)) {
+                throw new ForbiddenException("Bưu tá chỉ có quyền cập nhật trạng thái giao hàng và phát hoàn !");
             }
         }
 

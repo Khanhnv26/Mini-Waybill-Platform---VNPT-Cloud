@@ -1849,6 +1849,7 @@
                                     <option value="DELIVERED">Phát thành công</option>
                                     <option value="DELIVERY_FAILED">Giao không thành công</option>
                                     <option value="RETURNING">Đang chuyển hoàn</option>
+                                    <option value="OUT_FOR_RETURN">Đang đi phát hoàn</option>
                                     <option value="RETURNED">Đã hoàn về người gửi</option>
                                 </select>
 

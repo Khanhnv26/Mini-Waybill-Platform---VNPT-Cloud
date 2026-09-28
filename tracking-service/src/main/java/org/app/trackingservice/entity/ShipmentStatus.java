@@ -14,6 +14,7 @@ public enum ShipmentStatus {
     DELIVERY_FAILED,
     CANCELLED,
     RETURNING,
+    OUT_FOR_RETURN,
     RETURNED;
 
     public boolean canTransitionTo(ShipmentStatus nextStatus) {
@@ -46,6 +47,8 @@ public enum ShipmentStatus {
             case DELIVERY_FAILED:
                 return Set.of(OUT_FOR_DELIVERY, RETURNING).contains(nextStatus);
             case RETURNING:
+                return nextStatus == OUT_FOR_RETURN || nextStatus == RETURNED;
+            case OUT_FOR_RETURN:
                 return nextStatus == RETURNED;
             case RETURNED, CANCELLED, DELIVERED:
                 return false;

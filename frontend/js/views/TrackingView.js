@@ -783,12 +783,16 @@
 
             const appendReturnStage = (stages) => {
                 const status = currentShipment.value?.status;
-                if (status !== 'RETURNING' && status !== 'RETURNED') return stages;
+                if (status !== 'RETURNING' && status !== 'OUT_FOR_RETURN' && status !== 'RETURNED') return stages;
+                let subLabel = 'Đang Chuyển Hoàn Về Bưu Cục Gốc';
+                if (status === 'OUT_FOR_RETURN') subLabel = 'Bưu Tá Đang Phát Hoàn Tận Nơi';
+                if (status === 'RETURNED') subLabel = 'Đã Hoàn Về Người Gửi';
+
                 return [...stages, {
                     key: 'return-sender',
                     stageName: `${stages.length + 1}. Chuyển Hoàn`,
                     roleLabel: 'Người Gửi',
-                    subLabel: status === 'RETURNED' ? 'Đã Hoàn Về Người Gửi' : 'Đang Chuyển Hoàn',
+                    subLabel: subLabel,
                     code: 'NGƯỜI GỬI',
                     displayName: senderShortAddress.value,
                     address: senderFullAddress.value
@@ -797,7 +801,7 @@
 
             const routeCheckpoints = computed(() => {
                 const inter = isInterProvincial.value;
-                const isReturningStatus = currentShipment.value?.status === 'RETURNING' || currentShipment.value?.status === 'RETURNED';
+                const isReturningStatus = currentShipment.value?.status === 'RETURNING' || currentShipment.value?.status === 'OUT_FOR_RETURN' || currentShipment.value?.status === 'RETURNED';
                 const stages = inter ? [
                         {
                             key: 'origin-po',
@@ -897,7 +901,7 @@
             const currentCheckpointIndex = computed(() => {
                 const s = currentShipment.value?.status;
                 const inter = isInterProvincial.value;
-                if (s === 'RETURNING' || s === 'RETURNED') {
+                if (s === 'RETURNING' || s === 'OUT_FOR_RETURN' || s === 'RETURNED') {
                     return Math.max(0, routeCheckpoints.value.length - 1);
                 }
 
@@ -925,7 +929,7 @@
                 const s = currentShipment.value?.status;
                 if (s === 'DELIVERED') return 'success';
                 if (s === 'OUT_FOR_DELIVERY') return 'shipper';
-                if (s === 'RETURNING' || s === 'RETURNED') return 'return';
+                if (s === 'RETURNING' || s === 'OUT_FOR_RETURN' || s === 'RETURNED') return 'return';
                 return 'truck';
             });
 
@@ -953,6 +957,7 @@
                 'DELIVERY_FAILED': 8,
                 'DELIVERED': 9,
                 'RETURNING': 10,
+                'OUT_FOR_RETURN': 10.5,
                 'RETURNED': 11,
                 'CANCELLED': 12
             };
@@ -2106,24 +2111,24 @@
                                             :class="[
                                                 'w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold ring-4 ring-white transition-all duration-300',
                                                 idx < currentCheckpointIndex 
-                                                    ? ((cp.key === 'recipient' && (currentShipment.status === 'RETURNING' || currentShipment.status === 'RETURNED')) ? 'bg-rose-500 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm')
+                                                    ? ((cp.key === 'recipient' && (currentShipment.status === 'RETURNING' || currentShipment.status === 'OUT_FOR_RETURN' || currentShipment.status === 'RETURNED')) ? 'bg-rose-500 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm')
                                                     : (idx === currentCheckpointIndex 
                                                         ? (currentShipment.status === 'DELIVERED' 
                                                             ? 'bg-emerald-600 text-white shadow-md ring-emerald-100' 
-                                                            : ((currentShipment.status === 'RETURNING' || currentShipment.status === 'RETURNED') ? 'bg-amber-600 text-white shadow-md ring-amber-100 radar-pulse-effect' : 'bg-amber-500 text-white shadow-md ring-amber-100 radar-pulse-effect'))
+                                                            : ((currentShipment.status === 'RETURNING' || currentShipment.status === 'OUT_FOR_RETURN' || currentShipment.status === 'RETURNED') ? 'bg-amber-600 text-white shadow-md ring-amber-100 radar-pulse-effect' : 'bg-amber-500 text-white shadow-md ring-amber-100 radar-pulse-effect'))
                                                         : 'bg-slate-100 text-slate-400 border-2 border-slate-300')
                                             ]"
                                         >
-                                            <svg v-if="idx < currentCheckpointIndex && cp.key === 'recipient' && (currentShipment.status === 'RETURNING' || currentShipment.status === 'RETURNED')" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                                            <svg v-if="idx < currentCheckpointIndex && cp.key === 'recipient' && (currentShipment.status === 'RETURNING' || currentShipment.status === 'OUT_FOR_RETURN' || currentShipment.status === 'RETURNED')" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
                                             <svg v-else-if="idx < currentCheckpointIndex" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                                            <svg v-else-if="idx === currentCheckpointIndex && (cp.key === 'return-sender' || currentShipment.status === 'RETURNING' || currentShipment.status === 'RETURNED')" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+                                            <svg v-else-if="idx === currentCheckpointIndex && (cp.key === 'return-sender' || currentShipment.status === 'RETURNING' || currentShipment.status === 'OUT_FOR_RETURN' || currentShipment.status === 'RETURNED')" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
                                             <svg v-else-if="idx === currentCheckpointIndex && currentShipment.status === 'DELIVERED'" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                                             <svg v-else-if="idx === currentCheckpointIndex && (cp.key === 'dest-po' || currentShipment.status === 'OUT_FOR_DELIVERY')" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                                             <svg v-else-if="idx === currentCheckpointIndex && cp.key === 'linehaul'" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>
                                             <svg v-else-if="idx === currentCheckpointIndex" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
                                             <span v-else>{{ idx + 1 }}</span>
                                         </div>
-                                        <div :class="['text-xs font-bold mt-2.5 max-w-full truncate px-0.5', idx === currentCheckpointIndex ? (currentShipment.status === 'DELIVERED' ? 'text-emerald-700' : ((currentShipment.status === 'RETURNING' || currentShipment.status === 'RETURNED') ? 'text-amber-700' : 'text-blue-700')) : (idx < currentCheckpointIndex ? ((cp.key === 'recipient' && (currentShipment.status === 'RETURNING' || currentShipment.status === 'RETURNED')) ? 'text-rose-600' : 'text-slate-800') : 'text-slate-400')]" :title="cp.stageName">
+                                        <div :class="['text-xs font-bold mt-2.5 max-w-full truncate px-0.5', idx === currentCheckpointIndex ? (currentShipment.status === 'DELIVERED' ? 'text-emerald-700' : ((currentShipment.status === 'RETURNING' || currentShipment.status === 'OUT_FOR_RETURN' || currentShipment.status === 'RETURNED') ? 'text-amber-700' : 'text-blue-700')) : (idx < currentCheckpointIndex ? ((cp.key === 'recipient' && (currentShipment.status === 'RETURNING' || currentShipment.status === 'OUT_FOR_RETURN' || currentShipment.status === 'RETURNED')) ? 'text-rose-600' : 'text-slate-800') : 'text-slate-400')]" :title="cp.stageName">
                                             {{ cp.stageName }}
                                         </div>
                                         <div class="text-[10.5px] truncate max-w-full px-0.5" :class="idx <= currentCheckpointIndex ? 'text-slate-500 font-medium' : 'text-slate-400'" :title="cp.displayName + (cp.address ? ' - ' + cp.address : '')">
@@ -2627,7 +2632,7 @@
                                         <div 
                                             v-if="idx < routeCheckpoints.length - 1" 
                                             class="absolute top-[36px] -translate-y-1/2 left-1/2 w-full h-[2.5px] z-0 transition-colors duration-300"
-                                            :class="idx < currentCheckpointIndex ? ((idx === currentCheckpointIndex - 1 && (currentShipment?.status === 'RETURNING' || currentShipment?.status === 'RETURNED')) ? 'bg-amber-500' : 'bg-blue-600') : 'bg-slate-200'"
+                                            :class="idx < currentCheckpointIndex ? ((idx === currentCheckpointIndex - 1 && (currentShipment?.status === 'RETURNING' || currentShipment?.status === 'OUT_FOR_RETURN' || currentShipment?.status === 'RETURNED')) ? 'bg-amber-500' : 'bg-blue-600') : 'bg-slate-200'"
                                         ></div>
                                         <div class="mb-1 h-4 flex items-center justify-center relative z-10 w-full px-0.5">
                                             <span 
@@ -2636,9 +2641,9 @@
                                                     idx === currentCheckpointIndex 
                                                         ? (currentShipment?.status === 'DELIVERED' 
                                                             ? 'text-emerald-700 font-bold' 
-                                                            : ((currentShipment?.status === 'RETURNING' || currentShipment?.status === 'RETURNED') ? 'text-amber-700 font-bold' : 'text-blue-700 font-bold'))
+                                                            : ((currentShipment?.status === 'RETURNING' || currentShipment?.status === 'OUT_FOR_RETURN' || currentShipment?.status === 'RETURNED') ? 'text-amber-700 font-bold' : 'text-blue-700 font-bold'))
                                                         : (idx < currentCheckpointIndex 
-                                                            ? ((cp.key === 'recipient' && (currentShipment?.status === 'RETURNING' || currentShipment?.status === 'RETURNED')) ? 'text-rose-600 font-medium' : 'text-slate-700 font-semibold')
+                                                            ? ((cp.key === 'recipient' && (currentShipment?.status === 'RETURNING' || currentShipment?.status === 'OUT_FOR_RETURN' || currentShipment?.status === 'RETURNED')) ? 'text-rose-600 font-medium' : 'text-slate-700 font-semibold')
                                                             : 'text-slate-400 font-medium')
                                                 ]"
                                                 :title="cp.stageName"
@@ -2653,13 +2658,13 @@
                                                     'w-7 h-7 rounded-full text-white flex items-center justify-center transition-transform hover:scale-105 cursor-pointer shadow-sm',
                                                     currentShipment?.status === 'DELIVERED' 
                                                         ? 'bg-emerald-600 ring-4 ring-emerald-100 shadow-emerald-500/20' 
-                                                        : ((currentShipment?.status === 'RETURNING' || currentShipment?.status === 'RETURNED') 
+                                                        : ((currentShipment?.status === 'RETURNING' || currentShipment?.status === 'OUT_FOR_RETURN' || currentShipment?.status === 'RETURNED') 
                                                             ? 'bg-amber-600 ring-4 ring-amber-100 pulse-active shadow-amber-500/20' 
                                                             : 'bg-blue-600 ring-4 ring-blue-100 pulse-active shadow-blue-500/20')
                                                 ]"
                                                 :title="'Đang xử lý tại: ' + cp.displayName + (cp.address ? ' | ' + cp.address : '')"
                                             >
-                                                <svg v-if="cp.key === 'return-sender' || currentShipment?.status === 'RETURNING' || currentShipment?.status === 'RETURNED'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                <svg v-if="cp.key === 'return-sender' || currentShipment?.status === 'RETURNING' || currentShipment?.status === 'OUT_FOR_RETURN' || currentShipment?.status === 'RETURNED'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
                                                 </svg>
                                                 <svg v-else-if="activePinType === 'shipper'" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -2674,7 +2679,7 @@
                                                 </svg>
                                             </div>
                                             <div 
-                                                v-else-if="idx < currentCheckpointIndex && cp.key === 'recipient' && (currentShipment?.status === 'RETURNING' || currentShipment?.status === 'RETURNED')"
+                                                v-else-if="idx < currentCheckpointIndex && cp.key === 'recipient' && (currentShipment?.status === 'RETURNING' || currentShipment?.status === 'OUT_FOR_RETURN' || currentShipment?.status === 'RETURNED')"
                                                 class="w-6 h-6 rounded-full bg-rose-500 text-white shadow-2xs flex items-center justify-center cursor-pointer hover:bg-rose-600 transition"
                                                 :title="'Phát không thành công tới người nhận'"
                                             >
