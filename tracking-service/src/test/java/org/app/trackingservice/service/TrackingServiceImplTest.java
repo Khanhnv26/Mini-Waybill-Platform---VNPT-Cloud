@@ -211,4 +211,67 @@ class TrackingServiceImplTest {
         assertEquals("POST-HCM-Q1", result.get("locationCode"));
         assertEquals("SQL_SERVER", result.get("source"));
     }
+
+    @Test
+    @DisplayName("Giao thất bại lần 3: Tự động kích hoạt chuyển hoàn RETURNING")
+    void updateStatus_DeliveryFailedThirdTime_ShouldAutoReturn() {
+        when(valueOperations.get("shipment-status:" + TRACKING_CODE)).thenReturn("OUT_FOR_DELIVERY");
+        when(trackingHistoryRepository.countByTrackingCodeAndStatus(TRACKING_CODE, "DELIVERY_FAILED")).thenReturn(2L);
+
+        TrackingHistory mockSaved = TrackingHistory.builder()
+                .id(3L)
+                .trackingCode(TRACKING_CODE)
+                .status("RETURNING")
+                .locationCode("POST-HCM-01")
+                .node("Giao thất bại lần 3 - Hệ thống tự động chuyển hoàn về người gửi")
+                .occurredAt(LocalDateTime.now())
+                .build();
+        when(trackingHistoryRepository.save(any(TrackingHistory.class))).thenReturn(mockSaved);
+
+        UpdateStatusRequest request = UpdateStatusRequest.builder()
+                .status("DELIVERY_FAILED")
+                .locationCode("POST-HCM-01")
+                .note("Khách từ chối nhận")
+                .build();
+
+        TrackingHistory result = trackingService.updateStatus(TRACKING_CODE, request, "ROLE_SHIPPER", "tracking:update");
+
+        assertNotNull(result);
+        assertEquals("RETURNING", result.getStatus());
+
+        verify(trackingHistoryRepository, times(1)).save(any(TrackingHistory.class));
+        verify(valueOperations, times(1)).set(eq("shipment-status:" + TRACKING_CODE), eq("RETURNING"), any(java.time.Duration.class));
+        verify(kafkaTemplate, times(1)).send(eq("tracking-status-events"), eq(TRACKING_CODE), any());
+    }
+
+    @Test
+    @DisplayName("Bưu cục xác nhận đã hoàn người gửi: RETURNING -> RETURNED")
+    void updateStatus_ReturningToReturned_ShouldSucceed() {
+        when(valueOperations.get("shipment-status:" + TRACKING_CODE)).thenReturn("RETURNING");
+
+        TrackingHistory mockSaved = TrackingHistory.builder()
+                .id(4L)
+                .trackingCode(TRACKING_CODE)
+                .status("RETURNED")
+                .locationCode("POST-HN-01")
+                .node("Bưu cục gửi đã hoàn trả bưu gửi cho người gửi")
+                .occurredAt(LocalDateTime.now())
+                .build();
+        when(trackingHistoryRepository.save(any(TrackingHistory.class))).thenReturn(mockSaved);
+
+        UpdateStatusRequest request = UpdateStatusRequest.builder()
+                .status("RETURNED")
+                .locationCode("POST-HN-01")
+                .note("Bưu cục gửi đã hoàn trả bưu gửi cho người gửi")
+                .build();
+
+        TrackingHistory result = trackingService.updateStatus(TRACKING_CODE, request, "ROLE_POST_OFFICE_OPERATOR", "tracking:update_post_office");
+
+        assertNotNull(result);
+        assertEquals("RETURNED", result.getStatus());
+
+        verify(trackingHistoryRepository, times(1)).save(any(TrackingHistory.class));
+        verify(valueOperations, times(1)).set(eq("shipment-status:" + TRACKING_CODE), eq("RETURNED"), any(java.time.Duration.class));
+        verify(kafkaTemplate, times(1)).send(eq("tracking-status-events"), eq(TRACKING_CODE), any());
+    }
 }

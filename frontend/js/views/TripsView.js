@@ -352,6 +352,10 @@
             currentStation: {
                 type: String,
                 default: 'ALL'
+            },
+            trackingCode: {
+                type: String,
+                default: ''
             }
         },
         emits: ['view-tracking'],
@@ -1447,6 +1451,23 @@
                 return PRESET_ROUTES;
             });
 
+            const isRouteNameManuallyEdited = ref(false);
+
+            const updateRouteNameFromStops = () => {
+                if (isRouteNameManuallyEdited.value) return;
+                const stops = tripForm.stopHubCodes || [];
+                if (stops.length >= 2) {
+                    const origin = getHubDisplayName(stops[0]);
+                    const dest = getHubDisplayName(stops[stops.length - 1]);
+                    const intermediates = stops.length > 2 ? ` (qua ${stops.length - 2} trạm)` : '';
+                    tripForm.routeName = `Tuyến ${origin} ➔ ${dest}${intermediates}`;
+                } else if (stops.length === 1) {
+                    tripForm.routeName = `Tuyến từ ${getHubDisplayName(stops[0])}`;
+                } else {
+                    tripForm.routeName = '';
+                }
+            };
+
             const applyPresetRoute = (index) => {
                 selectedPresetIndex.value = index;
                 const routes = currentPresets.value;
@@ -1455,7 +1476,16 @@
                     tripForm.routeName = preset.name;
                     tripForm.originHub = preset.originHub;
                     tripForm.stopHubCodes = [...preset.stops];
+                    isRouteNameManuallyEdited.value = false;
                 }
+            };
+
+            const startCustomRoute = () => {
+                selectedPresetIndex.value = -1;
+                tripForm.stopHubCodes = [];
+                tripForm.routeName = '';
+                tripForm.originHub = '';
+                isRouteNameManuallyEdited.value = false;
             };
 
             const setTripType = (type) => {
@@ -1544,18 +1574,93 @@
             };
 
             const addStopCode = (code) => {
-                if (code && !tripForm.stopHubCodes.includes(code)) {
+                if (!code) return;
+                if (!tripForm.stopHubCodes.includes(code)) {
                     tripForm.stopHubCodes.push(code);
+                    updateRouteNameFromStops();
+                } else {
+                    if (window.Utils && window.Utils.showToast) {
+                        window.Utils.showToast('Trùng Trạm', 'Trạm dừng này đã có trong lộ trình chuyến!', 'warning');
+                    }
                 }
             };
 
             const removeStopCode = (index) => {
-                if (tripForm.stopHubCodes.length > 2) {
-                    tripForm.stopHubCodes.splice(index, 1);
-                } else {
-                    Utils.showToast('Thông Báo', 'Lộ trình phải có tối thiểu 2 trạm dừng!', 'warning');
+                tripForm.stopHubCodes.splice(index, 1);
+                updateRouteNameFromStops();
+            };
+
+            const moveStopUp = (index) => {
+                if (index <= 0) return;
+                const temp = tripForm.stopHubCodes[index];
+                tripForm.stopHubCodes.splice(index, 1);
+                tripForm.stopHubCodes.splice(index - 1, 0, temp);
+                updateRouteNameFromStops();
+            };
+
+            const moveStopDown = (index) => {
+                if (index >= tripForm.stopHubCodes.length - 1) return;
+                const temp = tripForm.stopHubCodes[index];
+                tripForm.stopHubCodes.splice(index, 1);
+                tripForm.stopHubCodes.splice(index + 1, 0, temp);
+                updateRouteNameFromStops();
+            };
+
+            const reverseRouteStops = () => {
+                if (!tripForm.stopHubCodes || tripForm.stopHubCodes.length < 2) return;
+                tripForm.stopHubCodes.reverse();
+                updateRouteNameFromStops();
+                if (window.Utils && window.Utils.showToast) {
+                    window.Utils.showToast('Đảo Chiều', 'Đã đổi chiều đi/về của các trạm dừng trong lộ trình!', 'info');
                 }
             };
+
+            const routeValidation = computed(() => {
+                const stops = tripForm.stopHubCodes || [];
+                if (stops.length < 2) {
+                    return {
+                        isValid: false,
+                        type: 'warning',
+                        message: 'Lộ trình cần tối thiểu 2 trạm dừng (Điểm Xuất Phát và Điểm Đích).'
+                    };
+                }
+                const origin = String(stops[0] || '').trim();
+                const dest = String(stops[stops.length - 1] || '').trim();
+                const isOriginPO = origin.startsWith('POST-');
+                const isDestPO = dest.startsWith('POST-');
+                const type = normalizeTripType(tripForm.tripType);
+
+                if (type === 'LINEHAUL') {
+                    if (isOriginPO || isDestPO) {
+                        return {
+                            isValid: false,
+                            type: 'danger',
+                            message: 'Xe Trục Liên Tỉnh chỉ kết nối giữa các Kho Tổng (HUB). Điểm đầu hoặc cuối hiện là Bưu Cục (POST).'
+                        };
+                    }
+                } else if (type === 'ORIGIN_FEEDER') {
+                    if (!isOriginPO || isDestPO) {
+                        return {
+                            isValid: false,
+                            type: 'danger',
+                            message: 'Xe Gom Đầu Nguồn quy chuẩn: Xuất phát từ Bưu Cục (POST) và Kết thúc tại Kho Tổng (HUB).'
+                        };
+                    }
+                } else if (type === 'DESTINATION_FEEDER') {
+                    if (isOriginPO || !isDestPO) {
+                        return {
+                            isValid: false,
+                            type: 'danger',
+                            message: 'Xe Phát Cuối Nguồn quy chuẩn: Xuất phát từ Kho Tổng (HUB) và Kết thúc tại Bưu Cục (POST).'
+                        };
+                    }
+                }
+                return {
+                    isValid: true,
+                    type: 'success',
+                    message: `Lộ trình hợp lệ: ${getHubDisplayName(origin)} ➔ ${getHubDisplayName(dest)} (${stops.length} trạm).`
+                };
+            });
 
             const generateTripCode = (tripType) => {
                 const typePrefix = tripType === 'LINEHAUL' ? 'LH' : (tripType === 'DESTINATION_FEEDER' ? 'DF' : 'OF');
@@ -1571,8 +1676,8 @@
                     Utils.showToast('Thiếu Thông Tin', 'Vui lòng điền đủ tên tuyến, biển số xe và tài xế!', 'warning');
                     return;
                 }
-                if (tripForm.stopHubCodes.length < 2) {
-                    Utils.showToast('Lộ Trình Không Hợp Lệ', 'Chuyến xe phải có ít nhất 2 trạm dừng!', 'warning');
+                if (!routeValidation.value.isValid) {
+                    Utils.showToast('Lộ Trình Chưa Hợp Lệ', routeValidation.value.message, 'warning');
                     return;
                 }
 
@@ -1583,6 +1688,7 @@
                 tripForm.tripType = tripType;
                 tripForm.tripCode = tripCode;
                 tripForm.maxWeight = maxWeight;
+                tripForm.originHub = tripForm.stopHubCodes[0];
 
                 isSubmittingTrip.value = true;
                 try {
@@ -1599,7 +1705,7 @@
                         cutoffBufferMinutes: parseInt(tripForm.cutoffBufferMinutes) || 30,
                         stopHubCodes: tripForm.stopHubCodes
                     });
-                    Utils.showToast('Thành Công', 'Đã khởi tạo chuyến xe trục thành công!', 'success');
+                    Utils.showToast('Thành Công', `Đã khởi tạo ${getTripTypeLabel(tripType)} thành công!`, 'success');
                     showCreateModal.value = false;
                     await loadTrips();
                 } catch (err) {
@@ -1678,6 +1784,52 @@
                     showDetailModal.value = false;
                 } finally {
                     isLoadingDetail.value = false;
+                }
+            };
+
+            const openTripByCode = async (code) => {
+                if (!code) return;
+                const clean = String(code).trim().toLowerCase();
+                if (!tripsList.value || tripsList.value.length === 0) {
+                    await loadTrips();
+                }
+                let target = (tripsList.value || []).find(t => 
+                    String(t.tripCode || '').toLowerCase() === clean ||
+                    String(t.id || '') === clean
+                );
+                if (!target) {
+                    await loadTrips();
+                    target = (tripsList.value || []).find(t => 
+                        String(t.tripCode || '').toLowerCase() === clean ||
+                        String(t.id || '') === clean
+                    );
+                }
+                if (!target && clean.length > 2) {
+                    target = (tripsList.value || []).find(t => 
+                        String(t.tripCode || '').toLowerCase().includes(clean)
+                    );
+                }
+                if (target && target.id) {
+                    selectedStatusFilter.value = 'ALL';
+                    tripDirectionTab.value = 'OUTBOUND';
+                    if (target.tripType === 'ORIGIN_FEEDER' || target.tripType === 'DESTINATION_FEEDER') {
+                        transportMode.value = 'FEEDER';
+                    } else {
+                        transportMode.value = 'LINEHAUL';
+                    }
+                    searchQuery.value = target.tripCode || String(code).trim();
+                    await openTripDetail(target.id);
+                } else if (code) {
+                    searchQuery.value = String(code).trim();
+                    if (window.Utils && window.Utils.showToast) {
+                        window.Utils.showToast('Thông Báo Chuyến Xe', `Không tìm thấy chuyến xe có mã ${code} trong hệ thống`, 'warning');
+                    }
+                }
+            };
+
+            const handleOpenTripByCodeEvent = (e) => {
+                if (e.detail && e.detail.tripCode) {
+                    openTripByCode(e.detail.tripCode);
                 }
             };
 
@@ -2737,16 +2889,28 @@
             };
 
             onMounted(() => {
-                loadTrips();
+                loadTrips().then(() => {
+                    if (props.trackingCode) {
+                        openTripByCode(props.trackingCode);
+                    }
+                });
                 loadHubs();
                 loadSchedulerConfig();
                 loadShipmentsData();
                 loadHubInventoryState();
                 connectTripProgressSocket();
+                window.addEventListener('open-trip-by-code', handleOpenTripByCodeEvent);
             });
 
             onUnmounted(() => {
                 disconnectTripProgressSocket();
+                window.removeEventListener('open-trip-by-code', handleOpenTripByCodeEvent);
+            });
+
+            watch(() => props.trackingCode, (newCode) => {
+                if (newCode) {
+                    openTripByCode(newCode);
+                }
             });
 
             watch(destinationFeederStation, () => {
@@ -2767,7 +2931,7 @@
                 detailActiveTab, eligibleAssignments, isLoadingEligible, eligibleSearchQuery, selectedEligibleCodes,
                 filteredEligibleAssignments, selectedEligibleWeight, isConsolidatingSelected,
                 selectedStopToAdd, customStopCode, isManualStopInput, availableHubsToAdd, availableHubsGrouped, addNewStop, onSelectStopChange, getHubDisplayName, getHubAddress,
-                applyPresetRoute, addStopCode, removeStopCode, submitCreateTrip,
+                applyPresetRoute, startCustomRoute, addStopCode, removeStopCode, moveStopUp, moveStopDown, reverseRouteStops, routeValidation, isRouteNameManuallyEdited, submitCreateTrip,
                 openTripDetail, handleAutoConsolidate, handleConsolidateSelected, toggleSelectAllEligible,
                 handleRemoveItem, handleDepartTrip, handleArriveNextStop,
                 getStatusBadge, getWeightColor,
@@ -3195,7 +3359,7 @@
                 <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
                     <div class="flex flex-wrap items-center gap-2.5">
                         <div class="relative w-52 sm:w-60">
-                            <input v-model="searchQuery" type="search" placeholder="Tìm mã chuyến, tuyến, xe..." class="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-medium outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20" />
+                            <input v-model="searchQuery" type="search" maxlength="100" placeholder="Tìm mã chuyến, tuyến, xe..." class="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-medium outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20" />
                         </div>
 
                         <select v-model="selectedStationHub" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 font-medium text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 max-w-[210px] truncate text-xs">
@@ -3578,19 +3742,20 @@
             </transition>
             <teleport to="body">
             <Transition name="modal">
-            <div v-if="showCreateModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-                <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden">
-                    <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <div v-if="showCreateModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4">
+                <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[88vh]">
+                    <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
                         <div>
                             <h3 class="font-bold text-sm text-slate-900 uppercase tracking-wider">Khởi Tạo {{ getTripTypeLabel(tripForm.tripType) }}</h3>
                             <p class="text-xs text-slate-500 mt-0.5">Lập kế hoạch vận chuyển đa điểm theo đúng chặng nghiệp vụ</p>
                         </div>
-                        <button @click="showCreateModal = false" class="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition" aria-label="Đóng">
+                        <button @click="showCreateModal = false" class="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition cursor-pointer" aria-label="Đóng">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
                     </div>
 
-                    <form @submit.prevent="submitCreateTrip" class="p-5 space-y-4 text-xs">
+                    <form @submit.prevent="submitCreateTrip" class="flex flex-col flex-1 min-h-0 overflow-hidden">
+                        <div class="p-4 sm:p-5 space-y-3.5 text-xs overflow-y-auto flex-1">
                         <div>
                             <label class="block font-bold text-slate-700 uppercase tracking-wider text-[10.5px] mb-1.5">
                                 Phân Loại Nghiệp Vụ Chuyến Xe
@@ -3638,22 +3803,43 @@
                             </p>
                         </div>
                         <div>
-                            <label class="block font-bold text-slate-700 uppercase tracking-wider text-[10.5px] mb-1.5">
-                                Chọn Tuyến Mẫu Nhanh
-                            </label>
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label class="block font-bold text-slate-700 uppercase tracking-wider text-[10.5px]">
+                                    Chọn Tuyến Mẫu Nhanh hoặc Tự Định Nghĩa
+                                </label>
+                                <span class="text-[11px] text-slate-500">
+                                    {{ selectedPresetIndex === -1 ? 'Đang tùy chỉnh lộ trình tự do' : 'Đang chọn tuyến mẫu' }}
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
                                 <button 
                                     type="button"
                                     v-for="(p, idx) in currentPresets" 
                                     :key="p.name"
                                     @click="applyPresetRoute(idx)"
                                     :class="[
-                                        'p-2 rounded-lg border text-left transition text-xs',
+                                        'p-2 rounded-lg border text-left transition text-xs cursor-pointer',
                                         selectedPresetIndex === idx ? 'border-2 border-blue-600 bg-blue-50/70 text-blue-800 font-bold' : 'border-slate-200 text-slate-700 hover:bg-slate-50'
                                     ]"
                                 >
                                     <div class="truncate">{{ p.name }}</div>
                                     <div class="text-[10px] text-slate-400 font-normal mt-0.5">{{ p.stops.length }} trạm dừng</div>
+                                </button>
+                                <button 
+                                    type="button"
+                                    @click="startCustomRoute"
+                                    :class="[
+                                        'p-2 rounded-lg border-2 text-left transition text-xs flex flex-col justify-center cursor-pointer',
+                                        selectedPresetIndex === -1 
+                                            ? 'border-indigo-600 bg-indigo-50/70 text-indigo-800 font-bold shadow-xs' 
+                                            : 'border-dashed border-slate-300 text-slate-600 hover:border-indigo-400 hover:bg-slate-50'
+                                    ]"
+                                >
+                                    <div class="flex items-center gap-1">
+                                        <svg class="w-3.5 h-3.5 text-indigo-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                        <span class="truncate font-semibold">Tự Tạo Lộ Trình</span>
+                                    </div>
+                                    <div class="text-[10px] text-slate-400 font-normal mt-0.5">Tùy chọn trạm từ đầu</div>
                                 </button>
                             </div>
                         </div>
@@ -3661,20 +3847,20 @@
                             <div class="space-y-3">
                                 <div>
                                     <label class="block font-semibold text-slate-700 mb-1">Tên Tuyến Xe *</label>
-                                    <input v-model="tripForm.routeName" type="text" required class="w-full rounded-lg border border-slate-200 px-3 py-1.5 bg-slate-50 focus:bg-white outline-none font-medium" />
+                                    <input v-model="tripForm.routeName" @input="isRouteNameManuallyEdited = true" type="text" required maxlength="100" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 bg-slate-50 focus:bg-white outline-none font-medium" />
                                 </div>
                                 <div>
                                     <label class="block font-semibold text-slate-700 mb-1">Mã Chuyến (Tự sinh nếu trống)</label>
-                                    <input v-model="tripForm.tripCode" type="text" placeholder="TRIP-..." class="w-full rounded-lg border border-slate-200 px-3 py-1.5 bg-slate-50 focus:bg-white outline-none font-mono" />
+                                    <input v-model="tripForm.tripCode" type="text" maxlength="35" placeholder="TRIP-..." class="w-full rounded-lg border border-slate-200 px-3 py-1.5 bg-slate-50 focus:bg-white outline-none font-mono" />
                                 </div>
                                 <div class="grid grid-cols-2 gap-2">
                                     <div>
                                         <label class="block font-semibold text-slate-700 mb-1">Biển Số Xe *</label>
-                                        <input v-model="tripForm.vehiclePlate" type="text" required class="w-full rounded-lg border border-slate-200 px-3 py-1.5 bg-slate-50 focus:bg-white outline-none font-mono font-bold" />
+                                        <input v-model="tripForm.vehiclePlate" type="text" required maxlength="20" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 bg-slate-50 focus:bg-white outline-none font-mono font-bold" />
                                     </div>
                                     <div>
                                         <label class="block font-semibold text-slate-700 mb-1">Tài Xế *</label>
-                                        <input v-model="tripForm.driverName" type="text" required class="w-full rounded-lg border border-slate-200 px-3 py-1.5 bg-slate-50 focus:bg-white outline-none font-medium" />
+                                        <input v-model="tripForm.driverName" type="text" required maxlength="100" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 bg-slate-50 focus:bg-white outline-none font-medium" />
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-2 gap-2">
@@ -3706,23 +3892,104 @@
                                 </div>
 
                                 <div>
-                                    <label class="block font-bold text-slate-700 uppercase tracking-wider text-[10.5px] mb-1.5">
-                                        Thứ Tự Lộ Trình Các Trạm Dừng ({{ tripForm.stopHubCodes.length }} Trạm)
-                                    </label>
-                                    <div class="space-y-1.5 max-h-32 overflow-y-auto pr-1">
-                                        <div v-for="(code, sIdx) in tripForm.stopHubCodes" :key="sIdx" class="flex items-center justify-between p-1.5 px-2 rounded-lg bg-slate-50 border border-slate-200 text-xs">
-                                            <span class="font-medium text-slate-700">
-                                                <b>{{ sIdx + 1 }}.</b> {{ getHubDisplayName(code) }}
-                                                <span class="font-mono text-blue-600 ml-1 text-[11px]">({{ code }})</span>
-                                            </span>
-                                            <button 
-                                                type="button"
-                                                @click="removeStopCode(sIdx)"
-                                                class="text-rose-500 hover:text-rose-700 font-bold px-1.5 py-0.5 rounded text-xs"
-                                            >
-                                                Xóa
-                                            </button>
+                                    <div class="flex items-center justify-between mb-1.5">
+                                        <label class="block font-bold text-slate-700 uppercase tracking-wider text-[10.5px]">
+                                            Thứ Tự Lộ Trình Các Trạm Dừng ({{ tripForm.stopHubCodes.length }} Trạm)
+                                        </label>
+                                        <button 
+                                            v-if="tripForm.stopHubCodes.length >= 2"
+                                            type="button"
+                                            @click="reverseRouteStops"
+                                            class="text-[11px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 cursor-pointer transition"
+                                            title="Đảo chiều lộ trình từ điểm cuối về điểm đầu"
+                                        >
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                                            <span>Đảo chiều đi/về</span>
+                                        </button>
+                                    </div>
+
+                                    <div v-if="tripForm.stopHubCodes.length === 0" class="p-4 text-center rounded-lg border border-dashed border-slate-300 text-slate-400 text-xs bg-slate-50/50">
+                                        <p class="font-medium text-slate-600">Chưa có trạm nào trong lộ trình.</p>
+                                        <p class="text-[10.5px] text-slate-400 mt-0.5">Chọn trạm bên dưới để bắt đầu thêm Điểm Xuất Phát!</p>
+                                    </div>
+
+                                    <div v-else class="space-y-1 max-h-36 overflow-y-auto pr-1">
+                                        <div 
+                                            v-for="(code, sIdx) in tripForm.stopHubCodes" 
+                                            :key="code + '-' + sIdx" 
+                                            class="flex items-center justify-between p-1.5 px-2 rounded-lg bg-slate-50 border border-slate-200 text-xs hover:border-slate-300 transition"
+                                        >
+                                            <div class="flex items-center gap-2 min-w-0 flex-1">
+                                                <span class="font-black text-slate-500 w-4 text-center shrink-0">{{ sIdx + 1 }}.</span>
+                                                <span 
+                                                    v-if="sIdx === 0" 
+                                                    class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 shrink-0"
+                                                >
+                                                    Xuất phát
+                                                </span>
+                                                <span 
+                                                    v-else-if="sIdx === tripForm.stopHubCodes.length - 1" 
+                                                    class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 shrink-0"
+                                                >
+                                                    Điểm đích
+                                                </span>
+                                                <span 
+                                                    v-else 
+                                                    class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-200 text-slate-700 shrink-0"
+                                                >
+                                                    Trung gian
+                                                </span>
+                                                <span class="font-medium text-slate-800 truncate" :title="getHubAddress(code)">
+                                                    {{ getHubDisplayName(code) }}
+                                                    <span class="font-mono text-blue-600 ml-1 text-[11px]">({{ code }})</span>
+                                                </span>
+                                            </div>
+
+                                            <div class="flex items-center gap-1 shrink-0 ml-2">
+                                                <button 
+                                                    type="button"
+                                                    @click="moveStopUp(sIdx)"
+                                                    :disabled="sIdx === 0"
+                                                    class="p-1 rounded text-slate-500 hover:text-blue-600 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                                                    title="Chuyển lên trước"
+                                                >
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/></svg>
+                                                </button>
+                                                <button 
+                                                    type="button"
+                                                    @click="moveStopDown(sIdx)"
+                                                    :disabled="sIdx === tripForm.stopHubCodes.length - 1"
+                                                    class="p-1 rounded text-slate-500 hover:text-blue-600 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                                                    title="Chuyển xuống sau"
+                                                >
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                                                </button>
+                                                <button 
+                                                    type="button"
+                                                    @click="removeStopCode(sIdx)"
+                                                    class="text-rose-500 hover:text-rose-700 font-bold p-1 rounded hover:bg-rose-50 transition text-xs ml-0.5 cursor-pointer"
+                                                    title="Xóa trạm này khỏi lộ trình"
+                                                >
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                </button>
+                                            </div>
                                         </div>
+                                    </div>
+
+                                    <!-- Alert kiểm tra tính hợp lệ của lộ trình theo loại xe -->
+                                    <div 
+                                        :class="[
+                                            'mt-2 p-2 rounded-lg text-[11px] flex items-start gap-1.5 border leading-tight transition',
+                                            routeValidation.isValid 
+                                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                                                : routeValidation.type === 'danger'
+                                                    ? 'bg-rose-50 text-rose-800 border-rose-200'
+                                                    : 'bg-amber-50 text-amber-800 border-amber-200'
+                                        ]"
+                                    >
+                                        <svg v-if="routeValidation.isValid" class="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                        <svg v-else class="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                        <span>{{ routeValidation.message }}</span>
                                     </div>
                                     <div class="pt-2">
                                         <div class="flex items-center justify-between mb-1 text-[11px]">
@@ -3758,6 +4025,7 @@
                                                 v-else 
                                                 v-model="customStopCode" 
                                                 type="text" 
+                                                maxlength="35"
                                                 placeholder="Nhập mã trạm (VD: HUB-CT-01, POST-HN-CG...)" 
                                                 class="flex-1 min-w-0 rounded-lg border border-slate-300 px-2.5 py-1.5 bg-white text-xs outline-none font-mono font-bold text-blue-800 focus:border-blue-600 uppercase"
                                                 @keyup.enter.prevent="addNewStop"
@@ -3774,11 +4042,20 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="pt-3 border-t border-slate-100 flex justify-end space-x-2">
-                            <button type="button" @click="showCreateModal = false" class="px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
+                        <div class="px-5 py-3 border-t border-slate-200 bg-slate-50/90 flex justify-end space-x-2 flex-shrink-0">
+                            <button type="button" @click="showCreateModal = false" class="px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 transition cursor-pointer">
                                 Hủy Bỏ
                             </button>
-                            <button type="submit" :disabled="isSubmittingTrip" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm shadow-blue-500/20 transition">
+                            <button 
+                                type="submit" 
+                                :disabled="isSubmittingTrip || !routeValidation.isValid" 
+                                :class="[
+                                    'px-4 py-1.5 rounded-lg font-bold text-xs shadow-sm transition',
+                                    (!routeValidation.isValid || isSubmittingTrip) 
+                                        ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
+                                        : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 cursor-pointer'
+                                ]"
+                            >
                                 {{ isSubmittingTrip ? 'Đang Khởi Tạo...' : 'Xác Nhận Lập Chuyến' }}
                             </button>
                         </div>
@@ -4050,6 +4327,7 @@
                                     <input 
                                         v-model="eligibleSearchQuery"
                                         type="text" 
+                                        maxlength="50"
                                         placeholder="Lọc mã đơn chờ..." 
                                         class="w-full text-xs rounded-lg border border-slate-200 px-3 py-1.5 bg-slate-50 focus:bg-white outline-none"
                                     />

@@ -129,6 +129,7 @@
             case 'FAILED':
             case 'DELIVERY_FAILED': return 'Phát không thành công';
             case 'RETURNING': return 'Đang chuyển hoàn về người gửi';
+            case 'OUT_FOR_RETURN': return 'Đang phát hoàn cho người gửi';
             case 'RETURNED': return 'Đã hoàn trả người gửi';
             case 'CANCELLED': return 'Đã hủy bưu gửi';
             default: return status || 'N/A';
@@ -156,6 +157,8 @@
                 return 'bg-rose-50 text-rose-700 border-rose-200';
             case 'RETURNING':
                 return 'bg-orange-50 text-orange-800 border-orange-200';
+            case 'OUT_FOR_RETURN':
+                return 'bg-amber-100 text-amber-800 border-amber-300 font-semibold';
             case 'RETURNED':
                 return 'bg-slate-100 text-slate-700 border-slate-300';
             case 'CANCELLED':

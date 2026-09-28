@@ -575,6 +575,7 @@
                                 type="text" 
                                 v-model="filters.customerId"
                                 :disabled="!isAdminOrCs"
+                                maxlength="50"
                                 :placeholder="isAdminOrCs ? 'Nhập ID khách hàng hoặc để trống...' : 'Tài khoản cá nhân / Shop'"
                                 @keyup.enter="loadReport"
                                 class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition disabled:opacity-60 disabled:cursor-not-allowed"
@@ -878,6 +879,7 @@
                                 <input 
                                     type="text" 
                                     v-model="tableSearchQuery" 
+                                    maxlength="100"
                                     placeholder="Tìm mã đơn, người gửi/nhận..." 
                                     class="w-56 sm:w-64 pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                                 />

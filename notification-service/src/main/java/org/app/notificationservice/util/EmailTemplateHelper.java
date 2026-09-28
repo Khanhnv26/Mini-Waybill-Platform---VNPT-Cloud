@@ -31,6 +31,12 @@ public class EmailTemplateHelper {
         } else if ("DELIVERY_FAILED".equals(status)) {
             badgeColor = "#dc2626";
             statusTitle = "Giao Hàng Không Thành Công";
+        } else if ("RETURNING".equals(status)) {
+            badgeColor = "#ea580c";
+            statusTitle = "Đang Chuyển Hoàn Về Người Gửi";
+        } else if ("RETURNED".equals(status)) {
+            badgeColor = "#64748b";
+            statusTitle = "Đã Hoàn Trả Người Gửi";
         }
 
         String content = String.format(

@@ -61,6 +61,12 @@
 
             const getNotificationVisuals = (title = '', message = '') => {
                 const text = (title + ' ' + message).toUpperCase();
+                if (text.includes('THANH TOÁN') || text.includes('VIETQR') || text.includes('CƯỚC') || text.includes('COD') || text.includes('TIỀN')) {
+                    return {
+                        icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+                        iconBg: 'bg-emerald-600'
+                    };
+                }
                 if (text.includes('DELIVERED') || text.includes('THÀNH CÔNG')) {
                     return {
                         icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
@@ -91,6 +97,70 @@
                 };
             };
 
+            const isTripNotification = (item) => {
+                if (!item) return false;
+                const title = String(item.title || '').toLowerCase();
+                const message = String(item.message || '').toLowerCase();
+                const code = String(item.trackingCode || '').toUpperCase();
+                if (title.includes('chuyến xe') || title.includes('gom đơn') || title.includes('chuyến') || title.includes('trip')) {
+                    return true;
+                }
+                if (message.includes('chuyến xe') || message.includes('gom đơn') || message.includes('chuyến')) {
+                    return true;
+                }
+                if (/^(TRIP|LH|OF|DF)/.test(code)) {
+                    return true;
+                }
+                return false;
+            };
+
+            const extractTripCode = (item) => {
+                if (!item) return '';
+                if (item.trackingCode && item.trackingCode !== 'TRIP' && item.trackingCode !== 'SYSTEM') {
+                    return String(item.trackingCode).trim();
+                }
+                if (item.message) {
+                    const match = item.message.match(/Chuyến xe\s+([A-Za-z0-9_-]+)/i);
+                    if (match && match[1] && match[1].toUpperCase() !== 'TRIP') {
+                        return match[1].trim();
+                    }
+                }
+                return item.trackingCode ? String(item.trackingCode).trim() : '';
+            };
+
+            const showNotificationDetailModal = ref(false);
+            const activeNotificationDetail = ref(null);
+
+            const openNotificationDetailModal = (item, entityCode = null, type = 'GENERAL') => {
+                activeNotificationDetail.value = {
+                    ...item,
+                    entityCode: entityCode || item.trackingCode || null,
+                    detailType: type
+                };
+                showNotificationDetailModal.value = true;
+            };
+
+            const closeNotificationDetailModal = () => {
+                showNotificationDetailModal.value = false;
+                activeNotificationDetail.value = null;
+            };
+
+            const handleNavigateToTripFromModal = (tripCode) => {
+                closeNotificationDetailModal();
+                currentTrackingCode.value = tripCode || '';
+                switchTab('trips');
+                setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('open-trip-by-code', {
+                        detail: { tripCode }
+                    }));
+                }, 150);
+            };
+
+            const handleNavigateToTrackingFromModal = (trackingCode) => {
+                closeNotificationDetailModal();
+                handleViewTracking(trackingCode);
+            };
+
             const fetchNotifications = async () => {
                 if (typeof NotificationService === 'undefined' || !NotificationService.getMyNotifications) return;
                 try {
@@ -98,6 +168,7 @@
                     if (Array.isArray(list)) {
                         notifications.value = list.map(item => {
                             const visuals = getNotificationVisuals(item.title, item.message);
+                            const isTrip = isTripNotification(item);
                             return {
                                 id: item.id,
                                 title: item.title || 'Thông báo hệ thống',
@@ -106,7 +177,9 @@
                                 time: formatNotificationTime(item.sentAt),
                                 isRead: !!item.isRead,
                                 icon: visuals.icon,
-                                iconBg: visuals.iconBg
+                                iconBg: visuals.iconBg,
+                                isTrip,
+                                trackingLabel: isTrip ? 'Mã chuyến xe:' : 'Mã bưu gửi:'
                             };
                         });
                     }
@@ -146,13 +219,37 @@
                     NotificationService.markAsRead(item.id);
                 }
                 showNotificationDropdown.value = false;
-                if (item.trackingCode && String(item.trackingCode).toUpperCase().startsWith('WB')) {
+
+                if (isTripNotification(item)) {
+                    const tripCode = extractTripCode(item);
+                    const canAccessTrips = typeof Auth !== 'undefined' && 
+                        (Auth.hasPermission('routing:trip_manage') || Auth.hasRole('ADMIN') || Auth.isInternalStaff());
+
+                    if (canAccessTrips) {
+                        currentTrackingCode.value = tripCode;
+                        switchTab('trips');
+                        setTimeout(() => {
+                            window.dispatchEvent(new CustomEvent('open-trip-by-code', {
+                                detail: { tripCode }
+                            }));
+                        }, 120);
+                        return;
+                    }
+
+                    openNotificationDetailModal(item, tripCode, 'TRIP');
+                    return;
+                }
+
+                if (item.trackingCode && item.trackingCode !== 'SYSTEM') {
                     if (!isKnownAppPath) {
                         window.location.href = 'index.html?tracking=' + encodeURIComponent(item.trackingCode);
                         return;
                     }
                     handleViewTracking(item.trackingCode);
+                    return;
                 }
+
+                openNotificationDetailModal(item, null, 'GENERAL');
             };
 
             const showUserProfileModal = ref(false);
@@ -856,6 +953,7 @@
                 const handleSystemNotificationEvent = (e) => {
                     const detail = e.detail || {};
                     const visuals = getNotificationVisuals(detail.title, detail.message);
+                    const isTrip = isTripNotification(detail);
                     notifications.value.unshift({
                         id: 'local-' + Date.now(),
                         title: detail.title || 'Thông báo hệ thống',
@@ -864,7 +962,9 @@
                         time: 'Vừa xong',
                         isRead: false,
                         icon: visuals.icon,
-                        iconBg: visuals.iconBg
+                        iconBg: visuals.iconBg,
+                        isTrip,
+                        trackingLabel: isTrip ? 'Mã chuyến xe:' : 'Mã bưu gửi:'
                     });
                     setTimeout(() => fetchNotifications(), 2000);
                 };
@@ -970,6 +1070,12 @@
                 closeNotificationDropdown,
                 markAllNotificationsAsRead,
                 handleNotificationClick,
+                showNotificationDetailModal,
+                activeNotificationDetail,
+                openNotificationDetailModal,
+                closeNotificationDetailModal,
+                handleNavigateToTripFromModal,
+                handleNavigateToTrackingFromModal,
                 currentErrorCode,
                 currentErrorTitle,
                 currentErrorMessage,

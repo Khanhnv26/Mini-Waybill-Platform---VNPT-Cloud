@@ -124,17 +124,29 @@ public class InventoryOperationServiceImpl implements InventoryOperationService 
                 continue;
             }
 
-            WarehouseInventory inventory = inventoryRepository.findByTrackingCode(trackingCode)
-                    .orElseThrow(() -> new IllegalStateException("Chưa tiếp nhận bưu gửi " + trackingCode));
+            LocalDateTime now = LocalDateTime.now();
+            WarehouseInventory inventory = inventoryRepository.findByTrackingCode(trackingCode).orElse(null);
+            if (inventory == null) {
+                if (routingAssignmentRepository.findByTrackingCode(trackingCode).isEmpty()) {
+                    throw new IllegalStateException("Chưa tiếp nhận và không tìm thấy phân tuyến cho bưu gửi " + trackingCode);
+                }
+                inventory = WarehouseInventory.builder()
+                        .trackingCode(trackingCode)
+                        .locationCode(location)
+                        .transportLeg(request.getTransportLeg())
+                        .inventoryStatus("RECEIVED")
+                        .receivedAt(now)
+                        .build();
+            }
+
             if (!location.equalsIgnoreCase(inventory.getLocationCode())) {
                 throw new IllegalStateException(String.format("Bưu gửi %s đang ở %s, không thể nhập kho tại %s",
                         trackingCode, inventory.getLocationCode(), location));
             }
-            if (!List.of("RECEIVED", "STORED").contains(inventory.getInventoryStatus())) {
+            if (inventory.getInventoryStatus() != null && !List.of("RECEIVED", "STORED").contains(inventory.getInventoryStatus())) {
                 throw new IllegalStateException("Bưu gửi " + trackingCode + " đang ở trạng thái tồn kho " + inventory.getInventoryStatus());
             }
 
-            LocalDateTime now = LocalDateTime.now();
             inventory.setInventoryStatus("STORED");
             inventory.setStoredAt(now);
             inventory.setUpdatedAt(now);
@@ -297,7 +309,12 @@ public class InventoryOperationServiceImpl implements InventoryOperationService 
     }
 
     private String currentShipmentStatus(String requested, WarehouseInventory inventory) {
-        if (requested != null && !requested.isBlank()) return normalizeOperationalStatus(requested);
+        if (requested != null && !requested.isBlank()) {
+            try {
+                return normalizeOperationalStatus(requested);
+            } catch (Exception ignored) {
+            }
+        }
         if (inventory.getTransportLeg() == TransportLeg.DESTINATION_FEEDER) {
             return "ARRIVED_DEST_HUB";
         }

@@ -489,6 +489,7 @@
                                     v-model="profileForm.fullName" 
                                     type="text" 
                                     required
+                                    maxlength="100"
                                     class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-semibold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                                 />
                             </div>
@@ -501,6 +502,7 @@
                                     v-model="profileForm.phoneNumber" 
                                     type="tel" 
                                     :required="!isStaffUser"
+                                    maxlength="15"
                                     placeholder="0912 345 678"
                                     class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                                 />
@@ -545,6 +547,7 @@
                                 <input 
                                     v-model="profileForm.shopBrandName" 
                                     type="text" 
+                                    maxlength="100"
                                     placeholder="VD: Shop Thời Trang Mai Anh"
                                     class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-semibold text-xs focus:border-blue-600 outline-none"
                                 />
@@ -555,6 +558,7 @@
                                     v-model="profileForm.address" 
                                     type="text" 
                                     required
+                                    maxlength="255"
                                     placeholder="Số 57 Huỳnh Thúc Kháng, Láng Hạ, Đống Đa, Hà Nội"
                                     class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:border-blue-600 outline-none"
                                 />
@@ -593,6 +597,7 @@
                                     v-model="passwordForm.currentPassword" 
                                     type="password" 
                                     required 
+                                    maxlength="100"
                                     placeholder="Nhập mật khẩu đang dùng" 
                                     class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                                 />
@@ -604,6 +609,7 @@
                                     v-model="passwordForm.newPassword" 
                                     type="password" 
                                     required 
+                                    maxlength="100"
                                     placeholder="Nhập tối thiểu 6 ký tự" 
                                     class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                                 />
@@ -627,6 +633,7 @@
                                     v-model="passwordForm.confirmPassword" 
                                     type="password" 
                                     required 
+                                    maxlength="100"
                                     placeholder="Nhập lại mật khẩu mới vừa gõ" 
                                     class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                                 />
@@ -779,6 +786,7 @@
                                     <input 
                                         v-model="shopSettings.bankAccount" 
                                         type="text" 
+                                        maxlength="35"
                                         placeholder="VD: 001100428888" 
                                         class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-800 text-xs focus:bg-white focus:border-blue-600 outline-none"
                                     />
@@ -788,6 +796,7 @@
                                     <input 
                                         v-model="shopSettings.bankAccountName" 
                                         type="text" 
+                                        maxlength="100"
                                         placeholder="VD: NGUYEN VAN A" 
                                         class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-800 uppercase text-xs focus:bg-white focus:border-blue-600 outline-none"
                                     />
@@ -825,6 +834,7 @@
                                 <input 
                                     v-model="shopSettings.driverNote" 
                                     type="text" 
+                                    maxlength="255"
                                     placeholder="VD: Hàng dễ vỡ, vui lòng gọi điện trước khi giao" 
                                     class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:bg-white focus:border-blue-600 outline-none"
                                 />
@@ -856,6 +866,7 @@
                             <input 
                                 v-model="avatarInputUrl" 
                                 type="url" 
+                                maxlength="500"
                                 placeholder="https://domain.com/avatar.jpg" 
                                 class="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 outline-none focus:border-blue-600"
                             />

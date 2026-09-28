@@ -324,6 +324,7 @@
                             <input 
                                 v-model="searchQuery" 
                                 type="text" 
+                                maxlength="100"
                                 placeholder="Tìm theo mã, họ tên, SĐT, trạm..." 
                                 class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                             />
@@ -413,8 +414,8 @@
                                             <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-black text-xs flex items-center justify-center shadow-xs flex-shrink-0">
                                                 {{ (item.fullName || 'B').charAt(0).toUpperCase() }}
                                             </div>
-                                            <div>
-                                                <div class="font-bold text-slate-800 text-xs leading-tight">
+                                            <div class="min-w-0 max-w-[200px]">
+                                                <div class="font-bold text-slate-800 text-xs leading-tight truncate" :title="item.fullName">
                                                     {{ item.fullName }}
                                                 </div>
                                                 <div class="text-[10px] text-slate-400 font-medium mt-0.5">
@@ -584,6 +585,7 @@
                                                 <input 
                                                     v-model="form.courierCode" 
                                                     required 
+                                                    maxlength="35"
                                                     placeholder="VD: NV_HN_01"
                                                     class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono font-bold uppercase text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
                                                 />
@@ -604,6 +606,7 @@
                                             <input 
                                                 v-model="form.fullName" 
                                                 required 
+                                                maxlength="100"
                                                 placeholder="VD: Nguyễn Văn An"
                                                 class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
                                             />
@@ -614,6 +617,7 @@
                                                 <label class="block text-[11px] font-bold text-slate-700 mb-1">Số Điện Thoại</label>
                                                 <input 
                                                     v-model="form.phone" 
+                                                    maxlength="15"
                                                     placeholder="0912345678"
                                                     class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
                                                 />
@@ -654,6 +658,7 @@
                                             </label>
                                             <input 
                                                 v-model="form.telegramChatId" 
+                                                maxlength="50"
                                                 placeholder="Chỉ nhập khi cần gắn mới hoặc can thiệp trực tiếp"
                                                 class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
                                             />

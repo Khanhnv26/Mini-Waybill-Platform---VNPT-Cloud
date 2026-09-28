@@ -161,6 +161,89 @@
             @trigger-google-link="triggerGoogleLink"
         ></user-profile-modal>
 
+        <div 
+            v-if="showNotificationDetailModal && activeNotificationDetail" 
+            class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+            @click.self="closeNotificationDetailModal"
+        >
+            <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden animate-fade-slide">
+                <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+                    <div class="flex items-center space-x-3">
+                        <div :class="['w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-xs', activeNotificationDetail.iconBg || 'bg-blue-600']">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="activeNotificationDetail.icon" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-900">{{ activeNotificationDetail.title || 'Chi Tiết Thông Báo' }}</h3>
+                            <span class="text-xs text-slate-400">{{ activeNotificationDetail.time }}</span>
+                        </div>
+                    </div>
+                    <button 
+                        type="button"
+                        @click="closeNotificationDetailModal"
+                        class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200/50 transition cursor-pointer"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="p-6 space-y-4">
+                    <div v-if="activeNotificationDetail.entityCode" class="p-3 bg-blue-50/60 border border-blue-100 rounded-xl flex items-center justify-between">
+                        <div>
+                            <span class="text-[11px] font-semibold text-blue-600 block uppercase tracking-wider">
+                                {{ activeNotificationDetail.detailType === 'TRIP' ? 'Mã Chuyến Xe' : 'Mã Bưu Gửi' }}
+                            </span>
+                            <span class="font-mono font-bold text-slate-800 text-sm">
+                                {{ activeNotificationDetail.entityCode }}
+                            </span>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold" :class="activeNotificationDetail.detailType === 'TRIP' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'">
+                            {{ activeNotificationDetail.detailType === 'TRIP' ? 'Chuyến xe gom hàng' : 'Vận đơn bưu chính' }}
+                        </span>
+                    </div>
+
+                    <div class="p-4 bg-slate-50 border border-slate-100 rounded-xl text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line">
+                        {{ activeNotificationDetail.message }}
+                    </div>
+                </div>
+
+                <div class="p-4 px-6 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end space-x-3">
+                    <button 
+                        type="button"
+                        @click="closeNotificationDetailModal"
+                        class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-200/60 transition cursor-pointer"
+                    >
+                        Đóng
+                    </button>
+                    <button 
+                        v-if="activeNotificationDetail.detailType === 'TRIP' && isStaffUser"
+                        type="button"
+                        @click="handleNavigateToTripFromModal(activeNotificationDetail.entityCode)"
+                        class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition cursor-pointer flex items-center space-x-1.5"
+                    >
+                        <span>Mở Quản Lý Chuyến Xe</span>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                        </svg>
+                    </button>
+                    <button 
+                        v-else-if="activeNotificationDetail.entityCode && activeNotificationDetail.detailType !== 'TRIP'"
+                        type="button"
+                        @click="handleNavigateToTrackingFromModal(activeNotificationDetail.entityCode)"
+                        class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition cursor-pointer flex items-center space-x-1.5"
+                    >
+                        <span>Tra Cứu Bưu Gửi</span>
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <chatbot-widget v-if="!isStaffUser"></chatbot-widget>
     </div>
 
@@ -181,6 +264,7 @@
     <script src="js/services/supportService.js"></script>
     <script src="js/services/shipperService.js"></script>
     <script src="js/services/ratingService.js"></script>
+    <script src="js/services/paymentService.js"></script>
 
     <script src="js/components/layout/AppSidebar.js"></script>
     <script src="js/components/layout/AppTopbar.js"></script>

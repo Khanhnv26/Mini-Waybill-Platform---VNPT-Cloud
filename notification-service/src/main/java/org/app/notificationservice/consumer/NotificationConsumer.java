@@ -113,7 +113,7 @@ public class NotificationConsumer {
             }
         }
 
-        Set<String> notifyStatues = Set.of("OUT_FOR_DELIVERY", "DELIVERED", "DELIVERY_FAILED");
+        Set<String> notifyStatues = Set.of("OUT_FOR_DELIVERY", "DELIVERED", "DELIVERY_FAILED", "RETURNING", "RETURNED");
         if (!notifyStatues.contains(status)) {
             log.info("[NOTIFICATION] Bỏ qua gửi email cho trạng thái trung gian: {}", status);
             return;

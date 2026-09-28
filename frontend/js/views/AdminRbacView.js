@@ -450,6 +450,7 @@
                             <input 
                                 v-model="permissionSearchQuery"
                                 type="text" 
+                                maxlength="100"
                                 placeholder="Tìm mã quyền, tên quyền..."
                                 class="w-full pl-8 pr-6 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                             />
@@ -569,6 +570,7 @@
                             <input 
                                 v-model="userSearchQuery"
                                 type="text" 
+                                maxlength="100"
                                 placeholder="Tìm theo email, họ tên..."
                                 class="w-full pl-8 pr-6 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                             />
