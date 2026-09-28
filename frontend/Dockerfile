@@ -3,8 +3,8 @@ FROM node:20-alpine
 LABEL authors="Khanhnv26"
 
 WORKDIR /app
-COPY server.js ./
-COPY frontend/ ./frontend/
+
+COPY . ./
 
 EXPOSE 3000 3001
 

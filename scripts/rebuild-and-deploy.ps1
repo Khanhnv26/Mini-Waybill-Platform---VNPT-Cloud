@@ -22,11 +22,7 @@ function Update-SingleService($name) {
 
     # 2. Build Docker image local
     Write-Host "`n>>> [2/4] Build Docker Image khanhnv26/${name}:latest..." -ForegroundColor Yellow
-    if ($name -eq "frontend") {
-        docker build -t "khanhnv26/frontend:latest" -f "frontend/Dockerfile" .
-    } else {
-        docker build -t "khanhnv26/${name}:latest" -f "${name}/Dockerfile" "./$name"
-    }
+    docker build -t "khanhnv26/${name}:latest" -f "${name}/Dockerfile" "./$name"
 
     # 3. Nap image truc tiep vao Minikube
     Write-Host "`n>>> [3/4] Nap image truc tiep vao Minikube (khong ton bang thong mang)..." -ForegroundColor Yellow
