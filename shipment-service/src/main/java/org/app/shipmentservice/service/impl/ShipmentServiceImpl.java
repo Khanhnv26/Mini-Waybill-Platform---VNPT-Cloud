@@ -394,6 +394,9 @@ public class ShipmentServiceImpl implements ShipmentService {
         String redisKey = "shipment-status:" + trackCode;
         redisTemplate.opsForValue().set(redisKey, ShipmentStatus.CANCELLED.name(), Duration.ofDays(7));
 
+        String tombstoneKey = "shipment-cancelled:" + updatedShipment.getTrackingCode().trim().toUpperCase();
+        redisTemplate.opsForValue().set(tombstoneKey, "1", Duration.ofDays(30));
+
         String actorType;
         String locationDesc;
         if (isAdminRole) {

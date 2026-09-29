@@ -8,11 +8,11 @@ import org.app.shipmentservice.repository.OutboxEventRepository;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Component
 @RequiredArgsConstructor
@@ -25,7 +25,6 @@ public class OutboxPublisherScheduler {
 
 
     @Scheduled(fixedDelay = 2000)
-    @Transactional
     public void publishPendingEvents() {
         List<OutBoxEvent> pendingEvents = outboxEventRepository.findTop50ByStatusOrderByCreatedAtAsc("PENDING");
         if(pendingEvents.isEmpty()) {
@@ -35,7 +34,10 @@ public class OutboxPublisherScheduler {
         for (OutBoxEvent event : pendingEvents) {
             try {
                 ShipmentStatusUpdatedEvent payload = objectMapper.readValue(event.getPayload(), ShipmentStatusUpdatedEvent.class);
-                kafkaTemplate.send("tracking-status-events", event.getAggregateId(), payload);
+
+                // send() chỉ là "đưa thư", .get() mới là "chờ Kafka xác nhận đã nhận"
+                kafkaTemplate.send("tracking-status-events", event.getAggregateId(), payload)
+                        .get(5, TimeUnit.SECONDS);
 
                 event.setStatus("SENT");
                 event.setProcessedAt(LocalDateTime.now());
@@ -43,8 +45,12 @@ public class OutboxPublisherScheduler {
 
                 log.info("[OUTBOX] Đã bắn event {} thành công cho đơn {}", event.getEventType(), event.getAggregateId());
 
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.error("[OUTBOX] Bị ngắt khi chờ Kafka ack cho event {}", event.getId());
             } catch (Exception e) {
-                log.error("[OUTBOX] Lỗi khi bắn event {}: {}", event.getId(), e.getMessage());
+                // Giữ nguyên PENDING, 2 giây nữa vòng quét sau sẽ gửi lại
+                log.error("[OUTBOX] Gửi thất bại event {}: {}", event.getId(), e.getMessage());
             }
         }
     }
