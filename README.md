@@ -15,7 +15,7 @@
 [![Telegram Bot](https://img.shields.io/badge/Telegram%20Bot-Long--Polling%20Dispatch-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://core.telegram.org/bots)
 [![Google OAuth2](https://img.shields.io/badge/Google%20OAuth2-Identity%20Services%20SSO-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://developers.google.com/identity)
 [![Docker](https://img.shields.io/badge/Docker%20Compose-Containerized%20HA-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-16%20Pods%20Orchestration-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://kubernetes.io/)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-Minikube%20Local%20Development-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://kubernetes.io/)
 [![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-Smart%20Monorepo%20CI%2FCD-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/features/actions)
 [![Swagger / OpenAPI](https://img.shields.io/badge/OpenAPI-Springdoc%203.1.0-85EA2D?style=for-the-badge&logo=openapiinitiative&logoColor=black)](https://springdoc.org/)
 [![Quartz Scheduler](https://img.shields.io/badge/Quartz-Enterprise%20Scheduler-007ACC?style=for-the-badge&logo=spring&logoColor=white)](https://www.quartz-scheduler.org/)
@@ -123,6 +123,15 @@ Khác với các ứng dụng giao hàng nội thành đơn chặng, hệ thốn
 * **Tự động hóa chuông 🔔 Topbar thời gian thực (< 50ms):** `notification-service` tiêu thụ sự kiện Kafka, tạo bản ghi `NotificationLog` (người nhận `SYSTEM_ALERT`) và phát sóng STOMP WebSocket tới `/topic/notifications/broadcast`. Quả chuông trên Topbar lập tức nhảy số đỏ +1 với hiệu ứng nhấp nháy `animate-pulse`, icon tiền tệ xanh ngọc emerald (`bg-emerald-600`), hiển thị chi tiết thời gian và dẫn thẳng tới bưu phẩm.
 * **Cơ chế phòng vệ thanh toán đúp đa tầng (Double-Payment Prevention):** Kiểm tra trạng thái giao dịch `SUCCESS` ngăn chặn sinh mã QR mới; cung cấp API `/api/payments/paid-codes` để giao diện tự động chuyển đổi nút bấm sang huy hiệu tĩnh "Đã Thu", triệt tiêu 100% rủi ro khách hàng quét mã trả tiền 2 lần.
 * *Tài liệu chi tiết:* Xem toàn văn kiến trúc, Webhook security và 10 câu hỏi phỏng vấn tại [Cẩm nang 17 - Cổng Thanh Toán VietQR & Đối Soát Tài Chính Tức Thời](docs/17-vietqr-payment-gateway-and-realtime-reconciliation.md).
+
+---
+
+### 2.14. Đánh Giá Bưu Phẩm 2 Tầng & Tự Động Tính KPI Bưu Tá Lũy Kế (Rating & Event-Driven Shipper KPI)
+* **Phân tầng đánh giá 2 cấp độ độc lập:** Tách biệt rõ ràng giữa chất lượng dịch vụ vận chuyển / đóng gói (`serviceRating`) và thái độ phục vụ của bưu tá (`shipperRating`) theo thang điểm 1 đến 5 sao.
+* **Phòng vệ gian lận 3 lớp & Chống đánh giá lặp:** Chỉ cho phép đánh giá khi bưu gửi đã đạt trạng thái phát thành công `DELIVERED`, xác thực 4 số cuối số điện thoại người nhận (`verifiedPhone`), và áp dụng ràng buộc duy nhất `uq_shipment_ratings_tracking` trên cơ sở dữ liệu `rating_db`.
+* **Truy vết tự động danh tính bưu tá & Tính toán KPI thời gian thực:** Tự động đối soát `actorId` từ mốc giao hàng `HANDED_TO_COURIER` bên `tracking-service`, phát sự kiện `ShipmentFeedbackEvent` lên Kafka topic `shipment-feedbacks` để `shipper-service` cập nhật điểm số bình quân lũy kế tức thời (`rating_avg` và `rating_count`) với độ trễ dưới 10ms.
+* **Cơ chế cứu vãn trải nghiệm khách hàng (Customer Recovery):** Khi điểm đánh giá dưới 3 sao, hệ thống tự động gắn cờ `suggestTicket = true`, kích hoạt giao diện mở khiếu nại nhanh kết nối trực tiếp với trung tâm CSKH `support-service`.
+* *Tài liệu chi tiết:* Xem toàn văn kiến trúc, schema CSDL và bộ câu hỏi phỏng vấn tại [Cẩm nang 18 - Đánh Giá Bưu Phẩm 2 Tầng, Đối Soát KPI Bưu Tá & Luồng Sự Kiện Kafka](docs/18-shipment-rating-and-shipper-kpi.md).
 
 ---
 
@@ -268,39 +277,73 @@ Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, m�
 | **09** | [**Quyết Toán COD & Báo Cáo Đối Soát Dòng Tiền**](docs/09-cod-settlement-and-financial-reconciliation.md) | Kiến trúc máy trạng thái quyết toán COD 3 pha (`UNSETTLED` -> `PENDING_SETTLEMENT` -> `SETTLED`), nghiệp vụ bưu tá nộp quỹ ca phát, bưu cục kiểm đếm nhập két, đồng bộ Event-Driven qua Kafka sang `report-service` (Port 8091) và xuất file Excel 2-sheet đối soát tài chính theo chuẩn kiểm toán. |
 | **10** | [**Container Hóa Toàn Trình & Điều Phối HA (Docker & Compose)**](docs/10-docker-containerization-and-ha-orchestration.md) | Quy trình đóng gói Dockerfile chuẩn Java 21 / Node.js, quản trị Registry Docker Hub, xử lý bẫy mạng `SERVER_PORT` & Docker DNS, và **Bộ Boilerplate độc lập 23 Containers** (Kafka KRaft, Redis, SQL Server Volume, Eureka Peer, Nginx Failover). |
 | **11** | [**CI/CD Tự Động Hóa Với GitHub Actions (Microservices Monorepo)**](docs/11-cicd-github-actions-automation.md) | Lý thuyết nền tảng CI/CD & DevOps, kiến trúc 3-Stage Pipeline, bộ lọc thay đổi thông minh (`paths-filter`), ma trận build song song (`matrix`), kỹ thuật cách ly lỗi `fail-fast: false`, gắn nhãn Git SHA bất biến và Bot Telegram cảnh báo thời gian thực. |
-| **12** | [**Điều Phối Toàn Trình Trên Kubernetes (K8s Architecture & Troubleshooting)**](docs/12-kubernetes-orchestration-and-deployment.md) | Kiến trúc cụm K8s 16 Pods (`namespace: waybill`), lưu trữ bền vững SQL Server PVC 5GB, phân biệt ClusterIP vs LoadBalancer, giải quyết 4 bẫy kỹ thuật kinh điển (Eureka IP discovery, Gateway LoadBalancer, Redis host, Kafka consumer bootstrap) và sổ tay kubectl thực chiến. |
+| **12** | [**Điều Phối Toàn Trình Trên Kubernetes (K8s Architecture & Troubleshooting)**](docs/12-kubernetes-orchestration-and-deployment.md) | Kiến trúc Kubernetes cho 12 microservices nghiệp vụ, API Gateway, Frontend và hạ tầng; SQL Server PVC, Ingress, xử lý Eureka/Redis/Kafka và sổ tay kubectl thực chiến. |
 | **13** | [**Động Cơ Định Giá & Ma Trận Cước Bưu Chính**](docs/13-pricing-engine-and-tariff-matrix.md) | Công thức quy đổi khối lượng thể tích ($L \times W \times H / 5000$), phân vùng cước Nội tỉnh vs Liên miền, 3 gói phân tầng `ECO`, `STANDARD`, `EXPRESS`, cơ cấu phụ phí (Xăng dầu 6%, COD 1%, Bảo hiểm 0.5%) và Boilerplate Bảng cước động lưu CSDL. |
 | **14** | [**Trợ Lý Ảo GenAI & Cơ Chế Spring AI Tool Calling**](docs/14-spring-ai-agent-and-support-ticketing.md) | Kiến trúc On-Premise LLM với Ollama (`qwen2.5:7b`), cơ chế Spring AI `ChatClient` Function Calling tự động gọi Feign Client tra cứu vận đơn & tính cước, kỹ thuật Prompt Engineering chống ảo giác và xử lý dự phòng khi AI quá tải. |
 | **15** | [**Đếm Ngược SLA RabbitMQ & Xử Lý Hủy Đơn Liên Dịch Vụ**](docs/15-rabbitmq-priority-queue-and-sla-dead-letter-patterns.md) | Kiến trúc Polyglot Messaging (RabbitMQ + Kafka + OpenFeign), bộ đếm ngược SLA 120s bằng Message TTL + Dead-Letter Exchange (DLX), tự động hủy đơn liên dịch vụ qua Feign (`shipment:cancel_all`), giải phóng tải chuyến xe & tồn kho kho bãi (`routing-service`), và cơ chế tương thích kép mốc thời gian Kafka. |
 | **16** | [**Lưu Trữ Đối Tượng MinIO & S3 Boilerplate**](docs/16-minio-object-storage-and-s3-boilerplate.md) | Kiến trúc S3 Object Storage, phân định Storage vs BLOB, cơ chế tự phục hồi Bucket (`MinioBucketSupport`), bảo mật Presigned URLs vs Public Download, xử lý sự cố Docker Hub & di trú Chainguard Distroless, cẩm nang lệnh `mc` CLI và **Bộ Boilerplate Spring Boot 3 độc lập** sẵn sàng copy vào dự án doanh nghiệp. |
 | **17** | [**Cổng Thanh Toán VietQR & Đối Soát Tài Chính Tức Thời**](docs/17-vietqr-payment-gateway-and-realtime-reconciliation.md) | Kiến trúc Cổng thanh toán VietQR động chuẩn NAPAS 247, xác thực Webhook bảo mật, luồng sự kiện Kafka `payment-success-events`, cơ chế tự động hóa quả chuông  Topbar nhảy số đỏ +1 qua WebSocket STOMP, kỹ thuật phòng vệ chống thanh toán đúp đa tầng, bộ Boilerplate Spring Boot 3 độc lập và 10 câu hỏi phỏng vấn tuyển dụng. |
+| **18** | [**Đánh Giá Bưu Phẩm 2 Tầng & Đối Soát KPI Bưu Tá Lũy Kế**](docs/18-shipment-rating-and-shipper-kpi.md) | Phân tầng đánh giá dịch vụ vs bưu tá (1-5 sao), phòng vệ gian lận 3 lớp (`DELIVERED` + 4 số cuối SĐT + Unique Constraint), tự động truy vết bưu tá phát hàng, công thức cập nhật điểm KPI bình quân gia số qua Kafka topic `shipment-feedbacks`, cơ chế cứu vãn khách hàng (`suggestTicket`) và 10 câu hỏi phỏng vấn. |
 
 ---
 
 ## 5. Hướng Dẫn Khởi Chạy Nhanh (Quickstart)
 
-### Cách 1: Khởi chạy toàn bộ hệ sinh thái bằng Kubernetes (Khuyên dùng - 1 Phút)
-Triển khai toàn bộ 16 Pods (11 Microservices, Kafka KRaft, Redis, Eureka, SQL Server PVC 5GB, Frontend) chỉ với 1 bước:
+### Cách 1: Khởi chạy trên Kubernetes (Docker Desktop)
+Đây là phương án gọn nhẹ và tối ưu nhất trên Windows, sử dụng trực tiếp Docker Desktop mà không lo xung đột Hyper-V:
 
-```bash
-# 1. Triển khai theo thứ tự phân tầng K8s
-kubectl apply -f k8s/00-namespaces/
-kubectl apply -f k8s/01-infrastructure/
-kubectl apply -f k8s/02-services/
-
-# 2. Kiểm tra toàn bộ 16 Pods đã sẵn sàng (1/1 Running)
-kubectl get pods -n waybill
+1. Kích hoạt Kubernetes trong Docker Desktop: Settings -> Kubernetes -> Tích chọn **Enable Kubernetes** -> Bấm **Apply & restart**.
+2. Thiết lập Namespace, Secret và ConfigMap ban đầu:
+```powershell
+kubectl apply -f .\k8s\00-namespaces\
+kubectl create secret generic waybill-runtime -n waybill --from-literal=db-password="Replica@123456" --from-literal=jwt-secret="9a7b8c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b" --from-literal=rabbitmq-user="admin" --from-literal=rabbitmq-password="admin" --from-literal=minio-user="minioadmin" --from-literal=minio-password="minioadmin" --from-literal=ai-api-key="default-key" --dry-run=client -o yaml | kubectl apply -f -
+kubectl create configmap waybill-config -n waybill --from-literal=AI_BASE_URL="http://host.docker.internal:11434/v1" --from-literal=AI_MODEL="qwen2.5:3b" --from-literal=MINIO_PUBLIC_URL="http://localhost:9000" --dry-run=client -o yaml | kubectl apply -f -
 ```
-
-* **Web Portal:** [http://localhost](http://localhost) (Cổng 80) hoặc [http://localhost:3000](http://localhost:3000)
-* **API Gateway:** [http://localhost:8080](http://localhost:8080)
-* **SQL Server Database:** `localhost:2433` (`sa` / `Replica@123456`)
-* **Redis Cache:** `localhost:6379`
-* **Eureka Dashboard:** Mở qua lệnh `kubectl port-forward svc/eureka-peer1 8761:8761 -n waybill` -> [http://localhost:8761](http://localhost:8761)
+3. Triển khai cụm hạ tầng và toàn bộ microservices:
+```powershell
+kubectl apply -f .\k8s\01-infrastructure\
+kubectl apply -f .\k8s\02-services\
+```
+* **Web Portal:** [http://localhost](http://localhost) (mở thẳng port 80).
+* **API Gateway:** [http://localhost:8080](http://localhost:8080).
+* **MinIO Console:** [http://localhost:9001](http://localhost:9001) (`minioadmin` / `minioadmin`).
+* **SQL Server:** Port 2433 (`sa` / `Replica@123456`).
 
 ---
 
-### Cách 2: Khởi chạy qua Docker Compose & Local Spring Boot
+### Cách 2: Khởi chạy trên Minikube (Hyper-V)
+Minikube triển khai 12 microservices nghiệp vụ, API Gateway, Frontend, Kafka, Redis, Eureka, RabbitMQ, MinIO và SQL Server có PVC. Profile mặc định cần khoảng 6 CPU, 10 GiB RAM và 40 GiB đĩa; có thể điều chỉnh qua tham số script.
+
+```powershell
+# Tạo cấu hình local (thay tất cả giá trị ReplaceWith bằng giá trị riêng)
+Copy-Item .env.minikube.example .env.minikube
+notepad .env.minikube
+
+# Chạy PowerShell có quyền truy cập Hyper-V
+.\scripts\minikube-up.ps1
+```
+
+Script khởi động profile Hyper-V, bật Ingress, build và nạp image local, tạo Kubernetes Secrets từ `.env.minikube`, khởi tạo database rồi triển khai ứng dụng. Thêm dòng IP mà script in ra vào `C:\Windows\System32\drivers\etc\hosts` bằng quyền Administrator:
+
+```text
+<MINIKUBE_IP> waybill.local api.waybill.local storage.waybill.local
+```
+
+* **Web Portal:** [http://waybill.local](http://waybill.local)
+* **API Gateway:** [http://api.waybill.local](http://api.waybill.local)
+* **Tệp MinIO public:** `http://storage.waybill.local`; console qua `kubectl port-forward svc/minio 9001:9001 -n waybill`.
+* **SQL Server:** chạy `kubectl port-forward svc/sqlserver-replica 2433:2433 -n waybill`, sau đó kết nối tới `localhost,2433` bằng `sa` và mật khẩu trong `.env.minikube`.
+* **Eureka:** chạy `kubectl port-forward svc/eureka-peer1 8761:8761 -n waybill`, sau đó mở [http://localhost:8761](http://localhost:8761).
+* **Cập nhật một service:** `.\scripts\rebuild-and-deploy.ps1 -Service shipment-service`
+* **Dừng cụm:** `minikube stop -p minikube` (giữ lại PVC và dữ liệu).
+
+Thay đổi tài nguyên profile theo máy host, ví dụ: `.\scripts\minikube-up.ps1 -Cpus 4 -MemoryMb 8192 -DiskSize 30g`.
+Support AI mặc định gọi Ollama trên host tại `AI_BASE_URL` trong `.env.minikube`; Ollama cần chạy và lắng nghe trên địa chỉ có thể truy cập từ Minikube để chức năng AI hoạt động.
+Nếu PVC SQL Server đã có dữ liệu, đặt `MINIKUBE_DB_PASSWORD` đúng với mật khẩu `sa` đang dùng; không xóa PVC để xử lý lỗi đăng nhập.
+
+---
+
+### Cách 3: Khởi chạy qua Docker Compose & Local Spring Boot
 
 #### Bước 1: Khởi động Hạ tầng Docker HA
 ```bash
@@ -391,8 +434,8 @@ mini-waybill-platform/
 │   ├── 16-minio-object-storage-and-s3-boilerplate.md
 │   └── 17-vietqr-payment-gateway-and-realtime-reconciliation.md
 │
-├── k8s/                       # Manifests Kubernetes (00-namespace, 01-infrastructure, 02-services)
-├── scripts/                   # Script tự động hóa đồng bộ DB (sync-db-to-k8s.ps1)
+├── k8s/                       # Kubernetes manifests và overlay Minikube
+├── scripts/                   # Script Minikube và đồng bộ dữ liệu DB
 ├── nginx/                     # Cấu hình Nginx Edge Load Balancer (nginx.conf)
 ├── api-gateway/               # Spring Cloud Gateway HA (Port 8080 & 8088)
 ├── service-registry/          # Netflix Eureka Server Peer-to-Peer (Port 8761 & 8762)

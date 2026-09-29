@@ -1,6 +1,6 @@
 # Cẩm Nang 12 - Điều Phối Toàn Trình Cụm Microservices Trên Kubernetes (K8s Architecture, Networking, Persistence & Troubleshooting)
 
-Tài liệu này tổng hợp toàn bộ kiến thức lý thuyết chuyên sâu, kiến trúc triển khai, cơ chế mạng, giải pháp lưu trữ bền vững (PVC) và kinh nghiệm xử lý sự cố (Troubleshooting War Stories) khi đưa hệ thống **Mini-Waybill Platform** (11 vi dịch vụ Spring Boot 3/4, Node.js Frontend, Kafka KRaft, Redis và SQL Server 2022) từ Docker Compose lên vận hành hoàn chỉnh trên **Kubernetes (K8s)**.
+Tài liệu này tổng hợp toàn bộ kiến thức lý thuyết chuyên sâu, kiến trúc triển khai, cơ chế mạng, giải pháp lưu trữ bền vững (PVC) và kinh nghiệm xử lý sự cố (Troubleshooting War Stories) khi đưa hệ thống **Mini-Waybill Platform** (12 vi dịch vụ nghiệp vụ Spring Boot, API Gateway, Node.js Frontend, Kafka KRaft, Redis, RabbitMQ, MinIO và SQL Server 2022) từ Docker Compose lên vận hành trên **Kubernetes (K8s)**.
 
 ---
 
@@ -311,24 +311,32 @@ Toàn bộ manifest được tổ chức theo cấu trúc phân tầng sạch s�
 
 ```
 k8s/
-├── 00-namespace.yaml                 # Khởi tạo namespace: waybill
+├── 00-namespaces/                    # Namespace; secrets được tạo từ cấu hình local
 ├── 01-infrastructure/                # Cụm dịch vụ nền tảng (Chạy đầu tiên)
 │   ├── redis.yaml                    # In-Memory Cache (Port 6379)
 │   ├── eureka.yaml                   # Service Registry Eureka Peer 1 (Port 8761)
 │   ├── kafka.yaml                    # Kafka KRaft Broker đơn lẻ (Port 9092)
-│   └── sqlserver.yaml                # SQL Server 2022 HA Replica + PVC 5GB (Port 1433/2433)
-└── 02-services/                      # 11 Microservices nghiệp vụ
-    ├── customer-service.yaml         # 2 Replicas (Port 8081)
-    ├── auth-service.yaml             # Stateless JWT & RBAC (Port 8087)
-    ├── shipment-service.yaml         # Quản lý vận đơn & sinh mã (Port 8082)
-    ├── routing-service.yaml          # Điều phối 22 Hub & 40 Trips (Port 8083)
-    ├── tracking-service.yaml         # Tra cứu thời gian thực & Cache (Port 8084)
-    ├── notification-service.yaml     # Xử lý thông báo Kafka Event (Port 8085)
-    ├── audit-service.yaml            # Ghi log kiểm toán nghiệp vụ (Port 8086)
-    ├── shipper-service.yaml          # Tác nghiệp bưu tá phát hàng (Port 8089)
-    ├── report-service.yaml           # Báo cáo doanh thu & đối soát COD (Port 8091)
-    ├── api-gateway.yaml              # Cổng định tuyến API Spring Cloud (Port 8080)
-    └── frontend.yaml                 # Node.js Server & Web UI (Port 80/3000)
+│   ├── rabbitmq.yaml                 # Hàng đợi SLA của support-service
+│   ├── minio.yaml                    # Object storage cho tệp hỗ trợ
+│   ├── sqlserver.yaml                # SQL Server 2022 + PVC 5GB
+│   └── sqlserver-init-job.yaml       # Tạo các database ứng dụng
+├── 02-services/                      # 12 Microservices nghiệp vụ, Gateway và Frontend
+│   ├── customer-service.yaml         # 2 Replicas (Port 8081)
+│   ├── auth-service.yaml             # Stateless JWT & RBAC (Port 8087)
+│   ├── shipment-service.yaml         # Quản lý vận đơn & sinh mã (Port 8082)
+│   ├── routing-service.yaml          # Điều phối 22 Hub & 40 Trips (Port 8083)
+│   ├── tracking-service.yaml         # Tra cứu thời gian thực & Cache (Port 8084)
+│   ├── notification-service.yaml     # Xử lý thông báo Kafka Event (Port 8085)
+│   ├── audit-service.yaml            # Ghi log kiểm toán nghiệp vụ (Port 8086)
+│   ├── shipper-service.yaml          # Tác nghiệp bưu tá phát hàng (Port 8089)
+│   ├── report-service.yaml           # Báo cáo doanh thu & đối soát COD (Port 8091)
+│   ├── support-service.yaml          # Ticket, RabbitMQ và MinIO (Port 8093)
+│   ├── rating-service.yaml           Đánh giá bưu phẩm và dịch vụ (Port 8092)
+│   ├── payment-service.yaml          # Thanh toán và đối soát (Port 8095)
+│   ├── api-gateway.yaml              # Cổng định tuyến API Spring Cloud (Port 8080)
+│   └── frontend.yaml                 # Node.js Server & Web UI (Port 80/3000)
+├── 03-ingress/                       # Định tuyến Frontend, API và MinIO
+└── kustomization.yaml                # Cấu hình local: image tags, probes, ClusterIP
 ```
 
 ---
@@ -341,8 +349,8 @@ k8s/
 | :--- | :--- | :--- | :--- |
 | **`ClusterIP`** *(Mặc định)* | Chỉ nội bộ bên trong cụm K8s | Microservices giao tiếp với nhau an toàn | `auth`, `customer`, `shipment`, `routing`, `kafka`... |
 | **`NodePort`** | Mở cổng cố định (30000-32767) trên tất cả Worker Nodes | Truy cập từ bên ngoài máy cụm mà không cần Load Balancer | Thích hợp môi trường On-Premise/Bare-Metal |
-| **`LoadBalancer`** | Tự động cấp phát IP/Cổng từ nhà cung cấp Cloud hoặc Docker Desktop Host | Cổng giao tiếp cho người dùng và lập trình viên | `frontend` (:80, :3000), `api-gateway` (:8080), `sqlserver` (:2433) |
-| **`Ingress`** | Bộ định tuyến L7 (HTTP/HTTPS) dựa trên Domain và URI Path | Cổng duy nhất chuẩn Production (Tiết kiệm chi phí LB) | Cấu hình tên miền `waybill.vn` và SSL Cert |
+| **`LoadBalancer`** | Tự động cấp phát IP/Cổng từ nhà cung cấp Cloud | Mở dịch vụ ra ngoài cụm khi môi trường có load balancer | Không dùng trong Minikube overlay; SQL truy cập qua port-forward |
+| **`Ingress`** | Bộ định tuyến L7 (HTTP/HTTPS) dựa trên Domain và URI Path | Cổng HTTP(S) cho người dùng | `waybill.local`, `api.waybill.local`, `storage.waybill.local` |
 
 ### 3.2. Cơ Chế CoreDNS: Pod Nói Chuyện Với Pod Như Thế Nào?
 Trong mạng ảo K8s, mỗi Pod có một địa chỉ IP riêng (ví dụ `10.1.0.33`), nhưng địa chỉ này sẽ thay đổi mỗi khi Pod restart. Để ổn định kết nối:
@@ -354,6 +362,14 @@ Trong mạng ảo K8s, mỗi Pod có một địa chỉ IP riêng (ví dụ `10.
 Pod `frontend` chạy một tiến trình Node.js nhẹ (`server.js`):
 * **Phục vụ tĩnh:** Mọi request tải trang HTML/CSS/JS (`GET /`, `GET /login.html`) được đọc từ thư mục `/app/frontend` và trả về ngay.
 * **Reverse Proxy:** Mọi request bắt đầu bằng `/api/` (ví dụ `POST /api/auth/login`) được Node.js chuyển tiếp ngầm tới `http://api-gateway:8080`. Trình duyệt của khách hàng không bị lỗi chặn CORS và không cần biết IP của Gateway bên trong K8s.
+
+---
+
+### 3.4. Điểm Khác Biệt Khi Chạy Trên Docker Desktop Kubernetes
+Trong môi trường Kubernetes tích hợp của Docker Desktop trên Windows:
+* **Cơ chế chia sẻ Docker Engine:** Kubernetes chạy trực tiếp trên cùng Docker Engine của máy host. Khi biên dịch Docker image cục bộ (`khanhnv26/<service>:latest`), Kubernetes lập tức nhìn thấy image mà không cần thực hiện lệnh load thủ công.
+* **Cơ chế bind cổng LoadBalancer tự động:** Các Service khai báo kiểu `LoadBalancer` (`frontend`, `api-gateway`, `sqlserver-replica`) sẽ tự động được Docker Desktop kết nối thẳng ra `localhost` trên Windows mà không cần chạy tiến trình tunnel.
+* **Phân giải địa chỉ máy Host (`host.docker.internal`):** Các Pod bên trong cụm kết nối tới các dịch vụ đang chạy trên Windows (như Ollama tại cổng 11434) thông qua tên miền `host.docker.internal`.
 
 ---
 
@@ -371,7 +387,7 @@ Hệ thống hiện tại có 3 vùng cơ sở dữ liệu hoàn toàn độc l�
 | :--- | :--- | :--- | :--- |
 | **Local Windows** | `localhost:1433` | Ổ cứng máy chủ Windows | Khi lập trình nhanh từng service bằng IntelliJ/VSCode |
 | **Docker Compose** | `localhost:1433` | Docker Volume `sqlserver-data` | Khi chạy kiểm thử cụm container truyền thống |
-| **Kubernetes** | `localhost:2433` | PVC `sqlserver-pvc` | Khi vận hành toàn bộ 16 Pods trên cụm K8s |
+| **Kubernetes** | Port-forward `localhost:2433` | PVC `sqlserver-pvc` | Khi chạy 22 Pods theo manifest hiện tại trên cụm K8s |
 
 > ⚠️ **Quy tắc vận hành:** Thao tác tạo đơn trên Web K8s **chỉ ghi vào PVC của K8s (cổng 2433)**, không tự động đồng bộ sang Local hay Docker Compose. Khi muốn chuyển đổi môi trường, dùng script tự động hóa:
 > ```powershell
@@ -487,12 +503,8 @@ kubectl describe pod <tên-pod> -n waybill
 
 ### 7.3. Cập Nhật, Restart & Điều Phối
 ```powershell
-# Áp dụng thay đổi từ file manifest YAML
-kubectl apply -f k8s/02-services/shipment-service.yaml
-
-# Áp dụng toàn bộ thư mục
-kubectl apply -f k8s/01-infrastructure/
-kubectl apply -f k8s/02-services/
+# Build image bằng runtime của Minikube, nạp image và restart deployment
+.\scripts\rebuild-and-deploy.ps1 -Service shipment-service
 
 # Khởi động lại (Rolling Restart) một deployment mà không làm gián đoạn hệ thống
 kubectl rollout restart deployment/frontend -n waybill
@@ -501,9 +513,14 @@ kubectl rollout restart deployment/shipment-service -n waybill
 # Kiểm tra tiến độ rollout
 kubectl rollout status deployment/frontend -n waybill
 
-# Mở cổng tạm thời từ K8s ra máy ngoài để soi giao diện (Debug port-forward)
+# Mở Eureka Dashboard tạm thời từ K8s ra máy host
 kubectl port-forward svc/eureka-peer1 8761:8761 -n waybill
+
+# Mở SQL Server tạm thời từ K8s ra máy host
+kubectl port-forward svc/sqlserver-replica 2433:2433 -n waybill
 ```
+
+> Trên Minikube, dùng `.\scripts\minikube-up.ps1` để triển khai đúng thứ tự và tạo secrets/config từ `.env.minikube`. Không apply cả thư mục `k8s/01-infrastructure/` trực tiếp vì thư mục có thể chứa manifest tuỳ chọn ngoài luồng ứng dụng mặc định.
 
 ### 7.4. Truy Cập Bên Trong Container
 ```powershell

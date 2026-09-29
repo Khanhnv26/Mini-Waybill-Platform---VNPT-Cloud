@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rabbitmq-pvc
+  namespace: waybill
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  namespace: waybill
+  labels:
+    app: rabbitmq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3-management-alpine
+          ports:
+            - name: amqp
+              containerPort: 5672
+            - name: management
+              containerPort: 15672
+          env:
+            - name: RABBITMQ_NODENAME
+              value: rabbit@localhost
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: rabbitmq-user
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: rabbitmq-password
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 500m
+          volumeMounts:
+            - name: rabbitmq-storage
+              mountPath: /var/lib/rabbitmq
+          readinessProbe:
+            exec:
+              command:
+                - rabbitmq-diagnostics
+                - -q
+                - ping
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+      volumes:
+        - name: rabbitmq-storage
+          persistentVolumeClaim:
+            claimName: rabbitmq-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: waybill
+spec:
+  type: ClusterIP
+  selector:
+    app: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: amqp
+    - name: management
+      port: 15672
+      targetPort: management

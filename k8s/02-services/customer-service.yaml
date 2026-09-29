@@ -18,18 +18,24 @@ spec:
       containers:
         - name: customer-service
           image: khanhnv26/customer-service:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8081
+            - name: http
+              containerPort: 8081
           env:
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=customer_db;encrypt=true;trustServerCertificate=true;"
             - name: SPRING_DATASOURCE_USERNAME
               value: "sa"
             - name: SPRING_DATASOURCE_PASSWORD
-              value: "Replica@123456"
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: db-password
             - name: SPRING_JPA_HIBERNATE_DDL_AUTO
               value: "update"
+            - name: SPRING_FLYWAY_ENABLED
+              value: "false"
             - name: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
               value: "http://eureka-peer1:8761/eureka/"
             - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS

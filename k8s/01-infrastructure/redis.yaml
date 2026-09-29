@@ -19,7 +19,13 @@ spec:
       - name: redis
         image: redis:alpine
         ports:
-        - containerPort: 6379
+        - name: redis
+          containerPort: 6379
+        readinessProbe:
+          tcpSocket:
+            port: redis
+          periodSeconds: 10
+          failureThreshold: 6
         resources:
             requests:
                 memory: "64Mi"

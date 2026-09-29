@@ -1,0 +1,97 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: waybill
+resources:
+  - 00-namespaces/00-namespace.yaml
+  - 01-infrastructure/eureka.yaml
+  - 01-infrastructure/kafka.yaml
+  - 01-infrastructure/minio.yaml
+  - 01-infrastructure/rabbitmq.yaml
+  - 01-infrastructure/redis.yaml
+  - 01-infrastructure/sqlserver.yaml
+  - 01-infrastructure/sqlserver-init-job.yaml
+  - 02-services/api-gateway.yaml
+  - 02-services/audit-service.yaml
+  - 02-services/auth-service.yaml
+  - 02-services/customer-service.yaml
+  - 02-services/frontend.yaml
+  - 02-services/notification-service.yaml
+  - 02-services/payment-service.yaml
+  - 02-services/rating-service.yaml
+  - 02-services/report-service.yaml
+  - 02-services/routing-service.yaml
+  - 02-services/shipment-service.yaml
+  - 02-services/shipper-service.yaml
+  - 02-services/support-service.yaml
+  - 02-services/tracking-service.yaml
+  - 03-ingress/waybill-ingress.yaml
+images:
+  - name: khanhnv26/service-registry
+    newTag: minikube
+  - name: khanhnv26/api-gateway
+    newTag: minikube
+  - name: khanhnv26/audit-service
+    newTag: minikube
+  - name: khanhnv26/auth-service
+    newTag: minikube
+  - name: khanhnv26/customer-service
+    newTag: minikube
+  - name: khanhnv26/frontend
+    newTag: minikube
+  - name: khanhnv26/notification-service
+    newTag: minikube
+  - name: khanhnv26/payment-service
+    newTag: minikube
+  - name: khanhnv26/rating-service
+    newTag: minikube
+  - name: khanhnv26/report-service
+    newTag: minikube
+  - name: khanhnv26/routing-service
+    newTag: minikube
+  - name: khanhnv26/shipment-service
+    newTag: minikube
+  - name: khanhnv26/shipper-service
+    newTag: minikube
+  - name: khanhnv26/support-service
+    newTag: minikube
+  - name: khanhnv26/tracking-service
+    newTag: minikube
+patches:
+  - target:
+      kind: Deployment
+      name: eureka-peer1
+      namespace: waybill
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: IfNotPresent
+  - target:
+      kind: Deployment
+      namespace: waybill
+      labelSelector: app in (api-gateway,audit-service,auth-service,customer-service,frontend,notification-service,payment-service,rating-service,report-service,routing-service,shipment-service,shipper-service,support-service,tracking-service)
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: IfNotPresent
+      - op: add
+        path: /spec/template/spec/containers/0/startupProbe
+        value:
+          tcpSocket:
+            port: http
+          periodSeconds: 5
+          failureThreshold: 60
+      - op: add
+        path: /spec/template/spec/containers/0/readinessProbe
+        value:
+          tcpSocket:
+            port: http
+          periodSeconds: 10
+          failureThreshold: 3
+  - target:
+      kind: Service
+      name: (api-gateway|frontend|redis|sqlserver-replica)
+      namespace: waybill
+    patch: |-
+      - op: replace
+        path: /spec/type
+        value: ClusterIP

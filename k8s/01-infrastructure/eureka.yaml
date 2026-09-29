@@ -20,7 +20,13 @@ spec:
         image: khanhnv26/service-registry:latest
         imagePullPolicy: Always
         ports:
-        - containerPort: 8761
+        - name: http
+          containerPort: 8761
+        readinessProbe:
+          tcpSocket:
+            port: http
+          periodSeconds: 10
+          failureThreshold: 6
         env:
           - name: SERVER_PORT
             value: "8761"
