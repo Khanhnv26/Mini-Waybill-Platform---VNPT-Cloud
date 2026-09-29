@@ -272,38 +272,90 @@ Khi máy chủ Worker Node bị cạn kiệt tài nguyên cục bộ, K8s sẽ t
 
 ## 2. Kiến Trúc Triển Khai Cụm K8s Của Mini-Waybill Platform
 
-### 2.1. Sơ Đồ Phân Bổ Tài Nguyên Cụm (`namespace: waybill`)
+### 2.1. Sơ Đồ Bố Cục Kiến Trúc Chuẩn Hóa Cụm Kubernetes (`namespace: waybill`)
 
-```
-                                  [KHÁCH HÀNG / TRÌNH DUYỆT / POSTMAN]
-                                                    │
-                             ┌──────────────────────┴──────────────────────┐
-                             ▼ (localhost:80 / :3000)                      ▼ (localhost:8080)
-                   [Service: frontend]                           [Service: api-gateway]
-                   (Type: LoadBalancer)                          (Type: LoadBalancer)
-                             │                                             │
-                             └──────────── [Reverse Proxy] ───────────────►│
-                                                                           │
-               ────────────────────────────────────────────────────────────┴────────────────────────────────────────────────────────────
-               │                           │                               │                              │                            │
-               ▼ (:8087)                   ▼ (:8081)                       ▼ (:8082)                      ▼ (:8083)                    ▼ (:8084)
-       [auth-service]             [customer-service]              [shipment-service]             [routing-service]            [tracking-service]
-          (1 Pod)                     (2 Pods - HA)                    (1 Pod)                        (1 Pod)                      (1 Pod)
-               │                           │                               │                              │                            │
-               ▼                           ▼                               ▼                              ▼                            ▼
-         [audit-service]           [shipper-service]               [report-service]             [notification-service]                 │
-             (:8086)                     (:8089)                         (:8091)                        (:8085)                        │
-               │                           │                               │                              │                            │
-               └───────────────────────────┴───────────────────────────────┴──────────────────────────────┴────────────────────────────┘
-                                                                           │
-                                    ┌──────────────────────────────────────┼──────────────────────────────────────┐
-                                    ▼                                      ▼                                      ▼
-                            [eureka-peer1]                              [kafka]                                [redis]
-                           (Port 8761 - UP)                        (Port 9092 - KRaft)                     (Port 6379 - Cache)
-                                                                           │
-                                                                           ▼
-                                                                  [sqlserver-replica]
-                                                                (PVC 5GB - Port 1433 / 2433)
+```mermaid
+graph TB
+    subgraph Host_Layer["MÁY CHỦ WINDOWS (HOST) & CLIENT"]
+        Browser["Trình duyệt Web / Client Apps<br/>(http://localhost)"]
+        AdminSSMS["Công cụ Quản trị DB<br/>(SSMS / DBeaver / DataGrip)"]
+        OllamaEngine["Ollama AI Engine (host.docker.internal:11434)<br/>Mô hình: qwen2.5:3b"]
+    end
+
+    subgraph K8s_Cluster["CỤM KUBERNETES CHUẨN HÓA (PRODUCTION-LIGHTWEIGHT)"]
+        subgraph Ingress_Layer["TẦNG TIẾP NHẬN DUY NHẤT (SINGLE ENTRYPOINT)"]
+            Ingress["Ingress NGINX Controller<br/>Cổng ngoại vi: 80, 443"]
+        end
+
+        subgraph Security_Border["VÙNG BẢO MẬT ZERO-TRUST (NETWORK POLICIES)"]
+            subgraph Gateway_Tier["TẦNG ĐIỀU PHỐI VÀ GIAO DIỆN"]
+                FrontendPod["Pod: frontend (Next.js)<br/>Service: ClusterIP :80"]
+                GatewayPod["Pods: api-gateway (Spring Cloud Gateway)<br/>2 Replicas (HA) + PodAntiAffinity<br/>Service: ClusterIP :8080"]
+                EurekaPod["Pod: eureka-peer1<br/>Netflix Eureka Service Registry (:8761)"]
+            end
+
+            subgraph Microservice_Mesh["TẦNG MICROSERVICES NGHIỆP VỤ (13 DỊCH VỤ - CLUSTERIP ONLY)"]
+                ShipmentSvc["Pods: shipment-service (:8082)<br/>2 Replicas (HA) + HPA"]
+                CustomerSvc["Pods: customer-service (:8081)<br/>2 Replicas (HA) + HPA"]
+                SupportSvc["Pods: support-service (:8093)<br/>2 Replicas (HA)"]
+                AuthSvc["Pod: auth-service (:8087)"]
+                RoutingSvc["Pod: routing-service (:8083)"]
+                TrackingSvc["Pod: tracking-service (:8084)"]
+                NotificationSvc["Pod: notification-service (:8085)"]
+                AuditSvc["Pod: audit-service (:8086)"]
+                ShipperSvc["Pod: shipper-service (:8089)"]
+                ReportSvc["Pod: report-service (:8091)"]
+                PaymentSvc["Pod: payment-service (:8095)"]
+                RatingSvc["Pod: rating-service (:8092)"]
+            end
+
+            subgraph Middleware_Mesh["TẦNG HẠ TẦNG TRUNG GIAN & BROKER (CLUSTERIP ONLY)"]
+                RedisPod["Pod: redis (:6379)<br/>Distributed Caching (ClusterIP)"]
+                KafkaPod["Pod: kafka (:9092)<br/>Event Streaming Bus (ClusterIP)"]
+                RabbitPod["Pod: rabbitmq (:5672, :15672)<br/>Task Queue (ClusterIP)"]
+                MinioPod["Pod: minio (:9000, :9001)<br/>S3 Storage (ClusterIP)"]
+            end
+
+            subgraph Data_Tier["TẦNG DỮ LIỆU ĐƯỢC BẢO VỆ (NETWORK POLICY ISOLATED)"]
+                SqlPod["Pod: sqlserver-replica (:1433)<br/>12 CSDL Độc Lập (ClusterIP Only)"]
+                PVC_SQL["PVC: sqlserver-pvc (5Gi)"]
+                PVC_Minio["PVC: minio-pvc (5Gi)"]
+                PVC_Rabbit["PVC: rabbitmq-pvc (1Gi)"]
+            end
+        end
+    end
+
+    Browser -->|HTTP :80| Ingress
+    Ingress -->|/| FrontendPod
+    Ingress -->|/api| GatewayPod
+
+    AdminSSMS -.->|Kênh an toàn: scripts/db-connect.ps1| SqlPod
+
+    GatewayPod --> EurekaPod
+    GatewayPod --> ShipmentSvc
+    GatewayPod --> CustomerSvc
+    GatewayPod --> SupportSvc
+    GatewayPod --> AuthSvc
+    GatewayPod --> RoutingSvc
+    GatewayPod --> TrackingSvc
+    GatewayPod --> NotificationSvc
+    GatewayPod --> AuditSvc
+    GatewayPod --> ShipperSvc
+    GatewayPod --> ReportSvc
+    GatewayPod --> PaymentSvc
+    GatewayPod --> RatingSvc
+
+    Microservice_Mesh -.-> EurekaPod
+    Microservice_Mesh -->|Được bảo vệ bởi NetworkPolicy| SqlPod
+    Microservice_Mesh -->|Được bảo vệ bởi NetworkPolicy| RedisPod
+    Microservice_Mesh --> KafkaPod
+    Microservice_Mesh --> RabbitPod
+    SupportSvc --> MinioPod
+    SupportSvc -->|host.docker.internal:11434| OllamaEngine
+
+    SqlPod --> PVC_SQL
+    MinioPod --> PVC_Minio
+    RabbitPod --> PVC_Rabbit
 ```
 
 ### 2.2. Quy Chuẩn Tổ Chức Thư Mục Manifest (`k8s/`)
@@ -370,6 +422,33 @@ Trong môi trường Kubernetes tích hợp của Docker Desktop trên Windows:
 * **Cơ chế chia sẻ Docker Engine:** Kubernetes chạy trực tiếp trên cùng Docker Engine của máy host. Khi biên dịch Docker image cục bộ (`khanhnv26/<service>:latest`), Kubernetes lập tức nhìn thấy image mà không cần thực hiện lệnh load thủ công.
 * **Cơ chế bind cổng LoadBalancer tự động:** Các Service khai báo kiểu `LoadBalancer` (`frontend`, `api-gateway`, `sqlserver-replica`) sẽ tự động được Docker Desktop kết nối thẳng ra `localhost` trên Windows mà không cần chạy tiến trình tunnel.
 * **Phân giải địa chỉ máy Host (`host.docker.internal`):** Các Pod bên trong cụm kết nối tới các dịch vụ đang chạy trên Windows (như Ollama tại cổng 11434) thông qua tên miền `host.docker.internal`.
+
+---
+
+### 3.5. Chuẩn Hóa An Ninh Zero-Trust & Ingress Single Entrypoint
+
+Trong giai đoạn chuẩn hóa lên môi trường Production, hệ thống áp dụng 3 nguyên tắc bảo mật mạng then chốt:
+
+1. **Thu gọn điểm tiếp nhận ngoại vi (Single Entrypoint Ingress):**
+   * Toàn bộ lưu lượng từ người dùng bên ngoài đi qua **Ingress NGINX** tại `http://localhost` (cổng 80) hoặc qua tên miền `waybill.local`.
+   * Ingress tự động chia tải:
+     * Tuyến `/api`: Định tuyến trực tiếp về `api-gateway:8080`.
+     * Tuyến `/`: Định tuyến về `frontend:80`.
+   * Các Service `frontend` và `api-gateway` được chuyển đổi sang kiểu `ClusterIP` an toàn.
+
+2. **Đóng cổng ngoại vi Database và Cache (ClusterIP Isolation):**
+   * Chuyển `sqlserver-replica` và `redis` về `type: ClusterIP`. Ngăn chặn hoàn toàn việc mở cổng cơ sở dữ liệu ra Internet.
+   * Các microservices kết nối với SQL Server qua DNS nội bộ `sqlserver-replica:1433`.
+   * Khi quản trị viên cần dùng SSMS hoặc DBeaver từ máy tính Windows, sử dụng script tiện ích mở kênh an toàn có kiểm soát:
+     ```powershell
+     powershell -ExecutionPolicy Bypass -File scripts/db-connect.ps1
+     ```
+
+3. **Phân vùng mạng theo mô hình Zero-Trust (Kubernetes NetworkPolicy):**
+   * Áp dụng file khai báo `k8s/01-infrastructure/network-policies.yaml`:
+     * **Bảo vệ SQL Server:** Chỉ các Pod mang nhãn microservice nghiệp vụ (`shipment-service`, `customer-service`, `auth-service`,...) mới được phép kết nối TCP cổng 1433.
+     * **Bảo vệ Redis:** Chỉ các Pod cần bộ đệm (`api-gateway`, `shipment-service`, `customer-service`) mới được gửi gói tin đến cổng 6379.
+     * **Cách ly Frontend:** Pod `frontend` chỉ được phép giao tiếp với `api-gateway`, bị chặn hoàn toàn truy cập trực tiếp vào Database hay các microservices nội bộ khác.
 
 ---
 
@@ -524,9 +603,93 @@ kubectl port-forward svc/sqlserver-replica 2433:2433 -n waybill
 
 ### 7.4. Truy Cập Bên Trong Container
 ```powershell
-# Mở Terminal bên trong Pod
 kubectl exec -it <tên-pod> -n waybill -- sh
-
-# Sao chép tệp từ máy host vào bên trong Pod đang chạy
 kubectl cp frontend/js/api.js waybill/<tên-pod-frontend>:/app/frontend/js/api.js
 ```
+
+---
+
+## 8. Quy Trình Phát Triển 2 Vòng (Inner Loop vs Outer Loop) & Triển Khai Thực Tế
+
+Đây là quy trình tiêu chuẩn áp dụng trong các công ty công nghệ lớn: phân tách rõ ràng giữa giai đoạn viết mã kiểm thử cục bộ (nhanh, nhẹ, có debug) và giai đoạn triển khai lên Kubernetes (chuẩn hóa, chịu lỗi, sẵn sàng demo).
+
+```mermaid
+graph LR
+    subgraph Inner_Loop["VÒNG 1: LẬP TRÌNH & KIỂM THỬ LOCAL (INNER LOOP)"]
+        Dev["Chỉnh sửa mã nguồn Java / React"] --> RunIDE["Chạy trực tiếp từ IDE / Hot-reload"]
+        RunIDE --> LocalInfra["Kết nối Container hạ tầng Docker"]
+        LocalInfra --> FastFeedback["Bắt lỗi Breakpoint (< 2 giây)"]
+        FastFeedback --> Dev
+    end
+
+    subgraph Outer_Loop["VÒNG 2: TRIỂN KHAI & KIỂM THỬ KUBERNETES (OUTER LOOP)"]
+        BuildImage["Đóng gói Docker Image"] --> PushK8s["Triển khai lên cụm K8s (Rollout)"]
+        PushK8s --> K8sVerify["Kiểm thử Ingress, HA & NetworkPolicy"]
+    end
+
+    FastFeedback -->|Khi tính năng đã chạy hoàn chỉnh| BuildImage
+```
+
+---
+
+### 8.1. Vòng Lặp Nội Bộ (Inner Loop): Làm Việc Hàng Ngày Trên Máy Tính Cá Nhân
+
+Trong vòng lặp này, Kubernetes trên Docker Desktop có thể tạm tắt để máy tính tiết kiệm 6 - 8 GB RAM và giữ nhiệt độ máy mát mẻ.
+
+#### 1. Cấu hình các container hạ tầng Docker đang phục vụ máy Local:
+Các container hạ tầng chạy ngầm trong Docker cung cấp đầy đủ các cổng cho ứng dụng trên máy tính Windows kết nối:
+
+| Hạ tầng | Tên Container | Cổng kết nối từ Windows Host | Thông tin đăng nhập |
+| :--- | :--- | :--- | :--- |
+| **SQL Server** | `waybill-sqlserver-replica` | `localhost:2433` (hoặc `1433`) | User: `sa`, Pass: `Admin@123456` |
+| **Redis** | `redis` | `localhost:6379` | Không mật khẩu |
+| **Kafka** | `waybill-kafka-1` | `localhost:9092` | KRaft Broker độc lập |
+| **RabbitMQ** | `mini-waybill-rabbitmq` | `localhost:5672` (Web UI: `15672`) | User: `admin`, Pass: `admin` |
+| **MinIO** | `waybill-minio` | `localhost:9000` (Web UI: `9001`) | User: `minioadmin`, Pass: `minioadmin` |
+
+#### 2. Lệnh tối ưu RAM cho máy khi chạy Local:
+Tắt 2 broker phụ để chỉ giữ lại 1 broker Kafka duy nhất cho máy nhẹ:
+```powershell
+docker stop waybill-kafka-2 waybill-kafka-3
+```
+
+#### 3. Chạy và kiểm thử mã nguồn:
+- **Backend (Spring Boot):**
+  Mở project trong IntelliJ IDEA, mở file Application của service cần sửa (ví dụ `ShipmentServiceApplication.java`). Bấm chuột phải chọn **Debug**. Ứng dụng khởi động trong 2 giây, kết nối thẳng vào database `localhost:2433` và Kafka `localhost:9092`.
+- **Frontend (Next.js):**
+  Mở terminal tại thư mục giao diện:
+  ```powershell
+  cd frontend
+  npm run dev
+  ```
+  Truy cập `http://localhost:3000`. Mọi thay đổi trong mã nguồn React được cập nhật tức thời (Hot-Reload).
+
+---
+
+### 8.2. Vòng Lặp Ngoại Vi (Outer Loop): Đóng Gói Và Đưa Lên Kubernetes
+
+Khi một tính năng mới đã được kiểm thử chạy ổn định ở môi trường local và bạn muốn đưa lên cụm Kubernetes để kiểm thử tích hợp hoặc chuẩn bị bài báo cáo/demo:
+
+#### Bước 1: Đóng gói Docker Image mới cho dịch vụ vừa sửa
+```powershell
+docker build -t khanhnv26/shipment-service:latest ./shipment-service
+```
+
+#### Bước 2: Bật lại Kubernetes trên Docker Desktop
+Mở Docker Desktop Settings -> Kubernetes -> Tích chọn Enable Kubernetes -> Bấm Apply & restart.
+
+#### Bước 3: Áp dụng toàn bộ kiến trúc chuẩn hóa
+Mở PowerShell tại thư mục dự án và chạy script tự động:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/deploy-standardized-k8s.ps1
+```
+
+Hoặc cập nhật riêng lẻ một dịch vụ vừa build:
+```powershell
+kubectl rollout restart deployment/shipment-service -n waybill
+kubectl rollout status deployment/shipment-service -n waybill
+```
+
+#### Bước 4: Kiểm tra kết quả qua Ingress
+Mở trình duyệt truy cập `http://localhost` để kiểm chứng toàn bộ luồng nghiệp vụ trên hạ tầng Kubernetes chuẩn hóa.
+
