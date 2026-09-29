@@ -128,7 +128,7 @@ class TrackingServiceImplTest {
                 .status("OUT_FOR_DELIVERY")
                 .build();
 
-        assertThrows(ForbiddenException.class, () -> 
+        assertThrows(ForbiddenException.class, () ->
             trackingService.updateStatus(TRACKING_CODE, request, "ROLE_HUB_OPERATOR", "tracking:update_hub")
         );
     }
@@ -140,7 +140,7 @@ class TrackingServiceImplTest {
                 .status("IN_TRANSIT")
                 .build();
 
-        assertThrows(ForbiddenException.class, () -> 
+        assertThrows(ForbiddenException.class, () ->
             trackingService.updateStatus(TRACKING_CODE, request, "ROLE_HUB_OPERATOR", "tracking:update_hub")
         );
     }
@@ -152,7 +152,7 @@ class TrackingServiceImplTest {
                 .status("ARRIVED_DEST_HUB")
                 .build();
 
-        assertThrows(ForbiddenException.class, () -> 
+        assertThrows(ForbiddenException.class, () ->
             trackingService.updateStatus(TRACKING_CODE, request, "ROLE_HUB_OPERATOR", "tracking:update_hub")
         );
     }
@@ -164,7 +164,7 @@ class TrackingServiceImplTest {
                 .status("DELIVERED")
                 .build();
 
-        assertThrows(ForbiddenException.class, () -> 
+        assertThrows(ForbiddenException.class, () ->
             trackingService.updateStatus(TRACKING_CODE, request, "ROLE_POST_OFFICE_OPERATOR", "tracking:update_post_office")
         );
     }
@@ -177,7 +177,7 @@ class TrackingServiceImplTest {
                 .note("Gom hàng về kho")
                 .build();
 
-        assertThrows(IllegalArgumentException.class, () -> 
+        assertThrows(IllegalArgumentException.class, () ->
             trackingService.updateStatus(TRACKING_CODE, request, "ROLE_POST_OFFICE_OPERATOR", "tracking:update_post_office")
         );
     }

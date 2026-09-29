@@ -11,22 +11,21 @@ import org.app.shipmentservice.dto.request.CancelShipmentRequest;
 import org.app.shipmentservice.dto.request.CreateShipmentRequest;
 import org.app.shipmentservice.dto.response.CustomerValidationResponse;
 import org.app.shipmentservice.dto.response.HubResponse;
-import org.app.shipmentservice.entity.ServiceType;
-import org.app.shipmentservice.entity.Shipment;
-import org.app.shipmentservice.entity.ShipmentStatus;
+import org.app.shipmentservice.entity.*;
 import org.app.shipmentservice.exception.DuplicateRequestException;
 import org.app.shipmentservice.exception.ForbiddenException;
 import org.app.shipmentservice.exception.UnauthorizedException;
-import org.app.shipmentservice.entity.CodSettlementStatus;
 import org.app.shipmentservice.pricing.dto.CalculateTariffRequest;
 import org.app.shipmentservice.pricing.dto.TariffCalculationResponse;
 import org.app.shipmentservice.pricing.service.TariffPricingService;
+import org.app.shipmentservice.repository.OutboxEventRepository;
 import org.app.shipmentservice.repository.ShipmentRepository;
 import org.app.shipmentservice.service.ShipmentService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -49,6 +48,8 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final KafkaTemplate<String,Object> kafkaTemplate;
     private final HubClient hubClient;
     private final TariffPricingService tariffPricingService;
+    private final OutboxEventRepository outboxEventRepository;
+    private final ObjectMapper objectMapper;
 
     private Long resolveCustomerId(String currentUserId) {
         if (currentUserId == null || currentUserId.isBlank() || "null".equalsIgnoreCase(currentUserId)) {
@@ -359,6 +360,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     }
 
     @Override
+    @Transactional
     public Shipment cancelShipment(String trackCode, String currentUserId, String roles, String permissions, CancelShipmentRequest cancelRequest) {
         Shipment shipment = shipmentRepository.findShipmentByTrackingCode(trackCode)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng: " + trackCode));
@@ -389,8 +391,16 @@ public class ShipmentServiceImpl implements ShipmentService {
         log.info("[SHIPMENT] Đơn hàng {} đã được hủy bởi userId: {} (roles: {}, permissions: {})",
                 trackCode, currentUserId, roles, permissions);
 
+        try {
         String redisKey = "shipment-status:" + trackCode;
         redisTemplate.opsForValue().set(redisKey, ShipmentStatus.CANCELLED.name(), Duration.ofDays(7));
+
+        String tombstoneKey = "shipment-cancelled:" + updatedShipment.getTrackingCode().trim().toUpperCase();
+        redisTemplate.opsForValue().set(tombstoneKey, "1", Duration.ofDays(30));
+
+        } catch (Exception e) {
+            log.warn("[SHIPMENT] Không thể cập nhật Redis tombstone cho đơn {}: {}. Vẫn tiếp tục hoàn tất DB và Outbox Event.", trackCode, e.getMessage());
+        }
 
         String actorType;
         String locationDesc;
@@ -426,10 +436,24 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .locationCode(locationDesc)
                 .updateAt(LocalDateTime.now())
                 .build();
+        try {
+            String payLoadJson = objectMapper.writeValueAsString(event);
+            OutboxEvent outboxEvent = OutboxEvent.builder()
+                    .aggregateType("SHIPMENT")
+                    .aggregateId(updatedShipment.getTrackingCode())
+                    .eventType("SHIPMENT_CANCELLED")
+                    .payload(payLoadJson)
+                    .status("PENDING")
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            outboxEventRepository.save(outboxEvent);
 
-        kafkaTemplate.send("tracking-status-events", updatedShipment.getTrackingCode(), event);
+            log.info("[SHIPMENT] Đã tạo Outbox Event cho đơn: {}", trackCode);
 
-        log.info("[SHIPMENT] Đã hủy thành công đơn hàng: {} với ghi chú: {}", trackCode, note);
+        } catch (Exception e) {
+            log.error("[SHIPMENT] Không thể tạo Outbox Event cho {}: {}", trackCode, e.getMessage(), e);
+            throw new RuntimeException("Lỗi tạo sự kiện hủy đơn", e);
+        }
 
         return updatedShipment;
     }

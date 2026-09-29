@@ -8,9 +8,9 @@ import java.util.Optional;
 
 @Repository
 public interface ShipmentRatingRepository extends JpaRepository<ShipmentRating, Long> {
-    
+
     Optional<ShipmentRating> findByTrackingCode(String trackingCode);
 
     boolean existsByTrackingCode(String trackingCode);
-    
+
 }

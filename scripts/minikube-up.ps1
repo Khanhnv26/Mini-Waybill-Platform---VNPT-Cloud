@@ -74,7 +74,7 @@ if ($minioPassword.Length -lt 8) {
     throw "MINIKUBE_MINIO_PASSWORD must be at least 8 characters."
 }
 if ([string]::IsNullOrWhiteSpace($aiApiKey)) { $aiApiKey = "ollama" }
-if ([string]::IsNullOrWhiteSpace($aiBaseUrl)) { $aiBaseUrl = "http://host.minikube.internal:11434/v1" }
+if ([string]::IsNullOrWhiteSpace($aiBaseUrl)) { $aiBaseUrl = "http://host.docker.internal:11434/v1" }
 if ([string]::IsNullOrWhiteSpace($aiModel)) { $aiModel = "qwen2.5:3b" }
 if ([string]::IsNullOrWhiteSpace($minioPublicUrl)) { $minioPublicUrl = "http://storage.waybill.local" }
 

@@ -467,6 +467,8 @@ services:
       - SPRING_DATASOURCE_PASSWORD=Replica@123456
       - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
       - AI_API_KEY=${AI_API_KEY:-ollama}
+      - AI_BASE_URL=${AI_BASE_URL_IN_DOCKER:-http://host.docker.internal:11434/v1}
+      - AI_MODEL=${AI_MODEL:-qwen2.5:3b}
       - LLM_MODEL=${LLM_MODEL:-qwen2.5:3b}
       - MINIO_ENDPOINT=http://minio:9000
       - MINIO_ACCESS_KEY=minioadmin

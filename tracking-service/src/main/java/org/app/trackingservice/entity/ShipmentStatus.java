@@ -18,7 +18,7 @@ public enum ShipmentStatus {
     RETURNED;
 
     public boolean canTransitionTo(ShipmentStatus nextStatus) {
-        
+
         if(nextStatus == null) {
             return false;
         }

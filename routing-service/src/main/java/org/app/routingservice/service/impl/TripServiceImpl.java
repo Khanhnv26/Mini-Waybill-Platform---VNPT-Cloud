@@ -29,6 +29,7 @@ import org.app.routingservice.repository.HandlingEventRepository;
 import org.app.routingservice.service.TripService;
 import org.app.sharedevents.entity.*;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,6 +61,8 @@ public class TripServiceImpl implements TripService {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final SchedulerConfigRepository schedulerConfigRepository;
     private final ObjectProvider<TripService> tripServiceProvider;
+    private final StringRedisTemplate redisTemplate;
+
 
     private String normalizeHubCode(String rawCode) {
         if (rawCode == null || rawCode.isBlank()) {
@@ -353,6 +356,11 @@ public class TripServiceImpl implements TripService {
                 String destination = item.getDestinationHub();
                 Double itemWeight = item.getWeight() != null ? item.getWeight() : 1.0;
 
+                if(isShipmentCancelled(trackingCode)) {
+                    continue;
+                }
+
+
                 if (!isTripTypeCompatible(trip.getTripType(), origin, destination)) {
                     continue;
                 }
@@ -427,6 +435,10 @@ public class TripServiceImpl implements TripService {
                 String trackingCode = assignment.getTrackingCode();
                 String origin;
                 String destination;
+
+                if(isShipmentCancelled(trackingCode)) {
+                    continue;
+                }
 
                 if ("ARRIVED_DEST_HUB".equals(assignment.getStatus())) {
 
@@ -815,7 +827,7 @@ public class TripServiceImpl implements TripService {
                     unloadedCount++;
 
                     RoutingAssignment raOpt = routingAssignmentRepository.findByTrackingCode(item.getTrackingCode()).orElse(null);
-                    boolean isSourceHub = raOpt != null 
+                    boolean isSourceHub = raOpt != null
                             && currentStop.getHubCode().equalsIgnoreCase(raOpt.getSourceHub())
                             && !currentStop.getHubCode().equalsIgnoreCase(raOpt.getDestinationHub());
                     boolean isPostOffice = currentStop.getHubCode().toUpperCase().startsWith("POST-");
@@ -1234,4 +1246,13 @@ public class TripServiceImpl implements TripService {
                 .build());
         return getTripDetail(tripId);
     }
+
+    private boolean isShipmentCancelled(String trackingCode) {
+        if(trackingCode == null || trackingCode.isBlank()) {
+            return false;
+        }
+        String tombstoneKey = "shipment-cancelled:" + trackingCode.trim().toUpperCase();
+        return Boolean.TRUE.equals(redisTemplate.hasKey(tombstoneKey));
+    }
+
 }

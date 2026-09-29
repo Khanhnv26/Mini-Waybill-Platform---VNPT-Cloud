@@ -37,6 +37,12 @@ public class PaymentSuccessConsumer {
 
         Shipment shipment = opt.get();
 
+        if (shipment.getCurrentStatus() == ShipmentStatus.CANCELLED) {
+            log.warn("[SHIPMENT-SERVICE] Bỏ qua thanh toán {} cho đơn đã hủy {}",
+                    event.getPaymentType(), event.getTrackingCode());
+            return;
+        }
+
         if ("COD".equalsIgnoreCase(event.getPaymentType())) {
             shipment.setCurrentStatus(ShipmentStatus.DELIVERED);
             shipment.setCodSettlementStatus(CodSettlementStatus.SETTLED);
