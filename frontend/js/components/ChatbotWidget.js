@@ -359,6 +359,9 @@
                 unreadCount: 0,
                 isMuted: localStorage.getItem('vnpt_chatbot_muted') === 'true',
                 audioCtx: null,
+                titleFlashTimer: null,
+                titleFlashTimeout: null,
+                baseTitle: null,
                 inputText: '',
                 isTyping: false,
                 typingMessage: 'Trợ lý AI đang suy nghĩ...',
@@ -383,6 +386,8 @@
             openChat() {
                 this.isOpen = true;
                 this.unreadCount = 0;
+                this.unlockAudio();
+                this.stopTitleFlash();
                 this.$nextTick(() => {
                     if (this.$refs.inputField) {
                         this.$refs.inputField.focus();
@@ -445,6 +450,7 @@
                 const text = this.inputText.trim();
                 if (!text || this.isTyping) return;
                 this.inputText = '';
+                this.unlockAudio();
 
                 this.messages.push({
                     id: 'usr_' + Date.now(),
@@ -537,7 +543,7 @@
                                 body: payload,
                                 silent: true,
                                 skip403Toast: true,
-                                signal: AbortSignal.timeout(25000)
+                                signal: AbortSignal.timeout(60000)
                             });
                         } else {
                             const baseUrl = (['3000', '80', ''].includes(window.location.port) && window.location.protocol.startsWith('http')) ? '' : 'http://localhost:8080';
@@ -545,7 +551,7 @@
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: payload,
-                                signal: AbortSignal.timeout(25000)
+                                signal: AbortSignal.timeout(60000)
                             });
                         }
                     } catch (e1) {
@@ -890,12 +896,12 @@
                     localStorage.setItem('vnpt_chatbot_muted', this.isMuted ? 'true' : 'false');
                 } catch (e) {}
                 if (!this.isMuted) {
+                    this.unlockAudio();
                     this.playNotificationSound();
                 }
             },
 
-            playNotificationSound() {
-                if (this.isMuted) return;
+            unlockAudio() {
                 try {
                     const AudioContext = window.AudioContext || window.webkitAudioContext;
                     if (!AudioContext) return;
@@ -903,36 +909,90 @@
                         this.audioCtx = new AudioContext();
                     }
                     if (this.audioCtx.state === 'suspended') {
-                        this.audioCtx.resume();
+                        this.audioCtx.resume().catch(() => {});
                     }
-                    const ctx = this.audioCtx;
-                    const now = ctx.currentTime;
-
-                    const osc1 = ctx.createOscillator();
-                    const gain1 = ctx.createGain();
-                    osc1.type = 'sine';
-                    osc1.frequency.setValueAtTime(587.33, now);
-                    gain1.gain.setValueAtTime(0, now);
-                    gain1.gain.linearRampToValueAtTime(0.14, now + 0.02);
-                    gain1.exponentialRampToValueAtTime(0.001, now + 0.22);
-                    osc1.connect(gain1);
-                    gain1.connect(ctx.destination);
-                    osc1.start(now);
-                    osc1.stop(now + 0.24);
-
-                    const osc2 = ctx.createOscillator();
-                    const gain2 = ctx.createGain();
-                    osc2.type = 'sine';
-                    osc2.frequency.setValueAtTime(880.00, now + 0.08);
-                    gain2.gain.setValueAtTime(0, now + 0.08);
-                    gain2.gain.linearRampToValueAtTime(0.18, now + 0.10);
-                    gain2.exponentialRampToValueAtTime(0.001, now + 0.38);
-                    osc2.connect(gain2);
-                    gain2.connect(ctx.destination);
-                    osc2.start(now + 0.08);
-                    osc2.stop(now + 0.40);
                 } catch (e) {
                     console.debug('[Chatbot Audio]:', e);
+                }
+            },
+
+            playNotificationSound() {
+                if (this.isMuted) return;
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioContext) {
+                        this.flashTabTitle();
+                        return;
+                    }
+                    if (!this.audioCtx) {
+                        this.audioCtx = new AudioContext();
+                    }
+                    const ctx = this.audioCtx;
+                    const emitBeep = () => {
+                        const now = ctx.currentTime;
+
+                        const osc1 = ctx.createOscillator();
+                        const gain1 = ctx.createGain();
+                        osc1.type = 'sine';
+                        osc1.frequency.setValueAtTime(587.33, now);
+                        gain1.gain.setValueAtTime(0, now);
+                        gain1.gain.linearRampToValueAtTime(0.18, now + 0.02);
+                        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+                        osc1.connect(gain1);
+                        gain1.connect(ctx.destination);
+                        osc1.start(now);
+                        osc1.stop(now + 0.26);
+
+                        const osc2 = ctx.createOscillator();
+                        const gain2 = ctx.createGain();
+                        osc2.type = 'sine';
+                        osc2.frequency.setValueAtTime(880.00, now + 0.08);
+                        gain2.gain.setValueAtTime(0, now + 0.08);
+                        gain2.gain.linearRampToValueAtTime(0.22, now + 0.10);
+                        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+                        osc2.connect(gain2);
+                        gain2.connect(ctx.destination);
+                        osc2.start(now + 0.08);
+                        osc2.stop(now + 0.44);
+
+                        if (ctx.state !== 'running') {
+                            this.flashTabTitle();
+                        }
+                    };
+                    if (ctx.state === 'suspended') {
+                        ctx.resume().then(emitBeep).catch(() => this.flashTabTitle());
+                    } else {
+                        emitBeep();
+                    }
+                } catch (e) {
+                    console.debug('[Chatbot Audio]:', e);
+                    this.flashTabTitle();
+                }
+            },
+
+            flashTabTitle() {
+                if (this.isOpen || this.titleFlashTimer) return;
+                this.baseTitle = document.title;
+                let showAlert = false;
+                this.titleFlashTimer = setInterval(() => {
+                    document.title = showAlert ? this.baseTitle : 'Tin nhắn mới từ Trợ lý ảo VNPT';
+                    showAlert = !showAlert;
+                }, 900);
+                this.titleFlashTimeout = setTimeout(() => this.stopTitleFlash(), 9000);
+            },
+
+            stopTitleFlash() {
+                if (this.titleFlashTimer) {
+                    clearInterval(this.titleFlashTimer);
+                    this.titleFlashTimer = null;
+                }
+                if (this.titleFlashTimeout) {
+                    clearTimeout(this.titleFlashTimeout);
+                    this.titleFlashTimeout = null;
+                }
+                if (this.baseTitle) {
+                    document.title = this.baseTitle;
+                    this.baseTitle = null;
                 }
             }
         }

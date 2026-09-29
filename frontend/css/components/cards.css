@@ -43,15 +43,73 @@
 .hero-pattern {
     background: linear-gradient(145deg, #083b77 0%, #0a4d9c 60%, #0f5eb8 100%);
     position: relative;
+    --mouse-x: 50%;
+    --mouse-y: 40%;
+    --parallax-x: 0px;
+    --parallax-y: 0px;
+    --glow-opacity: 0.75;
 }
 
 .hero-pattern::after {
     content: '';
     position: absolute;
-    inset: 0;
-    background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1.5px, transparent 1.5px);
+    inset: -20px;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.14) 1.5px, transparent 1.5px);
     background-size: 24px 24px;
+    transform: translate(var(--parallax-x, 0px), var(--parallax-y, 0px));
+    transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1);
     pointer-events: none;
+    z-index: 0;
+}
+
+.hero-pattern .hero-spotlight {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+        550px circle at var(--mouse-x, 50%) var(--mouse-y, 40%),
+        rgba(56, 189, 248, 0.32) 0%,
+        rgba(0, 102, 204, 0.2) 35%,
+        rgba(8, 59, 119, 0) 70%
+    );
+    opacity: var(--glow-opacity, 0.75);
+    transition: opacity 0.4s ease;
+    z-index: 1;
+}
+
+.hero-pattern.is-idle .hero-spotlight {
+    animation: heroAmbientDrift 7s ease-in-out infinite alternate;
+}
+
+@keyframes heroAmbientDrift {
+    0% {
+        opacity: 0.6;
+        transform: scale(0.96) translate(-10px, -6px);
+    }
+    50% {
+        opacity: 0.85;
+        transform: scale(1.03) translate(12px, 8px);
+    }
+    100% {
+        opacity: 0.65;
+        transform: scale(0.98) translate(-6px, 10px);
+    }
+}
+
+/* Tab content transition giữa Tra Cứu và Ước Tính */
+.hero-tab-fade-enter-active,
+.hero-tab-fade-leave-active {
+    transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hero-tab-fade-enter-from {
+    opacity: 0;
+    transform: translateX(12px);
+}
+
+.hero-tab-fade-leave-to {
+    opacity: 0;
+    transform: translateX(-12px);
 }
 
 .page-header-banner {

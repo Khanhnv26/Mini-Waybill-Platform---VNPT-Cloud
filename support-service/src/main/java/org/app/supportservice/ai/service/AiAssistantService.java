@@ -49,8 +49,8 @@ public class AiAssistantService {
         } catch (AiUnavailableException e) {
             throw e;
         } catch (Exception e) {
-            log.error("[AI Chat] Lỗi khi xử lý qua Gemini: {}", e.getMessage(), e);
-            throw new AiUnavailableException("gemini call failed", e);
+            log.error("[AI Chat] Lỗi khi xử lý qua AI: {}", e.getMessage(), e);
+            throw new AiUnavailableException("AI call failed", e);
         }
     }
 }

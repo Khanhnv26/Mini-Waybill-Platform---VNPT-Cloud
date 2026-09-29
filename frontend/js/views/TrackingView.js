@@ -31,6 +31,46 @@
             const isGuest = computed(() => !currentUser.value);
 
             const publicHeroTab = ref('tracking');
+            const heroBannerRef = ref(null);
+            let heroRafId = null;
+
+            const handleHeroMouseMove = (e) => {
+                if (!heroBannerRef.value) return;
+                const rect = heroBannerRef.value.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const parallaxX = ((x - centerX) / Math.max(1, centerX)) * -8;
+                const parallaxY = ((y - centerY) / Math.max(1, centerY)) * -6;
+
+                if (heroRafId) cancelAnimationFrame(heroRafId);
+                heroRafId = requestAnimationFrame(() => {
+                    if (!heroBannerRef.value) return;
+                    heroBannerRef.value.style.setProperty('--mouse-x', `${x}px`);
+                    heroBannerRef.value.style.setProperty('--mouse-y', `${y}px`);
+                    heroBannerRef.value.style.setProperty('--parallax-x', `${parallaxX.toFixed(1)}px`);
+                    heroBannerRef.value.style.setProperty('--parallax-y', `${parallaxY.toFixed(1)}px`);
+                    heroBannerRef.value.style.setProperty('--glow-opacity', '0.9');
+                    heroBannerRef.value.classList.remove('is-idle');
+                });
+            };
+
+            const handleHeroMouseEnter = () => {
+                if (heroBannerRef.value) {
+                    heroBannerRef.value.classList.remove('is-idle');
+                }
+            };
+
+            const handleHeroMouseLeave = () => {
+                if (!heroBannerRef.value) return;
+                heroBannerRef.value.classList.add('is-idle');
+                heroBannerRef.value.style.setProperty('--mouse-x', '50%');
+                heroBannerRef.value.style.setProperty('--mouse-y', '40%');
+                heroBannerRef.value.style.setProperty('--parallax-x', '0px');
+                heroBannerRef.value.style.setProperty('--parallax-y', '0px');
+                heroBannerRef.value.style.setProperty('--glow-opacity', '0.65');
+            };
             const isMapExpanded = ref(false);
 
             // Đảm bảo DOM container của bản đồ đã được render, hiển thị và có kích thước thực tế trước khi nạp Leaflet
@@ -1505,6 +1545,7 @@
             });
 
             onUnmounted(() => {
+                if (heroRafId) cancelAnimationFrame(heroRafId);
                 if (counterAnimId) cancelAnimationFrame(counterAnimId);
                 disconnectWebSocket();
                 stopLivePolling();
@@ -1757,6 +1798,10 @@
                 currentUser,
                 isGuest,
                 publicHeroTab,
+                heroBannerRef,
+                handleHeroMouseMove,
+                handleHeroMouseEnter,
+                handleHeroMouseLeave,
                 isMapExpanded,
                 toggleMapExpanded,
                 quickQuote,
@@ -1771,7 +1816,15 @@
         template: `
             <div class="w-full">
                 <div v-if="isGuest" class="space-y-8 animate-fade-slide">
-                    <section v-if="!currentShipment" class="hero-pattern text-white pt-10 pb-16 px-4 sm:px-6 lg:px-8 rounded-3xl relative overflow-hidden shadow-xl shadow-blue-900/10">
+                    <section 
+                        v-if="!currentShipment" 
+                        ref="heroBannerRef"
+                        @mousemove="handleHeroMouseMove"
+                        @mouseenter="handleHeroMouseEnter"
+                        @mouseleave="handleHeroMouseLeave"
+                        class="hero-pattern is-idle text-white pt-10 pb-16 px-4 sm:px-6 lg:px-8 rounded-3xl relative overflow-hidden shadow-xl shadow-blue-900/10"
+                    >
+                        <div class="hero-spotlight"></div>
                         <div class="max-w-4xl mx-auto text-center space-y-3 mb-8 relative z-10">
                             <div class="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-xs font-semibold text-blue-100 shadow-xs whitespace-nowrap">
                                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0"></span>
@@ -1780,20 +1833,26 @@
                             <h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight sm:whitespace-nowrap">
                                 Định Vị Bưu Gửi &amp; Ước Tính Cước Phí
                             </h1>
-                            <p class="text-xs sm:text-sm text-blue-100/90 max-w-2xl mx-auto font-normal leading-relaxed">
-                                Theo dõi lộ trình bưu phẩm theo thời gian thực hoặc dự toán cước bưu chính chính xác chỉ trong tích tắc.
+                            <p class="text-xs sm:text-sm text-blue-100/90 max-w-xl mx-auto font-normal leading-relaxed" style="text-wrap: balance;">
+                                Theo dõi lộ trình bưu phẩm theo thời gian thực hoặc dự toán cước bưu chính chính xác chỉ trong tích&nbsp;tắc.
                             </p>
                         </div>
                         <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl p-2.5 sm:p-3 text-slate-800 border border-slate-100 relative z-10 transition-all duration-300">
-                            <div class="grid grid-cols-2 gap-2 border-b border-slate-100 pb-2 px-1 sm:px-2">
+                            <!-- Sliding Tab Switcher -->
+                            <div class="relative bg-slate-100/80 p-1 rounded-xl flex items-center mb-1">
+                                <div 
+                                    class="absolute top-1 bottom-1 transition-all duration-300 ease-out bg-blue-600 rounded-lg shadow-sm"
+                                    :style="{
+                                        left: publicHeroTab === 'tracking' ? '4px' : 'calc(50% + 2px)',
+                                        width: 'calc(50% - 6px)'
+                                    }"
+                                ></div>
                                 <button 
                                     @click="publicHeroTab = 'tracking'" 
                                     type="button" 
                                     :class="[
-                                        'w-full flex items-center justify-center space-x-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap',
-                                        publicHeroTab === 'tracking'
-                                            ? 'bg-blue-600 text-white shadow-sm'
-                                            : 'text-slate-600 hover:text-blue-600 hover:bg-slate-100'
+                                        'relative z-10 flex-1 flex items-center justify-center space-x-2 py-2.5 px-3 rounded-lg text-xs font-bold transition-colors duration-200 cursor-pointer whitespace-nowrap',
+                                        publicHeroTab === 'tracking' ? 'text-white' : 'text-slate-600 hover:text-blue-600'
                                     ]"
                                 >
                                     <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
@@ -1803,98 +1862,101 @@
                                     @click="publicHeroTab = 'quote'" 
                                     type="button" 
                                     :class="[
-                                        'w-full flex items-center justify-center space-x-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap',
-                                        publicHeroTab === 'quote'
-                                            ? 'bg-blue-600 text-white shadow-sm'
-                                            : 'text-slate-600 hover:text-blue-600 hover:bg-slate-100'
+                                        'relative z-10 flex-1 flex items-center justify-center space-x-2 py-2.5 px-3 rounded-lg text-xs font-bold transition-colors duration-200 cursor-pointer whitespace-nowrap',
+                                        publicHeroTab === 'quote' ? 'text-white' : 'text-slate-600 hover:text-blue-600'
                                     ]"
                                 >
                                     <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                                     <span>Ước Tính Cước Nhanh</span>
                                 </button>
                             </div>
-                            <div v-show="publicHeroTab === 'tracking'" class="p-3 sm:p-4 transition-all duration-200">
-                                <form @submit.prevent="fetchTrackingData()" class="flex flex-col sm:flex-row gap-2.5">
-                                    <div class="relative flex-1 min-w-0">
-                                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-                                        </div>
-                                        <input 
-                                            v-model="searchCode" 
-                                            @input="validationError = ''" 
-                                            type="text" 
-                                            maxlength="35"
-                                            placeholder="Nhập mã vận đơn (VD: VNPT-HN-SG-9821 hoặc WB...)..." 
-                                            class="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all duration-200"
-                                        />
-                                        <button 
-                                            v-if="searchCode" 
-                                            type="button" 
-                                            @click="searchCode = ''; validationError = ''" 
-                                            class="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
-                                        >
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                                        </button>
-                                    </div>
-                                    <button 
-                                        type="submit" 
-                                        :disabled="isLoading" 
-                                        class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-blue-600/25 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer flex items-center justify-center space-x-2 whitespace-nowrap disabled:opacity-50"
-                                    >
-                                        <span v-if="isLoading" class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
-                                        <span>{{ isLoading ? 'Đang Tra Cứu...' : 'Tra Cứu' }}</span>
-                                        <svg v-if="!isLoading" class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-                                    </button>
-                                </form>
-                                <div v-if="validationError" class="text-rose-600 text-xs font-semibold flex items-center space-x-1.5 pt-2 animate-pulse">
-                                    <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-                                    <span>{{ validationError }}</span>
-                                </div>
 
-                                <div class="mt-2.5 flex flex-wrap items-center justify-between text-[11px] text-slate-400 px-1 gap-2">
-                                    <span class="whitespace-nowrap">
-                                        Mã mẫu kiểm tra: 
-                                        <button type="button" @click="fillSampleCode('VNPT-HN-SG-9821')" class="font-mono text-blue-600 hover:underline font-bold transition-colors cursor-pointer">VNPT-HN-SG-9821</button> 
-                                        hoặc 
-                                        <button type="button" @click="fillSampleCode('WB902188214')" class="font-mono text-blue-600 hover:underline font-bold transition-colors cursor-pointer">WB902188214</button>
-                                    </span>
-                                    <span class="hidden sm:inline text-slate-400 whitespace-nowrap">Tự động định vị chặng trung chuyển</span>
-                                </div>
-                            </div>
-                            <div v-show="publicHeroTab === 'quote'" class="p-3 sm:p-4 transition-all duration-200">
-                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                    <div>
-                                        <label class="block text-[11px] font-bold text-slate-600 mb-1 whitespace-nowrap">Tỉnh Gửi</label>
-                                        <select v-model="quickQuote.senderProvince" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors">
-                                            <option value="Hà Nội">Hà Nội</option>
-                                            <option value="Hồ Chí Minh">Hồ Chí Minh</option>
-                                            <option value="Đà Nẵng">Đà Nẵng</option>
-                                            <option value="Hải Phòng">Hải Phòng</option>
-                                            <option value="Cần Thơ">Cần Thơ</option>
-                                        </select>
+                            <div class="relative overflow-hidden">
+                                <transition name="hero-tab-fade" mode="out-in">
+                                    <div v-if="publicHeroTab === 'tracking'" key="hero-tab-tracking" class="p-3 sm:p-4">
+                                        <form @submit.prevent="fetchTrackingData()" class="flex flex-col sm:flex-row gap-2.5">
+                                            <div class="relative flex-1 min-w-0">
+                                                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                                                </div>
+                                                <input 
+                                                    v-model="searchCode" 
+                                                    @input="validationError = ''" 
+                                                    type="text" 
+                                                    maxlength="35"
+                                                    placeholder="Nhập mã vận đơn (VD: VNPT-HN-SG-9821 hoặc WB...)..." 
+                                                    class="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all duration-200"
+                                                />
+                                                <button 
+                                                    v-if="searchCode" 
+                                                    type="button" 
+                                                    @click="searchCode = ''; validationError = ''" 
+                                                    class="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                                                >
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                </button>
+                                            </div>
+                                            <button 
+                                                type="submit" 
+                                                :disabled="isLoading" 
+                                                class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-blue-600/25 transition-all duration-200 hover:-translate-y-0.5 active:scale-95 cursor-pointer flex items-center justify-center space-x-2 whitespace-nowrap disabled:opacity-50"
+                                            >
+                                                <span v-if="isLoading" class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                                                <span>{{ isLoading ? 'Đang Tra Cứu...' : 'Tra Cứu' }}</span>
+                                                <svg v-if="!isLoading" class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                                            </button>
+                                        </form>
+                                        <div v-if="validationError" class="text-rose-600 text-xs font-semibold flex items-center space-x-1.5 pt-2 animate-pulse">
+                                            <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                                            <span>{{ validationError }}</span>
+                                        </div>
+
+                                        <div class="mt-2.5 flex flex-wrap items-center justify-between text-[11px] text-slate-400 px-1 gap-2">
+                                            <span class="whitespace-nowrap">
+                                                Mã mẫu kiểm tra: 
+                                                <button type="button" @click="fillSampleCode('VNPT-HN-SG-9821')" class="font-mono text-blue-600 hover:underline font-bold transition-colors cursor-pointer">VNPT-HN-SG-9821</button> 
+                                                hoặc 
+                                                <button type="button" @click="fillSampleCode('WB902188214')" class="font-mono text-blue-600 hover:underline font-bold transition-colors cursor-pointer">WB902188214</button>
+                                            </span>
+                                            <span class="hidden sm:inline text-slate-400 whitespace-nowrap">Tự động định vị chặng trung chuyển</span>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label class="block text-[11px] font-bold text-slate-600 mb-1 whitespace-nowrap">Tỉnh Nhận</label>
-                                        <select v-model="quickQuote.receiverProvince" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors">
-                                            <option value="Hồ Chí Minh">Hồ Chí Minh</option>
-                                            <option value="Hà Nội">Hà Nội</option>
-                                            <option value="Đà Nẵng">Đà Nẵng</option>
-                                            <option value="Cần Thơ">Cần Thơ</option>
-                                            <option value="Hải Phòng">Hải Phòng</option>
-                                        </select>
+                                    <div v-else-if="publicHeroTab === 'quote'" key="hero-tab-quote" class="p-3 sm:p-4">
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            <div>
+                                                <label class="block text-[11px] font-bold text-slate-600 mb-1 whitespace-nowrap">Tỉnh Gửi</label>
+                                                <select v-model="quickQuote.senderProvince" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors">
+                                                    <option value="Hà Nội">Hà Nội</option>
+                                                    <option value="Hồ Chí Minh">Hồ Chí Minh</option>
+                                                    <option value="Đà Nẵng">Đà Nẵng</option>
+                                                    <option value="Hải Phòng">Hải Phòng</option>
+                                                    <option value="Cần Thơ">Cần Thơ</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="block text-[11px] font-bold text-slate-600 mb-1 whitespace-nowrap">Tỉnh Nhận</label>
+                                                <select v-model="quickQuote.receiverProvince" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors">
+                                                    <option value="Hồ Chí Minh">Hồ Chí Minh</option>
+                                                    <option value="Hà Nội">Hà Nội</option>
+                                                    <option value="Đà Nẵng">Đà Nẵng</option>
+                                                    <option value="Cần Thơ">Cần Thơ</option>
+                                                    <option value="Hải Phòng">Hải Phòng</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="block text-[11px] font-bold text-slate-600 mb-1 whitespace-nowrap">Trọng Lượng (Gram)</label>
+                                                <input v-model.number="quickQuote.weightGram" type="number" step="100" min="50" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors" />
+                                            </div>
+                                        </div>
+                                        <div class="mt-3 flex items-center justify-between pt-2.5 border-t border-slate-100">
+                                            <span class="text-xs text-slate-500 whitespace-nowrap">Ước tính cước: <strong class="text-blue-700 font-bold font-mono text-sm">{{ Number(quickQuote.estimatedFee).toLocaleString('vi-VN') }} đ</strong> (1-2 ngày)</span>
+                                            <button type="button" @click="$emit('switch-tab', 'calculator')" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors flex items-center space-x-1 whitespace-nowrap cursor-pointer">
+                                                <span>Bảng tính chi tiết</span>
+                                                <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label class="block text-[11px] font-bold text-slate-600 mb-1 whitespace-nowrap">Trọng Lượng (Gram)</label>
-                                        <input v-model.number="quickQuote.weightGram" type="number" step="100" min="50" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors" />
-                                    </div>
-                                </div>
-                                <div class="mt-3 flex items-center justify-between pt-2.5 border-t border-slate-100">
-                                    <span class="text-xs text-slate-500 whitespace-nowrap">Ước tính cước: <strong class="text-blue-700 font-bold font-mono text-sm">{{ Number(quickQuote.estimatedFee).toLocaleString('vi-VN') }} đ</strong> (1-2 ngày)</span>
-                                    <button type="button" @click="$emit('switch-tab', 'calculator')" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors flex items-center space-x-1 whitespace-nowrap cursor-pointer">
-                                        <span>Bảng tính chi tiết</span>
-                                        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                                    </button>
-                                </div>
+                                </transition>
                             </div>
                         </div>
                     </section>
