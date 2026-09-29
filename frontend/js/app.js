@@ -1145,7 +1145,6 @@
     if (window.TripsView) app.component('TripsView', window.TripsView);
     if (window.ShipperView) app.component('ShipperView', window.ShipperView);
     if (window.ShipperDirectoryView) app.component('ShipperDirectoryView', window.ShipperDirectoryView);
-    if (window.DispatchSimulationView) app.component('DispatchSimulationView', window.DispatchSimulationView);
     if (window.CustomerView) app.component('CustomerView', window.CustomerView);
     if (window.AdminRbacView) app.component('AdminRbacView', window.AdminRbacView);
     if (window.ReportView) app.component('ReportView', window.ReportView);
