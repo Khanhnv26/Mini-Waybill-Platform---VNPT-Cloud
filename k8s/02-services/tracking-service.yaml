@@ -18,9 +18,10 @@ spec:
       containers:
         - name: tracking-service
           image: khanhnv26/tracking-service:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8084
+            - name: http
+              containerPort: 8084
           env:
             - name: SERVER_PORT
               value: "8084"
@@ -29,13 +30,19 @@ spec:
             - name: SPRING_DATASOURCE_PRIMARY_USERNAME
               value: "sa"
             - name: SPRING_DATASOURCE_PRIMARY_PASSWORD
-              value: "Replica@123456"
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: db-password
             - name: SPRING_DATASOURCE_REPLICA_JDBC_URL
               value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=tracking_db;encrypt=true;trustServerCertificate=true;"
             - name: SPRING_DATASOURCE_REPLICA_USERNAME
               value: "sa"
             - name: SPRING_DATASOURCE_REPLICA_PASSWORD
-              value: "Replica@123456"
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: db-password
             - name: SPRING_DATA_REDIS_HOST
               value: "redis"
             - name: SPRING_DATA_REDIS_PORT

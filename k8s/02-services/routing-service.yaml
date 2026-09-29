@@ -18,16 +18,20 @@ spec:
       containers:
         - name: routing-service
           image: khanhnv26/routing-service:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8083
+            - name: http
+              containerPort: 8083
           env:
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=routing_db;encrypt=true;trustServerCertificate=true;"
             - name: SPRING_DATASOURCE_USERNAME
               value: "sa"
             - name: SPRING_DATASOURCE_PASSWORD
-              value: "Replica@123456"
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: db-password
             - name: SPRING_JPA_HIBERNATE_DDL_AUTO
               value: "update"
             - name: SPRING_FLYWAY_ENABLED

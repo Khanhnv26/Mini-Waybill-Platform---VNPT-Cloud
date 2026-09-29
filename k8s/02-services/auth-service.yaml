@@ -18,16 +18,20 @@ spec:
       containers:
         - name: auth-service
           image: khanhnv26/auth-service:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8087
+            - name: http
+              containerPort: 8087
           env:
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=auth_db;encrypt=true;trustServerCertificate=true;"
             - name: SPRING_DATASOURCE_USERNAME
               value: "sa"
             - name: SPRING_DATASOURCE_PASSWORD
-              value: "Replica@123456"
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: db-password
             - name: SPRING_DATA_REDIS_HOST
               value: "redis"
             - name: SPRING_DATA_REDIS_PORT
@@ -43,7 +47,10 @@ spec:
             - name: SPRING_FLYWAY_ENABLED
               value: "false"
             - name: JWT_SECRET
-              value: "9a7b8c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b"
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: jwt-secret
           resources:
             requests:
               memory: "256Mi"

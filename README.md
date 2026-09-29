@@ -15,7 +15,7 @@
 [![Telegram Bot](https://img.shields.io/badge/Telegram%20Bot-Long--Polling%20Dispatch-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://core.telegram.org/bots)
 [![Google OAuth2](https://img.shields.io/badge/Google%20OAuth2-Identity%20Services%20SSO-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://developers.google.com/identity)
 [![Docker](https://img.shields.io/badge/Docker%20Compose-Containerized%20HA-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-16%20Pods%20Orchestration-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://kubernetes.io/)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-Minikube%20Local%20Development-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://kubernetes.io/)
 [![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-Smart%20Monorepo%20CI%2FCD-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/features/actions)
 [![Swagger / OpenAPI](https://img.shields.io/badge/OpenAPI-Springdoc%203.1.0-85EA2D?style=for-the-badge&logo=openapiinitiative&logoColor=black)](https://springdoc.org/)
 [![Quartz Scheduler](https://img.shields.io/badge/Quartz-Enterprise%20Scheduler-007ACC?style=for-the-badge&logo=spring&logoColor=white)](https://www.quartz-scheduler.org/)
@@ -268,7 +268,7 @@ Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, m�
 | **09** | [**Quyết Toán COD & Báo Cáo Đối Soát Dòng Tiền**](docs/09-cod-settlement-and-financial-reconciliation.md) | Kiến trúc máy trạng thái quyết toán COD 3 pha (`UNSETTLED` -> `PENDING_SETTLEMENT` -> `SETTLED`), nghiệp vụ bưu tá nộp quỹ ca phát, bưu cục kiểm đếm nhập két, đồng bộ Event-Driven qua Kafka sang `report-service` (Port 8091) và xuất file Excel 2-sheet đối soát tài chính theo chuẩn kiểm toán. |
 | **10** | [**Container Hóa Toàn Trình & Điều Phối HA (Docker & Compose)**](docs/10-docker-containerization-and-ha-orchestration.md) | Quy trình đóng gói Dockerfile chuẩn Java 21 / Node.js, quản trị Registry Docker Hub, xử lý bẫy mạng `SERVER_PORT` & Docker DNS, và **Bộ Boilerplate độc lập 23 Containers** (Kafka KRaft, Redis, SQL Server Volume, Eureka Peer, Nginx Failover). |
 | **11** | [**CI/CD Tự Động Hóa Với GitHub Actions (Microservices Monorepo)**](docs/11-cicd-github-actions-automation.md) | Lý thuyết nền tảng CI/CD & DevOps, kiến trúc 3-Stage Pipeline, bộ lọc thay đổi thông minh (`paths-filter`), ma trận build song song (`matrix`), kỹ thuật cách ly lỗi `fail-fast: false`, gắn nhãn Git SHA bất biến và Bot Telegram cảnh báo thời gian thực. |
-| **12** | [**Điều Phối Toàn Trình Trên Kubernetes (K8s Architecture & Troubleshooting)**](docs/12-kubernetes-orchestration-and-deployment.md) | Kiến trúc cụm K8s 16 Pods (`namespace: waybill`), lưu trữ bền vững SQL Server PVC 5GB, phân biệt ClusterIP vs LoadBalancer, giải quyết 4 bẫy kỹ thuật kinh điển (Eureka IP discovery, Gateway LoadBalancer, Redis host, Kafka consumer bootstrap) và sổ tay kubectl thực chiến. |
+| **12** | [**Điều Phối Toàn Trình Trên Kubernetes (K8s Architecture & Troubleshooting)**](docs/12-kubernetes-orchestration-and-deployment.md) | Kiến trúc Kubernetes cho 12 microservices nghiệp vụ, API Gateway, Frontend và hạ tầng; SQL Server PVC, Ingress, xử lý Eureka/Redis/Kafka và sổ tay kubectl thực chiến. |
 | **13** | [**Động Cơ Định Giá & Ma Trận Cước Bưu Chính**](docs/13-pricing-engine-and-tariff-matrix.md) | Công thức quy đổi khối lượng thể tích ($L \times W \times H / 5000$), phân vùng cước Nội tỉnh vs Liên miền, 3 gói phân tầng `ECO`, `STANDARD`, `EXPRESS`, cơ cấu phụ phí (Xăng dầu 6%, COD 1%, Bảo hiểm 0.5%) và Boilerplate Bảng cước động lưu CSDL. |
 | **14** | [**Trợ Lý Ảo GenAI & Cơ Chế Spring AI Tool Calling**](docs/14-spring-ai-agent-and-support-ticketing.md) | Kiến trúc On-Premise LLM với Ollama (`qwen2.5:7b`), cơ chế Spring AI `ChatClient` Function Calling tự động gọi Feign Client tra cứu vận đơn & tính cước, kỹ thuật Prompt Engineering chống ảo giác và xử lý dự phòng khi AI quá tải. |
 | **15** | [**Đếm Ngược SLA RabbitMQ & Xử Lý Hủy Đơn Liên Dịch Vụ**](docs/15-rabbitmq-priority-queue-and-sla-dead-letter-patterns.md) | Kiến trúc Polyglot Messaging (RabbitMQ + Kafka + OpenFeign), bộ đếm ngược SLA 120s bằng Message TTL + Dead-Letter Exchange (DLX), tự động hủy đơn liên dịch vụ qua Feign (`shipment:cancel_all`), giải phóng tải chuyến xe & tồn kho kho bãi (`routing-service`), và cơ chế tương thích kép mốc thời gian Kafka. |
@@ -279,24 +279,35 @@ Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, m�
 
 ## 5. Hướng Dẫn Khởi Chạy Nhanh (Quickstart)
 
-### Cách 1: Khởi chạy toàn bộ hệ sinh thái bằng Kubernetes (Khuyên dùng - 1 Phút)
-Triển khai toàn bộ 16 Pods (11 Microservices, Kafka KRaft, Redis, Eureka, SQL Server PVC 5GB, Frontend) chỉ với 1 bước:
+### Cách 1: Khởi chạy trên Minikube (Hyper-V)
+Minikube triển khai 12 microservices nghiệp vụ, API Gateway, Frontend, Kafka, Redis, Eureka, RabbitMQ, MinIO và SQL Server có PVC. Profile mặc định cần khoảng 6 CPU, 10 GiB RAM và 40 GiB đĩa; có thể điều chỉnh qua tham số script.
 
-```bash
-# 1. Triển khai theo thứ tự phân tầng K8s
-kubectl apply -f k8s/00-namespaces/
-kubectl apply -f k8s/01-infrastructure/
-kubectl apply -f k8s/02-services/
+```powershell
+# Tạo cấu hình local (thay tất cả giá trị ReplaceWith bằng giá trị riêng)
+Copy-Item .env.minikube.example .env.minikube
+notepad .env.minikube
 
-# 2. Kiểm tra toàn bộ 16 Pods đã sẵn sàng (1/1 Running)
-kubectl get pods -n waybill
+# Chạy PowerShell có quyền truy cập Hyper-V
+.\scripts\minikube-up.ps1
 ```
 
-* **Web Portal:** [http://localhost](http://localhost) (Cổng 80) hoặc [http://localhost:3000](http://localhost:3000)
-* **API Gateway:** [http://localhost:8080](http://localhost:8080)
-* **SQL Server Database:** `localhost:2433` (`sa` / `Replica@123456`)
-* **Redis Cache:** `localhost:6379`
-* **Eureka Dashboard:** Mở qua lệnh `kubectl port-forward svc/eureka-peer1 8761:8761 -n waybill` -> [http://localhost:8761](http://localhost:8761)
+Script khởi động profile Hyper-V, bật Ingress, build và nạp image local, tạo Kubernetes Secrets từ `.env.minikube`, khởi tạo database rồi triển khai ứng dụng. Thêm dòng IP mà script in ra vào `C:\Windows\System32\drivers\etc\hosts` bằng quyền Administrator:
+
+```text
+<MINIKUBE_IP> waybill.local api.waybill.local storage.waybill.local
+```
+
+* **Web Portal:** [http://waybill.local](http://waybill.local)
+* **API Gateway:** [http://api.waybill.local](http://api.waybill.local)
+* **Tệp MinIO public:** `http://storage.waybill.local`; console qua `kubectl port-forward svc/minio 9001:9001 -n waybill`.
+* **SQL Server:** chạy `kubectl port-forward svc/sqlserver-replica 2433:2433 -n waybill`, sau đó kết nối tới `localhost,2433` bằng `sa` và mật khẩu trong `.env.minikube`.
+* **Eureka:** chạy `kubectl port-forward svc/eureka-peer1 8761:8761 -n waybill`, sau đó mở [http://localhost:8761](http://localhost:8761).
+* **Cập nhật một service:** `.\scripts\rebuild-and-deploy.ps1 -Service shipment-service`
+* **Dừng cụm:** `minikube stop -p minikube` (giữ lại PVC và dữ liệu).
+
+Thay đổi tài nguyên profile theo máy host, ví dụ: `.\scripts\minikube-up.ps1 -Cpus 4 -MemoryMb 8192 -DiskSize 30g`.
+Support AI mặc định gọi Ollama trên host tại `AI_BASE_URL` trong `.env.minikube`; Ollama cần chạy và lắng nghe trên địa chỉ có thể truy cập từ Minikube để chức năng AI hoạt động.
+Nếu PVC SQL Server đã có dữ liệu, đặt `MINIKUBE_DB_PASSWORD` đúng với mật khẩu `sa` đang dùng; không xóa PVC để xử lý lỗi đăng nhập.
 
 ---
 
@@ -391,8 +402,8 @@ mini-waybill-platform/
 │   ├── 16-minio-object-storage-and-s3-boilerplate.md
 │   └── 17-vietqr-payment-gateway-and-realtime-reconciliation.md
 │
-├── k8s/                       # Manifests Kubernetes (00-namespace, 01-infrastructure, 02-services)
-├── scripts/                   # Script tự động hóa đồng bộ DB (sync-db-to-k8s.ps1)
+├── k8s/                       # Kubernetes manifests và overlay Minikube
+├── scripts/                   # Script Minikube và đồng bộ dữ liệu DB
 ├── nginx/                     # Cấu hình Nginx Edge Load Balancer (nginx.conf)
 ├── api-gateway/               # Spring Cloud Gateway HA (Port 8080 & 8088)
 ├── service-registry/          # Netflix Eureka Server Peer-to-Peer (Port 8761 & 8762)

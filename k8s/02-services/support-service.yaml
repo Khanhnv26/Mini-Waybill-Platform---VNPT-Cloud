@@ -18,29 +18,70 @@ spec:
       containers:
         - name: support-service
           image: khanhnv26/support-service:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8093
+            - name: http
+              containerPort: 8093
           env:
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=support_db;encrypt=true;trustServerCertificate=true;"
             - name: SPRING_DATASOURCE_USERNAME
               value: "sa"
             - name: SPRING_DATASOURCE_PASSWORD
-              value: "Replica@123456"
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: db-password
             - name: SPRING_JPA_HIBERNATE_DDL_AUTO
               value: "validate"
             - name: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
               value: "http://eureka-peer1:8761/eureka/"
             - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS
               value: "true"
-            - name: GEMINI_API_KEY
+            - name: AI_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: support-ai
-                  key: GEMINI_API_KEY
-            - name: LLM_MODEL
-              value: "qwen2.5:3b"
+                  name: waybill-runtime
+                  key: ai-api-key
+            - name: AI_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: waybill-config
+                  key: AI_BASE_URL
+            - name: AI_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: waybill-config
+                  key: AI_MODEL
+            - name: SPRING_RABBITMQ_HOST
+              value: "rabbitmq"
+            - name: SPRING_RABBITMQ_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: rabbitmq-user
+            - name: SPRING_RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: rabbitmq-password
+            - name: MINIO_ENDPOINT
+              value: "http://minio:9000"
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: minio-user
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: minio-password
+            - name: MINIO_PUBLIC_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: waybill-config
+                  key: MINIO_PUBLIC_URL
           resources:
             requests:
               memory: "256Mi"

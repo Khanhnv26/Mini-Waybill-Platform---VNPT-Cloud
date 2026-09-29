@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: minikube-dns-fixer
+  namespace: kube-system
+  labels:
+    app: minikube-dns-fixer
+spec:
+  selector:
+    matchLabels:
+      app: minikube-dns-fixer
+  template:
+    metadata:
+      labels:
+        app: minikube-dns-fixer
+    spec:
+      hostNetwork: true
+      hostPID: true
+      tolerations:
+        - operator: Exists
+      volumes:
+        - name: host-root
+          hostPath:
+            path: /
+      containers:
+        - name: fixer
+          image: redis:alpine
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+            runAsUser: 0
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              while true; do
+                if ! grep -q "8.8.8.8" /host/etc/resolv.conf 2>/dev/null; then
+                  echo "Fixing Minikube host DNS..."
+                  chattr -i /host/etc/resolv.conf 2>/dev/null || true
+                  rm -f /host/etc/resolv.conf
+                  printf "nameserver 8.8.8.8\nnameserver 1.1.1.1\noptions timeout:2 attempts:3\n" > /host/etc/resolv.conf
+                  chattr +i /host/etc/resolv.conf 2>/dev/null || true
+                  echo "DNS updated to 8.8.8.8!"
+                fi
+                sleep 30
+              done
+          volumeMounts:
+            - name: host-root
+              mountPath: /host

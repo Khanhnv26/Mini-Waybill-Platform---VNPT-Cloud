@@ -18,10 +18,11 @@ spec:
       containers:
         - name: frontend
           image: khanhnv26/frontend:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           command: ["node", "server.js", "3000"]
           ports:
-            - containerPort: 3000
+            - name: http
+              containerPort: 3000
           env:
             - name: PORT
               value: "3000"

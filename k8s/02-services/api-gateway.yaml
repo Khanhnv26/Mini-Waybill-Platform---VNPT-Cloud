@@ -18,9 +18,10 @@ spec:
       containers:
         - name: api-gateway
           image: khanhnv26/api-gateway:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8080
+            - name: http
+              containerPort: 8080
           env:
             - name: SERVER_PORT
               value: "8080"
@@ -33,7 +34,10 @@ spec:
             - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS
               value: "true"
             - name: JWT_SECRET
-              value: "9a7b8c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b"
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: jwt-secret
           resources:
             requests:
               memory: "256Mi"

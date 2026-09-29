@@ -43,7 +43,19 @@ spec:
           - path: /
             pathType: Prefix
             backend:
-              service:
-                name: api-gateway
+                service:
+                  name: api-gateway
                 port:
                   number: 8080
+
+    # 3. Public read-only access for MinIO objects
+    - host: storage.waybill.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 9000

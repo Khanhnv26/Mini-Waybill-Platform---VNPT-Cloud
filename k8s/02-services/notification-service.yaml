@@ -18,16 +18,20 @@ spec:
       containers:
         - name: notification-service
           image: khanhnv26/notification-service:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8085
+            - name: http
+              containerPort: 8085
           env:
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=notification_db;encrypt=true;trustServerCertificate=true;"
             - name: SPRING_DATASOURCE_USERNAME
               value: "sa"
             - name: SPRING_DATASOURCE_PASSWORD
-              value: "Replica@123456"
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: db-password
             - name: SPRING_JPA_HIBERNATE_DDL_AUTO
               value: "update"
             - name: SPRING_DATA_REDIS_HOST

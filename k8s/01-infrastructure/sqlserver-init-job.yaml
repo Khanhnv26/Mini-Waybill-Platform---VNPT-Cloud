@@ -4,6 +4,8 @@ metadata:
   name: sqlserver-init-db
   namespace: waybill
 spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
   template:
     metadata:
       labels:
@@ -17,22 +19,31 @@ spec:
             - /bin/bash
             - -c
             - |
+              set -euo pipefail
               echo "Waiting for SQL Server to be ready..."
               for attempt in {1..60}; do
-                if /opt/mssql-tools18/bin/sqlcmd -S sqlserver-replica -U sa -P "$$SA_PASSWORD" -C -b -Q "SELECT 1" >/dev/null 2>&1; then
+                if /opt/mssql-tools18/bin/sqlcmd -S sqlserver-replica -U sa -P "$MSSQL_SA_PASSWORD" -C -b -Q "SELECT 1" >/dev/null 2>&1; then
                   echo "SQL Server is ready!"
                   break
                 fi
                 sleep 2
               done
 
+              if ! /opt/mssql-tools18/bin/sqlcmd -S sqlserver-replica -U sa -P "$MSSQL_SA_PASSWORD" -C -b -Q "SELECT 1" >/dev/null 2>&1; then
+                echo "SQL Server did not become ready within 120 seconds." >&2
+                exit 1
+              fi
+
               echo "Creating databases if not exist..."
               DATABASES=("auth_db" "customer_db" "shipment_db" "routing_db" "tracking_db" "notification_db" "audit_db" "shipper_db" "report_db" "support_db" "rating_db" "payment_db")
-              for db in "$${DATABASES[@]}"; do
-                echo "Checking database: $$db"
-                /opt/mssql-tools18/bin/sqlcmd -S sqlserver-replica -U sa -P "$$SA_PASSWORD" -C -b -Q "IF DB_ID(N'$$db') IS NULL CREATE DATABASE [$$db];"
+              for db in "${DATABASES[@]}"; do
+                echo "Checking database: $db"
+                /opt/mssql-tools18/bin/sqlcmd -S sqlserver-replica -U sa -P "$MSSQL_SA_PASSWORD" -C -b -Q "IF DB_ID(N'$db') IS NULL CREATE DATABASE [$db];"
               done
               echo "All databases initialized successfully!"
           env:
-            - name: SA_PASSWORD
-              value: "Replica@123456"
+            - name: MSSQL_SA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: db-password
