@@ -126,6 +126,15 @@ Khác với các ứng dụng giao hàng nội thành đơn chặng, hệ thốn
 
 ---
 
+### 2.14. Đánh Giá Bưu Phẩm 2 Tầng & Tự Động Tính KPI Bưu Tá Lũy Kế (Rating & Event-Driven Shipper KPI)
+* **Phân tầng đánh giá 2 cấp độ độc lập:** Tách biệt rõ ràng giữa chất lượng dịch vụ vận chuyển / đóng gói (`serviceRating`) và thái độ phục vụ của bưu tá (`shipperRating`) theo thang điểm 1 đến 5 sao.
+* **Phòng vệ gian lận 3 lớp & Chống đánh giá lặp:** Chỉ cho phép đánh giá khi bưu gửi đã đạt trạng thái phát thành công `DELIVERED`, xác thực 4 số cuối số điện thoại người nhận (`verifiedPhone`), và áp dụng ràng buộc duy nhất `uq_shipment_ratings_tracking` trên cơ sở dữ liệu `rating_db`.
+* **Truy vết tự động danh tính bưu tá & Tính toán KPI thời gian thực:** Tự động đối soát `actorId` từ mốc giao hàng `HANDED_TO_COURIER` bên `tracking-service`, phát sự kiện `ShipmentFeedbackEvent` lên Kafka topic `shipment-feedbacks` để `shipper-service` cập nhật điểm số bình quân lũy kế tức thời (`rating_avg` và `rating_count`) với độ trễ dưới 10ms.
+* **Cơ chế cứu vãn trải nghiệm khách hàng (Customer Recovery):** Khi điểm đánh giá dưới 3 sao, hệ thống tự động gắn cờ `suggestTicket = true`, kích hoạt giao diện mở khiếu nại nhanh kết nối trực tiếp với trung tâm CSKH `support-service`.
+* *Tài liệu chi tiết:* Xem toàn văn kiến trúc, schema CSDL và bộ câu hỏi phỏng vấn tại [Cẩm nang 18 - Đánh Giá Bưu Phẩm 2 Tầng, Đối Soát KPI Bưu Tá & Luồng Sự Kiện Kafka](docs/18-shipment-rating-and-shipper-kpi.md).
+
+---
+
 ## 3. Kiến Trúc Hệ Thống (System & HA Architecture)
 
 Hệ thống kết hợp giữa **Spring Cloud Microservices**, **Apache Kafka KRaft Event-Driven Streaming**, và cơ chế **Database Read-Write Splitting** (Xem thêm chi tiết triển khai tại [Cẩm nang 01 - Cấu Hình HA & Nginx Failover](docs/01-high-availability-and-nginx.md) và [Cẩm nang 02 - Database Read-Write Splitting](docs/02-database-read-write-splitting-boilerplate.md)):
@@ -274,12 +283,35 @@ Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, m�
 | **15** | [**Đếm Ngược SLA RabbitMQ & Xử Lý Hủy Đơn Liên Dịch Vụ**](docs/15-rabbitmq-priority-queue-and-sla-dead-letter-patterns.md) | Kiến trúc Polyglot Messaging (RabbitMQ + Kafka + OpenFeign), bộ đếm ngược SLA 120s bằng Message TTL + Dead-Letter Exchange (DLX), tự động hủy đơn liên dịch vụ qua Feign (`shipment:cancel_all`), giải phóng tải chuyến xe & tồn kho kho bãi (`routing-service`), và cơ chế tương thích kép mốc thời gian Kafka. |
 | **16** | [**Lưu Trữ Đối Tượng MinIO & S3 Boilerplate**](docs/16-minio-object-storage-and-s3-boilerplate.md) | Kiến trúc S3 Object Storage, phân định Storage vs BLOB, cơ chế tự phục hồi Bucket (`MinioBucketSupport`), bảo mật Presigned URLs vs Public Download, xử lý sự cố Docker Hub & di trú Chainguard Distroless, cẩm nang lệnh `mc` CLI và **Bộ Boilerplate Spring Boot 3 độc lập** sẵn sàng copy vào dự án doanh nghiệp. |
 | **17** | [**Cổng Thanh Toán VietQR & Đối Soát Tài Chính Tức Thời**](docs/17-vietqr-payment-gateway-and-realtime-reconciliation.md) | Kiến trúc Cổng thanh toán VietQR động chuẩn NAPAS 247, xác thực Webhook bảo mật, luồng sự kiện Kafka `payment-success-events`, cơ chế tự động hóa quả chuông  Topbar nhảy số đỏ +1 qua WebSocket STOMP, kỹ thuật phòng vệ chống thanh toán đúp đa tầng, bộ Boilerplate Spring Boot 3 độc lập và 10 câu hỏi phỏng vấn tuyển dụng. |
+| **18** | [**Đánh Giá Bưu Phẩm 2 Tầng & Đối Soát KPI Bưu Tá Lũy Kế**](docs/18-shipment-rating-and-shipper-kpi.md) | Phân tầng đánh giá dịch vụ vs bưu tá (1-5 sao), phòng vệ gian lận 3 lớp (`DELIVERED` + 4 số cuối SĐT + Unique Constraint), tự động truy vết bưu tá phát hàng, công thức cập nhật điểm KPI bình quân gia số qua Kafka topic `shipment-feedbacks`, cơ chế cứu vãn khách hàng (`suggestTicket`) và 10 câu hỏi phỏng vấn. |
 
 ---
 
 ## 5. Hướng Dẫn Khởi Chạy Nhanh (Quickstart)
 
-### Cách 1: Khởi chạy trên Minikube (Hyper-V)
+### Cách 1: Khởi chạy trên Kubernetes (Docker Desktop)
+Đây là phương án gọn nhẹ và tối ưu nhất trên Windows, sử dụng trực tiếp Docker Desktop mà không lo xung đột Hyper-V:
+
+1. Kích hoạt Kubernetes trong Docker Desktop: Settings -> Kubernetes -> Tích chọn **Enable Kubernetes** -> Bấm **Apply & restart**.
+2. Thiết lập Namespace, Secret và ConfigMap ban đầu:
+```powershell
+kubectl apply -f .\k8s\00-namespaces\
+kubectl create secret generic waybill-runtime -n waybill --from-literal=db-password="Replica@123456" --from-literal=jwt-secret="9a7b8c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b" --from-literal=rabbitmq-user="admin" --from-literal=rabbitmq-password="admin" --from-literal=minio-user="minioadmin" --from-literal=minio-password="minioadmin" --from-literal=ai-api-key="default-key" --dry-run=client -o yaml | kubectl apply -f -
+kubectl create configmap waybill-config -n waybill --from-literal=AI_BASE_URL="http://host.docker.internal:11434/v1" --from-literal=AI_MODEL="qwen2.5:3b" --from-literal=MINIO_PUBLIC_URL="http://localhost:9000" --dry-run=client -o yaml | kubectl apply -f -
+```
+3. Triển khai cụm hạ tầng và toàn bộ microservices:
+```powershell
+kubectl apply -f .\k8s\01-infrastructure\
+kubectl apply -f .\k8s\02-services\
+```
+* **Web Portal:** [http://localhost](http://localhost) (mở thẳng port 80).
+* **API Gateway:** [http://localhost:8080](http://localhost:8080).
+* **MinIO Console:** [http://localhost:9001](http://localhost:9001) (`minioadmin` / `minioadmin`).
+* **SQL Server:** Port 2433 (`sa` / `Replica@123456`).
+
+---
+
+### Cách 2: Khởi chạy trên Minikube (Hyper-V)
 Minikube triển khai 12 microservices nghiệp vụ, API Gateway, Frontend, Kafka, Redis, Eureka, RabbitMQ, MinIO và SQL Server có PVC. Profile mặc định cần khoảng 6 CPU, 10 GiB RAM và 40 GiB đĩa; có thể điều chỉnh qua tham số script.
 
 ```powershell
@@ -311,7 +343,7 @@ Nếu PVC SQL Server đã có dữ liệu, đặt `MINIKUBE_DB_PASSWORD` đúng 
 
 ---
 
-### Cách 2: Khởi chạy qua Docker Compose & Local Spring Boot
+### Cách 3: Khởi chạy qua Docker Compose & Local Spring Boot
 
 #### Bước 1: Khởi động Hạ tầng Docker HA
 ```bash

@@ -331,7 +331,7 @@ k8s/
 │   ├── shipper-service.yaml          # Tác nghiệp bưu tá phát hàng (Port 8089)
 │   ├── report-service.yaml           # Báo cáo doanh thu & đối soát COD (Port 8091)
 │   ├── support-service.yaml          # Ticket, RabbitMQ và MinIO (Port 8093)
-│   ├── rating-service.yaml           # Định giá vận chuyển (Port 8092)
+│   ├── rating-service.yaml           Đánh giá bưu phẩm và dịch vụ (Port 8092)
 │   ├── payment-service.yaml          # Thanh toán và đối soát (Port 8095)
 │   ├── api-gateway.yaml              # Cổng định tuyến API Spring Cloud (Port 8080)
 │   └── frontend.yaml                 # Node.js Server & Web UI (Port 80/3000)
@@ -362,6 +362,14 @@ Trong mạng ảo K8s, mỗi Pod có một địa chỉ IP riêng (ví dụ `10.
 Pod `frontend` chạy một tiến trình Node.js nhẹ (`server.js`):
 * **Phục vụ tĩnh:** Mọi request tải trang HTML/CSS/JS (`GET /`, `GET /login.html`) được đọc từ thư mục `/app/frontend` và trả về ngay.
 * **Reverse Proxy:** Mọi request bắt đầu bằng `/api/` (ví dụ `POST /api/auth/login`) được Node.js chuyển tiếp ngầm tới `http://api-gateway:8080`. Trình duyệt của khách hàng không bị lỗi chặn CORS và không cần biết IP của Gateway bên trong K8s.
+
+---
+
+### 3.4. Điểm Khác Biệt Khi Chạy Trên Docker Desktop Kubernetes
+Trong môi trường Kubernetes tích hợp của Docker Desktop trên Windows:
+* **Cơ chế chia sẻ Docker Engine:** Kubernetes chạy trực tiếp trên cùng Docker Engine của máy host. Khi biên dịch Docker image cục bộ (`khanhnv26/<service>:latest`), Kubernetes lập tức nhìn thấy image mà không cần thực hiện lệnh load thủ công.
+* **Cơ chế bind cổng LoadBalancer tự động:** Các Service khai báo kiểu `LoadBalancer` (`frontend`, `api-gateway`, `sqlserver-replica`) sẽ tự động được Docker Desktop kết nối thẳng ra `localhost` trên Windows mà không cần chạy tiến trình tunnel.
+* **Phân giải địa chỉ máy Host (`host.docker.internal`):** Các Pod bên trong cụm kết nối tới các dịch vụ đang chạy trên Windows (như Ollama tại cổng 11434) thông qua tên miền `host.docker.internal`.
 
 ---
 
