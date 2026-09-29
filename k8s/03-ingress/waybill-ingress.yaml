@@ -15,11 +15,8 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    # 1. Tên miền chính cho giao diện Web Frontend: http://waybill.local
-    - host: waybill.local
-      http:
+    - http:
         paths:
-          # Chuyển hướng trực tiếp API về Gateway nếu gọi qua /api
           - path: /api
             pathType: Prefix
             backend:
@@ -27,7 +24,6 @@ spec:
                 name: api-gateway
                 port:
                   number: 8080
-          # Toàn bộ giao diện tĩnh, HTML, JS, CSS về Frontend
           - path: /
             pathType: Prefix
             backend:
@@ -35,20 +31,33 @@ spec:
                 name: frontend
                 port:
                   number: 80
-
-    # 2. Tên miền riêng cho API Gateway: http://api.waybill.local
+    - host: waybill.local
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
     - host: api.waybill.local
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
-                service:
-                  name: api-gateway
+              service:
+                name: api-gateway
                 port:
                   number: 8080
-
-    # 3. Public read-only access for MinIO objects
     - host: storage.waybill.local
       http:
         paths:

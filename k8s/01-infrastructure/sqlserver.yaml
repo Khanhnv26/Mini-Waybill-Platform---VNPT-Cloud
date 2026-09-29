@@ -82,13 +82,10 @@ metadata:
   name: sqlserver-replica
   namespace: waybill
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app: sqlserver-replica
   ports:
     - name: sql-internal
       port: 1433
-      targetPort: 1433
-    - name: sql-external
-      port: 2433
       targetPort: 1433

@@ -6,7 +6,7 @@ metadata:
   labels:
     app: shipment-service
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: shipment-service
@@ -15,6 +15,15 @@ spec:
       labels:
         app: shipment-service
     spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: shipment-service
+                topologyKey: kubernetes.io/hostname
       containers:
         - name: shipment-service
           image: khanhnv26/shipment-service:latest

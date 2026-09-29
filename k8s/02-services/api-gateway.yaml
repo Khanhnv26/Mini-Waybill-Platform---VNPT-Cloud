@@ -6,7 +6,7 @@ metadata:
   labels:
     app: api-gateway
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: api-gateway
@@ -15,6 +15,15 @@ spec:
       labels:
         app: api-gateway
     spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: api-gateway
+                topologyKey: kubernetes.io/hostname
       containers:
         - name: api-gateway
           image: khanhnv26/api-gateway:latest
@@ -45,7 +54,6 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
-
 ---
 apiVersion: v1
 kind: Service
@@ -53,7 +61,7 @@ metadata:
   name: api-gateway
   namespace: waybill
 spec:
-  type: LoadBalancer
+  type: ClusterIP
   selector:
     app: api-gateway
   ports:
