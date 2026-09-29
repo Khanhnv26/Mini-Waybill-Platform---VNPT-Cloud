@@ -391,11 +391,16 @@ public class ShipmentServiceImpl implements ShipmentService {
         log.info("[SHIPMENT] Đơn hàng {} đã được hủy bởi userId: {} (roles: {}, permissions: {})",
                 trackCode, currentUserId, roles, permissions);
 
+        try {
         String redisKey = "shipment-status:" + trackCode;
         redisTemplate.opsForValue().set(redisKey, ShipmentStatus.CANCELLED.name(), Duration.ofDays(7));
 
         String tombstoneKey = "shipment-cancelled:" + updatedShipment.getTrackingCode().trim().toUpperCase();
         redisTemplate.opsForValue().set(tombstoneKey, "1", Duration.ofDays(30));
+
+        } catch (Exception e) {
+            log.warn("[SHIPMENT] Không thể cập nhật Redis tombstone cho đơn {}: {}. Vẫn tiếp tục hoàn tất DB và Outbox Event.", trackCode, e.getMessage());
+        }
 
         String actorType;
         String locationDesc;
@@ -433,7 +438,7 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .build();
         try {
             String payLoadJson = objectMapper.writeValueAsString(event);
-            OutBoxEvent outBoxEvent = OutBoxEvent.builder()
+            OutboxEvent outboxEvent = OutboxEvent.builder()
                     .aggregateType("SHIPMENT")
                     .aggregateId(updatedShipment.getTrackingCode())
                     .eventType("SHIPMENT_CANCELLED")
@@ -441,7 +446,7 @@ public class ShipmentServiceImpl implements ShipmentService {
                     .status("PENDING")
                     .createdAt(LocalDateTime.now())
                     .build();
-            outboxEventRepository.save(outBoxEvent);
+            outboxEventRepository.save(outboxEvent);
 
             log.info("[SHIPMENT] Đã tạo Outbox Event cho đơn: {}", trackCode);
 

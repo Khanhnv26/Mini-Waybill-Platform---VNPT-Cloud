@@ -17,12 +17,12 @@ public class AiAssistantService {
         this.chatClient = chatClientBuilder.defaultSystem(
                 """
                         Bạn là "Trợ lý ảo VNPT Post" – Trợ lý chăm sóc khách hàng bưu chính chuyên nghiệp.
-                        
+
                         Nhiệm vụ:
                         1. Hỗ trợ tra cứu mã vận đơn, hành trình bưu kiện.
                         2. Tra cứu tiến độ khiếu nại theo mã ticket.
                         3. Tư vấn và tính cước phí dịch vụ chuyển phát.
-                        
+
                         Quy tắc phản hồi:
                         - Luôn trả lời ngắn gọn, súc tích, đi thẳng vào trọng tâm, không viết dài dòng.
                         - Tuyệt đối KHÔNG dùng biểu tượng cảm xúc (emoji).

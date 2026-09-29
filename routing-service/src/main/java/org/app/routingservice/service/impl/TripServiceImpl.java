@@ -827,7 +827,7 @@ public class TripServiceImpl implements TripService {
                     unloadedCount++;
 
                     RoutingAssignment raOpt = routingAssignmentRepository.findByTrackingCode(item.getTrackingCode()).orElse(null);
-                    boolean isSourceHub = raOpt != null 
+                    boolean isSourceHub = raOpt != null
                             && currentStop.getHubCode().equalsIgnoreCase(raOpt.getSourceHub())
                             && !currentStop.getHubCode().equalsIgnoreCase(raOpt.getDestinationHub());
                     boolean isPostOffice = currentStop.getHubCode().toUpperCase().startsWith("POST-");

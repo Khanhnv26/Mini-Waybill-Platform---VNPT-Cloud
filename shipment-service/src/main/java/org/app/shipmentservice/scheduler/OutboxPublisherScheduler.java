@@ -3,7 +3,7 @@ package org.app.shipmentservice.scheduler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.app.shipmentservice.dto.event.ShipmentStatusUpdatedEvent;
-import org.app.shipmentservice.entity.OutBoxEvent;
+import org.app.shipmentservice.entity.OutboxEvent;
 import org.app.shipmentservice.repository.OutboxEventRepository;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -26,12 +26,12 @@ public class OutboxPublisherScheduler {
 
     @Scheduled(fixedDelay = 2000)
     public void publishPendingEvents() {
-        List<OutBoxEvent> pendingEvents = outboxEventRepository.findTop50ByStatusOrderByCreatedAtAsc("PENDING");
+        List<OutboxEvent> pendingEvents = outboxEventRepository.findTop50ByStatusOrderByCreatedAtAsc("PENDING");
         if(pendingEvents.isEmpty()) {
             return;
         }
 
-        for (OutBoxEvent event : pendingEvents) {
+        for (OutboxEvent event : pendingEvents) {
             try {
                 ShipmentStatusUpdatedEvent payload = objectMapper.readValue(event.getPayload(), ShipmentStatusUpdatedEvent.class);
 
