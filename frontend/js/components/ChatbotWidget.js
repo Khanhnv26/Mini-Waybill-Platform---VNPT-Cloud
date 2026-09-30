@@ -422,8 +422,8 @@
                         id: 'init_1',
                         sender: 'bot',
                         type: 'text',
-                        html: `Xin chào Quý khách! Em là <strong>Trợ lý ảo VNPT Post</strong>.<br>
-                               Em có thể hỗ trợ tra cứu bưu gửi, biểu phí cước hoặc tiếp nhận phản ánh sự cố đơn hàng.`,
+                        html: 'Xin chào Quý khách! Em là <strong>Trợ lý ảo VNPT Post</strong>.<br>' +
+                              'Em có thể hỗ trợ tra cứu bưu gửi, biểu phí cước hoặc tiếp nhận phản ánh sự cố đơn hàng.',
                         time: this.getCurrentTime()
                     }
                 ];
@@ -639,10 +639,10 @@
                     }
 
                     if (!trackingData && !shipmentData) {
-                        await this.typeBotResponse(`
-                            Rất tiếc, em không tìm thấy bưu phẩm mã: <strong class="text-rose-600">${this.escapeHtml(trackingCode)}</strong> trên hệ thống bưu cục.<br>
-                            Anh/Chị vui lòng kiểm tra lại chính xác các ký tự trên phiếu gửi (Ví dụ: <code>WB...</code>) hoặc liên hệ tổng đài <strong>1900 54 54 81</strong> để được hỗ trợ tra soát thủ công ạ!
-                        `);
+                        await this.typeBotResponse(
+                            `Rất tiếc, em không tìm thấy bưu phẩm mã: <strong class="text-rose-600">${this.escapeHtml(trackingCode)}</strong> trên hệ thống bưu cục.<br>` +
+                            'Anh/Chị vui lòng kiểm tra lại chính xác các ký tự trên phiếu gửi (Ví dụ: <code>WB...</code>) hoặc liên hệ tổng đài <strong>1900 54 54 81</strong> để được hỗ trợ tra soát thủ công ạ!'
+                        );
                         return;
                     }
 
@@ -820,9 +820,7 @@
                         });
                         this.saveSessionMessages();
                         this.scrollToBottom();
-                        await this.typeBotResponse(`
-                            Quý khách vui lòng nhập mã bưu gửi (ví dụ: <code>WB2026...</code>) vào ô chat bên dưới để em tra cứu chi tiết nhé.
-                        `);
+                        await this.typeBotResponse('Quý khách vui lòng nhập mã bưu gửi (ví dụ: <code>WB2026...</code>) vào ô chat bên dưới để em tra cứu chi tiết nhé.');
                     }
 
                 } else if (action === 'calc') {
@@ -865,29 +863,20 @@
 
             viewOnTrackingTab(trackingCode) {
                 this.closeChat();
-                if (window.location.pathname.includes('index.html') || window.location.pathname === '/' || window.location.pathname === '') {
-                    window.location.hash = 'tracking';
-                    const event = new CustomEvent('navigate-to-tracking', { detail: { trackingCode } });
-                    window.dispatchEvent(event);
-                } else {
-                    window.location.href = 'index.html#tracking';
+                if (window.navigateTo) {
+                    window.navigateTo('/tracking?code=' + encodeURIComponent(trackingCode || ''));
                 }
+                const event = new CustomEvent('navigate-to-tracking', { detail: { trackingCode } });
+                window.dispatchEvent(event);
             },
 
             initClaimFor(trackingCode) {
                 const code = (trackingCode || '').trim();
                 this.closeChat();
-                const path = window.location.pathname || '';
-                const onApp = path.includes('index.html') || path === '/' || path.endsWith('/');
-                if (onApp) {
-                    window.location.hash = 'support';
-                    window.dispatchEvent(new CustomEvent('navigate-to-support', { detail: { trackingCode: code } }));
-                    return;
+                if (window.navigateTo) {
+                    window.navigateTo('/support');
                 }
-                try {
-                    if (code) sessionStorage.setItem('supportTrackingCode', code);
-                } catch (e) {}
-                window.location.href = 'index.html#support';
+                window.dispatchEvent(new CustomEvent('navigate-to-support', { detail: { trackingCode: code } }));
             },
 
             toggleMute() {

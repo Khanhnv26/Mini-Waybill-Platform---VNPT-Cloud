@@ -5,9 +5,9 @@ const path = require('path');
 const PORT = process.env.PORT || process.argv[2] || 3000;
 const GATEWAY_HOST = process.env.GATEWAY_HOST || '127.0.0.1';
 const GATEWAY_PORT = process.env.GATEWAY_PORT || 8080;
-const FRONTEND_DIR = fs.existsSync(path.join(__dirname, 'frontend'))
-    ? path.join(__dirname, 'frontend')
-    : __dirname;
+const FRONTEND_DIR = fs.existsSync(path.join(__dirname, 'index.html'))
+    ? __dirname
+    : (fs.existsSync(path.join(__dirname, 'frontend')) ? path.join(__dirname, 'frontend') : __dirname);
 
 // Bảng MIME types hỗ trợ phục vụ các file tĩnh
 const MIME_TYPES = {
@@ -56,32 +56,57 @@ const server = http.createServer((req, res) => {
     }
 
 
-    let urlPath = req.url.split('?')[0];
+    // 2. Chuyển hướng 301 cho các file .html cũ để tương thích ngược
+    const [rawPath, queryString] = req.url.split('?');
+    const query = queryString ? '?' + queryString : '';
+    const lowerPath = rawPath.toLowerCase();
+
+    if (lowerPath === '/login.html') {
+        res.writeHead(301, { 'Location': '/login' + query });
+        res.end();
+        return;
+    }
+    if (lowerPath === '/index.html') {
+        res.writeHead(301, { 'Location': '/' + query });
+        res.end();
+        return;
+    }
+    if (lowerPath === '/error.html') {
+        res.writeHead(301, { 'Location': '/error' + query });
+        res.end();
+        return;
+    }
+
+    let urlPath = rawPath;
     if (urlPath === '/' || urlPath === '') {
         urlPath = '/index.html';
     }
 
-
     const safePath = path.normalize(urlPath).replace(/^(\.\.[\/\\])+/, '');
     let filePath = path.join(FRONTEND_DIR, safePath);
 
-    // Kiểm tra nếu đường dẫn không có đuôi file mà file .html tồn tại (vd: /login -> /login.html)
-    if (!fs.existsSync(filePath) && fs.existsSync(filePath + '.html')) {
-        filePath = filePath + '.html';
-    }
-
-
     fs.stat(filePath, (err, stats) => {
+        // Nếu file không tồn tại hoặc không phải là file
         if (err || !stats.isFile()) {
-            const errorHtmlPath = path.join(FRONTEND_DIR, 'error.html');
-            if (fs.existsSync(errorHtmlPath)) {
-                res.writeHead(404, {
-                    'Content-Type': 'text/html; charset=utf-8',
-                    'Access-Control-Allow-Origin': '*'
-                });
-                fs.createReadStream(errorHtmlPath).pipe(res);
-                return;
+            // SPA Fallback: Nếu route không có đuôi file (ví dụ: /login, /tracking, /shipment, /trips, v.v.)
+            // thì trả về index.html (200 OK) để Vue Router / History API xử lý
+            const ext = path.extname(urlPath);
+            if (!ext) {
+                const spaIndexPath = path.join(FRONTEND_DIR, 'index.html');
+                if (fs.existsSync(spaIndexPath)) {
+                    res.writeHead(200, {
+                        'Content-Type': 'text/html; charset=utf-8',
+                        'Access-Control-Allow-Origin': '*',
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
+                    });
+                    fs.createReadStream(spaIndexPath).pipe(res);
+                    return;
+                }
             }
+
+            // File tĩnh có phần mở rộng (css, js, png, ...) mà không tìm thấy
             res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
             res.end('404 Not Found: Không tìm thấy tệp yêu cầu ' + urlPath);
             return;

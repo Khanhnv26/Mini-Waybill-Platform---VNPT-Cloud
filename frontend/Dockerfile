@@ -1,8 +1,10 @@
-FROM node:20-alpine
+FROM khanhnv26/frontend:1.0
 
 LABEL authors="Khanhnv26"
 
 WORKDIR /app
+
+RUN rm -rf /app/*
 
 COPY . ./
 

@@ -48,7 +48,7 @@
                     const token = Auth.getToken();
                     if (token) headers['Authorization'] = `Bearer ${token}`;
                 }
-                const base = window.location.port === '3000' ? '' : 'http://localhost:8080';
+                const base = (['3000', '80', '443', ''].includes(window.location.port) && window.location.protocol.startsWith('http')) ? '' : 'http://localhost:8080';
                 const response = await fetch(`${base}/api/shipments/${encodeURIComponent(trackingCode)}`, { headers });
                 if (!response.ok) return null;
                 return await response.json();

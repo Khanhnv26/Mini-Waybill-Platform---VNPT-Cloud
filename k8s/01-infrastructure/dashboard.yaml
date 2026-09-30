@@ -5,12 +5,34 @@ metadata:
 
 ---
 apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    k8s-app: kubernetes-dashboard
+  name: kubernetes-dashboard-csrf
+  namespace: kubernetes-dashboard
+type: Opaque
+data:
+  csrf: ""
+
+---
+apiVersion: v1
 kind: ServiceAccount
 metadata:
   labels:
     k8s-app: kubernetes-dashboard
   name: kubernetes-dashboard
   namespace: kubernetes-dashboard
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: admin-user-token
+  namespace: kubernetes-dashboard
+  annotations:
+    kubernetes.io/service-account.name: kubernetes-dashboard
+type: kubernetes.io/service-account-token
 
 ---
 apiVersion: v1
@@ -49,7 +71,7 @@ spec:
       containers:
         - name: kubernetes-dashboard
           image: kubernetesui/dashboard:v2.7.0
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 9090
               protocol: TCP
@@ -65,7 +87,13 @@ spec:
             requests:
               cpu: 50m
               memory: 64Mi
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
       serviceAccountName: kubernetes-dashboard
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -91,8 +119,12 @@ metadata:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - dashboard.waybill.vn
+      secretName: dashboard-tls
   rules:
-    - host: dashboard.waybill.local
+    - host: dashboard.waybill.vn
       http:
         paths:
           - path: /

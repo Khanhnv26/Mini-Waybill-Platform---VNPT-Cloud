@@ -144,13 +144,21 @@ const Auth = {
 
     logout() {
         this.clearSession();
-        window.location.href = 'login.html';
+        if (typeof window.navigateTo === 'function') {
+            window.navigateTo('/login');
+        } else {
+            window.location.href = '/login';
+        }
     },
 
     requireAuth() {
         if (!this.isAuthenticated()) {
-            sessionStorage.setItem('redirectAfterLogin', window.location.pathname);
-            window.location.href = 'login.html';
+            sessionStorage.setItem('redirectAfterLogin', window.location.pathname + window.location.search);
+            if (typeof window.navigateTo === 'function') {
+                window.navigateTo('/login');
+            } else {
+                window.location.href = '/login';
+            }
             return false;
         }
         return true;

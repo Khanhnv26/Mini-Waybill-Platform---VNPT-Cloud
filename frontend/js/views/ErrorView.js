@@ -128,23 +128,29 @@
             const handleAction = (actionKey) => {
                 if (actionKey === 'home' || actionKey === 'tracking') {
                     cancelCountdown();
-                    const path = window.location.pathname.toLowerCase();
-                    const isKnownHome = path === '/' || path === '' || path.endsWith('/index.html');
-                    if (!isKnownHome) {
-                        window.location.href = 'index.html';
+                    if (window.navigateTo) {
+                        window.navigateTo('/tracking');
                     } else {
                         emit('back-home');
                     }
                 } else if (actionKey === 'login') {
                     cancelCountdown();
-                    window.location.href = 'login.html';
+                    if (window.navigateTo) {
+                        window.navigateTo('/login');
+                    } else {
+                        window.location.href = '/login';
+                    }
                 } else if (actionKey === 'retry') {
                     isRetrying.value = true;
                     setTimeout(() => {
                         isRetrying.value = false;
                         const from = new URLSearchParams(window.location.search).get('from');
                         if (from) {
-                            window.location.href = decodeURIComponent(from);
+                            if (window.navigateTo) {
+                                window.navigateTo(decodeURIComponent(from));
+                            } else {
+                                window.location.href = decodeURIComponent(from);
+                            }
                         } else {
                             window.location.reload();
                         }
