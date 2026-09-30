@@ -1,22 +1,86 @@
 (function () {
     const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
 
+    const ROUTE_TAB_MAP = {
+        '/': 'tracking',
+        '/index.html': 'tracking',
+        '/tracking': 'tracking',
+        '/shipment': 'shipment',
+        '/trips': 'trips',
+        '/post-office': 'post-office',
+        '/hub-ops': 'hub-ops',
+        '/shipper': 'shipper',
+        '/shipper-directory': 'shipper-directory',
+        '/customer': 'customers',
+        '/customers': 'customers',
+        '/report': 'reports',
+        '/reports': 'reports',
+        '/tariff': 'calculator',
+        '/calculator': 'calculator',
+        '/network': 'network',
+        '/guide': 'guide',
+        '/support': 'support',
+        '/admin-rbac': 'rbac',
+        '/rbac': 'rbac',
+        '/profile': 'profile',
+        '/login': 'login',
+        '/login.html': 'login',
+        '/error': 'error',
+        '/error.html': 'error'
+    };
+
+    const TAB_ROUTE_MAP = {
+        'tracking': '/tracking',
+        'shipment': '/shipment',
+        'trips': '/trips',
+        'post-office': '/post-office',
+        'hub-ops': '/hub-ops',
+        'shipper': '/shipper',
+        'shipper-directory': '/shipper-directory',
+        'customers': '/customer',
+        'reports': '/report',
+        'calculator': '/calculator',
+        'network': '/network',
+        'guide': '/guide',
+        'support': '/support',
+        'rbac': '/admin-rbac',
+        'profile': '/profile',
+        'login': '/login',
+        'error': '/error'
+    };
+
+    const resolveRoute = (inputPath) => {
+        let clean = inputPath || window.location.pathname;
+        if (window.location.hash && (!inputPath || inputPath === window.location.pathname)) {
+            const hash = window.location.hash.replace('#', '').trim();
+            if (hash) {
+                clean = '/' + hash;
+            }
+        }
+        let pathname = clean.split('?')[0].toLowerCase().trim();
+        if (pathname.length > 1 && pathname.endsWith('/')) {
+            pathname = pathname.slice(0, -1);
+        }
+        if (ROUTE_TAB_MAP.hasOwnProperty(pathname)) {
+            return { tab: ROUTE_TAB_MAP[pathname], path: pathname, notFound: false };
+        }
+        return { tab: 'error', path: pathname, notFound: true };
+    };
+
     const app = createApp({
         setup() {
             const urlParams = new URLSearchParams(window.location.search);
             const initialCodeParam = parseInt(urlParams.get('code'), 10);
-            const rawPath = window.location.pathname.toLowerCase();
-            const isKnownAppPath = rawPath === '/' || rawPath === '' || rawPath.endsWith('/index.html');
-            const isInitialErrorPage = rawPath.includes('error.html');
-            const isUnknownRoute = !isKnownAppPath && !isInitialErrorPage;
-            const hasInitialError = !isNaN(initialCodeParam) || isInitialErrorPage || isUnknownRoute;
+            const trackingQuery = urlParams.get('code') || urlParams.get('tracking');
+            const initialRoute = resolveRoute(window.location.pathname);
+            const hasInitialError = !isNaN(initialCodeParam) || initialRoute.notFound;
 
             const currentUser = ref(typeof Auth !== 'undefined' ? Auth.getUser() : null);
-            const currentTab = ref(hasInitialError ? 'error' : 'tracking');
-            const currentTrackingCode = ref('');
-            const currentErrorCode = ref(!isNaN(initialCodeParam) ? initialCodeParam : 404);
-            const currentErrorTitle = ref(urlParams.get('title') || (isUnknownRoute ? 'Không Tìm Thấy Trang Yêu Cầu' : ''));
-            const currentErrorMessage = ref(urlParams.get('message') || (isUnknownRoute ? `Đường dẫn "${window.location.pathname}" không tồn tại trên hệ thống máy chủ bưu chính VNPT.` : ''));
+            const currentTab = ref(hasInitialError ? 'error' : initialRoute.tab);
+            const currentTrackingCode = ref(trackingQuery && !hasInitialError && initialRoute.tab !== 'error' ? trackingQuery.trim() : '');
+            const currentErrorCode = ref(!isNaN(initialCodeParam) ? initialCodeParam : (initialRoute.notFound ? 404 : 200));
+            const currentErrorTitle = ref(urlParams.get('title') || (initialRoute.notFound ? 'Không Tìm Thấy Trang Yêu Cầu' : ''));
+            const currentErrorMessage = ref(urlParams.get('message') || (initialRoute.notFound ? `Đường dẫn "${window.location.pathname}" không tồn tại trên hệ thống máy chủ bưu chính VNPT.` : ''));
             const previousTab = ref(null);
             const selectedCustomerForShipment = ref(null);
             const selectedTariffForShipment = ref(null);
@@ -241,10 +305,6 @@
                 }
 
                 if (item.trackingCode && item.trackingCode !== 'SYSTEM') {
-                    if (!isKnownAppPath) {
-                        window.location.href = 'index.html?tracking=' + encodeURIComponent(item.trackingCode);
-                        return;
-                    }
                     handleViewTracking(item.trackingCode);
                     return;
                 }
@@ -546,6 +606,9 @@
             });
 
             const currentTabTitle = computed(() => {
+                if (currentTab.value === 'login') {
+                    return 'Đăng Nhập';
+                }
                 if (currentTab.value === 'error') {
                     return currentErrorTitle.value || `Mã Trạng Thái ${currentErrorCode.value}`;
                 }
@@ -558,31 +621,10 @@
 
             const currentFeatureId = ref('network');
 
-            const handleGuestTabClick = (tab, param = null) => {
-                if (tab.id === 'support' && param) {
-                    currentTrackingCode.value = String(param).trim();
-                }
-                if (!isKnownAppPath) {
-                    window.location.href = 'index.html#' + tab.id;
-                    return;
-                }
-                if (tab.id === 'tracking') {
-                    activateTab('tracking');
-                } else {
-                    activateTab(tab.id);
-                    currentFeatureId.value = tab.id;
-                }
-            };
-
-            const handleBackToHome = () => {
-                if (!isKnownAppPath) {
-                    window.location.href = 'index.html';
-                } else {
-                    activateTab('tracking');
-                }
-            };
-
             const activeComponent = computed(() => {
+                if (currentTab.value === 'login') {
+                    return 'LoginView';
+                }
                 if (currentTab.value === 'error') {
                     return 'ErrorView';
                 }
@@ -602,22 +644,26 @@
                 return found ? found.component : 'TrackingView';
             });
 
-            const switchTab = (tabId, param = null) => {
-                if (tabId === 'support' && param) {
-                    currentTrackingCode.value = String(param).trim();
-                }
-                const targetTab = allNavigationTabs.find(t => t.id === tabId);
-                if (!targetTab) {
-                    const guestTab = publicGuestTabs.find(t => t.id === tabId);
-                    if (guestTab) {
-                        handleGuestTabClick(guestTab, param);
-                    }
-                    return;
+            const navigateTo = (targetUrl, replace = false) => {
+                if (!targetUrl) return;
+                let url = String(targetUrl).trim();
+                if (url.startsWith('index.html#')) {
+                    url = '/' + url.replace('index.html#', '');
+                } else if (url === 'login.html' || url.startsWith('login.html')) {
+                    url = '/login';
+                } else if (url === 'index.html' || url.startsWith('index.html')) {
+                    url = '/tracking';
+                } else if (url.startsWith('#')) {
+                    url = '/' + url.slice(1);
                 }
 
-                if (!currentUser.value && (targetTab.permission || targetTab.role)) {
+                const urlObj = new URL(url, window.location.origin);
+                const resolved = resolveRoute(urlObj.pathname);
+
+                const targetTab = allNavigationTabs.find(t => t.id === resolved.tab);
+                if (!currentUser.value && targetTab && (targetTab.permission || targetTab.role)) {
                     try {
-                        sessionStorage.setItem('redirectAfterLogin', 'index.html#' + tabId);
+                        sessionStorage.setItem('redirectAfterLogin', urlObj.pathname + urlObj.search);
                     } catch (e) {}
                     if (window.Utils && window.Utils.showToast) {
                         window.Utils.showToast(
@@ -627,34 +673,93 @@
                         );
                     }
                     setTimeout(() => {
-                        window.location.href = 'login.html';
-                    }, 1200);
+                        navigateTo('/login');
+                    }, 300);
                     return;
                 }
 
-                if (targetTab.role) {
+                if (resolved.tab === 'login' && currentUser.value) {
+                    navigateTo('/tracking', true);
+                    return;
+                }
+
+                if (targetTab && targetTab.role) {
                     if (typeof Auth === 'undefined' || !Auth.hasRole(targetTab.role)) {
                         showError(403, 'Quyền Truy Cập Bị Chặn (403)', 'Chức năng này chỉ dành riêng cho Quản trị viên hệ thống!');
                         return;
                     }
                 }
 
-                if (targetTab.permission) {
+                if (targetTab && targetTab.permission) {
                     if (typeof Auth === 'undefined' || !Auth.hasPermission(targetTab.permission)) {
                         showError(403, 'Truy Cập Bị Chặn (403)', 'Tài khoản của bạn không có quyền truy cập tab này!');
                         return;
                     }
                 }
-                previousTab.value = null;
+
+                const params = new URLSearchParams(urlObj.search);
+                const code = params.get('code') || params.get('tracking');
+                if (code) {
+                    currentTrackingCode.value = code.trim();
+                }
+
+                const canonicalPath = TAB_ROUTE_MAP[resolved.tab] || urlObj.pathname;
+                const finalUrl = canonicalPath + (urlObj.search || '');
+                if (window.location.pathname + window.location.search !== finalUrl) {
+                    if (replace) {
+                        window.history.replaceState({ tab: resolved.tab }, '', finalUrl);
+                    } else {
+                        window.history.pushState({ tab: resolved.tab }, '', finalUrl);
+                    }
+                }
+
+                if (resolved.notFound) {
+                    showError(404, 'Không Tìm Thấy Trang Yêu Cầu', `Đường dẫn "${urlObj.pathname}" không tồn tại trên hệ thống máy chủ bưu chính VNPT.`);
+                } else {
+                    activateTab(resolved.tab);
+                    if (['calculator', 'network', 'guide', 'support'].includes(resolved.tab)) {
+                        currentFeatureId.value = resolved.tab;
+                    }
+                }
+            };
+            window.navigateTo = navigateTo;
+
+            const handleLoginSuccess = (data) => {
+                if (data && data.user) {
+                    currentUser.value = data.user;
+                } else if (typeof Auth !== 'undefined') {
+                    currentUser.value = Auth.getUser();
+                }
+                fetchNotifications();
+                const target = sessionStorage.getItem('redirectAfterLogin') || '/tracking';
+                sessionStorage.removeItem('redirectAfterLogin');
+                navigateTo(target, true);
+            };
+
+            const handleGuestTabClick = (tab, param = null) => {
+                if (tab.id === 'support' && param) {
+                    currentTrackingCode.value = String(param).trim();
+                }
+                currentFeatureId.value = tab.id;
+                const cleanPath = TAB_ROUTE_MAP[tab.id] || ('/' + tab.id);
+                navigateTo(cleanPath);
+            };
+
+            const handleBackToHome = () => {
+                navigateTo('/tracking');
+            };
+
+            const switchTab = (tabId, param = null) => {
+                if (tabId === 'support' && param) {
+                    currentTrackingCode.value = String(param).trim();
+                }
                 if (tabId !== 'shipment') {
                     selectedCustomerForShipment.value = null;
                     selectedTariffForShipment.value = null;
                 }
-                if (!isKnownAppPath) {
-                    window.location.href = 'index.html#' + tabId;
-                    return;
-                }
-                activateTab(tabId);
+                previousTab.value = null;
+                const cleanPath = TAB_ROUTE_MAP[tabId] || ('/' + tabId);
+                navigateTo(cleanPath);
             };
 
             const handleViewTracking = (trackingCode, sourceTabId = null) => {
@@ -666,11 +771,15 @@
                 selectedCustomerForShipment.value = null;
                 selectedTariffForShipment.value = null;
                 activateTab('tracking');
+                const newPath = '/tracking?code=' + encodeURIComponent(trackingCode.trim());
+                if (window.location.pathname + window.location.search !== newPath) {
+                    window.history.pushState({ tab: 'tracking' }, '', newPath);
+                }
             };
 
             const handleBackToPreviousTab = () => {
                 if (previousTab.value && previousTab.value.id) {
-                    activateTab(previousTab.value.id);
+                    switchTab(previousTab.value.id);
                 }
                 previousTab.value = null;
             };
@@ -699,7 +808,7 @@
                 if (!currentUser.value) {
                     try {
                         sessionStorage.setItem('pendingTariffShipment', JSON.stringify(tariffData));
-                        sessionStorage.setItem('redirectAfterLogin', 'index.html#shipment');
+                        sessionStorage.setItem('redirectAfterLogin', '/shipment');
                     } catch (e) {}
                     if (window.Utils && window.Utils.showToast) {
                         window.Utils.showToast(
@@ -709,8 +818,8 @@
                         );
                     }
                     setTimeout(() => {
-                        window.location.href = 'login.html';
-                    }, 1200);
+                        navigateTo('/login');
+                    }, 500);
                     return;
                 }
                 switchTab('shipment');
@@ -737,8 +846,12 @@
                     Auth.logout();
                 } else {
                     localStorage.clear();
-                    window.location.href = 'login.html';
                 }
+                currentUser.value = null;
+                if (window.Utils && window.Utils.showToast) {
+                    window.Utils.showToast('Đăng Xuất', 'Bạn đã đăng xuất thành công khỏi hệ thống.', 'info');
+                }
+                navigateTo('/login');
             };
 
             const handleUserUpdated = (updated) => {
@@ -752,7 +865,7 @@
 
             const openUserProfileModal = () => {
                 if (typeof Auth === 'undefined' || !Auth.isAuthenticated()) {
-                    window.location.href = 'login.html';
+                    navigateTo('/login');
                     return;
                 }
                 switchTab('profile');
@@ -904,25 +1017,28 @@
             onMounted(() => {
                 if (typeof Auth !== 'undefined') {
                     currentUser.value = Auth.getUser();
+                }
 
-                    if (currentTab.value !== 'error') {
-                        const currentTabObj = allNavigationTabs.find(t => t.id === currentTab.value);
-                        if (currentTabObj && currentTabObj.permission && !Auth.hasPermission(currentTabObj.permission)) {
-                            currentTab.value = 'tracking';
-                        }
+                if (!currentUser.value) {
+                    const currentTabObj = allNavigationTabs.find(t => t.id === currentTab.value);
+                    if (currentTabObj && (currentTabObj.permission || currentTabObj.role)) {
+                        try {
+                            sessionStorage.setItem('redirectAfterLogin', window.location.pathname + window.location.search);
+                        } catch (e) {}
+                        navigateTo('/login', true);
+                    }
+                } else if (currentTab.value === 'login') {
+                    navigateTo('/tracking', true);
+                } else if (currentTab.value !== 'error') {
+                    const currentTabObj = allNavigationTabs.find(t => t.id === currentTab.value);
+                    if (currentTabObj && currentTabObj.permission && !Auth.hasPermission(currentTabObj.permission)) {
+                        navigateTo('/tracking', true);
                     }
                 }
 
-                const hash = window.location.hash.replace('#', '');
+                const hash = window.location.hash.replace('#', '').trim();
                 if (hash && currentTab.value !== 'error') {
-                    const foundNav = allNavigationTabs.find(t => t.id === hash);
-                    const foundGuest = publicGuestTabs.find(t => t.id === hash);
-                    if (foundNav && (!foundNav.permission || (typeof Auth !== 'undefined' && Auth.hasPermission(foundNav.permission)))) {
-                        currentTab.value = hash;
-                    } else if (foundGuest) {
-                        currentTab.value = hash;
-                        currentFeatureId.value = hash;
-                    }
+                    navigateTo('/' + hash, true);
                 }
 
                 try {
@@ -941,6 +1057,24 @@
                         sessionStorage.removeItem('pendingTariffShipment');
                     } catch (e) {}
                 }
+
+                const handlePopState = () => {
+                    const resolved = resolveRoute(window.location.pathname);
+                    const search = new URLSearchParams(window.location.search);
+                    const code = search.get('code') || search.get('tracking');
+                    if (code) {
+                        currentTrackingCode.value = code.trim();
+                    }
+                    if (resolved.notFound) {
+                        showError(404, 'Không Tìm Thấy Trang Yêu Cầu', `Đường dẫn "${window.location.pathname}" không tồn tại trên hệ thống máy chủ bưu chính VNPT.`);
+                    } else {
+                        activateTab(resolved.tab);
+                        if (['calculator', 'network', 'guide', 'support'].includes(resolved.tab)) {
+                            currentFeatureId.value = resolved.tab;
+                        }
+                    }
+                };
+                window.addEventListener('popstate', handlePopState);
 
                 const handleDocumentClick = (e) => {
                     const dropdownEl = document.getElementById('notification-bell-dropdown');
@@ -1022,6 +1156,7 @@
                 window.addEventListener('navigate-to-support', handleNavigateToSupport);
 
                 onUnmounted(() => {
+                    window.removeEventListener('popstate', handlePopState);
                     document.removeEventListener('click', handleDocumentClick);
                     window.removeEventListener('system-notification-created', handleSystemNotificationEvent);
                     window.removeEventListener('navigate-to-tracking', handleNavigateToTracking);
@@ -1054,6 +1189,8 @@
                 selectedCustomerForShipment,
                 selectedTariffForShipment,
                 switchTab,
+                navigateTo,
+                handleLoginSuccess,
                 handleViewTracking,
                 handleBackToPreviousTab,
                 handleShipmentCreated,
@@ -1138,6 +1275,10 @@
         app.component('public-layout', window.PublicLayout);
     }
 
+    if (window.LoginView) {
+        app.component('LoginView', window.LoginView);
+        app.component('login-view', window.LoginView);
+    }
     if (window.TrackingView) app.component('TrackingView', window.TrackingView);
     if (window.ShipmentView) app.component('ShipmentView', window.ShipmentView);
     if (window.PostOfficeOpsView) app.component('PostOfficeOpsView', window.PostOfficeOpsView);

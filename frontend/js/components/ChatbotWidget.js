@@ -863,29 +863,20 @@
 
             viewOnTrackingTab(trackingCode) {
                 this.closeChat();
-                if (window.location.pathname.includes('index.html') || window.location.pathname === '/' || window.location.pathname === '') {
-                    window.location.hash = 'tracking';
-                    const event = new CustomEvent('navigate-to-tracking', { detail: { trackingCode } });
-                    window.dispatchEvent(event);
-                } else {
-                    window.location.href = 'index.html#tracking';
+                if (window.navigateTo) {
+                    window.navigateTo('/tracking?code=' + encodeURIComponent(trackingCode || ''));
                 }
+                const event = new CustomEvent('navigate-to-tracking', { detail: { trackingCode } });
+                window.dispatchEvent(event);
             },
 
             initClaimFor(trackingCode) {
                 const code = (trackingCode || '').trim();
                 this.closeChat();
-                const path = window.location.pathname || '';
-                const onApp = path.includes('index.html') || path === '/' || path.endsWith('/');
-                if (onApp) {
-                    window.location.hash = 'support';
-                    window.dispatchEvent(new CustomEvent('navigate-to-support', { detail: { trackingCode: code } }));
-                    return;
+                if (window.navigateTo) {
+                    window.navigateTo('/support');
                 }
-                try {
-                    if (code) sessionStorage.setItem('supportTrackingCode', code);
-                } catch (e) {}
-                window.location.href = 'index.html#support';
+                window.dispatchEvent(new CustomEvent('navigate-to-support', { detail: { trackingCode: code } }));
             },
 
             toggleMute() {

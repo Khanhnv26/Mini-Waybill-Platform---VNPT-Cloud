@@ -277,19 +277,19 @@ Khi máy chủ Worker Node bị cạn kiệt tài nguyên cục bộ, K8s sẽ t
 ```mermaid
 graph TB
     subgraph Host_Layer["MÁY CHỦ WINDOWS (HOST) & CLIENT"]
-        Browser["Trình duyệt Web / Client Apps<br/>(http://localhost)"]
+        Browser["Trình duyệt Web / Client Apps<br/>(https://waybill.vn)"]
         AdminSSMS["Công cụ Quản trị DB<br/>(SSMS / DBeaver / DataGrip)"]
         OllamaEngine["Ollama AI Engine (host.docker.internal:11434)<br/>Mô hình: qwen2.5:3b"]
     end
 
     subgraph K8s_Cluster["CỤM KUBERNETES CHUẨN HÓA (PRODUCTION-LIGHTWEIGHT)"]
         subgraph Ingress_Layer["TẦNG TIẾP NHẬN DUY NHẤT (SINGLE ENTRYPOINT)"]
-            Ingress["Ingress NGINX Controller<br/>Cổng ngoại vi: 80, 443"]
+            Ingress["Ingress NGINX Controller (TLS Termination)<br/>Cổng ngoại vi: 80 (Redirect), 443 (TLS)"]
         end
 
         subgraph Security_Border["VÙNG BẢO MẬT ZERO-TRUST (NETWORK POLICIES)"]
             subgraph Gateway_Tier["TẦNG ĐIỀU PHỐI VÀ GIAO DIỆN"]
-                FrontendPod["Pod: frontend (Next.js)<br/>Service: ClusterIP :80"]
+                FrontendPod["Pod: frontend (Vue 3 SPA + Node.js)<br/>Service: ClusterIP :80"]
                 GatewayPod["Pods: api-gateway (Spring Cloud Gateway)<br/>2 Replicas (HA) + PodAntiAffinity<br/>Service: ClusterIP :8080"]
                 EurekaPod["Pod: eureka-peer1<br/>Netflix Eureka Service Registry (:8761)"]
             end
@@ -325,7 +325,7 @@ graph TB
         end
     end
 
-    Browser -->|HTTP :80| Ingress
+    Browser -->|HTTPS :443 (HTTP :80 Redirect)| Ingress
     Ingress -->|/| FrontendPod
     Ingress -->|/api| GatewayPod
 
@@ -402,7 +402,7 @@ k8s/
 | **`ClusterIP`** *(Mặc định)* | Chỉ nội bộ bên trong cụm K8s | Microservices giao tiếp với nhau an toàn | `auth`, `customer`, `shipment`, `routing`, `kafka`... |
 | **`NodePort`** | Mở cổng cố định (30000-32767) trên tất cả Worker Nodes | Truy cập từ bên ngoài máy cụm mà không cần Load Balancer | Thích hợp môi trường On-Premise/Bare-Metal |
 | **`LoadBalancer`** | Tự động cấp phát IP/Cổng từ nhà cung cấp Cloud | Mở dịch vụ ra ngoài cụm khi môi trường có load balancer | Không dùng trong Minikube overlay; SQL truy cập qua port-forward |
-| **`Ingress`** | Bộ định tuyến L7 (HTTP/HTTPS) dựa trên Domain và URI Path | Cổng HTTP(S) cho người dùng | `waybill.local`, `api.waybill.local`, `storage.waybill.local` |
+| **`Ingress`** | Bộ định tuyến L7 (HTTP/HTTPS) dựa trên Domain và URI Path | Cổng HTTP(S) cho người dùng | `waybill.vn`, `api.waybill.vn`, `storage.waybill.vn` |
 
 ### 3.2. Cơ Chế CoreDNS: Pod Nói Chuyện Với Pod Như Thế Nào?
 Trong mạng ảo K8s, mỗi Pod có một địa chỉ IP riêng (ví dụ `10.1.0.33`), nhưng địa chỉ này sẽ thay đổi mỗi khi Pod restart. Để ổn định kết nối:
@@ -425,30 +425,148 @@ Trong môi trường Kubernetes tích hợp của Docker Desktop trên Windows:
 
 ---
 
-### 3.5. Chuẩn Hóa An Ninh Zero-Trust & Ingress Single Entrypoint
+### 3.5. Chuẩn Hóa An Ninh Zero-Trust, Ingress SSL/TLS & Quản Trị Tên Miền Cụm
 
-Trong giai đoạn chuẩn hóa lên môi trường Production, hệ thống áp dụng 3 nguyên tắc bảo mật mạng then chốt:
+Trong giai đoạn chuẩn hóa lên môi trường Production, hạ tầng mạng của hệ thống được tái cấu trúc toàn diện dựa trên 5 trụ cột bảo mật & điều phối lưu lượng then chốt:
 
-1. **Thu gọn điểm tiếp nhận ngoại vi (Single Entrypoint Ingress):**
-   * Toàn bộ lưu lượng từ người dùng bên ngoài đi qua **Ingress NGINX** tại `http://localhost` (cổng 80) hoặc qua tên miền `waybill.local`.
-   * Ingress tự động chia tải:
-     * Tuyến `/api`: Định tuyến trực tiếp về `api-gateway:8080`.
-     * Tuyến `/`: Định tuyến về `frontend:80`.
-   * Các Service `frontend` và `api-gateway` được chuyển đổi sang kiểu `ClusterIP` an toàn.
+#### 3.5.1. Kiến Trúc Single Entrypoint & Domain-Based Routing (`*.waybill.vn`)
+Thay vì để client mở cổng rời rạc hoặc sử dụng địa chỉ IP thô, hệ thống chuẩn hóa toàn bộ luồng truy cập qua một cửa ngõ L7 duy nhất: **Ingress NGINX Controller**:
+* **SSL/TLS Termination tại biên (Edge):** Ingress Controller lắng nghe trên cổng 443 (HTTPS), thực hiện giải mã SSL/TLS trước khi chuyển tiếp gói tin dạng HTTP thuần (Layer 7) đến các Service `ClusterIP` nội bộ. Điều này giúp giảm tải mã hóa/giải mã cho các container nghiệp vụ bên trong.
+* **Tự động chuyển hướng HTTP $\rightarrow$ HTTPS:** Mọi truy vấn gửi tới cổng 80 (HTTP) đều được Ingress NGINX tự động phản hồi mã chuyển hướng `308 Permanent Redirect` (hoặc `301`) sang `https://...`.
+* **Ma trận định tuyến tên miền và dịch vụ đích:**
 
-2. **Đóng cổng ngoại vi Database và Cache (ClusterIP Isolation):**
-   * Chuyển `sqlserver-replica` và `redis` về `type: ClusterIP`. Ngăn chặn hoàn toàn việc mở cổng cơ sở dữ liệu ra Internet.
-   * Các microservices kết nối với SQL Server qua DNS nội bộ `sqlserver-replica:1433`.
-   * Khi quản trị viên cần dùng SSMS hoặc DBeaver từ máy tính Windows, sử dụng script tiện ích mở kênh an toàn có kiểm soát:
-     ```powershell
-     powershell -ExecutionPolicy Bypass -File scripts/db-connect.ps1
-     ```
+| Tên miền (Domain FQDN) | Namespace | Service Đích | Port Đích | Giao Thức & Chức Năng |
+| :--- | :--- | :--- | :--- | :--- |
+| `https://waybill.vn` | `waybill` | `frontend` | 80 | **Frontend SPA Portal** (HTML5 History Mode, Clean URLs, tĩnh + proxy) |
+| `https://api.waybill.vn` | `waybill` | `api-gateway` | 8080 | **API Gateway HA** (Spring Cloud Gateway, bảo vệ JWT, Rate Limiter) |
+| `https://storage.waybill.vn` | `waybill` | `minio` | 9000 | **MinIO S3 Storage** (Public asset, tệp đính kèm ticket khiếu nại) |
+| `https://grafana.waybill.vn` | `monitor` | `grafana` | 3000 | **Grafana Dashboard** (Giám sát trực quan CPU, RAM, JVM, HTTP Metrics) |
+| `https://dashboard.waybill.vn` | `kubernetes-dashboard` | `kubernetes-dashboard` | 443 | **Kubernetes Dashboard** (Giao diện đồ họa quản trị Pods, Events cụm) |
 
-3. **Phân vùng mạng theo mô hình Zero-Trust (Kubernetes NetworkPolicy):**
-   * Áp dụng file khai báo `k8s/01-infrastructure/network-policies.yaml`:
-     * **Bảo vệ SQL Server:** Chỉ các Pod mang nhãn microservice nghiệp vụ (`shipment-service`, `customer-service`, `auth-service`,...) mới được phép kết nối TCP cổng 1433.
-     * **Bảo vệ Redis:** Chỉ các Pod cần bộ đệm (`api-gateway`, `shipment-service`, `customer-service`) mới được gửi gói tin đến cổng 6379.
-     * **Cách ly Frontend:** Pod `frontend` chỉ được phép giao tiếp với `api-gateway`, bị chặn hoàn toàn truy cập trực tiếp vào Database hay các microservices nội bộ khác.
+* **Lý do lựa chọn Domain-Based Routing thay vì IP/Localhost:**
+  1. *Đồng nhất Cookie & State:* Tránh hiện tượng xung đột cookie giữa các ứng dụng chạy chung `localhost` khác cổng.
+  2. *Mô phỏng Production thực tế:* Phù hợp với kiến trúc Cloud hiện đại (AWS ALB / Cloudflare / VNPT Cloud) sử dụng Subdomain cho từng năng lực nghiệp vụ.
+  3. *Tương thích chuẩn OAuth 2.0:* Các IdP lớn như Google bắt buộc định danh nguồn gốc HTTPS trên custom domain.
+
+#### 3.5.2. Triển Khai Thực Tế: Chứng Chỉ SSL/TLS Wildcard Với `mkcert` & Kubernetes TLS Secrets
+Để triển khai HTTPS hoàn toàn "xanh" trên trình duyệt (không gặp cảnh báo đỏ `NET::ERR_CERT_AUTHORITY_INVALID`), giải pháp sử dụng công cụ **`mkcert`** tạo Certificate Authority (CA) cục bộ tin cậy:
+
+* **Bản chất của `mkcert`:** `mkcert` tự động tạo một Root CA riêng trong máy và cài đặt (trust) Root CA đó vào kho lưu trữ hệ điều hành (Windows Certificate Store) cùng các trình duyệt (Chrome, Edge, Firefox). Bất kỳ chứng chỉ SSL nào do Root CA này ký đều được trình duyệt xác thực là bảo mật 100%.
+
+* **Quy trình 5 bước thiết lập chứng chỉ & nạp vào Kubernetes:**
+
+1. **Cài đặt `mkcert` trên Windows:**
+   ```powershell
+   choco install mkcert
+   # Hoặc cài qua Scoop / tải file binary từ GitHub Releases
+   ```
+
+2. **Cài đặt Root CA vào hệ thống:**
+   ```powershell
+   mkcert -install
+   ```
+   *(Windows sẽ hiển thị hộp thoại xác nhận thêm Root CA vào "Trusted Root Certification Authorities", chọn Yes).*
+
+3. **Sinh cặp chứng chỉ Wildcard & Domain gốc:**
+   ```powershell
+   mkcert waybill.vn "*.waybill.vn"
+   ```
+   Lệnh sinh ra 2 file chứng chỉ đạt chuẩn X.509:
+   * `waybill.vn+1.pem`: Chứa chuỗi chứng chỉ SSL (Certificate Bundle bao gồm domain gốc và wildcard).
+   * `waybill.vn+1-key.pem`: Chứa Private Key (Khóa bí mật RSA/ECDSA).
+
+4. **Tạo Kubernetes TLS Secrets trên cả 3 Namespaces:**
+   > ⚠️ **Quy tắc cô lập Namespace của K8s Ingress:** Ingress Controller chỉ có thể đọc Secret nằm **trong cùng Namespace** với tài nguyên Ingress đó. Do dịch vụ ứng dụng, giám sát và dashboard nằm ở 3 namespace tách biệt, ta cần tạo TLS Secret tương ứng trên từng namespace:
+   ```powershell
+   # 1. Namespace nghiệp vụ bưu chính (waybill)
+   kubectl create secret tls waybill-tls --cert=waybill.vn+1.pem --key=waybill.vn+1-key.pem -n waybill
+
+   # 2. Namespace giám sát (monitor)
+   kubectl create secret tls monitoring-tls --cert=waybill.vn+1.pem --key=waybill.vn+1-key.pem -n monitor
+
+   # 3. Namespace quản trị cụm (kubernetes-dashboard)
+   kubectl create secret tls dashboard-tls --cert=waybill.vn+1.pem --key=waybill.vn+1-key.pem -n kubernetes-dashboard
+   ```
+
+5. **Cấu hình phân giải DNS cục bộ trên máy tính (`hosts` file):**
+   Mở `C:\Windows\System32\drivers\etc\hosts` bằng Notepad (Run as Administrator) và trỏ các domain về IP máy chủ Ingress (hoặc `127.0.0.1` trên Docker Desktop):
+   ```text
+   127.0.0.1 waybill.vn api.waybill.vn storage.waybill.vn grafana.waybill.vn dashboard.waybill.vn
+   ```
+
+* **Mẫu cấu hình Kubernetes Ingress có kích hoạt TLS (`k8s/03-ingress/waybill-ingress.yaml`):**
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: waybill-ingress
+  namespace: waybill
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  tls:
+    - hosts:
+        - waybill.vn
+        - api.waybill.vn
+        - storage.waybill.vn
+      secretName: waybill-tls
+  rules:
+    - host: waybill.vn
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+    - host: api.waybill.vn
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8080
+    - host: storage.waybill.vn
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 9000
+```
+
+#### 3.5.3. Bắt Buộc HTTPS Cho Google OAuth Identity Services Trên Custom Domain
+Trong kiến trúc bảo mật của `auth-service` và `frontend`, hệ thống tích hợp luồng đăng nhập nhanh bằng Google Identity Services (GIS).
+* **Ràng buộc bảo mật của Google:** Google chỉ cho phép sử dụng giao thức `http://` duy nhất với hostname nguyên bản là `http://localhost`. Ngay khi chuyển sang tên miền tùy chỉnh (Custom Domain) như `waybill.vn`, thư viện Google Client API (`accounts.google.com/gsi/client`) sẽ chặn hoàn toàn quá trình khởi tạo nút bấm đăng nhập nếu giao thức không phải là `https://`.
+* **Cấu hình trên Google Cloud Console:**
+  Tại trang **APIs & Services $\rightarrow$ Credentials $\rightarrow$ OAuth 2.0 Client IDs**:
+  * **Authorized JavaScript origins:** Khai báo chính xác `https://waybill.vn`.
+  * **Authorized redirect URIs:** Bổ sung `https://waybill.vn/login` (khi cần redirect callback).
+* Nhờ cơ chế Ingress SSL/TLS Termination với `mkcert`, ứng dụng Frontend chạy mượt mà nút đăng nhập Google One-Tap và OAuth Button ngay trên môi trường local cluster mà không vi phạm chính sách bảo mật của Google.
+
+#### 3.5.4. Đóng Cổng Ngoại Vi Database Và Cache (ClusterIP Isolation)
+* Chuyển `sqlserver-replica` và `redis` về `type: ClusterIP`. Ngăn chặn hoàn toàn việc mở cổng cơ sở dữ liệu và cache ra Internet hoặc mạng LAN công cộng.
+* Toàn bộ 12 microservices kết nối với SQL Server qua DNS nội bộ bảo vệ: `sqlserver-replica.waybill.svc.cluster.local:1433`.
+* Khi quản trị viên hoặc DevOps cần dùng SSMS, DBeaver, DataGrip từ máy tính Windows để kiểm tra dữ liệu, sử dụng script bảo mật mở kênh port-forwarding có kiểm soát:
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File scripts/db-connect.ps1
+  ```
+
+#### 3.5.5. Phân Vùng Mạng Theo Mô Hình Zero-Trust (Kubernetes NetworkPolicy)
+Áp dụng file khai báo `k8s/01-infrastructure/network-policies.yaml` nhằm thực thi nguyên tắc "Least Privilege" (Đặc quyền tối thiểu) ở tầng mạng ảo K8s:
+* **Bảo vệ SQL Server:** Chỉ các Pod mang nhãn microservice nghiệp vụ (`shipment-service`, `customer-service`, `auth-service`, `report-service`,...) mới được phép bắt tay TCP tới cổng 1433.
+* **Bảo vệ Redis:** Chỉ các Pod có nhu cầu caching và phân tầng token (`api-gateway`, `shipment-service`, `customer-service`) mới được gửi truy vấn tới cổng 6379.
+* **Cách ly Pod Frontend:** Pod `frontend` chỉ được phép giao tiếp duy nhất với `api-gateway` (cổng 8080) và nhận request từ Ingress Controller; bị từ chối truy cập trực tiếp vào Database, Redis hay các microservices tầng dưới.
 
 ---
 
@@ -607,6 +725,32 @@ kubectl exec -it <tên-pod> -n waybill -- sh
 kubectl cp frontend/js/api.js waybill/<tên-pod-frontend>:/app/frontend/js/api.js
 ```
 
+### 7.5. Quản Trị Ingress & Chứng Chỉ SSL/TLS (Ingress & TLS Secrets)
+```powershell
+# Liệt kê toàn bộ Ingress trên tất cả namespaces
+kubectl get ingress -A
+
+# Xem chi tiết cấu hình định tuyến và sự kiện (Events) của Ingress
+kubectl describe ingress waybill-ingress -n waybill
+kubectl describe ingress monitoring-ingress -n monitor
+kubectl describe ingress kubernetes-dashboard -n kubernetes-dashboard
+
+# Kiểm tra danh sách TLS Secrets trên 3 namespaces
+kubectl get secret -A | Select-String "tls"
+
+# Xem thông tin chứng chỉ bên trong K8s Secret (PowerShell):
+# kubectl get secret waybill-tls -n waybill -o jsonpath="{.data['tls\.crt']}" | base64 -d | openssl x509 -text -noout
+
+# Cập nhật/Tạo lại nhanh TLS Secret khi cấp mới chứng chỉ (idempotent)
+kubectl create secret tls waybill-tls --cert=waybill.vn+1.pem --key=waybill.vn+1-key.pem -n waybill --dry-run=client -o yaml | kubectl apply -f -
+kubectl create secret tls monitoring-tls --cert=waybill.vn+1.pem --key=waybill.vn+1-key.pem -n monitor --dry-run=client -o yaml | kubectl apply -f -
+kubectl create secret tls dashboard-tls --cert=waybill.vn+1.pem --key=waybill.vn+1-key.pem -n kubernetes-dashboard --dry-run=client -o yaml | kubectl apply -f -
+
+# Kiểm thử bắt tay HTTPS và kiểm tra phản hồi từ CLI
+curl -Iv https://waybill.vn
+curl -Iv https://api.waybill.vn/actuator/health
+```
+
 ---
 
 ## 8. Quy Trình Phát Triển 2 Vòng (Inner Loop vs Outer Loop) & Triển Khai Thực Tế
@@ -656,13 +800,12 @@ docker stop waybill-kafka-2 waybill-kafka-3
 #### 3. Chạy và kiểm thử mã nguồn:
 - **Backend (Spring Boot):**
   Mở project trong IntelliJ IDEA, mở file Application của service cần sửa (ví dụ `ShipmentServiceApplication.java`). Bấm chuột phải chọn **Debug**. Ứng dụng khởi động trong 2 giây, kết nối thẳng vào database `localhost:2433` và Kafka `localhost:9092`.
-- **Frontend (Next.js):**
+- **Frontend (Vue 3 SPA & Node.js):**
   Mở terminal tại thư mục giao diện:
   ```powershell
-  cd frontend
-  npm run dev
+  node server.js
   ```
-  Truy cập `http://localhost:3000`. Mọi thay đổi trong mã nguồn React được cập nhật tức thời (Hot-Reload).
+  Truy cập `http://localhost:3000` (hoặc qua Ingress `https://waybill.vn`). Mọi route SPA (`/login`, `/tracking`, `/shipment`,...) được định tuyến mượt mà qua HTML5 History Mode và Fallback Controller.
 
 ---
 
@@ -691,5 +834,5 @@ kubectl rollout status deployment/shipment-service -n waybill
 ```
 
 #### Bước 4: Kiểm tra kết quả qua Ingress
-Mở trình duyệt truy cập `http://localhost` để kiểm chứng toàn bộ luồng nghiệp vụ trên hạ tầng Kubernetes chuẩn hóa.
+Mở trình duyệt truy cập `https://waybill.vn` để kiểm chứng toàn bộ luồng nghiệp vụ trên hạ tầng Kubernetes chuẩn hóa (bao gồm xác thực Google OAuth, tra cứu bưu phẩm, phân trạm Hub, quản trị đơn và dashboard giám sát).
 

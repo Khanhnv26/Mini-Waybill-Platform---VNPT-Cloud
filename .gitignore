@@ -50,3 +50,8 @@ report.json
 .env.minikube.local
 application-local.properties
 application-secret.properties
+
+# TLS Certificates & Keys
+*.pem
+*.key
+*.crt

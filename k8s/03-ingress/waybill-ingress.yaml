@@ -14,6 +14,12 @@ metadata:
     nginx.ingress.kubernetes.io/cors-allow-origin: "*"
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - waybill.vn
+        - api.waybill.vn
+        - storage.waybill.vn
+      secretName: waybill-tls
   rules:
     - http:
         paths:
@@ -31,7 +37,7 @@ spec:
                 name: frontend
                 port:
                   number: 80
-    - host: waybill.local
+    - host: waybill.vn
       http:
         paths:
           - path: /api
@@ -48,7 +54,7 @@ spec:
                 name: frontend
                 port:
                   number: 80
-    - host: api.waybill.local
+    - host: api.waybill.vn
       http:
         paths:
           - path: /
@@ -58,7 +64,7 @@ spec:
                 name: api-gateway
                 port:
                   number: 8080
-    - host: storage.waybill.local
+    - host: storage.waybill.vn
       http:
         paths:
           - path: /

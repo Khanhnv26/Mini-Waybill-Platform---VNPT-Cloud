@@ -24,6 +24,8 @@
 [![RabbitMQ](https://img.shields.io/badge/RabbitMQ-Priority%20Queue%20%26%20SLA%20DLX-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)](https://www.rabbitmq.com/)
 [![MinIO](https://img.shields.io/badge/MinIO-S3%20Compatible%20Storage-C72C48?style=for-the-badge&logo=minio&logoColor=white)](https://min.io/)
 [![VietQR](https://img.shields.io/badge/VietQR-NAPAS%20247%20Dynamic%20QR-005BAA?style=for-the-badge&logoColor=white)](https://vietqr.net/)
+[![Frontend SPA](https://img.shields.io/badge/Frontend-Vue%203%20SPA%20%7C%20HTML5%20History-4FC08D?style=for-the-badge&logo=vuedotjs&logoColor=white)](https://waybill.vn)
+[![HTTPS SSL](https://img.shields.io/badge/Security-HTTPS%20%7C%20mkcert%20Wildcard%20SSL-00A4E4?style=for-the-badge&logo=letsencrypt&logoColor=white)](https://waybill.vn)
 
 ---
 
@@ -132,6 +134,37 @@ Khác với các ứng dụng giao hàng nội thành đơn chặng, hệ thốn
 * **Truy vết tự động danh tính bưu tá & Tính toán KPI thời gian thực:** Tự động đối soát `actorId` từ mốc giao hàng `HANDED_TO_COURIER` bên `tracking-service`, phát sự kiện `ShipmentFeedbackEvent` lên Kafka topic `shipment-feedbacks` để `shipper-service` cập nhật điểm số bình quân lũy kế tức thời (`rating_avg` và `rating_count`) với độ trễ dưới 10ms.
 * **Cơ chế cứu vãn trải nghiệm khách hàng (Customer Recovery):** Khi điểm đánh giá dưới 3 sao, hệ thống tự động gắn cờ `suggestTicket = true`, kích hoạt giao diện mở khiếu nại nhanh kết nối trực tiếp với trung tâm CSKH `support-service`.
 * *Tài liệu chi tiết:* Xem toàn văn kiến trúc, schema CSDL và bộ câu hỏi phỏng vấn tại [Cẩm nang 18 - Đánh Giá Bưu Phẩm 2 Tầng, Đối Soát KPI Bưu Tá & Luồng Sự Kiện Kafka](docs/18-shipment-rating-and-shipper-kpi.md).
+
+### 2.15. Kiến Trúc Frontend Single Page Application (SPA) & Clean URL Routing
+* **Chuyển dịch toàn diện sang Single Page Application (SPA):** Thay thế hoàn toàn kiến trúc multi-page rời rạc (`index.html`, `login.html`, `error.html`) bằng một ứng dụng SPA duy nhất trên nền Vue 3 + Tailwind CSS CDN, loại bỏ toàn bộ reload trang cứng, bảo tồn 100% state và dữ liệu RAM giữa các phiên thao tác.
+* **Định tuyến HTML5 History Mode (Clean URLs):** Loại bỏ dấu `#` hash fragment cổ điển, chuẩn hóa toàn bộ đường dẫn nghiệp vụ theo chuẩn URL thân thiện với người dùng:
+  * `/` hoặc `/tracking`: Tra cứu hành trình bưu phẩm toàn trình (`TrackingView`).
+  * `/login`: Cổng xác thực nghiệp vụ toàn màn hình (`LoginView`).
+  * `/shipment`: Khởi tạo và tạo đơn vận bưu chính B2B (`ShipmentView`).
+  * `/trips`: Quản lý chuyến xe trục gom hàng đa chặng (`TripsView`).
+  * `/post-office`: Khai thác bưu cục tiếp nhận & đóng túi thư (`PostOfficeOpsView`).
+  * `/hub-ops`: Khai thác phân luồng tại 5 Siêu Hub chia chọn (`HubOpsView`).
+  * `/shipper`: Bưu tá phát hàng chặng cuối & nộp tiền COD (`ShipperView`).
+  * `/shipper-directory`: Danh bạ bưu tá toàn mạng (`ShipperDirectoryView`).
+  * `/customer`: Danh bạ khách hàng & đối tác B2B (`CustomerView`).
+  * `/report`: Phân tích đối soát dòng tiền & xuất Excel kế toán (`ReportView`).
+  * `/calculator`: Ước tính cước phí bưu chính đa vùng (`TariffCalculatorView`).
+  * `/network`: Mạng lưới bưu cục gửi hàng toàn quốc (`NetworkView`).
+  * `/guide`: Cẩm nang bưu chính & quy cách đóng gói (`GuideView`).
+  * `/support`: CSKH, khiếu nại bưu gửi & Trợ lý ảo AI (`SupportView`).
+  * `/admin-rbac`: Quản trị hệ thống, phân quyền vai trò (`AdminRbacView`).
+  * `/profile`: Hồ sơ cá nhân & liên kết Google SSO (`ProfileView`).
+  * `*`: Xử lý mã lỗi hệ thống phân tán chuẩn hóa (`ErrorView` 404, 403, 503, 429).
+* **Cơ chế Route Guard & Khôi phục phiên làm việc (Session Restoration):**
+  * Tự động kiểm tra quyền (`Auth.hasPermission`) và vai trò (`Auth.hasRole`) trước khi kích hoạt component.
+  * Nếu người dùng chưa đăng nhập cố tình truy cập màn hình nghiệp vụ nội bộ (ví dụ: `/shipment`, `/trips`), SPA tự động chặn lại, lưu URL đích vào `sessionStorage.redirectAfterLogin` và điều hướng về `/login`. Sau khi đăng nhập thành công, hệ thống tự động đưa người dùng trở lại đúng màn hình đã yêu cầu.
+* **Layout điều kiện & Tối ưu thị giác (Full-page Login & Ambient Background):**
+  * Khi ở route `/login`, hệ thống tự động ẩn toàn bộ Sidebar, App Topbar, Footer và ChatbotWidget để tập trung trải nghiệm vào thẻ xác thực bảo mật, hiển thị nền toàn cảnh tối ưu (`auth-custom-bg` với hình nền `/images/my-bg.jpg` và các đốm sáng chuyển động `animate-float`).
+  * Sau khi đăng nhập thành công, layout chính (`InternalLayout` hoặc `PublicLayout`) được kích hoạt mượt mà mà không có hiện tượng chớp trắng trình duyệt.
+* **Hỗ trợ nút Back/Forward qua sự kiện `popstate`:** Lắng nghe và đồng bộ trạng thái `currentTab` tức thì theo lịch sử duyệt web của trình duyệt.
+* **Server-Side Fallback & Chuyển hướng tương thích ngược (301 Redirect):**
+  * Máy chủ Node.js tự động chuyển hướng HTTP 301 cho các liên kết cũ (`/login.html` ➔ `/login`, `/index.html` ➔ `/`, `/error.html` ➔ `/error`).
+  * Cơ chế SPA Fallback: Mọi request không chứa đuôi file tĩnh (`ext === ''`) và không thuộc `/api/` đều được trả về `index.html` (HTTP 200) để trình duyệt tự khởi chạy và ánh xạ route tương ứng.
 
 ---
 
@@ -277,7 +310,7 @@ Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, m�
 | **09** | [**Quyết Toán COD & Báo Cáo Đối Soát Dòng Tiền**](docs/09-cod-settlement-and-financial-reconciliation.md) | Kiến trúc máy trạng thái quyết toán COD 3 pha (`UNSETTLED` -> `PENDING_SETTLEMENT` -> `SETTLED`), nghiệp vụ bưu tá nộp quỹ ca phát, bưu cục kiểm đếm nhập két, đồng bộ Event-Driven qua Kafka sang `report-service` (Port 8091) và xuất file Excel 2-sheet đối soát tài chính theo chuẩn kiểm toán. |
 | **10** | [**Container Hóa Toàn Trình & Điều Phối HA (Docker & Compose)**](docs/10-docker-containerization-and-ha-orchestration.md) | Quy trình đóng gói Dockerfile chuẩn Java 21 / Node.js, quản trị Registry Docker Hub, xử lý bẫy mạng `SERVER_PORT` & Docker DNS, và **Bộ Boilerplate độc lập 23 Containers** (Kafka KRaft, Redis, SQL Server Volume, Eureka Peer, Nginx Failover). |
 | **11** | [**CI/CD Tự Động Hóa Với GitHub Actions (Microservices Monorepo)**](docs/11-cicd-github-actions-automation.md) | Lý thuyết nền tảng CI/CD & DevOps, kiến trúc 3-Stage Pipeline, bộ lọc thay đổi thông minh (`paths-filter`), ma trận build song song (`matrix`), kỹ thuật cách ly lỗi `fail-fast: false`, gắn nhãn Git SHA bất biến và Bot Telegram cảnh báo thời gian thực. |
-| **12** | [**Điều Phối Toàn Trình Trên Kubernetes (K8s Architecture, Production & Troubleshooting)**](docs/12-kubernetes-orchestration-and-deployment.md) | Kiến trúc Kubernetes chuẩn hóa cho 13 microservices nghiệp vụ, Gateway và Frontend; sơ đồ kiến trúc Mermaid, Ingress NGINX (Port 80), ClusterIP cách ly Database & Redis, tường lửa Zero-Trust NetworkPolicy, quy trình phát triển 2 vòng (Inner Loop vs Outer Loop) và sổ tay kubectl thực chiến. |
+| **12** | [**Điều Phối Toàn Trình Trên Kubernetes (K8s Architecture, Production & Troubleshooting)**](docs/12-kubernetes-orchestration-and-deployment.md) | Kiến trúc Kubernetes chuẩn hóa cho 13 microservices nghiệp vụ, Gateway và Frontend SPA; sơ đồ kiến trúc Mermaid, Ingress NGINX SSL/TLS Wildcard (`mkcert` HTTPS 443 + HTTP 80 redirect), ClusterIP cách ly Database & Redis, tường lửa Zero-Trust NetworkPolicy, quy trình phát triển 2 vòng (Inner Loop vs Outer Loop) và sổ tay kubectl thực chiến. |
 | **13** | [**Động Cơ Định Giá & Ma Trận Cước Bưu Chính**](docs/13-pricing-engine-and-tariff-matrix.md) | Công thức quy đổi khối lượng thể tích ($L \times W \times H / 5000$), phân vùng cước Nội tỉnh vs Liên miền, 3 gói phân tầng `ECO`, `STANDARD`, `EXPRESS`, cơ cấu phụ phí (Xăng dầu 6%, COD 1%, Bảo hiểm 0.5%) và Boilerplate Bảng cước động lưu CSDL. |
 | **14** | [**Trợ Lý Ảo GenAI & Cơ Chế Spring AI Tool Calling**](docs/14-spring-ai-agent-and-support-ticketing.md) | Kiến trúc On-Premise LLM với Ollama (`qwen2.5:7b`), cơ chế Spring AI `ChatClient` Function Calling tự động gọi Feign Client tra cứu vận đơn & tính cước, kỹ thuật Prompt Engineering chống ảo giác và xử lý dự phòng khi AI quá tải. |
 | **15** | [**Đếm Ngược SLA RabbitMQ & Xử Lý Hủy Đơn Liên Dịch Vụ**](docs/15-rabbitmq-priority-queue-and-sla-dead-letter-patterns.md) | Kiến trúc Polyglot Messaging (RabbitMQ + Kafka + OpenFeign), bộ đếm ngược SLA 120s bằng Message TTL + Dead-Letter Exchange (DLX), tự động hủy đơn liên dịch vụ qua Feign (`shipment:cancel_all`), giải phóng tải chuyến xe & tồn kho kho bãi (`routing-service`), và cơ chế tương thích kép mốc thời gian Kafka. |
@@ -290,24 +323,52 @@ Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, m�
 ## 5. Hướng Dẫn Khởi Chạy Nhanh (Quickstart)
 
 ### Cách 1: Khởi chạy trên Kubernetes (Docker Desktop)
-Đây là phương án gọn nhẹ và tối ưu nhất trên Windows, sử dụng trực tiếp Docker Desktop mà không lo xung đột Hyper-V:
+Đây là phương án chuẩn hóa và tối ưu nhất trên Windows, sử dụng Ingress NGINX với SSL/TLS Termination và toàn bộ vi dịch vụ hoạt động khép kín trong cụm:
 
-1. Kích hoạt Kubernetes trong Docker Desktop: Settings -> Kubernetes -> Tích chọn **Enable Kubernetes** -> Bấm **Apply & restart**.
-2. Thiết lập Namespace, Secret và ConfigMap ban đầu:
+1. **Kích hoạt Kubernetes trong Docker Desktop:** Mở Docker Desktop $\rightarrow$ Settings $\rightarrow$ Kubernetes $\rightarrow$ Tích chọn **Enable Kubernetes** $\rightarrow$ Bấm **Apply & restart**.
+2. **Khởi tạo Chứng Chỉ SSL/TLS Wildcard với `mkcert` (Bắt buộc cho HTTPS & Google OAuth):**
 ```powershell
-kubectl apply -f .\k8s\00-namespaces\
-kubectl create secret generic waybill-runtime -n waybill --from-literal=db-password="Replica@123456" --from-literal=jwt-secret="9a7b8c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b" --from-literal=rabbitmq-user="admin" --from-literal=rabbitmq-password="admin" --from-literal=minio-user="minioadmin" --from-literal=minio-password="minioadmin" --from-literal=ai-api-key="default-key" --dry-run=client -o yaml | kubectl apply -f -
-kubectl create configmap waybill-config -n waybill --from-literal=AI_BASE_URL="http://host.docker.internal:11434/v1" --from-literal=AI_MODEL="qwen2.5:3b" --from-literal=MINIO_PUBLIC_URL="http://localhost:9000" --dry-run=client -o yaml | kubectl apply -f -
+# Cài đặt CA gốc tin cậy vào Windows Certificate Store (chỉ cần chạy 1 lần)
+mkcert -install
+
+# Sinh cặp chứng chỉ Wildcard cho toàn bộ domain nội bộ
+mkcert waybill.vn "*.waybill.vn"
 ```
-3. Triển khai cụm hạ tầng và toàn bộ microservices:
+3. **Cấu hình phân giải DNS cục bộ trên Windows (`hosts` file):**
+Mở Notepad bằng quyền **Administrator**, mở file `C:\Windows\System32\drivers\etc\hosts` và thêm dòng sau:
+```text
+127.0.0.1 waybill.vn api.waybill.vn storage.waybill.vn grafana.waybill.vn dashboard.waybill.vn
+```
+4. **Thiết lập Namespaces, TLS Secrets, ConfigMap và Runtime Secrets:**
+```powershell
+# Khởi tạo các Namespaces
+kubectl apply -f .\k8s\00-namespaces\
+
+# Nạp TLS Secret vào 3 namespaces phục vụ Ingress tương ứng
+kubectl create secret tls waybill-tls --cert=waybill.vn+1.pem --key=waybill.vn+1-key.pem -n waybill
+kubectl create secret tls monitoring-tls --cert=waybill.vn+1.pem --key=waybill.vn+1-key.pem -n monitor
+kubectl create secret tls dashboard-tls --cert=waybill.vn+1.pem --key=waybill.vn+1-key.pem -n kubernetes-dashboard
+
+# Tạo Secret nghiệp vụ và ConfigMap runtime
+kubectl create secret generic waybill-runtime -n waybill --from-literal=db-password="Replica@123456" --from-literal=jwt-secret="9a7b8c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b" --from-literal=rabbitmq-user="admin" --from-literal=rabbitmq-password="admin" --from-literal=minio-user="minioadmin" --from-literal=minio-password="minioadmin" --from-literal=ai-api-key="default-key" --dry-run=client -o yaml | kubectl apply -f -
+kubectl create configmap waybill-config -n waybill --from-literal=AI_BASE_URL="http://host.docker.internal:11434/v1" --from-literal=AI_MODEL="qwen2.5:3b" --from-literal=MINIO_PUBLIC_URL="https://storage.waybill.vn" --dry-run=client -o yaml | kubectl apply -f -
+```
+5. **Triển khai toàn bộ cụm hạ tầng, vi dịch vụ, Ingress và Giám sát:**
 ```powershell
 kubectl apply -f .\k8s\01-infrastructure\
 kubectl apply -f .\k8s\02-services\
+kubectl apply -f .\k8s\03-ingress\
+kubectl apply -f .\k8s\04-monitoring\
 ```
-* **Web Portal:** [http://localhost](http://localhost) (mở thẳng port 80).
-* **API Gateway:** [http://localhost:8080](http://localhost:8080).
-* **MinIO Console:** [http://localhost:9001](http://localhost:9001) (`minioadmin` / `minioadmin`).
-* **SQL Server:** Port 2433 (`sa` / `Replica@123456`).
+
+**Bảng cổng truy cập & URL dịch vụ chuẩn hóa (HTTPS):**
+* **Web Portal (SPA):** [https://waybill.vn](https://waybill.vn) (Trang chủ), [https://waybill.vn/login](https://waybill.vn/login) (Đăng nhập Google OAuth / Demo), [https://waybill.vn/tracking](https://waybill.vn/tracking) (Tra cứu), [https://waybill.vn/shipment](https://waybill.vn/shipment) (Tạo vận đơn).
+* **API Gateway HA:** [https://api.waybill.vn](https://api.waybill.vn) (Kiểm tra sức khỏe: `https://api.waybill.vn/actuator/health`).
+* **MinIO Object Storage:** [https://storage.waybill.vn](https://storage.waybill.vn); Web Console mở qua `kubectl port-forward svc/minio 9001:9001 -n waybill` $\rightarrow$ [http://localhost:9001](http://localhost:9001) (`minioadmin` / `minioadmin`).
+* **Grafana Monitoring:** [https://grafana.waybill.vn](https://grafana.waybill.vn) (`admin` / `admin`).
+* **Kubernetes Dashboard:** [https://dashboard.waybill.vn](https://dashboard.waybill.vn).
+* **SQL Server 2022 Replica:** Kết nối qua script bảo mật `powershell -ExecutionPolicy Bypass -File scripts/db-connect.ps1` (Port `2433`, User `sa` / `Replica@123456`).
+* **Eureka Service Registry:** Mở tạm thời qua `kubectl port-forward svc/eureka-peer1 8761:8761 -n waybill` $\rightarrow$ [http://localhost:8761](http://localhost:8761).
 
 ---
 
@@ -326,12 +387,14 @@ notepad .env.minikube
 Script khởi động profile Hyper-V, bật Ingress, build và nạp image local, tạo Kubernetes Secrets từ `.env.minikube`, khởi tạo database rồi triển khai ứng dụng. Thêm dòng IP mà script in ra vào `C:\Windows\System32\drivers\etc\hosts` bằng quyền Administrator:
 
 ```text
-<MINIKUBE_IP> waybill.local api.waybill.local storage.waybill.local
+<MINIKUBE_IP> waybill.vn api.waybill.vn storage.waybill.vn grafana.waybill.vn dashboard.waybill.vn
 ```
 
-* **Web Portal:** [http://waybill.local](http://waybill.local)
-* **API Gateway:** [http://api.waybill.local](http://api.waybill.local)
-* **Tệp MinIO public:** `http://storage.waybill.local`; console qua `kubectl port-forward svc/minio 9001:9001 -n waybill`.
+* **Web Portal (SPA):** [https://waybill.vn](https://waybill.vn) (tự động chuyển hướng từ HTTP port 80).
+* **API Gateway:** [https://api.waybill.vn](https://api.waybill.vn)
+* **Tệp MinIO public:** `https://storage.waybill.vn`; console qua `kubectl port-forward svc/minio 9001:9001 -n waybill`.
+* **Grafana Dashboard:** [https://grafana.waybill.vn](https://grafana.waybill.vn)
+* **Kubernetes Dashboard:** [https://dashboard.waybill.vn](https://dashboard.waybill.vn)
 * **SQL Server:** chạy `kubectl port-forward svc/sqlserver-replica 2433:2433 -n waybill`, sau đó kết nối tới `localhost,2433` bằng `sa` và mật khẩu trong `.env.minikube`.
 * **Eureka:** chạy `kubectl port-forward svc/eureka-peer1 8761:8761 -n waybill`, sau đó mở [http://localhost:8761](http://localhost:8761).
 * **Cập nhật một service:** `.\scripts\rebuild-and-deploy.ps1 -Service shipment-service`

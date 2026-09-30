@@ -40,7 +40,8 @@
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <link rel="stylesheet" href="css/style.css?v=2.6.1" />
+    <link rel="stylesheet" href="css/style.css?v=2.6.2" />
+    <link rel="stylesheet" href="css/views/login.css?v=2.6.2" />
 
     <script>
         (function () {
@@ -95,7 +96,17 @@
     </script>
 
     <div id="app" v-cloak class="w-full min-h-screen bg-slate-50 selection:bg-blue-600 selection:text-white font-sans">
+        
+        <!-- Full-Page Login View when currentTab === 'login' -->
+        <login-view 
+            v-if="currentTab === 'login'" 
+            @login-success="handleLoginSuccess" 
+            @navigate="navigateTo"
+        ></login-view>
+
+        <!-- Main Application Layout for all other tabs -->
         <component
+            v-else
             :is="currentUser ? 'InternalLayout' : 'PublicLayout'"
             :current-user="currentUser"
             :current-tab="currentTab"
@@ -244,7 +255,7 @@
             </div>
         </div>
 
-        <chatbot-widget v-if="!isStaffUser"></chatbot-widget>
+        <chatbot-widget v-if="!isStaffUser && currentTab !== 'login'"></chatbot-widget>
     </div>
 
     <script src="js/auth.js"></script>
@@ -276,6 +287,7 @@
     <script src="js/layouts/InternalLayout.js"></script>
     <script src="js/layouts/PublicLayout.js"></script>
 
+    <script src="js/views/LoginView.js"></script>
     <script src="js/views/TrackingView.js"></script>
     <script src="js/views/ShipmentView.js"></script>
     <script src="js/views/PostOfficeOpsView.js"></script>

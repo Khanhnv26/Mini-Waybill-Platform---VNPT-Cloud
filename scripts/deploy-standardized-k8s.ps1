@@ -25,9 +25,7 @@ function Invoke-Kubectl {
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $repoRoot
 try {
-    Write-Host "==========================================================" -ForegroundColor Cyan
-    Write-Host "   TRIEN KHAI CU CHUAN HOA KUBERNETES (PRODUCTION-LIGHT)   " -ForegroundColor Cyan
-    Write-Host "==========================================================" -ForegroundColor Cyan
+
 
     $context = Invoke-Kubectl -Arguments @("config", "current-context")
     Write-Host "K8s Context hien tai: $context" -ForegroundColor Yellow
@@ -55,11 +53,9 @@ try {
     Write-Host "5. Ap dung quy tac Ingress..." -ForegroundColor Green
     Invoke-Kubectl -Arguments @("apply", "-f", "k8s/03-ingress/")
 
-    Write-Host ""
-    Write-Host "==========================================================" -ForegroundColor Cyan
-    Write-Host "   HOAN TAT AP DUNG KIEN TRUC CHUAN HOA                   " -ForegroundColor Cyan
-    Write-Host "   Dung lenh: kubectl get pods -n waybill de kiem tra     " -ForegroundColor Yellow
-    Write-Host "==========================================================" -ForegroundColor Cyan
+    Write-Host "6. Ap dung he thong giam sat (Prometheus & Grafana)..." -ForegroundColor Green
+    Invoke-Kubectl -Arguments @("apply", "-f", "k8s/04-monitoring/")
+
 } finally {
     Pop-Location
 }
