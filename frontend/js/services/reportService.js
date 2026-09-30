@@ -35,7 +35,7 @@
             if (params.customerId) query.append('customerId', params.customerId);
             if (params.status && params.status !== 'ALL') query.append('status', params.status);
 
-            const base = window.location.port === '3000' ? '' : 'http://localhost:8080';
+            const base = (['3000', '80', '443', ''].includes(window.location.port) && window.location.protocol.startsWith('http')) ? '' : 'http://localhost:8080';
             const endpoint = `${base}/api/reports/export?${query.toString()}`;
 
             const headers = {};

@@ -17,12 +17,29 @@ data:
         bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
         kubernetes_sd_configs:
           - role: node
+        relabel_configs:
+          - target_label: cluster
+            replacement: docker-desktop
       - job_name: 'kubernetes-pods'
         kubernetes_sd_configs:
           - role: pod
             namespaces:
               names:
                 - waybill
+        relabel_configs:
+          - target_label: cluster
+            replacement: docker-desktop
+      - job_name: 'node-exporter'
+        static_configs:
+          - targets: ['node-exporter:9100']
+            labels:
+              instance: 'docker-desktop'
+              cluster: 'docker-desktop'
+      - job_name: 'kube-state-metrics'
+        static_configs:
+          - targets: ['kube-state-metrics:8080']
+            labels:
+              cluster: 'docker-desktop'
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

@@ -1,3 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: monitor
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus:9090
+        isDefault: true
+        editable: true
+        uid: afzs5uxyvgjy8c
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -30,6 +47,13 @@ spec:
             limits:
               memory: "256Mi"
               cpu: "300m"
+          volumeMounts:
+            - name: grafana-datasources
+              mountPath: /etc/grafana/provisioning/datasources
+      volumes:
+        - name: grafana-datasources
+          configMap:
+            name: grafana-datasources
 ---
 apiVersion: v1
 kind: Service

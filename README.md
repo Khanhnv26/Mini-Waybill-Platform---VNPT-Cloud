@@ -366,7 +366,7 @@ kubectl apply -f .\k8s\04-monitoring\
 * **API Gateway HA:** [https://api.waybill.vn](https://api.waybill.vn) (Kiểm tra sức khỏe: `https://api.waybill.vn/actuator/health`).
 * **MinIO Object Storage:** [https://storage.waybill.vn](https://storage.waybill.vn); Web Console mở qua `kubectl port-forward svc/minio 9001:9001 -n waybill` $\rightarrow$ [http://localhost:9001](http://localhost:9001) (`minioadmin` / `minioadmin`).
 * **Grafana Monitoring:** [https://grafana.waybill.vn](https://grafana.waybill.vn) (`admin` / `admin`).
-* **Kubernetes Dashboard:** [https://dashboard.waybill.vn](https://dashboard.waybill.vn).
+* **Kubernetes Dashboard:** [https://dashboard.waybill.vn](https://dashboard.waybill.vn) *(Lấy Token đăng nhập: `kubectl -n kubernetes-dashboard create token kubernetes-dashboard`)*.
 * **SQL Server 2022 Replica:** Kết nối qua script bảo mật `powershell -ExecutionPolicy Bypass -File scripts/db-connect.ps1` (Port `2433`, User `sa` / `Replica@123456`).
 * **Eureka Service Registry:** Mở tạm thời qua `kubectl port-forward svc/eureka-peer1 8761:8761 -n waybill` $\rightarrow$ [http://localhost:8761](http://localhost:8761).
 

@@ -749,6 +749,11 @@ kubectl create secret tls dashboard-tls --cert=waybill.vn+1.pem --key=waybill.vn
 # Kiểm thử bắt tay HTTPS và kiểm tra phản hồi từ CLI
 curl -Iv https://waybill.vn
 curl -Iv https://api.waybill.vn/actuator/health
+
+# Tạo hoặc lấy Token đăng nhập Kubernetes Dashboard (Bearer Token)
+kubectl -n kubernetes-dashboard create token kubernetes-dashboard --duration=87600h
+# Hoặc đọc từ Secret vĩnh viễn admin-user-token:
+# $t = kubectl get secret admin-user-token -n kubernetes-dashboard -o jsonpath="{.data.token}"; [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($t))
 ```
 
 ---
