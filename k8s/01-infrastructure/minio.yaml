@@ -30,6 +30,7 @@ spec:
       containers:
         - name: minio
           image: cgr.dev/chainguard/minio:latest
+          imagePullPolicy: IfNotPresent
           args:
             - server
             - /data

@@ -34,6 +34,7 @@ spec:
       containers:
         - name: sqlserver
           image: mcr.microsoft.com/mssql/server:2022-latest
+          imagePullPolicy: IfNotPresent
           securityContext:
             runAsUser: 0
           ports:

@@ -15,6 +15,7 @@ spec:
       containers:
         - name: init-db
           image: mcr.microsoft.com/mssql/server:2022-latest
+          imagePullPolicy: IfNotPresent
           command:
             - /bin/bash
             - -c

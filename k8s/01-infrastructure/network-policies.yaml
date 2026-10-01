@@ -28,6 +28,7 @@ spec:
                   - payment-service
                   - rating-service
                   - support-service
+                  - sqlserver-init-db
       ports:
         - protocol: TCP
           port: 1433
@@ -54,6 +55,10 @@ spec:
                   - shipment-service
                   - tracking-service
                   - customer-service
+                  - notification-service
+                  - auth-service
+                  - payment-service
+                  - routing-service
       ports:
         - protocol: TCP
           port: 6379
