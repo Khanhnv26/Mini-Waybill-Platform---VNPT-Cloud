@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: waybill-microservices
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/Khanhnv26/Mini-Waybill-Platform---VNPT-Cloud.git'
+    targetRevision: business
+    path: k8s/02-services
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: waybill
+  syncPolicy:
+    automated:
+      prune: true               # Tự xóa pod nếu file yaml bị xóa trên Git
+      selfHeal: true            # Tự phục hồi nếu ai sửa lén trên cluster

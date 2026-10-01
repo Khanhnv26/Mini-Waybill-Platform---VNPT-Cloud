@@ -170,8 +170,59 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  notify-telegram:
+  update-gitops-manifests:
     needs: [detect-changes, build-and-push, build-and-push-frontend]
+    if: always() && (needs.build-and-push.result == 'success' || needs.build-and-push-frontend.result == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update K8s Manifest Image Tags
+        run: |
+          DOCKER_USER="${{ secrets.DOCKERHUB_USERNAME }}"
+          COMMIT_SHA="${{ github.sha }}"
+          SERVICES='${{ needs.detect-changes.outputs.backend-services }}'
+          FRONTEND_CHANGED="${{ needs.detect-changes.outputs.frontend-changed }}"
+          
+          # 1. Cập nhật các backend services nếu có thay đổi
+          if [ -n "$SERVICES" ] && [ "$SERVICES" != "[]" ]; then
+            for svc in $(echo "$SERVICES" | jq -r '.[]'); do
+              FILE="k8s/02-services/${svc}.yaml"
+              if [ -f "$FILE" ]; then
+                echo "Cập nhật $FILE -> tag $COMMIT_SHA"
+                sed -i -E "s|image: .*/${svc}:.*|image: ${DOCKER_USER}/${svc}:${COMMIT_SHA}|g" "$FILE"
+                git add "$FILE"
+              fi
+            done
+          fi
+
+          # 2. Cập nhật frontend nếu có thay đổi
+          if [ "$FRONTEND_CHANGED" = "true" ]; then
+            FRONTEND_FILE="k8s/02-services/frontend.yaml"
+            if [ -f "$FRONTEND_FILE" ]; then
+              echo "Cập nhật $FRONTEND_FILE -> tag $COMMIT_SHA"
+              sed -i -E "s|image: .*/frontend:.*|image: ${DOCKER_USER}/frontend:${COMMIT_SHA}|g" "$FRONTEND_FILE"
+              git add "$FRONTEND_FILE"
+            fi
+          fi
+
+          # 3. Commit và push nếu có thay đổi trong k8s/
+          if git diff --staged --quiet; then
+            echo "Không có thay đổi manifest cần commit."
+          else
+            git config --global user.name 'github-actions[bot]'
+            git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+            git commit -m "chore(gitops): update image tags to ${COMMIT_SHA} [skip ci]"
+            git push origin ${{ github.ref_name }}
+          fi
+
+  notify-telegram:
+    needs: [detect-changes, build-and-push, build-and-push-frontend, update-gitops-manifests]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -182,7 +233,7 @@ jobs:
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           format: html
           message: |
-            <b>Thông báo CI/CD</b>
+            <b>Thông báo CI/CD & GitOps</b>
             <b>Dự án:</b> Mini-Waybill Platform
             <b>Developer:</b> ${{ github.actor }}
             <b>Nhánh:</b> <code>${{ github.ref_name }}</code>
@@ -195,5 +246,6 @@ jobs:
 
             <b>Trạng thái Backend:</b> <b>${{ needs.build-and-push.result }}</b>
             <b>Trạng thái Frontend:</b> <b>${{ needs.build-and-push-frontend.result }}</b>
+            <b>Trạng thái GitOps Manifest:</b> <b>${{ needs.update-gitops-manifests.result }}</b>
 
             <a href="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}">Xem chi tiết trên GitHub</a>
