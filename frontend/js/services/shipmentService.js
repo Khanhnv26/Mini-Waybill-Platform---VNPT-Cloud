@@ -43,7 +43,7 @@
         async getByCode(trackingCode) {
             if (!trackingCode) return null;
             try {
-                const headers = { 'Content-Type': 'application/json' };
+                const headers = { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' };
                 if (typeof Auth !== 'undefined') {
                     const token = Auth.getToken();
                     if (token) headers['Authorization'] = `Bearer ${token}`;

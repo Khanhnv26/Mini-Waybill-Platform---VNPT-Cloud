@@ -5,6 +5,7 @@ const Api = {
         const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
         
         const headers = {
+            'ngrok-skip-browser-warning': 'true',
             ...(options.isUpload ? {} : { 'Content-Type': 'application/json' }),
             ...(options.headers || {})
         };
