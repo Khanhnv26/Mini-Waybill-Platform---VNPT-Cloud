@@ -76,6 +76,15 @@
             const hasInitialError = !isNaN(initialCodeParam) || initialRoute.notFound;
 
             const currentUser = ref(typeof Auth !== 'undefined' ? Auth.getUser() : null);
+            // Bumped whenever the auth session changes (login/logout/profile sync)
+            // so permission-gated menus recompute without a full page reload.
+            const authVersion = ref(0);
+            if (typeof window !== 'undefined') {
+                window.addEventListener('auth:changed', () => {
+                    currentUser.value = typeof Auth !== 'undefined' ? Auth.getUser() : null;
+                    authVersion.value += 1;
+                });
+            }
             const currentTab = ref(hasInitialError ? 'error' : initialRoute.tab);
             const currentTrackingCode = ref(trackingQuery && !hasInitialError && initialRoute.tab !== 'error' ? trackingQuery.trim() : '');
             const currentErrorCode = ref(!isNaN(initialCodeParam) ? initialCodeParam : (initialRoute.notFound ? 404 : 200));
@@ -594,6 +603,9 @@
             const showPublicMobileMenu = ref(false);
 
             const navigationTabs = computed(() => {
+                // Reactive dependencies: re-filter when the session/permissions change.
+                void authVersion.value;
+                void currentUser.value;
                 return allNavigationTabs.filter(tab => {
                     if (tab.role) {
                         if (typeof Auth === 'undefined') return false;

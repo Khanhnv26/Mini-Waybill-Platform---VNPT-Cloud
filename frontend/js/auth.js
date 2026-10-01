@@ -1,9 +1,34 @@
+const PROFILE_PATCH_FIELDS = ['fullName', 'phoneNumber', 'address', 'avatarUrl', 'googleLinked', 'locationCode'];
+
+function buildProfilePatch(data) {
+    const patch = {};
+    if (!data || typeof data !== 'object') return patch;
+    PROFILE_PATCH_FIELDS.forEach(field => {
+        const value = data[field];
+        if (value !== undefined && value !== null && value !== '') {
+            patch[field] = value;
+        }
+    });
+    // Only overwrite authorization data when the server returns a non-empty
+    // list; otherwise keep the roles/permissions stored at login.
+    if (Array.isArray(data.roles) && data.roles.length > 0) patch.roles = data.roles;
+    if (Array.isArray(data.permissions) && data.permissions.length > 0) patch.permissions = data.permissions;
+    return patch;
+}
+
 const Auth = {
     setSession(token, user) {
         if (!token) return;
         localStorage.setItem('accessToken', token);
         if (user) {
             localStorage.setItem('user', JSON.stringify(user));
+        }
+        this.notifyChanged();
+    },
+
+    notifyChanged() {
+        if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+            window.dispatchEvent(new CustomEvent('auth:changed'));
         }
     },
 
@@ -140,6 +165,7 @@ const Auth = {
     clearSession() {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
+        this.notifyChanged();
     },
 
     logout() {
@@ -214,11 +240,8 @@ const Auth = {
         const data = await response.json();
         if (data) {
             const currentUser = this.getUser() || {};
-            const mergedUser = {
-                ...currentUser,
-                ...data,
-                avatarUrl: data.avatarUrl || currentUser.avatarUrl
-            };
+            const patch = buildProfilePatch(data);
+            const mergedUser = { ...currentUser, ...patch };
             this.setSession(this.getToken(), mergedUser);
         }
         return data;
@@ -237,11 +260,8 @@ const Auth = {
         if (data) {
             const currentUser = this.getUser() || {};
             const nextToken = data.accessToken || this.getToken();
-            const mergedUser = {
-                ...currentUser,
-                ...data,
-                avatarUrl: data.avatarUrl || currentUser.avatarUrl
-            };
+            const patch = buildProfilePatch(data);
+            const mergedUser = { ...currentUser, ...patch };
             this.setSession(nextToken, mergedUser);
         }
         return data;

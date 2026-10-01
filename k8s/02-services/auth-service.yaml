@@ -42,6 +42,8 @@ spec:
               value: "http://eureka-peer1:8761/eureka/"
             - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS
               value: "true"
+            - name: EUREKA_INSTANCE_INSTANCE_ID
+              value: "${HOSTNAME}:${server.port}"
             - name: SPRING_JPA_HIBERNATE_DDL_AUTO
               value: "update"
             - name: SPRING_FLYWAY_ENABLED
