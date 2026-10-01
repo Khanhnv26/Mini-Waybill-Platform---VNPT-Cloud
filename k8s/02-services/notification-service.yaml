@@ -48,6 +48,16 @@ spec:
               value: "true"
             - name: EUREKA_INSTANCE_INSTANCE_ID
               value: "${HOSTNAME}:${server.port}"
+            - name: MAIL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: mail-username
+            - name: MAIL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: mail-password
           resources:
             requests:
               memory: "256Mi"
