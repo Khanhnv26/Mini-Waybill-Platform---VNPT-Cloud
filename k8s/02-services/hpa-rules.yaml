@@ -9,7 +9,7 @@ spec:
     kind: Deployment
     name: shipment-service
   minReplicas: 2
-  maxReplicas: 6
+  maxReplicas: 3
   metrics:
     - type: Resource
       resource:
@@ -29,7 +29,7 @@ spec:
     kind: Deployment
     name: customer-service
   minReplicas: 2
-  maxReplicas: 6
+  maxReplicas: 3
   metrics:
     - type: Resource
       resource:
@@ -49,7 +49,7 @@ spec:
     kind: Deployment
     name: api-gateway
   minReplicas: 2
-  maxReplicas: 6
+  maxReplicas: 3
   metrics:
     - type: Resource
       resource:
