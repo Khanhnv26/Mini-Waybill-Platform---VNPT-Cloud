@@ -38,7 +38,7 @@
             const base = (['3000', '80', '443', ''].includes(window.location.port) && window.location.protocol.startsWith('http')) ? '' : 'http://localhost:8080';
             const endpoint = `${base}/api/reports/export?${query.toString()}`;
 
-            const headers = {};
+            const headers = { 'ngrok-skip-browser-warning': 'true' };
             if (typeof Auth !== 'undefined') {
                 const token = Auth.getToken();
                 if (token) {
