@@ -29,6 +29,10 @@
                 return null;
             });
             const isGuest = computed(() => !currentUser.value);
+            const isStaff = computed(() => {
+                if (typeof Auth === 'undefined' || !Auth.isAuthenticated()) return false;
+                return Auth.hasAnyRole(['ROLE_ADMIN', 'ROLE_CS', 'ROLE_POST_OFFICE_OPERATOR', 'ROLE_HUB_OPERATOR', 'ROLE_DISPATCHER', 'ROLE_SHIPPER']);
+            });
 
             const publicHeroTab = ref('tracking');
             const heroBannerRef = ref(null);
@@ -1298,7 +1302,7 @@
                                 trackingCode: code,
                                 status: 'ROUTE_ASSIGNED',
                                 locationCode: assignment.originPostOffice || assignment.sourceHub,
-                                node: `Đã phân tuyến vận chuyển: ${assignment.routeCode} (${assignment.originPostOffice || assignment.sourceHub} ➔ ${assignment.sourceHub} ➔ ${assignment.destinationHub} ➔ ${assignment.destPostOffice || assignment.destinationHub})`,
+                                node: `Đã phân tuyến vận chuyển: ${assignment.routeCode} (${assignment.originPostOffice || assignment.sourceHub} -> ${assignment.sourceHub} -> ${assignment.destinationHub} -> ${assignment.destPostOffice || assignment.destinationHub})`,
                                 occurredAt: assignment.assignedAt || new Date().toISOString()
                             }
                         ];
@@ -1729,6 +1733,18 @@
                 }
             };
 
+            const currentEta = computed(() => {
+                return Utils.getEffectiveEta(currentShipment.value);
+            });
+
+            const deliveredTime = computed(() => {
+                if (!currentShipment.value || currentShipment.value.status !== 'DELIVERED') return '';
+                const hist = sortedHistory.value || [];
+                const deliveredItem = hist.find(h => (h.status || h.operationType) === 'DELIVERED') || hist[0];
+                const ts = deliveredItem ? (deliveredItem.timestamp || deliveredItem.occurredAt) : (currentShipment.value.updatedAt || currentShipment.value.createdAt);
+                return Utils.formatTime(ts);
+            });
+
             return {
                 searchCode,
                 isLoading,
@@ -1736,6 +1752,9 @@
                 isNotFound,
                 notFoundCode,
                 maskPhone,
+                isStaff,
+                currentEta,
+                deliveredTime,
                 focusSearchInput,
                 currentShipment,
                 trackingHistory,
@@ -2118,6 +2137,7 @@
                                 </button>
                             </div>
                         </div>
+
                         <div :class="['map-collapse-wrapper mb-6', isMapExpanded ? 'map-expanded' : 'map-collapsed']">
                             <div class="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
                                 <div class="p-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-slate-700">
@@ -2307,6 +2327,48 @@
                                             </div>
                                         </div>
 
+                                        <!-- ETA Delivery Guarantee Card -->
+                                        <div v-if="currentShipment" class="p-3 border rounded-2xl space-y-1.5 text-xs transition-all"
+                                             :class="currentShipment.status === 'DELIVERED' 
+                                                ? 'bg-emerald-50/80 border-emerald-200' 
+                                                : 'bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/90'">
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-[11px] font-extrabold flex items-center gap-1.5"
+                                                      :class="currentShipment.status === 'DELIVERED' ? 'text-emerald-900' : 'text-emerald-800'">
+                                                    <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                    {{ currentShipment.status === 'DELIVERED' ? 'Thời Gian Phát Hàng:' : 'Dự Kiến Nhận Hàng:' }}
+                                                </span>
+                                                <span class="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-extrabold border border-emerald-300">
+                                                    {{ currentShipment.status === 'DELIVERED' ? 'Hoàn tất' : 'Đúng hẹn' }}
+                                                </span>
+                                            </div>
+                                            <div v-if="currentShipment.status === 'DELIVERED'" class="font-black text-emerald-950 text-sm">
+                                                {{ deliveredTime || 'Đã phát thành công' }}
+                                                <span class="text-xs font-semibold text-emerald-700 ml-1">(Đã ký nhận)</span>
+                                            </div>
+                                            <div v-else class="font-black text-emerald-950 text-sm">
+                                                {{ currentEta?.dateRange || 'Đang cập nhật' }}
+                                                <span class="text-xs font-semibold text-emerald-700 ml-1">
+                                                    ({{ currentEta?.commitmentTime || 'Trước 17:00' }})
+                                                </span>
+                                            </div>
+                                            <div v-if="isStaff && currentShipment.status !== 'DELIVERED'" class="text-[10.5px] text-slate-600 font-mono flex items-center justify-between gap-1 pt-1.5 border-t border-emerald-200/60">
+                                                <span class="flex items-center gap-1">
+                                                    <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>
+                                                    <span>Chuyến xe điều phối:</span>
+                                                </span>
+                                                <span v-if="currentShipment.assignedTripCode" class="font-bold text-slate-800 bg-white px-1.5 py-0.5 rounded border border-emerald-300">
+                                                    {{ currentShipment.assignedTripCode }}
+                                                </span>
+                                                <span v-else-if="['CREATED', 'ACCEPTED', 'PENDING_ROUTING', 'AT_POST_OFFICE'].includes(currentShipment.status)" class="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 font-sans text-[10px] font-bold">
+                                                    Chờ ghép xe
+                                                </span>
+                                                <span v-else-if="currentShipment.status === 'IN_TRANSIT'" class="text-slate-600 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200 font-sans text-[10px]">
+                                                    Đang trung chuyển
+                                                </span>
+                                            </div>
+                                        </div>
+
                                         <div class="flex justify-between items-center py-1 border-b border-slate-50">
                                             <span class="text-slate-400 font-medium">Khối lượng tính cước:</span>
                                             <span class="font-mono font-bold text-slate-800 text-sm">{{ currentShipment.weight ? currentShipment.weight + ' gram' : '500 gram' }}</span>
@@ -2434,6 +2496,7 @@
                         </span>
                     </div>
                 </div>
+
                 <div v-if="!currentShipment" class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-2">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div class="flex items-center space-x-2 w-full sm:w-auto flex-1 max-w-lg min-w-0">
@@ -2800,174 +2863,207 @@
                             <div id="tracking-map" style="height: 460px; width: 100%;"></div>
                         </div>
                     </div>
-                    <div class="order-1 lg:order-2 lg:col-span-4 space-y-4">
-                        <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
-                            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                                <div class="flex items-center space-x-2">
-                                    <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
-                                    <span class="font-extrabold text-slate-800 uppercase tracking-wider text-xs">Tra Cứu Bưu Gửi</span>
+                    <div class="order-1 lg:order-2 lg:col-span-4 space-y-3">
+                        <!-- Compact Search Card -->
+                        <div class="b2b-card bg-white border border-slate-200 rounded-xl p-2.5 sm:p-3 shadow-sm space-y-2">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+                                    <span class="font-extrabold text-slate-800 uppercase tracking-wider text-[11px]">Tra Cứu Bưu Gửi</span>
                                 </div>
-                                <span class="text-[10px] text-slate-400 font-mono">Hỗ trợ mã WB...</span>
+                                <span class="text-[9.5px] text-slate-400 font-mono">Hỗ trợ mã WB...</span>
                             </div>
 
-                            <div class="space-y-2.5">
-                                <div class="relative min-w-0">
-                                    <input 
-                                        id="tracking-search-input"
-                                        v-model="searchCode" 
-                                        @keyup.enter="fetchTrackingData()"
-                                        @input="validationError = ''"
-                                        type="text" 
-                                        maxlength="35"
-                                        placeholder="Nhập mã số bưu gửi (VD: WB...)" 
-                                        class="w-full pl-8 pr-7 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
-                                    />
-                                    <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                    </svg>
-                                    <button 
-                                        v-if="searchCode" 
-                                        @click="searchCode = ''; validationError = ''; currentShipment = null; isNotFound = false; animateNumbers()" 
-                                        class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
-                                        title="Xóa mã &amp; về trang chủ"
-                                        aria-label="Xóa"
-                                    >
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                    </button>
-                                </div>
-
-                                <div class="flex items-center space-x-2">
+                            <div class="space-y-1.5">
+                                <div class="flex items-center gap-1.5">
+                                    <div class="relative flex-1 min-w-0">
+                                        <input 
+                                            id="tracking-search-input"
+                                            v-model="searchCode" 
+                                            @keyup.enter="fetchTrackingData()"
+                                            @input="validationError = ''"
+                                            type="text" 
+                                            maxlength="35"
+                                            placeholder="Nhập mã WB..." 
+                                            class="w-full pl-7 pr-6 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition"
+                                        />
+                                        <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                        </svg>
+                                        <button 
+                                            v-if="searchCode" 
+                                            @click="searchCode = ''; validationError = ''; currentShipment = null; isNotFound = false; animateNumbers()" 
+                                            class="absolute right-2 top-1.5 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                                            title="Xóa mã"
+                                        >
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                        </button>
+                                    </div>
                                     <button 
                                         @click="fetchTrackingData()"
                                         :disabled="isLoading"
-                                        class="flex-1 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-sm shadow-blue-500/20 transition disabled:opacity-50 flex items-center justify-center space-x-1.5 cursor-pointer"
+                                        class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-xs transition disabled:opacity-50 flex items-center justify-center space-x-1 cursor-pointer shrink-0"
                                     >
-                                        <span v-if="isLoading" class="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></span>
-                                        <span>{{ isLoading ? 'Đang Tra Cứu...' : 'Tra Cứu Tiếp' }}</span>
+                                        <span v-if="isLoading" class="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></span>
+                                        <span>{{ isLoading ? '...' : 'Tra Cứu' }}</span>
                                     </button>
                                     <button 
                                         type="button"
                                         @click="searchCode = ''; validationError = ''; currentShipment = null; isNotFound = false; animateNumbers()" 
-                                        class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition cursor-pointer"
-                                        title="Làm mới quay lại ban đầu"
+                                        class="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition cursor-pointer shrink-0"
+                                        title="Làm mới"
                                     >
                                         Làm Mới
                                     </button>
                                 </div>
-                                <div v-if="validationError" class="text-rose-600 text-[11px] font-semibold flex items-center space-x-1.5 pt-1 animate-pulse">
-                                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <div v-if="validationError" class="text-rose-600 text-[10.5px] font-semibold flex items-center space-x-1 animate-pulse">
+                                    <svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
                                     </svg>
                                     <span>{{ validationError }}</span>
                                 </div>
-                                <div class="pt-2 border-t border-slate-100 flex items-center flex-wrap gap-1.5">
-                                    <span class="text-[10px] text-slate-400 font-medium">Gợi ý:</span>
-                                    <button 
-                                        v-for="code in ['WB-HN-SG-001', 'WB-HN-HP-002', 'WB-DN-HCM-003']" 
-                                        :key="code"
-                                        @click="searchCode = code; fetchTrackingData(code)"
-                                        type="button"
-                                        class="px-2 py-0.5 rounded bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 font-mono text-[10.5px] cursor-pointer transition"
-                                    >
-                                        {{ code }}
-                                    </button>
-                                </div>
                             </div>
                         </div>
-                        <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-3 text-xs">
-                            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+
+                        <!-- Compact Shipment Info Card -->
+                        <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm space-y-2 text-xs">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
                                 <span class="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center space-x-1.5">
                                     <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                     </svg>
                                     <span>Thông Tin Bưu Gửi</span>
                                 </span>
-                                <span v-if="currentShipment" class="font-mono text-[11px] text-slate-400">#{{ currentShipment.id }}</span>
+                                <span v-if="currentShipment" class="font-mono text-[10.5px] text-slate-400">#{{ currentShipment.id }}</span>
                             </div>
 
-                            <div v-if="currentShipment" class="space-y-2.5">
-                                <div class="flex justify-between py-1 border-b border-slate-50">
-                                    <span class="text-slate-500 font-medium">Mã bưu gửi:</span>
-                                    <span class="font-mono font-extrabold text-blue-700 text-sm">{{ currentShipment.trackingCode }}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50">
-                                    <span class="text-slate-500 font-medium">Trạng thái:</span>
-                                    <span :class="['px-2.5 py-0.5 rounded-full font-bold text-[11px] border', Utils.getStatusBadgeClass(currentShipment.status)]">
+                            <div v-if="currentShipment" class="space-y-2">
+                                <!-- Row 1: Tracking code & Status badge -->
+                                <div class="flex items-center justify-between gap-1.5">
+                                    <div class="flex items-center space-x-1">
+                                        <span class="font-mono font-extrabold text-blue-700 text-xs sm:text-[13px]">{{ currentShipment.trackingCode }}</span>
+                                        <button 
+                                            type="button" 
+                                            @click="copyTrackingCode(currentShipment.trackingCode)"
+                                            title="Sao chép mã"
+                                            class="p-0.5 rounded text-slate-400 hover:text-blue-600 transition cursor-pointer"
+                                        >
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                        </button>
+                                    </div>
+                                    <span :class="['px-2 py-0.5 rounded-full font-bold text-[10.5px] border shrink-0', Utils.getStatusBadgeClass(currentShipment.status)]">
                                         {{ Utils.formatStatusText(currentShipment.status) }}
                                     </span>
                                 </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50">
-                                    <span class="text-slate-500 font-medium">Dịch vụ:</span>
-                                    <span class="font-bold text-slate-700">{{ currentShipment.serviceType || 'EXPRESS' }}</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50">
-                                    <span class="text-slate-500 font-medium">Khối lượng tính cước:</span>
-                                    <span class="font-mono font-bold text-slate-800">{{ currentShipment.weight || 0 }} kg</span>
-                                </div>
-                                <div class="flex justify-between py-1 border-b border-slate-50">
-                                    <span class="text-slate-500 font-medium">Tiền thu hộ COD:</span>
-                                    <span class="font-mono font-bold text-emerald-700 text-sm">{{ Utils.formatCurrency(currentShipment.codAmount) }}</span>
-                                </div>
-                                <div class="py-1 border-b border-slate-50">
-                                    <span class="text-slate-500 block mb-0.5 font-medium">Người gửi:</span>
-                                    <div class="text-slate-800 font-semibold flex items-center justify-between">
-                                        <span>{{ currentShipment.senderName || 'N/A' }}</span>
-                                        <span class="font-mono text-slate-500 font-medium text-[11px]" :title="currentShipment.senderPhone">{{ maskPhone(currentShipment.senderPhone) }}</span>
-                                    </div>
-                                    <span class="text-slate-600 text-[11px] block mt-0.5 leading-relaxed">{{ currentShipment.senderAddress || 'N/A' }}</span>
-                                </div>
-                                <div class="py-1">
-                                    <span class="text-slate-500 block mb-0.5 font-medium">Người nhận:</span>
-                                    <div class="text-slate-800 font-semibold flex items-center justify-between">
-                                        <span>{{ currentShipment.receiverName || 'N/A' }}</span>
-                                        <span class="font-mono text-slate-500 font-medium text-[11px]" :title="currentShipment.receiverPhone">{{ maskPhone(currentShipment.receiverPhone) }}</span>
-                                    </div>
-                                    <span class="text-slate-600 text-[11px] block mt-0.5 leading-relaxed">{{ currentShipment.receiverAddress || 'N/A' }}</span>
-                                </div>
-                                <div v-if="currentShipment.status === 'DELIVERED'" class="pt-3 mt-1 border-t border-slate-100">
-                                    <button 
-                                        v-if="!ratingState.alreadyRated"
-                                        type="button" 
-                                        @click="openRatingModal()" 
-                                        class="w-full py-2.5 px-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white rounded-lg text-xs font-bold transition-all shadow-md shadow-amber-500/25 hover:shadow-amber-500/40 flex items-center justify-center space-x-1.5 cursor-pointer group"
-                                        title="Đánh giá chất lượng phục vụ và bưu tá giao hàng"
-                                    >
-                                        <svg class="w-4 h-4 text-white group-hover:rotate-12 transition-transform" fill="currentColor" viewBox="0 0 20 20">
-                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                                        </svg>
-                                        <span>Đánh Giá Bưu Gửi &amp; Shipper</span>
-                                        <svg class="w-3.5 h-3.5 opacity-80 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                                    </button>
 
-                                    <div v-else class="p-2.5 rounded-lg bg-amber-50/80 border border-amber-200/70 flex items-center justify-between text-xs">
-                                        <div class="flex items-center space-x-1.5">
-                                            <div class="flex text-amber-500">
-                                                <svg v-for="s in (ratingState.serviceRating || 5)" :key="s" class="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
-                                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                                                </svg>
-                                            </div>
-                                            <span class="font-bold text-amber-800 text-[11px]">Đã đánh giá {{ ratingState.serviceRating }}/5 sao</span>
+                                <!-- Row 2: Compact ETA Delivery Guarantee Card -->
+                                <div class="p-2 px-2.5 border rounded-lg space-y-1 text-xs transition-all"
+                                     :class="currentShipment.status === 'DELIVERED' 
+                                        ? 'bg-emerald-50/80 border-emerald-200' 
+                                        : 'bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/90'">
+                                    <div class="flex items-center justify-between text-[10.5px]">
+                                        <span class="font-extrabold flex items-center gap-1"
+                                              :class="currentShipment.status === 'DELIVERED' ? 'text-emerald-900' : 'text-emerald-800'">
+                                            <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                            {{ currentShipment.status === 'DELIVERED' ? 'Thời Gian Phát Hàng:' : 'Dự Kiến Nhận Hàng:' }}
+                                        </span>
+                                        <span class="text-[9.5px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-extrabold border border-emerald-300">
+                                            {{ currentShipment.status === 'DELIVERED' ? 'Hoàn tất' : 'Đúng hẹn' }}
+                                        </span>
+                                    </div>
+                                    <div v-if="currentShipment.status === 'DELIVERED'" class="font-black text-emerald-950 text-xs">
+                                        {{ deliveredTime || 'Đã phát thành công' }}
+                                        <span class="text-[10.5px] font-semibold text-emerald-700 ml-1">(Đã ký nhận)</span>
+                                    </div>
+                                    <div v-else class="font-black text-emerald-950 text-xs">
+                                        {{ currentEta?.dateRange || 'Đang cập nhật' }}
+                                        <span class="text-[10.5px] font-semibold text-emerald-700 ml-1">
+                                            ({{ currentEta?.commitmentTime || 'Trước 17:00' }})
+                                        </span>
+                                    </div>
+                                    <div v-if="isStaff && currentShipment.status !== 'DELIVERED'" class="text-[10px] text-slate-600 font-mono flex items-center justify-between gap-1 pt-1 border-t border-emerald-200/60">
+                                        <span class="flex items-center gap-1">
+                                            <svg class="w-3 h-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>
+                                            <span>Xe điều phối:</span>
+                                        </span>
+                                        <span v-if="currentShipment.assignedTripCode" class="font-bold text-slate-800 bg-white px-1 py-0.2 rounded border border-emerald-300">
+                                            {{ currentShipment.assignedTripCode }}
+                                        </span>
+                                        <span v-else-if="['CREATED', 'ACCEPTED', 'PENDING_ROUTING', 'AT_POST_OFFICE'].includes(currentShipment.status)" class="text-amber-700 bg-amber-50 px-1 py-0.2 rounded border border-amber-200 font-sans text-[9.5px] font-bold">
+                                            Chờ ghép xe
+                                        </span>
+                                        <span v-else-if="currentShipment.status === 'IN_TRANSIT'" class="text-slate-600 bg-slate-50 px-1 py-0.2 rounded border border-slate-200 font-sans text-[9.5px]">
+                                            Đang trung chuyển
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Row 3: 3-column stats box (Dịch vụ • Trọng lượng • COD) -->
+                                <div class="grid grid-cols-3 gap-1 py-1.5 px-2 bg-slate-50 border border-slate-100 rounded-lg text-center">
+                                    <div>
+                                        <span class="text-[10px] text-slate-400 block font-medium">Dịch Vụ</span>
+                                        <span class="font-bold text-slate-700 text-[11px] truncate block">{{ currentShipment.serviceType || 'EXPRESS' }}</span>
+                                    </div>
+                                    <div class="border-x border-slate-200/70">
+                                        <span class="text-[10px] text-slate-400 block font-medium">Khối Lượng</span>
+                                        <span class="font-mono font-bold text-slate-800 text-[11px] block">{{ currentShipment.weight || 0 }} kg</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-[10px] text-slate-400 block font-medium">Thu Hộ COD</span>
+                                        <span class="font-mono font-bold text-emerald-700 text-[11px] block">{{ Utils.formatCurrency(currentShipment.codAmount) }}</span>
+                                    </div>
+                                </div>
+
+                                <!-- Row 4: Người gửi & Người nhận compact -->
+                                <div class="py-1 border-t border-b border-slate-100 space-y-1 text-[11px]">
+                                    <div class="flex items-start justify-between gap-1.5">
+                                        <span class="text-slate-400 text-[10.5px] font-medium shrink-0">Gửi:</span>
+                                        <div class="text-right truncate flex-1 min-w-0">
+                                            <span class="font-semibold text-slate-800">{{ currentShipment.senderName || 'N/A' }}</span>
+                                            <span class="text-slate-400 text-[10px] font-mono ml-1">({{ maskPhone(currentShipment.senderPhone) }})</span>
+                                            <div class="text-[10px] text-slate-500 truncate" :title="currentShipment.senderAddress">{{ currentShipment.senderAddress || 'N/A' }}</div>
                                         </div>
+                                    </div>
+                                    <div class="flex items-start justify-between gap-1.5 pt-1 border-t border-slate-50">
+                                        <span class="text-slate-400 text-[10.5px] font-medium shrink-0">Nhận:</span>
+                                        <div class="text-right truncate flex-1 min-w-0">
+                                            <span class="font-semibold text-slate-800">{{ currentShipment.receiverName || 'N/A' }}</span>
+                                            <span class="text-slate-400 text-[10px] font-mono ml-1">({{ maskPhone(currentShipment.receiverPhone) }})</span>
+                                            <div class="text-[10px] text-slate-500 truncate" :title="currentShipment.receiverAddress">{{ currentShipment.receiverAddress || 'N/A' }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Row 5: Action buttons (1 row side-by-side) -->
+                                <div class="pt-1 grid grid-cols-2 gap-1.5">
+                                    <template v-if="currentShipment.status === 'DELIVERED'">
                                         <button 
+                                            v-if="!ratingState.alreadyRated"
                                             type="button" 
                                             @click="openRatingModal()" 
-                                            class="text-[10px] text-blue-600 hover:text-blue-800 font-semibold underline cursor-pointer"
+                                            class="py-1.5 px-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-lg text-[11px] font-bold transition flex items-center justify-center space-x-1 cursor-pointer shadow-xs active:scale-98"
+                                            title="Đánh giá bưu gửi & bưu tá"
                                         >
-                                            Chi tiết
+                                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                            </svg>
+                                            <span>Đánh Giá</span>
                                         </button>
-                                    </div>
-                                </div>
-                                <div class="pt-3 mt-1 border-t border-slate-100">
+                                        <div v-else class="py-1 px-1.5 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-between text-[10.5px]">
+                                            <span class="font-bold text-amber-800">{{ ratingState.serviceRating }}/5 sao</span>
+                                            <button type="button" @click="openRatingModal()" class="text-blue-600 hover:underline font-semibold text-[10px]">Xem</button>
+                                        </div>
+                                    </template>
                                     <button 
                                         type="button" 
                                         @click="navigateToSupport()" 
-                                        class="w-full py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 hover:text-blue-800 border border-blue-200/80 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer shadow-2xs"
-                                        title="Gửi yêu cầu hỗ trợ hoặc phản ánh sự cố cho bưu gửi này"
+                                        :class="['py-1.5 px-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[11px] font-bold transition flex items-center justify-center space-x-1 cursor-pointer shadow-xs active:scale-98', currentShipment.status !== 'DELIVERED' ? 'col-span-2' : '']"
+                                        title="Khiếu nại hoặc hỗ trợ bưu gửi này"
                                     >
                                         <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
                                         </svg>
-                                        <span>Khiếu Nại / Hỗ Trợ Bưu Gửi Này</span>
+                                        <span>Khiếu Nại</span>
                                     </button>
                                 </div>
                             </div>
@@ -3056,7 +3152,7 @@
                                 <div v-if="h.subSteps && h.subSteps.length" class="flex flex-wrap items-center gap-1 mb-1.5">
                                     <template v-for="(step, sIdx) in h.subSteps" :key="step">
                                         <span class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-semibold">{{ step }}</span>
-                                        <span v-if="sIdx < h.subSteps.length - 1" class="text-slate-300 text-[10px]">→</span>
+                                        <span v-if="sIdx < h.subSteps.length - 1" class="text-slate-300 text-[10px]">&rarr;</span>
                                     </template>
                                 </div>
                                 <p :class="['text-xs leading-relaxed', historyExpanded ? '' : 'line-clamp-2', idx === 0 ? 'text-slate-700' : 'text-slate-500']" :title="safeFormatHistoryNote(h)">

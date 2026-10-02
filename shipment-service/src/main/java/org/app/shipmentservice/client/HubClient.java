@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 import java.util.List;
 
-@FeignClient(name = "routing-service")
+@FeignClient(name = "routing-service", contextId = "hubClient")
 public interface HubClient {
 
     @GetMapping("/api/routing/hubs")

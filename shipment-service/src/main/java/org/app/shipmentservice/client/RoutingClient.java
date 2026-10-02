@@ -6,7 +6,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
-@FeignClient(name = "routing-service")
+@FeignClient(name = "routing-service", contextId = "routingClient")
 public interface RoutingClient {
 
     @PostMapping("/api/routing/eta/calculate")

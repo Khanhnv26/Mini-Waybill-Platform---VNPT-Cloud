@@ -636,6 +636,10 @@
 
             const generateDeliveryQr = async (shipment) => {
                 if (!shipment) return;
+                if (getShipmentStatus(shipment) === 'CANCELLED') {
+                    Utils.showToast('Không Thể Thu Tiền', 'Đơn hàng này đã bị hủy, không thể tạo mã thu COD!', 'warning');
+                    return;
+                }
                 qrPaymentData.value = null;
                 isQrLoading.value = true;
                 isQrPaidSuccess.value = false;
@@ -666,6 +670,11 @@
                             const check = await PaymentService.getPaymentByTracking(shipment.trackingCode);
                             if (check && check.status === 'SUCCESS') {
                                 handlePaymentSuccessRealtime(check);
+                            } else if (check && check.status === 'CANCELLED') {
+                                if (qrInterval) clearInterval(qrInterval);
+                                if (qrPollInterval) clearInterval(qrPollInterval);
+                                Utils.showToast('Giao Dịch Đã Hủy', 'Giao dịch cho đơn hàng này đã bị hủy bỏ!', 'warning');
+                                closeDeliveryActionModal();
                             }
                         } catch (e) {}
                     }, 3000);
@@ -758,6 +767,11 @@
 
             const handleMockQrPay = async () => {
                 if (!deliveryTargetShipment.value || isMockPaying.value) return;
+                if (getShipmentStatus(deliveryTargetShipment.value) === 'CANCELLED') {
+                    Utils.showToast('Đơn Hàng Đã Hủy', 'Đơn hàng này đã bị hủy, không thể thực hiện giao dịch!', 'warning');
+                    closeDeliveryActionModal();
+                    return;
+                }
                 isMockPaying.value = true;
                 try {
                     const res = await PaymentService.mockPay(deliveryTargetShipment.value.trackingCode);
@@ -901,6 +915,10 @@
 
             const generateReturnQr = async (shipment) => {
                 if (!shipment) return;
+                if (getShipmentStatus(shipment) === 'CANCELLED') {
+                    Utils.showToast('Không Thể Thu Cước', 'Đơn hàng này đã bị hủy, không thể thu cước hoàn!', 'warning');
+                    return;
+                }
                 returnQrPaymentData.value = null;
                 isReturnQrLoading.value = true;
                 isReturnQrPaidSuccess.value = false;
@@ -932,6 +950,11 @@
                             const check = await PaymentService.getPaymentByTracking(shipment.trackingCode);
                             if (check && check.status === 'SUCCESS') {
                                 handleReturnPaymentSuccessRealtime(check);
+                            } else if (check && check.status === 'CANCELLED') {
+                                if (returnQrInterval) clearInterval(returnQrInterval);
+                                if (returnQrPollInterval) clearInterval(returnQrPollInterval);
+                                Utils.showToast('Giao Dịch Đã Hủy', 'Giao dịch cho đơn hàng này đã bị hủy!', 'warning');
+                                closeReturnActionModal();
                             }
                         } catch (e) {}
                     }, 3000);
@@ -950,6 +973,11 @@
 
             const handleMockReturnQrPay = async () => {
                 if (!returnTargetShipment.value || isReturnMockPaying.value) return;
+                if (getShipmentStatus(returnTargetShipment.value) === 'CANCELLED') {
+                    Utils.showToast('Đơn Hàng Đã Hủy', 'Đơn hàng này đã bị hủy!', 'warning');
+                    closeReturnActionModal();
+                    return;
+                }
                 isReturnMockPaying.value = true;
                 try {
                     const res = await PaymentService.mockPay(returnTargetShipment.value.trackingCode);

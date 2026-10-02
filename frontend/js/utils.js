@@ -325,9 +325,9 @@
         if (!node || node.includes('?') || node.trim() === '') {
             return formatStatusText(status);
         }
-        if (node.includes('ROUTE-') && !node.includes('➔')) {
+        if (node.includes('ROUTE-') && !node.includes(' -> ')) {
             const match = node.match(/ROUTE-([A-Z0-9-]+)-TO-([A-Z0-9-]+)/);
-            if (match) return 'Tuyến luân chuyển: ' + match[1] + ' ➔ ' + match[2];
+            if (match) return 'Tuyến luân chuyển: ' + match[1] + ' -> ' + match[2];
         }
         return node;
     };
@@ -338,6 +338,65 @@
         } catch {
             return str;
         }
+    };
+
+    const formatEtaDateRange = (etaAt, etaMax) => {
+        if (!etaAt) return null;
+        try {
+            const d1 = new Date(etaAt);
+            if (isNaN(d1.getTime())) return null;
+            const d2 = etaMax ? new Date(etaMax) : new Date(d1.getTime() + 12 * 3600000);
+            const pad = (n) => String(n).padStart(2, '0');
+            const formatDay = (d) => `${pad(d.getDate())} Th${pad(d.getMonth() + 1)}`;
+            const timeStr = `${pad(d1.getHours())}:${pad(d1.getMinutes())}`;
+            return {
+                dateRange: `${formatDay(d1)} - ${formatDay(d2)}`,
+                commitmentTime: `Trước ${timeStr}`,
+                fullDisplay: `${formatDay(d1)} - ${formatDay(d2)} (Trước ${timeStr})`
+            };
+        } catch {
+            return null;
+        }
+    };
+
+    const getEffectiveEta = (shipment) => {
+        if (!shipment) return null;
+        if (shipment.estimatedDeliveryAt) {
+            return formatEtaDateRange(shipment.estimatedDeliveryAt, shipment.estimatedDeliveryMax);
+        }
+        // Fallback ETA calculation dựa theo SLA tiêu chuẩn khoảng cách & giờ gửi
+        try {
+            const baseDate = shipment.createdAt ? new Date(shipment.createdAt) : new Date();
+            if (isNaN(baseDate.getTime())) return null;
+
+            let isInter = true;
+            const sAddr = (shipment.senderAddress || '').toLowerCase();
+            const rAddr = (shipment.receiverAddress || '').toLowerCase();
+            if (sAddr && rAddr) {
+                const sLast = sAddr.split(',').pop().trim();
+                const rLast = rAddr.split(',').pop().trim();
+                if (sLast && rLast && (sLast.includes(rLast) || rLast.includes(sLast))) {
+                    isInter = false;
+                }
+            }
+
+            const daysToAdd = isInter ? 2 : 1;
+            const etaMin = new Date(baseDate.getTime() + daysToAdd * 24 * 3600000);
+            etaMin.setHours(isInter ? 17 : 18, 0, 0, 0);
+            const etaMax = new Date(etaMin.getTime() + 12 * 3600000);
+            return formatEtaDateRange(etaMin, etaMax);
+        } catch {
+            return null;
+        }
+    };
+
+    const maskPhone = (phone, isStaffOrOwner = false) => {
+        if (!phone) return '';
+        if (isStaffOrOwner) return String(phone);
+        const str = String(phone).trim();
+        const clean = str.replace(/\D/g, '');
+        if (clean.length < 7) return str;
+        return clean.slice(0, 4) + '***' + clean.slice(-3);
     };
 
     window.Utils = {
@@ -363,6 +422,9 @@
         formatDateTime: formatTime,
         formatCurrency,
         formatNodeText,
-        formatJson
+        formatJson,
+        formatEtaDateRange,
+        getEffectiveEta,
+        maskPhone
     };
 })();

@@ -265,6 +265,11 @@
                 payload
             );
             return parseResponse(response, 'Không thể cập nhật tiến độ chuyến xe');
+        },
+
+        async calculateEta(payload) {
+            const response = await Api.post('/api/routing/eta/calculate', payload);
+            return parseResponse(response, 'Không thể tính toán thời gian giao dự kiến');
         }
     };
 

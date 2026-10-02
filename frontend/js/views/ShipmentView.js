@@ -861,6 +861,11 @@
             };
 
             const openCheckoutModal = async (shipment) => {
+                if (!shipment) return;
+                if (shipment.currentStatus === 'CANCELLED') {
+                    Utils.showToast('Không Thể Thanh Toán', 'Đơn hàng này đã bị hủy, không thể thực hiện thanh toán cước phí!', 'warning');
+                    return;
+                }
                 checkoutTargetShipment.value = shipment;
                 checkoutPaymentData.value = null;
                 isCheckoutLoading.value = true;
@@ -914,6 +919,11 @@
                             const check = await PaymentService.getPaymentByTracking(shipment.trackingCode);
                             if (check && check.status === 'SUCCESS') {
                                 handleCheckoutSuccessRealtime(check);
+                            } else if (check && check.status === 'CANCELLED') {
+                                if (checkoutTimer) clearInterval(checkoutTimer);
+                                if (checkoutPollTimer) clearInterval(checkoutPollTimer);
+                                Utils.showToast('Giao Dịch Đã Hủy', 'Yêu cầu thanh toán của đơn hàng đã bị hủy bỏ!', 'warning');
+                                closeCheckoutModal();
                             }
                         } catch (e) {}
                     }, 3000);
@@ -925,11 +935,19 @@
 
             const handleCheckoutRecheck = async () => {
                 if (!checkoutTargetShipment.value || isCheckingPayment.value) return;
+                if (checkoutTargetShipment.value.currentStatus === 'CANCELLED') {
+                    Utils.showToast('Đơn Hàng Đã Hủy', 'Đơn hàng này đã bị hủy, không thể tiếp tục thanh toán.', 'warning');
+                    closeCheckoutModal();
+                    return;
+                }
                 isCheckingPayment.value = true;
                 try {
                     const check = await PaymentService.getPaymentByTracking(checkoutTargetShipment.value.trackingCode);
                     if (check && check.status === 'SUCCESS') {
                         handleCheckoutSuccessRealtime(check);
+                    } else if (check && check.status === 'CANCELLED') {
+                        Utils.showToast('Giao Dịch Đã Hủy', 'Giao dịch cho đơn hàng này đã bị hủy.', 'warning');
+                        closeCheckoutModal();
                     } else {
                         Utils.showToast('Chưa Nhận Tiền', 'Hệ thống chưa ghi nhận biến động số dư cho mã đơn này.', 'info');
                     }
@@ -942,6 +960,11 @@
 
             const handleCheckoutMockPay = async () => {
                 if (!checkoutTargetShipment.value) return;
+                if (checkoutTargetShipment.value.currentStatus === 'CANCELLED') {
+                    Utils.showToast('Đơn Hàng Đã Hủy', 'Đơn hàng này đã bị hủy, không thể thực hiện thanh toán!', 'warning');
+                    closeCheckoutModal();
+                    return;
+                }
                 const targetCode = checkoutTargetShipment.value.trackingCode;
                 const targetAmount = checkoutTargetShipment.value.totalFee || checkoutTargetShipment.value.shippingFee || 35000;
                 try {
@@ -955,7 +978,7 @@
                         status: 'SUCCESS'
                     });
                 } catch (err) {
-                    Utils.showToast('Lỗi Giả Lập', err.message || 'Không thể giả lập thanh toán', 'error');
+                    Utils.showToast('Lỗi Thanh Toán', err.message || 'Không thể thanh toán đơn hàng này', 'error');
                 }
             };
 
@@ -1887,16 +1910,14 @@
                         </div>
 
                         <div v-else class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse">
+                            <table class="w-full text-left border-collapse table-auto">
                                 <thead>
                                     <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-extrabold text-slate-600 uppercase tracking-wider">
-                                        <th class="py-3 px-3.5">Mã Bưu Gửi / Loại</th>
-                                        <th class="py-3 px-3.5">Người Gửi (Tiếp Nhận)</th>
-                                        <th class="py-3 px-3.5">Người Nhận (Phát Trả)</th>
-                                        <th class="py-3 px-3.5">Khối Lượng &amp; COD</th>
-                                        <th class="py-3 px-3.5">Trạng Thái Toàn Trình</th>
-                                        <th class="py-3 px-3.5">Thời Gian Tạo</th>
-                                        <th class="py-3 px-3.5 text-right whitespace-nowrap w-[115px]">Thao Tác</th>
+                                        <th class="py-3 px-3.5 w-[22%]">Mã Bưu Gửi &amp; Tiếp Nhận</th>
+                                        <th class="py-3 px-3.5 w-[25%]">Tuyến Gửi &rarr; Phát Trả</th>
+                                        <th class="py-3 px-3.5 w-[16%]">Khối Lượng &amp; COD</th>
+                                        <th class="py-3 px-3.5 w-[25%]">Toàn Trình &amp; Dự Kiến Giao</th>
+                                        <th class="py-3 px-3.5 w-[12%] text-right whitespace-nowrap">Thao Tác</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-xs">
@@ -1913,33 +1934,32 @@
                                                     class="font-mono font-bold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center space-x-1 cursor-pointer group text-left transition-colors tracking-tight whitespace-nowrap"
                                                     title="Click để xem chi tiết hành trình & bản đồ"
                                                 >
-                                                    <span class="truncate max-w-[140px] inline-block align-bottom" :title="s.trackingCode">{{ s.trackingCode }}</span>
+                                                    <span class="truncate max-w-[130px] inline-block align-bottom" :title="s.trackingCode">{{ s.trackingCode }}</span>
                                                 </button>
-                                            </div>
-                                            <div class="flex items-center space-x-1.5 mt-0.5">
                                                 <span 
                                                     :class="s.serviceType === 'EXPRESS' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-700 border-slate-200'"
-                                                    class="px-1.5 py-0.5 rounded text-[10px] font-bold border"
+                                                    class="px-1.5 py-0.5 rounded text-[9.5px] font-bold border"
                                                 >
                                                     {{ s.serviceType === 'EXPRESS' ? 'HỎA TỐC' : 'TIÊU CHUẨN' }}
                                                 </span>
-                                                <span class="text-[10px] font-mono text-slate-400">#KH:{{ s.customerId }}</span>
                                             </div>
-                                        </td>
-
-                                        <td class="py-3 px-3.5 max-w-[200px]">
-                                            <div class="font-bold text-slate-800 truncate">{{ s.senderName }}</div>
-                                            <div class="text-[11px] font-mono text-slate-500">{{ s.senderPhone }}</div>
-                                            <div class="text-[10px] text-slate-400 truncate" :title="s.senderAddress">
-                                                {{ s.senderAddress }}
+                                            <div class="text-[10.5px] font-mono text-slate-400 mt-1 flex items-center gap-1.5">
+                                                <span>{{ Utils.formatTime(s.createdAt) }}</span>
+                                                <span v-if="s.customerId" class="text-slate-300">•</span>
+                                                <span v-if="s.customerId">#KH:{{ s.customerId }}</span>
                                             </div>
                                         </td>
 
                                         <td class="py-3 px-3.5 max-w-[220px]">
-                                            <div class="font-bold text-slate-800 truncate">{{ s.receiverName }}</div>
-                                            <div class="text-[11px] font-mono text-slate-500">{{ s.receiverPhone }}</div>
-                                            <div class="text-[10px] text-slate-400 truncate" :title="s.receiverAddress">
-                                                {{ s.receiverAddress }}
+                                            <div class="flex items-center gap-1.5 font-bold text-slate-800 text-[11.5px] truncate">
+                                                <span class="truncate" :title="s.senderName">{{ s.senderName }}</span>
+                                                <span class="text-slate-400 shrink-0">&rarr;</span>
+                                                <span class="truncate text-blue-700" :title="s.receiverName">{{ s.receiverName }}</span>
+                                            </div>
+                                            <div class="text-[10.5px] text-slate-500 mt-0.5 truncate flex items-center gap-1" :title="(s.senderAddress || '') + ' -> ' + (s.receiverAddress || '')">
+                                                <span class="truncate">{{ s.senderAddress?.split(',').slice(-1)[0]?.trim() || s.senderAddress || 'Điểm gửi' }}</span>
+                                                <span class="text-slate-300">•</span>
+                                                <span class="truncate font-medium text-slate-700">{{ s.receiverAddress?.split(',').slice(-1)[0]?.trim() || s.receiverAddress || 'Điểm nhận' }}</span>
                                             </div>
                                         </td>
 
@@ -1947,28 +1967,50 @@
                                             <div class="font-mono font-bold text-xs" :class="s.codAmount > 0 ? 'text-emerald-600' : 'text-slate-500'">
                                                 {{ Utils.formatCurrency(s.codAmount) }}
                                             </div>
-                                            <div class="text-[11px] font-mono text-slate-500">
+                                            <div class="text-[11px] font-mono text-slate-500 mt-0.5">
                                                 KL: <span class="font-semibold text-slate-700">{{ s.weight }} kg</span>
                                             </div>
                                         </td>
 
                                         <td class="py-3 px-3.5 whitespace-nowrap">
-                                            <span 
-                                                :class="['inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold border', Utils.getStatusBadgeClass(s.currentStatus)]"
-                                            >
-                                                <span class="w-1.5 h-1.5 rounded-full mr-1.5 bg-current opacity-80"></span>
-                                                {{ Utils.formatStatusText(s.currentStatus) }}
-                                            </span>
-                                        </td>
-
-                                        <td class="py-3 px-3.5 whitespace-nowrap text-slate-500 font-mono text-[11px]">
-                                            {{ Utils.formatTime(s.createdAt) }}
+                                            <div class="flex items-center gap-1.5 flex-wrap">
+                                                <span 
+                                                    :class="['inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border', Utils.getStatusBadgeClass(s.currentStatus)]"
+                                                >
+                                                    <span class="w-1.5 h-1.5 rounded-full mr-1 bg-current opacity-80"></span>
+                                                    {{ Utils.formatStatusText(s.currentStatus) }}
+                                                </span>
+                                                <span v-if="s.assignedTripCode && canCreateForOthers" class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 font-mono text-[9px] rounded font-bold" title="Chuyến xe vận chuyển">
+                                                    <svg class="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>
+                                                    <span>{{ s.assignedTripCode }}</span>
+                                                </span>
+                                                <span v-else-if="!s.assignedTripCode && canCreateForOthers && ['CREATED', 'ACCEPTED', 'PENDING_ROUTING', 'AT_POST_OFFICE', 'RECEIVED_AT_POST_OFFICE'].includes(s.currentStatus)" class="inline-flex items-center px-1.5 py-0.5 bg-amber-50 border border-amber-200 text-amber-700 text-[9px] rounded font-medium" title="Đang chờ điều phối xe">
+                                                    Chờ ghép xe
+                                                </span>
+                                                <span v-else-if="!s.assignedTripCode && canCreateForOthers && s.currentStatus === 'IN_TRANSIT'" class="inline-flex items-center px-1.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-600 text-[9px] rounded font-medium" title="Đang trung chuyển qua mạng lưới">
+                                                    Đang trung chuyển
+                                                </span>
+                                            </div>
+                                            <div v-if="Utils.getEffectiveEta(s)" class="mt-1 flex items-center gap-1 font-bold text-slate-800 text-[11px]">
+                                                <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                                <span class="text-emerald-700">{{ Utils.getEffectiveEta(s)?.dateRange }}</span>
+                                                <span class="text-[10px] text-emerald-600/90 font-normal">({{ Utils.getEffectiveEta(s)?.commitmentTime }})</span>
+                                            </div>
+                                            <div v-else class="mt-1 text-slate-400 text-[10.5px] italic">Đang cập nhật...</div>
                                         </td>
 
                                         <td class="py-3 px-3.5 text-right whitespace-nowrap">
                                             <div class="inline-flex items-center justify-end gap-1">
+                                                <span 
+                                                    v-if="s.currentStatus === 'CANCELLED'"
+                                                    class="px-2 py-1 bg-slate-100 text-slate-500 rounded-lg text-[10.5px] font-semibold border border-slate-200 cursor-not-allowed inline-flex items-center gap-1 select-none"
+                                                    title="Đơn hàng đã hủy - Không phát sinh cước phí"
+                                                >
+                                                    <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                                                    <span>Đã Hủy</span>
+                                                </span>
                                                 <button 
-                                                    v-if="!isShipmentPaid(s)"
+                                                    v-else-if="!isShipmentPaid(s)"
                                                     type="button"
                                                     @click="openCheckoutModal(s)"
                                                     class="px-2 py-1 bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white rounded-lg text-[11px] font-bold transition border border-emerald-200 hover:border-emerald-600 shadow-xs flex items-center gap-1 cursor-pointer"
@@ -2213,7 +2255,46 @@
                             </div>
                         </div>
 
-                        <div class="p-5 space-y-4">
+                        <div class="p-5 space-y-3.5">
+                            <!-- ETA Delivery Guarantee Card (Shopee Style - ĐẶT NGAY DƯỚI MÃ VẬN ĐƠN) -->
+                            <div v-if="createdShipmentPrompt?.estimatedDeliveryAt" class="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/90 rounded-xl p-3 space-y-2 text-[11.5px]">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-1.5 font-extrabold text-emerald-900">
+                                        <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        <span>Dự Kiến Nhận Hàng</span>
+                                    </div>
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                        <svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                        </svg>
+                                        Đúng hẹn
+                                    </span>
+                                </div>
+                                <div class="flex items-baseline justify-between">
+                                    <span class="text-emerald-950 font-black text-sm tracking-tight">
+                                        {{ Utils.formatEtaDateRange(createdShipmentPrompt?.estimatedDeliveryAt, createdShipmentPrompt?.estimatedDeliveryMax)?.dateRange }}
+                                    </span>
+                                    <span class="text-emerald-700 font-bold text-[11px]">
+                                        {{ Utils.formatEtaDateRange(createdShipmentPrompt?.estimatedDeliveryAt, createdShipmentPrompt?.estimatedDeliveryMax)?.commitmentTime }}
+                                    </span>
+                                </div>
+                                <div class="text-[10px] text-emerald-700/90 leading-tight flex items-center gap-1.5">
+                                    <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                                    <span>VNPT Post cam kết giao đúng hạn. Tự động bồi hoàn cước nếu trễ hạn.</span>
+                                </div>
+                                <div v-if="createdShipmentPrompt?.assignedTripCode && canCreateForOthers" class="pt-1.5 border-t border-emerald-200/60 flex items-center justify-between text-[10.5px] text-slate-600 font-mono">
+                                    <span class="flex items-center gap-1">
+                                        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>
+                                        <span>Điều phối chuyến xe:</span>
+                                    </span>
+                                    <span class="bg-white px-1.5 py-0.5 rounded border border-emerald-300 font-bold text-slate-800">
+                                        {{ createdShipmentPrompt?.assignedTripCode }}
+                                    </span>
+                                </div>
+                            </div>
+
                             <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-[11.5px] space-y-1.5">
                                 <div class="flex justify-between items-center">
                                     <span class="text-slate-500">Người nhận:</span>
