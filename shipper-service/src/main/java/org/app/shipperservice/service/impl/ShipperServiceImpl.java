@@ -5,6 +5,7 @@ import org.app.shipperservice.dto.request.CreateShipperRequest;
 import org.app.shipperservice.dto.request.UpdateShipperRequest;
 import org.app.shipperservice.dto.response.ShipperLookupResponse;
 import org.app.shipperservice.dto.response.ShipperResponse;
+import org.app.shipperservice.dto.response.StationCapacityResponse;
 import org.app.shipperservice.entity.Shipper;
 import org.app.shipperservice.exception.ResourceNotFoundException;
 import org.app.shipperservice.repository.ShipperRepository;
@@ -132,5 +133,47 @@ public class ShipperServiceImpl implements ShipperService {
                     return true;
                 })
                 .orElse(false);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public StationCapacityResponse getStationCapacity(String stationCode) {
+        List<Shipper> stationShippers = shipperRepository.findByStationCode(stationCode);
+        int totalShippers = stationShippers.size();
+        List<Shipper> onDutyShippers = stationShippers.stream()
+                .filter(shipper -> "ACTIVE".equals(shipper.getStatus()) && "ON_DUTY".equals(shipper.getShiftStatus()))
+                .toList();
+        int activeShippersOnDuty = onDutyShippers.size();
+        int totalCapacity = onDutyShippers.stream().mapToInt(Shipper::getMaxOrdersPerShift).sum();
+        int currentOrders = onDutyShippers.stream().mapToInt(Shipper::getCurrentOrdersCount).sum();
+        int availableCapacity = Math.max(0, totalCapacity - currentOrders);
+        double utilization = totalCapacity > 0 ? (double) currentOrders / totalCapacity * 100  : 0.0;
+        return StationCapacityResponse.builder()
+                .stationCode(stationCode)
+                .totalShippers(totalShippers)
+                .activeShippersOnDuty(activeShippersOnDuty)
+                .totalCapacityPerShift(totalCapacity)
+                .currentActiveOrders(currentOrders)
+                .availableCapacity(availableCapacity)
+                .utilizationRate(utilization)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ShipperResponse updateShiftStatus(Long shipperId, String shiftStatus) {
+        Shipper shipper = shipperRepository.findById(shipperId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bưu tá với id: " + shipperId));
+        shipper.setShiftStatus(shiftStatus);
+        Shipper updated = shipperRepository.save(shipper);
+        return ShipperResponse.builder()
+                .id(updated.getId())
+                .courierCode(updated.getCourierCode())
+                .fullName(updated.getFullName())
+                .phone(updated.getPhone())
+                .hasLinkedTelegram(updated.getTelegramChatId() != null && !updated.getTelegramChatId().isBlank())
+                .stationCode(updated.getStationCode())
+                .status(updated.getStatus())
+                .build();
     }
 }

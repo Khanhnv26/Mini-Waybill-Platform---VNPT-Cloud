@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SqlDialectMappings">
+    <file url="file://$PROJECT_DIR$/routing-service/src/main/resources/db/migration/V6__create_vehicles_and_fleet_management.sql" dialect="GenericSQL" />
+    <file url="file://$PROJECT_DIR$/shipment-service/src/main/resources/db/migration/V8__add_eta_and_assigned_trip_to_shipments.sql" dialect="GenericSQL" />
+  </component>
+</project>

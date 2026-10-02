@@ -91,6 +91,15 @@ public class Shipment {
     @Column(name = "cod_settled_by")
     private String codSettledBy;
 
+    @Column(name = "estimated_delivery_at")
+    private LocalDateTime estimatedDeliveryAt;
+
+    @Column(name = "estimated_delivery_max")
+    private LocalDateTime estimatedDeliveryMax;
+
+    @Column(name = "assigned_trip_code", length = 50)
+    private String assignedTripCode;
+
     @PrePersist
     protected void onCreate() {
         if (this.codAmount == null) {

@@ -88,6 +88,11 @@ public class Trip {
     @JsonManagedReference
     private List<TripStop> stops = new ArrayList<>();
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vehicle_id")
+    private Vehicle vehicle;
+
+
     @PrePersist
     public void onCreate() {
         if (this.currentWeight == null) {

@@ -4,6 +4,7 @@ import org.app.shipperservice.dto.request.CreateShipperRequest;
 import org.app.shipperservice.dto.request.UpdateShipperRequest;
 import org.app.shipperservice.dto.response.ShipperLookupResponse;
 import org.app.shipperservice.dto.response.ShipperResponse;
+import org.app.shipperservice.dto.response.StationCapacityResponse;
 
 import java.util.List;
 
@@ -14,4 +15,7 @@ public interface ShipperService {
     ShipperResponse deleteShipper(Long id);
     ShipperLookupResponse findByCourierCode(String courierCode);
     boolean linkTelegramChatId(String courierCode, String telegramChatId);
+    StationCapacityResponse getStationCapacity(String stationCode);
+    ShipperResponse updateShiftStatus(Long shipperId, String shiftStatus);
+
 }
