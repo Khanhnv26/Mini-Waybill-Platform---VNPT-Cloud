@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: shipper-service
-          image: khanhnv26/shipper-service:latest
+          image: khanhnv26/shipper-service:aa2aa942a437add648eb764c2eafe85a8f86451f
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
