@@ -29,8 +29,10 @@ public class ShipperController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ShipperResponse>> getAllShippers() {
-        return ResponseEntity.ok(shipperService.getAllShippers());
+    public ResponseEntity<List<ShipperResponse>> getAllShippers(
+            @RequestParam(required = false) String stationCode,
+            @RequestParam(required = false) String shiftStatus) {
+        return ResponseEntity.ok(shipperService.getShippers(stationCode, shiftStatus));
     }
 
     @PutMapping("/{id}")

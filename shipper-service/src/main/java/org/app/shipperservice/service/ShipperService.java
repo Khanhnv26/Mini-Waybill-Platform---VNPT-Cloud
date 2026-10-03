@@ -11,6 +11,7 @@ import java.util.List;
 public interface ShipperService {
     ShipperResponse createShipper(CreateShipperRequest createShipperRequest);
     List<ShipperResponse> getAllShippers();
+    List<ShipperResponse> getShippers(String stationCode, String shiftStatus);
     ShipperResponse updateShipper(Long id, UpdateShipperRequest updateShipperRequest);
     ShipperResponse deleteShipper(Long id);
     ShipperLookupResponse findByCourierCode(String courierCode);

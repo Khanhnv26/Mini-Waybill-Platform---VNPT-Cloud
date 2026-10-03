@@ -13,6 +13,10 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
 
     List<Vehicle> findByCurrentHub(String currentHub);
     List<Vehicle> findByCurrentHubAndStatus(String currentHub, String status);
+    List<Vehicle> findByStatus(String status);
     long countByCurrentHubAndStatus(String currentHub, String status);
+    List<Vehicle> findByCurrentHubAndStatusAndVehicleType(String currentHub, String status, String vehicleType);
+
+    boolean existsByVehiclePlate(String vehiclePlate);
 }
 

@@ -270,6 +270,36 @@
         async calculateEta(payload) {
             const response = await Api.post('/api/routing/eta/calculate', payload);
             return parseResponse(response, 'Không thể tính toán thời gian giao dự kiến');
+        },
+
+        async getVehicles(params = {}) {
+            const query = new URLSearchParams();
+            if (params.hub && params.hub !== 'ALL') query.append('hub', params.hub);
+            if (params.status && params.status !== 'ALL') query.append('status', params.status);
+            if (params.vehicleType && params.vehicleType !== 'ALL') query.append('vehicleType', params.vehicleType);
+            const qs = query.toString() ? `?${query.toString()}` : '';
+            const response = await Api.get(`/api/routing/vehicles${qs}`);
+            return parseResponse(response, 'Không thể tải danh sách phương tiện vận tải');
+        },
+
+        async getAvailableVehiclesAtHub(hub) {
+            const response = await Api.get(`/api/routing/vehicles/available?hub=${encodePath(hub)}`);
+            return parseResponse(response, 'Không thể tải danh sách xe khả dụng tại trạm');
+        },
+
+        async createVehicle(payload) {
+            const response = await Api.post('/api/routing/vehicles', payload);
+            return parseResponse(response, 'Không thể thêm phương tiện vận tải');
+        },
+
+        async updateVehicle(id, payload) {
+            const response = await Api.put(`/api/routing/vehicles/${encodePath(id)}`, payload);
+            return parseResponse(response, 'Không thể cập nhật thông tin phương tiện');
+        },
+
+        async updateVehicleStatus(id, status) {
+            const response = await Api.patch(`/api/routing/vehicles/${encodePath(id)}/status?status=${encodePath(status)}`);
+            return parseResponse(response, 'Không thể cập nhật trạng thái phương tiện');
         }
     };
 

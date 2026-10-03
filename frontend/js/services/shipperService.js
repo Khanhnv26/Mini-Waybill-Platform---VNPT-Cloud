@@ -14,8 +14,12 @@
     }
 
     const ShipperDirectoryService = {
-        async list() {
-            const response = await Api.get('/api/shippers');
+        async list(params = {}) {
+            const query = new URLSearchParams();
+            if (params.stationCode && params.stationCode !== 'ALL') query.append('stationCode', params.stationCode);
+            if (params.shiftStatus && params.shiftStatus !== 'ALL') query.append('shiftStatus', params.shiftStatus);
+            const qs = query.toString() ? `?${query.toString()}` : '';
+            const response = await Api.get(`/api/shippers${qs}`);
             if (!response.ok) {
                 const errData = await response.json().catch(() => ({}));
                 throw new Error(extractErrorMessage(errData, 'Không thể tải danh bạ bưu tá'));
@@ -37,6 +41,24 @@
             if (!response.ok) {
                 const errData = await response.json().catch(() => ({}));
                 throw new Error(extractErrorMessage(errData, 'Không thể cập nhật bưu tá'));
+            }
+            return response.json();
+        },
+
+        async updateShiftStatus(id, shiftStatus) {
+            const response = await Api.patch(`/api/shippers/${encodeURIComponent(id)}/shift-status?shiftStatus=${encodeURIComponent(shiftStatus)}`);
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(extractErrorMessage(errData, 'Không thể cập nhật ca trực của bưu tá'));
+            }
+            return response.json();
+        },
+
+        async getStationCapacity(stationCode) {
+            const response = await Api.get(`/api/shippers/stations/${encodeURIComponent(stationCode)}/capacity`);
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(extractErrorMessage(errData, 'Không thể lấy năng lực của bưu cục'));
             }
             return response.json();
         },

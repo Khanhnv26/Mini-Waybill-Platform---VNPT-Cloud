@@ -15,8 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-import static java.util.stream.Collectors.toList;
-
 @Service
 @RequiredArgsConstructor
 public class ShipperServiceImpl implements ShipperService {
@@ -34,32 +32,29 @@ public class ShipperServiceImpl implements ShipperService {
                         .telegramChatId(createShipperRequest.getTelegramChatId())
                         .stationCode(createShipperRequest.getStationCode())
                         .status("ACTIVE")
+                        .shiftStatus("ON_DUTY")
+                        .maxOrdersPerShift(40)
+                        .currentOrdersCount(0)
+                        .ratingAvg(5.0)
+                        .ratingCount(0)
                         .build());
-        return ShipperResponse.builder()
-                .id(saved.getId())
-                .courierCode(saved.getCourierCode())
-                .fullName(saved.getFullName())
-                .phone(saved.getPhone())
-                .hasLinkedTelegram(saved.getTelegramChatId() != null && !saved.getTelegramChatId().isBlank())
-                .stationCode(saved.getStationCode())
-                .status(saved.getStatus())
-                .build();
+        return toShipperResponse(saved);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<ShipperResponse> getAllShippers() {
+        return getShippers(null, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ShipperResponse> getShippers(String stationCode, String shiftStatus) {
         return shipperRepository.findAll().stream()
-                .map(shipper -> ShipperResponse.builder()
-                        .id(shipper.getId())
-                        .courierCode(shipper.getCourierCode())
-                        .fullName(shipper.getFullName())
-                        .phone(shipper.getPhone())
-                        .hasLinkedTelegram(shipper.getTelegramChatId() != null && !shipper.getTelegramChatId().isBlank())
-                        .stationCode(shipper.getStationCode())
-                        .status(shipper.getStatus())
-                        .build())
-                .collect(toList());
+                .filter(s -> stationCode == null || stationCode.isBlank() || "ALL".equalsIgnoreCase(stationCode) || stationCode.equalsIgnoreCase(s.getStationCode()))
+                .filter(s -> shiftStatus == null || shiftStatus.isBlank() || "ALL".equalsIgnoreCase(shiftStatus) || shiftStatus.equalsIgnoreCase(s.getShiftStatus()))
+                .map(this::toShipperResponse)
+                .toList();
     }
 
     @Override
@@ -74,18 +69,11 @@ public class ShipperServiceImpl implements ShipperService {
         if (updateShipperRequest.getTelegramChatId() != null) shipper.setTelegramChatId(updateShipperRequest.getTelegramChatId());
         if (updateShipperRequest.getStationCode() != null) shipper.setStationCode(updateShipperRequest.getStationCode());
         if (updateShipperRequest.getStatus() != null) shipper.setStatus(updateShipperRequest.getStatus());
+        if (updateShipperRequest.getShiftStatus() != null) shipper.setShiftStatus(updateShipperRequest.getShiftStatus().trim().toUpperCase());
+        if (updateShipperRequest.getMaxOrdersPerShift() != null) shipper.setMaxOrdersPerShift(updateShipperRequest.getMaxOrdersPerShift());
 
         Shipper updated = shipperRepository.save(shipper);
-
-        return ShipperResponse.builder()
-                .id(updated.getId())
-                .courierCode(updated.getCourierCode())
-                .fullName(updated.getFullName())
-                .phone(updated.getPhone())
-                .hasLinkedTelegram(updated.getTelegramChatId() != null && !updated.getTelegramChatId().isBlank())
-                .stationCode(updated.getStationCode())
-                .status(updated.getStatus())
-                .build();
+        return toShipperResponse(updated);
     }
 
     @Override
@@ -94,16 +82,8 @@ public class ShipperServiceImpl implements ShipperService {
         Shipper shipper = shipperRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bưu tá với id: " + id));
         shipper.setStatus("INACTIVE");
-        shipperRepository.save(shipper);
-        return ShipperResponse.builder()
-                .id(shipper.getId())
-                .courierCode(shipper.getCourierCode())
-                .fullName(shipper.getFullName())
-                .phone(shipper.getPhone())
-                .hasLinkedTelegram(shipper.getTelegramChatId() != null && !shipper.getTelegramChatId().isBlank())
-                .stationCode(shipper.getStationCode())
-                .status(shipper.getStatus())
-                .build();
+        Shipper updated = shipperRepository.save(shipper);
+        return toShipperResponse(updated);
     }
 
     @Override
@@ -147,7 +127,7 @@ public class ShipperServiceImpl implements ShipperService {
         int totalCapacity = onDutyShippers.stream().mapToInt(Shipper::getMaxOrdersPerShift).sum();
         int currentOrders = onDutyShippers.stream().mapToInt(Shipper::getCurrentOrdersCount).sum();
         int availableCapacity = Math.max(0, totalCapacity - currentOrders);
-        double utilization = totalCapacity > 0 ? (double) currentOrders / totalCapacity * 100  : 0.0;
+        double utilization = totalCapacity > 0 ? (double) currentOrders / totalCapacity * 100 : 0.0;
         return StationCapacityResponse.builder()
                 .stationCode(stationCode)
                 .totalShippers(totalShippers)
@@ -164,16 +144,32 @@ public class ShipperServiceImpl implements ShipperService {
     public ShipperResponse updateShiftStatus(Long shipperId, String shiftStatus) {
         Shipper shipper = shipperRepository.findById(shipperId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bưu tá với id: " + shipperId));
-        shipper.setShiftStatus(shiftStatus);
+
+        String normalized = shiftStatus != null ? shiftStatus.trim().toUpperCase() : "ON_DUTY";
+        if (!List.of("ON_DUTY", "OFF_DUTY").contains(normalized)) {
+            throw new IllegalArgumentException("Trạng thái ca trực không hợp lệ: " + shiftStatus);
+        }
+
+        shipper.setShiftStatus(normalized);
         Shipper updated = shipperRepository.save(shipper);
+        return toShipperResponse(updated);
+    }
+
+    private ShipperResponse toShipperResponse(Shipper shipper) {
+        if (shipper == null) return null;
         return ShipperResponse.builder()
-                .id(updated.getId())
-                .courierCode(updated.getCourierCode())
-                .fullName(updated.getFullName())
-                .phone(updated.getPhone())
-                .hasLinkedTelegram(updated.getTelegramChatId() != null && !updated.getTelegramChatId().isBlank())
-                .stationCode(updated.getStationCode())
-                .status(updated.getStatus())
+                .id(shipper.getId())
+                .courierCode(shipper.getCourierCode())
+                .fullName(shipper.getFullName())
+                .phone(shipper.getPhone())
+                .hasLinkedTelegram(shipper.getTelegramChatId() != null && !shipper.getTelegramChatId().isBlank())
+                .stationCode(shipper.getStationCode())
+                .status(shipper.getStatus())
+                .shiftStatus(shipper.getShiftStatus() != null ? shipper.getShiftStatus() : "ON_DUTY")
+                .maxOrdersPerShift(shipper.getMaxOrdersPerShift() != null ? shipper.getMaxOrdersPerShift() : 40)
+                .currentOrdersCount(shipper.getCurrentOrdersCount() != null ? shipper.getCurrentOrdersCount() : 0)
+                .ratingAvg(shipper.getRatingAvg() != null ? shipper.getRatingAvg() : 5.0)
+                .ratingCount(shipper.getRatingCount() != null ? shipper.getRatingCount() : 0)
                 .build();
     }
 }

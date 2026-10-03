@@ -18,14 +18,7 @@ import org.app.routingservice.entity.TripManifest;
 import org.app.routingservice.entity.TripStop;
 import org.app.routingservice.entity.TripType;
 import org.app.routingservice.entity.WarehouseInventory;
-import org.app.routingservice.repository.HubRepository;
-import org.app.routingservice.repository.RoutingAssignmentRepository;
-import org.app.routingservice.repository.SchedulerConfigRepository;
-import org.app.routingservice.repository.TripManifestRepository;
-import org.app.routingservice.repository.TripRepository;
-import org.app.routingservice.repository.TripStopRepository;
-import org.app.routingservice.repository.WarehouseInventoryRepository;
-import org.app.routingservice.repository.HandlingEventRepository;
+import org.app.routingservice.repository.*;
 import org.app.routingservice.service.TripService;
 import org.app.sharedevents.entity.*;
 import org.springframework.beans.factory.ObjectProvider;
@@ -62,6 +55,7 @@ public class TripServiceImpl implements TripService {
     private final SchedulerConfigRepository schedulerConfigRepository;
     private final ObjectProvider<TripService> tripServiceProvider;
     private final StringRedisTemplate redisTemplate;
+    private final VehicleRepository vehicleRepository;
 
 
     private String normalizeHubCode(String rawCode) {
@@ -111,6 +105,21 @@ public class TripServiceImpl implements TripService {
     @Transactional
     public TripDetailResponse createTrip(CreateTripRequest request) {
         log.info("Khởi tạo chuyến xe mới: route={}, plate={}", request.getRouteName(), request.getVehiclePlate());
+
+        if (request.getVehiclePlate() != null && !request.getVehiclePlate().isBlank()) {
+            vehicleRepository.findByVehiclePlate(request.getVehiclePlate().trim())
+                    .ifPresent(v -> {
+                        if ("MAINTENANCE".equals(v.getStatus())) {
+                            throw new IllegalStateException("Xe " + v.getVehiclePlate() + " đang bảo dưỡng, không thể điều phối!");
+                        }
+                        if ("ON_TRIP".equals(v.getStatus())) {
+                            throw new IllegalStateException("Xe " + v.getVehiclePlate() + " đang chạy tuyến khác, không thể điều phối!");
+                        }
+                        if ("DISABLED".equals(v.getStatus())) {
+                            throw new IllegalStateException("Xe " + v.getVehiclePlate() + " đã bị vô hiệu hóa, không thể điều phối!");
+                        }
+                    });
+        }
 
         if (request.getStopHubCodes() == null || request.getStopHubCodes().size() < 2) {
             throw new IllegalArgumentException("Chuyến xe phải có ít nhất 2 trạm dừng.");
@@ -655,6 +664,13 @@ public class TripServiceImpl implements TripService {
         trip.setCurrentHub(firstStop.getHubCode());
         tripRepository.save(trip);
 
+        if (trip.getVehiclePlate() != null && !trip.getVehiclePlate().isBlank()) {
+            vehicleRepository.findByVehiclePlate(trip.getVehiclePlate().trim()).ifPresent(v -> {
+                v.setStatus("ON_TRIP");
+                vehicleRepository.save(v);
+            });
+        }
+
         List<TripManifest> loadedManifests = tripManifestRepository.findByTripIdAndStatus(tripId, "LOADED");
         LocalDateTime departureAt = trip.getDepartureTime();
         trip.setProgressPercent(0.0);
@@ -907,6 +923,13 @@ public class TripServiceImpl implements TripService {
         if (finalStop.getHubCode().equalsIgnoreCase(currentStop.getHubCode()) && !unresolvedManifests) {
             trip.setStatus("COMPLETED");
             log.info("Chuyến xe {} đã hoàn tất tại điểm dừng cuối cùng: {}.", trip.getTripCode(), currentStop.getHubCode());
+            if (trip.getVehiclePlate() != null && !trip.getVehiclePlate().isBlank()) {
+                vehicleRepository.findByVehiclePlate(trip.getVehiclePlate().trim()).ifPresent(v -> {
+                    v.setStatus("AVAILABLE");
+                    v.setCurrentHub(currentStop.getHubCode());
+                    vehicleRepository.save(v);
+                });
+            }
         } else if (finalStop.getHubCode().equalsIgnoreCase(currentStop.getHubCode())) {
             log.warn("Chuyến xe {} chưa thể hoàn tất tại điểm cuối {}; còn manifest chưa xử lý.",
                     trip.getTripCode(), currentStop.getHubCode());

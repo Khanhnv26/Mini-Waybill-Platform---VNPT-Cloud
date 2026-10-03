@@ -1033,6 +1033,10 @@
                     setTripType(transportMode.value);
                 }
                 showCreateModal.value = true;
+                const origin = tripForm.stopHubCodes?.[0];
+                if (origin) {
+                    loadAvailableVehiclesAtHub(origin);
+                }
             };
 
             watch(() => props.currentStation, (newVal) => {
@@ -1074,6 +1078,121 @@
                 scheduledDepartureTime: getDefaultDepartureTime(),
                 cutoffBufferMinutes: 30,
                 stopHubCodes: [...PRESET_ROUTES[0].stops]
+            });
+
+            const availableVehiclesAtHub = ref([]);
+            const isLoadingAvailableVehicles = ref(false);
+            const vehicleSelectionMode = ref('AUTO');
+            const isVehiclePickerOpen = ref(false);
+
+            const selectedVehicle = computed(() => {
+                const plate = tripForm.vehiclePlate;
+                if (!plate && availableVehiclesAtHub.value.length > 0) {
+                    return availableVehiclesAtHub.value[0];
+                }
+                return availableVehiclesAtHub.value.find(v => (v.plateNumber === plate || v.vehiclePlate === plate)) 
+                    || (availableVehiclesAtHub.value.length > 0 ? availableVehiclesAtHub.value[0] : null);
+            });
+
+            const selectVehicle = (v) => {
+                if (!v) return;
+                const plate = v.plateNumber || v.vehiclePlate || '';
+                tripForm.vehiclePlate = plate;
+                if (v.assignedDriverName || v.driverName) {
+                    tripForm.driverName = v.assignedDriverName || v.driverName;
+                }
+                if (v.payloadCapacity || v.maxWeight) {
+                    tripForm.maxWeight = Number(v.payloadCapacity || v.maxWeight);
+                }
+                vehicleSelectionMode.value = 'AUTO';
+                isVehiclePickerOpen.value = false;
+            };
+
+            const switchToManualVehicle = () => {
+                vehicleSelectionMode.value = 'MANUAL';
+                isVehiclePickerOpen.value = false;
+            };
+
+            const switchToAutoVehicle = () => {
+                vehicleSelectionMode.value = 'AUTO';
+                isVehiclePickerOpen.value = false;
+                if (availableVehiclesAtHub.value.length > 0) {
+                    selectVehicle(availableVehiclesAtHub.value[0]);
+                }
+            };
+
+            const loadAvailableVehiclesAtHub = async (hubCode) => {
+                const hub = String(hubCode || '').trim();
+                if (!hub) {
+                    availableVehiclesAtHub.value = [];
+                    return;
+                }
+                isLoadingAvailableVehicles.value = true;
+                try {
+                    const routing = window.RoutingService;
+                    if (routing && typeof routing.getAvailableVehiclesAtHub === 'function') {
+                        let list = await routing.getAvailableVehiclesAtHub(hub);
+                        list = Array.isArray(list) ? list : [];
+
+                        // Fallback thông minh: Nếu điểm xuất phát là Bưu Cục (POST-...) và tại trạm chưa có xe thường trực,
+                        // tự động tìm kiếm xe khả dụng từ Kho Tổng mẹ quản lý trực tiếp (Parent HUB)
+                        if (list.length === 0 && hub.startsWith('POST-')) {
+                            const parentHub = HUB_COORDINATES[hub]?.parent || 'HUB-HN-01';
+                            const parentVehicles = await routing.getAvailableVehiclesAtHub(parentHub);
+                            if (Array.isArray(parentVehicles) && parentVehicles.length > 0) {
+                                list = parentVehicles.map(v => ({
+                                    ...v,
+                                    isDispatchedFromParent: true,
+                                    parentHubOrigin: parentHub
+                                }));
+                            }
+                        }
+
+                        // Chuẩn hóa đồng bộ dữ liệu giữa VehicleResponse của backend và TripsView
+                        list = list.map(v => {
+                            const plate = v.vehiclePlate || v.plateNumber || '';
+                            const model = v.modelName || v.model || v.vehicleType || 'Xe tải vận chuyển';
+                            const cap = Number(v.payloadCapacity || v.maxWeight || 5000);
+                            const driver = v.assignedDriverName || v.driverName || 'Chưa gán lái xe';
+                            const phone = v.driverPhone || '';
+                            return {
+                                ...v,
+                                vehiclePlate: plate,
+                                plateNumber: plate,
+                                modelName: model,
+                                model: model,
+                                payloadCapacity: cap,
+                                maxWeight: cap,
+                                assignedDriverName: driver,
+                                driverName: driver,
+                                driverPhone: phone
+                            };
+                        });
+
+                        availableVehiclesAtHub.value = list;
+                        if (list.length > 0 && vehicleSelectionMode.value === 'AUTO') {
+                            const found = list.find(v => (v.plateNumber === tripForm.vehiclePlate || v.vehiclePlate === tripForm.vehiclePlate));
+                            const chosen = found || list[0];
+                            selectVehicle(chosen);
+                        }
+                    }
+                } catch (e) {
+                    console.error('[TripsView] Lỗi tải xe khả dụng tại trạm:', e);
+                    availableVehiclesAtHub.value = [];
+                } finally {
+                    isLoadingAvailableVehicles.value = false;
+                }
+            };
+
+            const onVehicleSelected = (plateNumber) => {
+                const chosen = availableVehiclesAtHub.value.find(v => (v.plateNumber === plateNumber || v.vehiclePlate === plateNumber));
+                if (chosen) selectVehicle(chosen);
+            };
+
+            watch(() => tripForm.stopHubCodes?.[0], (newOrigin) => {
+                if (newOrigin && showCreateModal.value) {
+                    loadAvailableVehiclesAtHub(newOrigin);
+                }
             });
 
             const isUpdatingProgress = ref(false);
@@ -2963,7 +3082,9 @@
                 originFeederTrips, filteredOriginFeederTrips,
                 destinationFeederTrips, filteredDestinationFeederTrips,
                 getNextPendingStop, getTripNextAction, handleMoveToStop,
-                runTripSimulation, isSimulatingTrip
+                runTripSimulation, isSimulatingTrip,
+                availableVehiclesAtHub, isLoadingAvailableVehicles, vehicleSelectionMode, selectedVehicle, loadAvailableVehiclesAtHub, onVehicleSelected,
+                isVehiclePickerOpen, selectVehicle, switchToManualVehicle, switchToAutoVehicle
             };
         },
         template: `
@@ -3743,7 +3864,7 @@
             <teleport to="body">
             <Transition name="modal">
             <div v-if="showCreateModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4">
-                <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[88vh]">
+                <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
                     <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
                         <div>
                             <h3 class="font-bold text-sm text-slate-900 uppercase tracking-wider">Khởi Tạo {{ getTripTypeLabel(tripForm.tripType) }}</h3>
@@ -3843,7 +3964,7 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div class="space-y-3">
                                 <div>
                                     <label class="block font-semibold text-slate-700 mb-1">Tên Tuyến Xe *</label>
@@ -3853,32 +3974,204 @@
                                     <label class="block font-semibold text-slate-700 mb-1">Mã Chuyến (Tự sinh nếu trống)</label>
                                     <input v-model="tripForm.tripCode" type="text" maxlength="35" placeholder="TRIP-..." class="w-full rounded-lg border border-slate-200 px-3 py-1.5 bg-slate-50 focus:bg-white outline-none font-mono" />
                                 </div>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label class="block font-semibold text-slate-700 mb-1">Biển Số Xe *</label>
-                                        <input v-model="tripForm.vehiclePlate" type="text" required maxlength="20" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 bg-slate-50 focus:bg-white outline-none font-mono font-bold" />
+                                <!-- SMART VEHICLE SELECTION -->
+                                <div class="space-y-1.5 pt-0.5 relative">
+                                    <div class="flex items-center justify-between">
+                                        <label class="block font-bold text-slate-700 text-xs flex items-center gap-1.5">
+                                            <svg class="w-4 h-4 text-[#005baa]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                                            <span>Phương tiện & Tài xế</span>
+                                        </label>
+                                        <div v-if="vehicleSelectionMode === 'AUTO'" class="flex items-center gap-2">
+                                            <button 
+                                                type="button" 
+                                                @click="isVehiclePickerOpen = !isVehiclePickerOpen" 
+                                                class="text-xs text-blue-600 hover:text-blue-800 font-bold transition cursor-pointer flex items-center gap-1"
+                                                title="Chọn xe khác tại bãi"
+                                            >
+                                                <span>Đổi xe ({{ availableVehiclesAtHub.length }})</span>
+                                                <svg class="w-3.5 h-3.5 transition-transform" :class="isVehiclePickerOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                            </button>
+                                            <button 
+                                                type="button" 
+                                                @click="switchToManualVehicle" 
+                                                class="text-[11px] text-slate-500 hover:text-slate-800 font-medium transition cursor-pointer"
+                                            >
+                                                Nhập ngoài bãi
+                                            </button>
+                                        </div>
+                                        <button 
+                                            v-else
+                                            type="button" 
+                                            @click="switchToAutoVehicle" 
+                                            class="text-xs text-blue-600 hover:text-blue-800 font-bold transition cursor-pointer flex items-center gap-1"
+                                        >
+                                            <span>Chọn xe tại bãi</span>
+                                        </button>
                                     </div>
-                                    <div>
-                                        <label class="block font-semibold text-slate-700 mb-1">Tài Xế *</label>
-                                        <input v-model="tripForm.driverName" type="text" required maxlength="100" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 bg-slate-50 focus:bg-white outline-none font-medium" />
+
+                                    <!-- AUTO MODE -->
+                                    <div v-if="vehicleSelectionMode === 'AUTO'" class="relative">
+                                        <!-- LOADING -->
+                                        <div v-if="isLoadingAvailableVehicles" class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 flex items-center gap-2.5">
+                                            <span class="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping"></span>
+                                            <span>Đang kiểm tra bãi xe tại {{ tripForm.stopHubCodes[0] || 'trạm' }}...</span>
+                                        </div>
+
+                                        <!-- NO VEHICLES AVAILABLE -->
+                                        <div v-else-if="availableVehiclesAtHub.length === 0" class="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center gap-2 text-amber-900 font-bold text-xs">
+                                                    <svg class="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                                    <span>Chưa có xe khả dụng tại bãi {{ tripForm.stopHubCodes[0] }}</span>
+                                                </div>
+                                                <span class="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">+12h ETA</span>
+                                            </div>
+                                            <p class="text-[11px] text-amber-700 leading-normal">
+                                                Tất cả phương tiện đang trên lộ trình hoặc chờ quay đầu. Bạn có thể chỉ định xe đối tác hoặc nhập thủ công.
+                                            </p>
+                                            <button 
+                                                type="button" 
+                                                @click="switchToManualVehicle" 
+                                                class="px-3 py-1.5 bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-xs font-bold transition cursor-pointer shadow-2xs"
+                                            >
+                                                Nhập thông tin xe thủ công
+                                            </button>
+                                        </div>
+
+                                        <!-- 2-TIER INTEGRATED B2B VEHICLE CARD -->
+                                        <div v-else>
+                                            <!-- OUTSIDE CLICK BACKDROP -->
+                                            <div v-if="isVehiclePickerOpen" @click="isVehiclePickerOpen = false" class="fixed inset-0 z-20"></div>
+
+                                            <div 
+                                                @click="isVehiclePickerOpen = !isVehiclePickerOpen"
+                                                class="bg-gradient-to-r from-blue-50/80 via-white to-slate-50/80 border border-blue-200 hover:border-blue-400 rounded-xl p-3 shadow-xs transition cursor-pointer group relative z-10"
+                                            >
+                                                <!-- TẦNG 1: ICON + BIỂN SỐ + MODEL + BADGE TRẠNG THÁI -->
+                                                <div class="flex items-center justify-between gap-2 pb-2">
+                                                    <div class="flex items-center gap-2.5 min-w-0">
+                                                        <div class="w-8 h-8 rounded-lg bg-[#005baa] text-white flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"></path></svg>
+                                                        </div>
+                                                        <div class="flex items-center gap-2 truncate">
+                                                            <span class="font-mono font-extrabold text-blue-950 text-sm tracking-tight whitespace-nowrap">{{ selectedVehicle?.plateNumber || tripForm.vehiclePlate }}</span>
+                                                            <span class="text-xs text-slate-600 font-semibold truncate">{{ selectedVehicle?.model || 'Xe vận chuyển' }}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="shrink-0">
+                                                        <span v-if="selectedVehicle?.isDispatchedFromParent" class="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
+                                                            Điều từ {{ selectedVehicle.parentHubOrigin }}
+                                                        </span>
+                                                        <span v-else class="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 whitespace-nowrap">
+                                                            Sẵn sàng tại bãi
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <!-- TẦNG 2: VẠCH NGĂN NHẸ + TẢI TRỌNG & TÀI XẾ SĐT -->
+                                                <div class="pt-2 border-t border-blue-100 flex items-center justify-between gap-2 text-[11px] text-slate-600">
+                                                    <div class="flex items-center gap-1.5 whitespace-nowrap">
+                                                        <svg class="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path></svg>
+                                                        <span>Tải trọng:</span>
+                                                        <b class="font-mono text-slate-900">{{ (tripForm.maxWeight || 5000).toLocaleString() }} kg</b>
+                                                    </div>
+                                                    <div class="flex items-center gap-1.5 truncate">
+                                                        <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                                                        <span class="truncate font-medium text-slate-800">{{ tripForm.driverName || 'Chưa gán' }}</span>
+                                                        <span v-if="selectedVehicle?.driverPhone" class="text-slate-400 font-mono text-[10.5px] shrink-0">({{ selectedVehicle.driverPhone }})</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- VEHICLE PICKER POPOVER DROPDOWN -->
+                                            <div 
+                                                v-if="isVehiclePickerOpen" 
+                                                class="absolute left-0 right-0 top-full mt-1.5 z-30 bg-white border border-slate-200 rounded-xl shadow-xl p-2 space-y-1.5"
+                                            >
+                                                <div class="flex items-center justify-between px-2 py-1 text-slate-500 text-[11px] font-semibold border-b border-slate-100">
+                                                    <span>DANH SÁCH XE SẴN SÀNG TẠI BÃI ({{ availableVehiclesAtHub.length }})</span>
+                                                    <button type="button" @click="isVehiclePickerOpen = false" class="text-slate-400 hover:text-slate-600 cursor-pointer">✕</button>
+                                                </div>
+                                                <div class="max-h-48 overflow-y-auto space-y-1 custom-scrollbar">
+                                                    <div 
+                                                        v-for="v in availableVehiclesAtHub" 
+                                                        :key="v.id || v.plateNumber || v.vehiclePlate"
+                                                        @click="selectVehicle(v)"
+                                                        class="p-2 rounded-lg border transition cursor-pointer flex items-center justify-between gap-2"
+                                                        :class="(tripForm.vehiclePlate === (v.plateNumber || v.vehiclePlate)) ? 'bg-blue-50 border-blue-300' : 'bg-slate-50/50 hover:bg-slate-100/70 border-slate-200/70'"
+                                                    >
+                                                        <div class="flex items-center gap-2">
+                                                            <div class="w-2 h-2 rounded-full" :class="(tripForm.vehiclePlate === (v.plateNumber || v.vehiclePlate)) ? 'bg-blue-600' : 'bg-slate-300'"></div>
+                                                            <div>
+                                                                <div class="flex items-center gap-2">
+                                                                    <span class="font-mono font-bold text-slate-900 text-xs">{{ v.plateNumber || v.vehiclePlate }}</span>
+                                                                    <span class="text-[11px] text-slate-600">{{ v.model || v.modelName }}</span>
+                                                                </div>
+                                                                <div class="text-[10.5px] text-slate-500">
+                                                                    Tài xế: {{ v.assignedDriverName || v.driverName || 'Chưa gán' }} • Tải: {{ (v.maxWeight || v.payloadCapacity || 5000).toLocaleString() }} kg
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <span v-if="v.isDispatchedFromParent" class="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 shrink-0">
+                                                            Từ {{ v.parentHubOrigin }}
+                                                        </span>
+                                                        <span v-else class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">
+                                                            Tại bãi
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div class="pt-1 border-t border-slate-100 flex items-center justify-between px-1">
+                                                    <button 
+                                                        type="button" 
+                                                        @click="switchToManualVehicle"
+                                                        class="text-[11px] font-medium text-blue-600 hover:text-blue-800 transition cursor-pointer"
+                                                    >
+                                                        + Nhập xe ngoài bãi / xe thuê
+                                                    </button>
+                                                    <span class="text-[10px] text-slate-400">Chọn xe để cập nhật ngay</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- MANUAL MODE -->
+                                    <div v-else class="bg-slate-50/70 border border-slate-200 rounded-xl p-3 space-y-2">
+                                        <div class="flex items-center justify-between text-xs">
+                                            <span class="font-bold text-slate-700">Thông Tin Xe Nhập Thủ Công</span>
+                                            <button type="button" @click="switchToAutoVehicle" class="text-blue-600 hover:text-blue-800 font-semibold cursor-pointer">
+                                                Quay lại xe bãi
+                                            </button>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label class="block font-semibold text-slate-700 mb-1 text-xs">Biển Số Xe *</label>
+                                                <input v-model="tripForm.vehiclePlate" type="text" required maxlength="20" placeholder="29C-..." class="w-full rounded-lg border border-slate-200 px-3 py-1.5 bg-white outline-none font-mono font-bold text-xs focus:ring-2 focus:ring-blue-500/20" />
+                                            </div>
+                                            <div>
+                                                <label class="block font-semibold text-slate-700 mb-1 text-xs">Tài Xế *</label>
+                                                <input v-model="tripForm.driverName" type="text" required maxlength="100" placeholder="Họ và tên lái xe" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 bg-white outline-none font-medium text-xs focus:ring-2 focus:ring-blue-500/20" />
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label class="block font-semibold text-slate-700 mb-1">Tải Trọng Tối Đa (kg) *</label>
-                                        <input v-model="tripForm.maxWeight" type="number" step="100" min="100" max="5000" required class="w-full rounded-lg border border-slate-200 px-3 py-1.5 bg-slate-50 focus:bg-white outline-none font-medium" />
-                                    </div>
-                                    <div>
-                                        <label class="block font-semibold text-slate-700 mb-1">Chặn Gom (Cut-off)</label>
-                                        <select v-model="tripForm.cutoffBufferMinutes" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 bg-slate-50 focus:bg-white outline-none font-medium">
-                                            <option :value="15">Trước 15 phút</option>
-                                            <option :value="30">Trước 30 phút (Chuẩn)</option>
-                                            <option :value="45">Trước 45 phút</option>
-                                            <option :value="60">Trước 60 phút</option>
-                                        </select>
+
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="block font-semibold text-slate-700 mb-1">Tải Trọng Tối Đa (kg) *</label>
+                                            <input v-model="tripForm.maxWeight" type="number" step="100" min="100" max="15000" required class="w-full rounded-lg border border-slate-200 px-3 py-1.5 bg-slate-50 focus:bg-white outline-none font-medium" />
+                                        </div>
+                                        <div>
+                                            <label class="block font-semibold text-slate-700 mb-1 text-xs">Chặn Gom (Cut-off)</label>
+                                            <select v-model="tripForm.cutoffBufferMinutes" class="w-full rounded-lg border border-slate-200 px-3 py-1.5 bg-slate-50 focus:bg-white outline-none font-medium text-xs">
+                                                <option :value="15">Trước 15 phút</option>
+                                                <option :value="30">Trước 30 phút (Chuẩn)</option>
+                                                <option :value="45">Trước 45 phút</option>
+                                                <option :value="60">Trước 60 phút</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
                             <div class="space-y-3">
                                 <div class="p-3 bg-blue-50/50 rounded-lg border border-blue-200 space-y-1.5">
                                     <div class="flex items-center justify-between">
@@ -4041,6 +4334,7 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
                         </div>
                         <div class="px-5 py-3 border-t border-slate-200 bg-slate-50/90 flex justify-end space-x-2 flex-shrink-0">
                             <button type="button" @click="showCreateModal = false" class="px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 transition cursor-pointer">

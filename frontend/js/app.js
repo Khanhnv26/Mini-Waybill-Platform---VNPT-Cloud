@@ -7,6 +7,7 @@
         '/tracking': 'tracking',
         '/shipment': 'shipment',
         '/trips': 'trips',
+        '/fleet': 'fleet',
         '/post-office': 'post-office',
         '/hub-ops': 'hub-ops',
         '/shipper': 'shipper',
@@ -33,6 +34,7 @@
         'tracking': '/tracking',
         'shipment': '/shipment',
         'trips': '/trips',
+        'fleet': '/fleet',
         'post-office': '/post-office',
         'hub-ops': '/hub-ops',
         'shipper': '/shipper',
@@ -508,6 +510,13 @@
                     icon: 'M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8h4.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h2a1 1 0 001-1'
                 },
                 { 
+                    id: 'fleet', 
+                    name: 'Quản Lý Đội Xe', 
+                    component: 'FleetView', 
+                    permission: 'routing:trip_manage',
+                    icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10'
+                },
+                { 
                     id: 'post-office', 
                     name: 'Khai Thác Bưu Cục', 
                     component: 'PostOfficeOpsView', 
@@ -537,7 +546,7 @@
                 },
                 {
                     id: 'shipper-directory',
-                    name: 'Danh Bạ Bưu Tá',
+                    name: 'Ca Trực & Bưu Tá',
                     component: 'ShipperDirectoryView',
                     permission: 'user:assign_role',
                     icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
@@ -1296,6 +1305,7 @@
     if (window.PostOfficeOpsView) app.component('PostOfficeOpsView', window.PostOfficeOpsView);
     if (window.HubOpsView) app.component('HubOpsView', window.HubOpsView);
     if (window.TripsView) app.component('TripsView', window.TripsView);
+    if (window.FleetView) app.component('FleetView', window.FleetView);
     if (window.ShipperView) app.component('ShipperView', window.ShipperView);
     if (window.ShipperDirectoryView) app.component('ShipperDirectoryView', window.ShipperDirectoryView);
     if (window.CustomerView) app.component('CustomerView', window.CustomerView);
