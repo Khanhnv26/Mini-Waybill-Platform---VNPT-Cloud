@@ -101,7 +101,7 @@ public class NotificationConsumer {
         publishTrackingWsEvent(event);
         if (event.getCodSettlementStatus() != null && !event.getCodSettlementStatus().isBlank()) {
             saveCodBell(event);
-            shipperOrderIndexService.removeCodPendingByTrackingCode(event.getTrackingCode());
+            shipperOrderIndexService.applySettlementStatus(event.getTrackingCode(), event.getCodSettlementStatus());
             return;
         }
         String status = event.getStatus();
@@ -109,6 +109,10 @@ public class NotificationConsumer {
 
         if (status != null && "DELIVERED".equals(status)) {
             shipperOrderIndexService.moveToCodPending(event.getTrackingCode());
+            String courier = stringRedisTemplate.opsForValue().get("shipper:assigned:" + event.getTrackingCode());
+            if (courier != null && !courier.isBlank()) {
+                shipperOrderIndexService.markDeliveredToday(courier, event.getTrackingCode());
+            }
         } else if (status != null && Set.of("RETURNED", "CANCELLED").contains(status)) {
             shipperOrderIndexService.removeOrderByTrackingCode(event.getTrackingCode());
         }

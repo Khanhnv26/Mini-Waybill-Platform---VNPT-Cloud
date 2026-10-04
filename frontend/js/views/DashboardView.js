@@ -269,7 +269,11 @@
 
             const forecastCapacity = computed(() => {
                 if (stationForecast.value && stationForecast.value.capacity) {
-                    return stationForecast.value.capacity;
+                    const cap = stationForecast.value.capacity;
+                    return {
+                        ...cap,
+                        utilizationRate: cap.utilizationRate != null ? Math.round(Number(cap.utilizationRate) * 10) / 10 : 0
+                    };
                 }
                 const onDuty = stationShippers.value.filter(s => s && s.shiftStatus === 'ON_DUTY').length;
                 const total = stationShippers.value.length || 1;
@@ -535,6 +539,9 @@
                     }
                 });
 
+                const rawSuccessRate = s.successRate != null ? Number(s.successRate) : rate;
+                const roundedSuccessRate = Math.round(rawSuccessRate * 10) / 10;
+
                 return {
                     totalShippingFee: Number(s.totalShippingFee || calcFee || 0),
                     totalOrders,
@@ -543,7 +550,7 @@
                     settledCod: Number(s.settledCodAmount || s.settledCod || calcSettledCod || 0),
                     inTransitOrders: Number(s.inTransitCount || s.inTransitOrders || calcInTransit || 0),
                     returningOrders: Number(s.returningCount || s.returningOrders || calcReturning || 0),
-                    successRate: s.successRate != null ? Number(s.successRate) : rate
+                    successRate: roundedSuccessRate
                 };
             });
 

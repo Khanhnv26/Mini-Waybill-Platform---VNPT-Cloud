@@ -17,6 +17,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ShipmentDetailResponse {
     private String trackingCode;
+    private String senderName;
+    private String senderPhone;
+    private String senderAddress;
     private String receiverName;
     private String receiverPhone;
     private String receiverAddress;

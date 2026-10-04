@@ -6,10 +6,16 @@ import org.app.notificationservice.client.ShipperClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.meta.api.methods.ActionType;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
+import org.telegram.telegrambots.meta.api.methods.send.SendChatAction;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageCaption;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
+import org.telegram.telegrambots.meta.api.objects.InputFile;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 
@@ -129,7 +135,8 @@ public class TelegramBot extends TelegramLongPollingBot {
             if (e.getMessage() != null && e.getMessage().contains("message is not modified")) {
                 return;
             }
-            log.warn("[TELEGRAM BOT] Không sửa được tin nhắn {} tại chatId {}: {}", messageId, chatId, e.getMessage());
+            // Tin nhắn nguồn có thể là ảnh (QR) không sửa text được -> gửi tin mới
+            sendHtml(chatId, message, keyboard);
         }
     }
 
@@ -141,6 +148,57 @@ public class TelegramBot extends TelegramLongPollingBot {
             execute(query);
         } catch (Exception e) {
             log.warn("[TELEGRAM BOT] Không gửi được answerCallbackQuery {}: {}", callbackId, e.getMessage());
+        }
+    }
+
+    public void typing(String chatId) {
+        chatAction(chatId, ActionType.TYPING);
+    }
+
+    public void uploadingPhoto(String chatId) {
+        chatAction(chatId, ActionType.UPLOADPHOTO);
+    }
+
+    private void chatAction(String chatId, ActionType actionType) {
+        try {
+            execute(SendChatAction.builder().chatId(chatId).action(actionType.toString()).build());
+        } catch (Exception e) {
+            log.debug("[TELEGRAM BOT] Không gửi được chat action {}: {}", actionType, e.getMessage());
+        }
+    }
+
+    public Integer sendPhoto(String chatId, String photoUrl, String caption, InlineKeyboardMarkup keyboard) {
+        try {
+            SendPhoto sendPhoto = keyboard != null
+                    ? SendPhoto.builder().chatId(chatId).photo(new InputFile(photoUrl)).caption(caption)
+                            .parseMode("HTML").replyMarkup(keyboard).build()
+                    : SendPhoto.builder().chatId(chatId).photo(new InputFile(photoUrl)).caption(caption)
+                            .parseMode("HTML").build();
+            Message sent = execute(sendPhoto);
+            return sent != null ? sent.getMessageId() : null;
+        } catch (Exception e) {
+            log.warn("[TELEGRAM BOT] Không gửi được ảnh QR tới chatId {}: {}", chatId, e.getMessage());
+            return null;
+        }
+    }
+
+    public void editCaption(String chatId, Integer messageId, String caption, InlineKeyboardMarkup keyboard) {
+        if (messageId == null) {
+            sendHtml(chatId, caption, keyboard);
+            return;
+        }
+        try {
+            EditMessageCaption edit = keyboard != null
+                    ? EditMessageCaption.builder().chatId(chatId).messageId(messageId).caption(caption)
+                            .parseMode("HTML").replyMarkup(keyboard).build()
+                    : EditMessageCaption.builder().chatId(chatId).messageId(messageId).caption(caption)
+                            .parseMode("HTML").build();
+            execute(edit);
+        } catch (Exception e) {
+            if (e.getMessage() != null && e.getMessage().contains("message is not modified")) {
+                return;
+            }
+            sendHtml(chatId, caption, keyboard);
         }
     }
 }

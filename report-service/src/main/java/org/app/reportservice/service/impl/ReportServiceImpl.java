@@ -208,7 +208,7 @@ public class ReportServiceImpl implements ReportService {
         res.put("inTransitCount", inTransit);
         res.put("daily", buildDailySeries(from.toLocalDate(), to.toLocalDate(),
                 reportShipmentRepository.sumByDay(from, to, targetCustId, statusFilter)));
-        res.put("successRate", totalOrders > 0 ? Math.min(100.0, (delivered * 100.0 / totalOrders)) : 0.0);
+        res.put("successRate", totalOrders > 0 ? Math.round(Math.min(100.0, (delivered * 100.0 / totalOrders)) * 10.0) / 10.0 : 0.0);
         res.put("shipments", pageData.getContent());
         res.put("totalPages", pageData.getTotalPages());
         res.put("currentPage", page);

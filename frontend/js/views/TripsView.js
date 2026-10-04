@@ -1361,12 +1361,15 @@
                 return getTripEndpoint(t, 'origin') === station;
             };
 
+            // Tab "Đến": xe đang chạy tới (IN_TRANSIT) + xe đã cập bến/hoàn thành (COMPLETED) để xem lịch sử dỡ hàng.
             const isTripInbound = (t, station) => {
-                if (t.status !== 'IN_TRANSIT') return false;
+                if (!t || (t.status !== 'IN_TRANSIT' && t.status !== 'COMPLETED')) return false;
                 if (!station || station === 'ALL') return true;
-                const stops = t.stops || [];
-                const nextStop = stops.find(s => s.status === 'PENDING');
-                return nextStop?.hubCode === station;
+                const stops = Array.isArray(t.stops) ? t.stops : [];
+                if (stops.length > 1) {
+                    return stops.slice(1).some(s => (s?.hubCode || s) === station);
+                }
+                return getTripEndpoint(t, 'destination') === station;
             };
 
             const isFeederTrip = (trip) => {
@@ -1526,6 +1529,13 @@
                         (t.driverName && t.driverName.toLowerCase().includes(q)) ||
                         (t.routeName && t.routeName.toLowerCase().includes(q))
                     );
+                }
+                if (tripDirectionTab.value === 'INBOUND') {
+                    // Xe đang chạy tới (chờ cập bến) xếp trên, lịch sử đã cập bến xếp dưới.
+                    list = [...list].sort((a, b) => {
+                        const rank = (t) => (t.status === 'IN_TRANSIT' ? 0 : 1);
+                        return rank(a) - rank(b);
+                    });
                 }
                 return list;
             });
@@ -3832,26 +3842,16 @@
                                         >
                                             Xuất Bến
                                         </button>
-                                        <template v-else-if="trip.status === 'IN_TRANSIT'">
-                                            <button 
-                                                type="button"
-                                                v-if="getNextPendingStop(trip)"
-                                                @click="handleMoveToStop(trip, getNextPendingStop(trip).hubCode)"
-                                                :disabled="isUpdatingProgress"
-                                                class="px-2.5 py-1 bg-emerald-50 text-emerald-800 hover:bg-emerald-600 hover:text-white border border-emerald-200 rounded text-[11px] font-semibold transition shadow-xs cursor-pointer"
-                                            >
-                                                Di chuyển
-                                            </button>
-                                            <button 
-                                                type="button"
-                                                v-if="getNextPendingStop(trip)"
-                                                @click="handleArriveAtStation(trip, getNextPendingStop(trip).hubCode)"
-                                                :disabled="isExecutingAction"
-                                                class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-semibold transition shadow-xs cursor-pointer disabled:opacity-50"
-                                            >
-                                                Cập Bến &amp; Dỡ
-                                            </button>
-                                        </template>
+                                        <button 
+                                            type="button"
+                                            v-else-if="trip.status === 'IN_TRANSIT' && getNextPendingStop(trip)"
+                                            @click="handleArriveAtStation(trip, getNextPendingStop(trip).hubCode)"
+                                            :disabled="isExecutingAction"
+                                            class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-semibold transition shadow-xs cursor-pointer disabled:opacity-50"
+                                            :title="'Cập bến ' + getNextPendingStop(trip).hubCode"
+                                        >
+                                            {{ getTripNextAction(trip).label }} &amp; dỡ
+                                        </button>
                                         <span v-else class="text-slate-400 font-mono text-[11px]">—</span>
                                     </td>
                                 </tr>
