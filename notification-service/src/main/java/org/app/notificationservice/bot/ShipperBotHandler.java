@@ -25,7 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import static org.app.notificationservice.bot.ShipperBotKeyboards.cb;
 import static org.app.notificationservice.bot.ShipperBotKeyboards.markup;
 import static org.app.notificationservice.bot.ShipperBotKeyboards.row;
-import static org.app.notificationservice.bot.ShipperBotKeyboards.url;
 
 @Component
 @RequiredArgsConstructor
@@ -62,11 +61,14 @@ public class ShipperBotHandler {
 
     public void onCallback(TelegramBot bot, String chatId, Integer messageId, String callbackId, String data) {
         try {
+            bot.answerCallback(callbackId, "⏳ Đang xử lý...", false);
             bot.typing(chatId);
+            log.info("[SHIPPER-BOT] callback action={} chatId={} messageId={}", data, chatId, messageId);
             route(bot, chatId, messageId, data);
         } catch (Exception e) {
             log.error("[SHIPPER-BOT] Lỗi xử lý callback {}: {}", data, e.getMessage(), e);
             bot.answerCallback(callbackId, "Có lỗi xảy ra, vui lòng thử lại.", true);
+            bot.editHtml(chatId, messageId, "⚠️ Có lỗi xảy ra: " + esc(e.getMessage()), null);
         }
     }
 
@@ -263,10 +265,6 @@ public class ShipperBotHandler {
             default -> { }
         }
 
-        String phone = isReturnStage ? order.getSenderPhone() : order.getReceiverPhone();
-        if (phone != null && !phone.isBlank()) {
-            rows.add(row(url("📞 Gọi khách", "tel:" + phone.replaceAll("[^+0-9]", ""))));
-        }
         rows.add(row(cb("Danh sách", "o:ALL:0"), cb("Menu", "m")));
 
         bot.editHtml(chatId, messageId, text.toString(), markup(rows));
