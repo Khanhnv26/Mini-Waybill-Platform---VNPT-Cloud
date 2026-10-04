@@ -65,12 +65,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 ? callbackQuery.getMessage().getMessageId()
                 : null;
 
-        try {
-            answerCallback(callbackQuery.getId(), null, false);
-        } catch (Exception e) {
-            log.warn("[TELEGRAM BOT] Không trả lời được callback {}: {}", callbackQuery.getId(), e.getMessage());
-        }
-
+        // Handler tự trả lời callback (kèm toast phản hồi) trước khi xử lý.
         shipperBotHandler.onCallback(this, chatId, messageId, callbackQuery.getId(), callbackQuery.getData());
     }
 

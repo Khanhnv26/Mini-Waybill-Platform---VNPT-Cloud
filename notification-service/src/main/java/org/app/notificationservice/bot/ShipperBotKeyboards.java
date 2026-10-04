@@ -16,10 +16,6 @@ public final class ShipperBotKeyboards {
         return InlineKeyboardButton.builder().text(text).callbackData(callbackData).build();
     }
 
-    public static InlineKeyboardButton url(String text, String url) {
-        return InlineKeyboardButton.builder().text(text).url(url).build();
-    }
-
     public static InlineKeyboardMarkup markup(List<List<InlineKeyboardButton>> rows) {
         return InlineKeyboardMarkup.builder().keyboard(rows).build();
     }
