@@ -8,6 +8,7 @@
             const isLoading = ref(false);
             const isExporting = ref(false);
             const activeSubtab = ref('summary');
+            const isDockCollapsed = ref(false);
             const liveClock = ref('');
 
             const isAdminOrCs = computed(() => {
@@ -436,11 +437,12 @@
                 getStatusBadge,
                 getCodSettlementBadge,
                 goToTracking,
-                changePage
+                changePage,
+                isDockCollapsed
             };
         },
         template: `
-            <div class="space-y-4 pb-12 text-slate-800">
+            <div class="space-y-4 pb-12 text-slate-800 relative">
                 <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
 
@@ -490,6 +492,67 @@
                     </div>
                 </div>
 
+                <!-- Sub-Banner Action Bar: Compact Segmented Pill Bar -->
+                <div class="bg-white/95 backdrop-blur-md text-slate-700 rounded-2xl shadow-xs border border-slate-200/90 p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
+                    <div class="bg-slate-100/90 p-1 rounded-xl border border-slate-200/70 inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
+                        <!-- Tổng Hợp & KPI Tab Button -->
+                        <button
+                            type="button"
+                            @click="activeSubtab = 'summary'"
+                            :class="[
+                                'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                                activeSubtab === 'summary'
+                                    ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
+                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
+                            ]"
+                        >
+                            <svg class="w-4 h-4 transition-colors shrink-0" :class="activeSubtab === 'summary' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            <span class="truncate">Tổng Hợp &amp; KPI</span>
+                        </button>
+
+                        <!-- Chi Tiết Đơn Tab Button -->
+                        <button
+                            type="button"
+                            @click="activeSubtab = 'details'"
+                            :class="[
+                                'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                                activeSubtab === 'details'
+                                    ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
+                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
+                            ]"
+                        >
+                            <svg class="w-4 h-4 transition-colors shrink-0" :class="activeSubtab === 'details' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span class="truncate">Chi Tiết Đơn</span>
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="activeSubtab === 'details' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
+                                {{ formatNumber(reportData ? reportData.totalOrders : 0) }}
+                            </span>
+                        </button>
+                    </div>
+
+                    <!-- Right Live Status & Mini Refresh Button -->
+                    <div class="flex items-center space-x-2 shrink-0 px-1 py-0.5">
+                        <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/70">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span>Thời gian thực</span>
+                        </span>
+                        <button
+                            type="button"
+                            @click="loadReport()"
+                            :disabled="isLoading"
+                            class="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 border border-slate-200/80 transition-all duration-200 active:scale-90 disabled:opacity-50 cursor-pointer shadow-2xs"
+                            title="Làm mới dữ liệu thời gian thực"
+                        >
+                            <svg class="w-3.5 h-3.5 transition-transform duration-300" :class="{ 'animate-spin text-emerald-600': isLoading }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
                 <div class="bg-white border border-slate-200 rounded-xl p-3 sm:p-3.5 shadow-sm space-y-2.5">
                     <div class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-slate-100">
                         <div class="flex items-center space-x-1.5">
@@ -525,25 +588,6 @@
                                 class="px-2.5 py-1 rounded-md text-xs transition cursor-pointer"
                             >
                                 Tháng Này
-                            </button>
-                        </div>
-
-                        <div class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
-                            <button 
-                                type="button"
-                                @click="activeSubtab = 'summary'"
-                                :class="activeSubtab === 'summary' ? 'bg-white text-blue-600 shadow-xs font-bold' : 'text-slate-600 font-semibold hover:text-slate-900'"
-                                class="px-3 py-1 rounded-md transition cursor-pointer"
-                            >
-                                1. Tổng Hợp &amp; KPI
-                            </button>
-                            <button 
-                                type="button"
-                                @click="activeSubtab = 'details'"
-                                :class="activeSubtab === 'details' ? 'bg-white text-blue-600 shadow-xs font-bold' : 'text-slate-600 font-semibold hover:text-slate-900'"
-                                class="px-3 py-1 rounded-md transition cursor-pointer"
-                            >
-                                2. Chi Tiết Vận Đơn ({{ formatNumber(reportData.totalOrders) }})
                             </button>
                         </div>
                     </div>

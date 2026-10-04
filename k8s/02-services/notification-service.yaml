@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: notification-service
-          image: khanhnv26/notification-service:latest
+          image: khanhnv26/notification-service:f89f6420b8d700a5104dab537077ff8f24fc1b93
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -48,6 +48,16 @@ spec:
               value: "true"
             - name: EUREKA_INSTANCE_INSTANCE_ID
               value: "${HOSTNAME}:${server.port}"
+            - name: MAIL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: mail-username
+            - name: MAIL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: mail-password
           resources:
             requests:
               memory: "256Mi"

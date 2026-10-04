@@ -38,6 +38,15 @@
             } catch {
                 return false;
             }
+        },
+
+        async sendTelegramTest(chatId, message) {
+            const response = await Api.post('/api/notifications/telegram/send', { chatId, message });
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || errData.message || 'Không thể gửi tin nhắn Telegram');
+            }
+            return response.json();
         }
     };
 

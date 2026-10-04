@@ -24,6 +24,9 @@
 [![RabbitMQ](https://img.shields.io/badge/RabbitMQ-Priority%20Queue%20%26%20SLA%20DLX-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)](https://www.rabbitmq.com/)
 [![MinIO](https://img.shields.io/badge/MinIO-S3%20Compatible%20Storage-C72C48?style=for-the-badge&logo=minio&logoColor=white)](https://min.io/)
 [![VietQR](https://img.shields.io/badge/VietQR-NAPAS%20247%20Dynamic%20QR-005BAA?style=for-the-badge&logoColor=white)](https://vietqr.net/)
+[![ArgoCD](https://img.shields.io/badge/ArgoCD-GitOps%20Continuous%20Delivery-EF6B48?style=for-the-badge&logo=argo&logoColor=white)](https://argoproj.github.io/cd/)
+[![Prometheus](https://img.shields.io/badge/Prometheus-Metrics%20%26%20Alerting-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)](https://prometheus.io/)
+[![Grafana](https://img.shields.io/badge/Grafana-Enterprise%20Observability-F46800?style=for-the-badge&logo=grafana&logoColor=white)](https://grafana.com/)
 [![Frontend SPA](https://img.shields.io/badge/Frontend-Vue%203%20SPA%20%7C%20HTML5%20History-4FC08D?style=for-the-badge&logo=vuedotjs&logoColor=white)](https://waybill.vn)
 [![HTTPS SSL](https://img.shields.io/badge/Security-HTTPS%20%7C%20mkcert%20Wildcard%20SSL-00A4E4?style=for-the-badge&logo=letsencrypt&logoColor=white)](https://waybill.vn)
 
@@ -40,131 +43,115 @@ Hệ thống được thiết kế theo tiêu chuẩn **High Availability (HA - 
 
 ## 2. Bối Cảnh Vận Hành & Nghiệp Vụ Bưu Chính Toàn Trình
 
-Khác với các ứng dụng giao hàng nội thành đơn chặng, hệ thống bưu chính quy mô quốc gia vận hành theo mô hình phân tầng đa chặng với mạng lưới kho bãi phức tạp. Nền tảng mô phỏng và giải quyết triệt để 4 trụ cột nghiệp vụ trọng yếu:
+Hệ thống bưu chính vận hành theo mô hình phân tầng đa chặng với mạng lưới kho bãi và phương tiện phân tán. Nền tảng tập trung giải quyết các bài toán nghiệp vụ trọng yếu sau:
 
 ### 2.1. Mô Hình Mạng Lưới Hub-and-Spoke & 5 Siêu Hub Toàn Quốc
-* **Quy trình luân chuyển đa tầng:** Bưu gửi từ Người gửi tại quầy hoặc Shop B2B được tiếp nhận tại **Bưu cục gửi (Origin Post Office)** -> xe gom Feeder chở về **Siêu Hub gửi** -> xe tải trục liên tỉnh (**Trunk Trip**) chạy đường dài tới **Siêu Hub nhận** -> xe gom Feeder chuyển về **Bưu cục phát (Dest Post Office)** -> **Bưu tá (Shipper) phát hàng tận nơi (Last-Mile)** tới Người nhận.
-* **Mạng lưới 5 Siêu Hub trọng điểm:** Phân bổ chiến lược trên toàn quốc gồm Hà Nội (`HUB_HAN`), Hải Phòng (`HUB_HPH`), Đà Nẵng (`HUB_DAD`), TP.HCM (`HUB_SGN`), và Cần Thơ (`HUB_VCA`), đóng vai trò cửa ngõ gom tải và định tuyến hàng hóa liên vùng.
-* *Tài liệu chi tiết:* Xem sơ đồ phân cấp mạng lưới bưu chính tại [Cẩm nang 04 - Mô Hình Hub-and-Spoke](docs/04-logistics-domain-and-rbac-station-context.md#1-bản-đồ-nghiệp-vụ-vận-tải-bưu-chính-thực-tế).
+* **Quy trình luân chuyển:** Luồng bưu gửi đa chặng: Bưu cục gửi (Origin PO) $\rightarrow$ Xe gom (Feeder) $\rightarrow$ Siêu Hub gửi $\rightarrow$ Chuyến xe trục liên tỉnh (Trunk Trip) $\rightarrow$ Siêu Hub nhận $\rightarrow$ Xe gom $\rightarrow$ Bưu cục phát (Dest PO) $\rightarrow$ Bưu tá (Last-mile) phát tới người nhận.
+* **Mạng lưới 5 Siêu Hub:** Đặt tại Hà Nội (`HUB_HAN`), Hải Phòng (`HUB_HPH`), Đà Nẵng (`HUB_DAD`), TP.HCM (`HUB_SGN`), Cần Thơ (`HUB_VCA`) làm cửa ngõ gom tải và định tuyến liên vùng.
+* *Chi tiết:* [Cẩm nang 04 - Mô Hình Hub-and-Spoke](docs/04-logistics-domain-and-rbac-station-context.md#1-bản-đồ-nghiệp-vụ-vận-tải-bưu-chính-thực-tế).
 
-### 2.2. Vòng Đời Vận Đơn & Máy Trạng Thái 11 Bước (State Machine)
-* **Luân chuyển trạng thái tuần tự:** Vận đơn trải qua 11 mốc trạng thái chuẩn: `CREATED` -> `PENDING_ROUTING` -> `ROUTE_ASSIGNED` -> `PICKED_UP` -> `IN_TRANSIT` -> `ARRIVED_DEST_HUB` -> `OUT_FOR_DELIVERY` -> `DELIVERED`.
-* **Cơ chế Tự động Chuyển hoàn (Auto-Returning):** Khi bưu tá báo phát thất bại (`DELIVERY_FAILED` do khách hẹn lại hoặc sai địa chỉ), hệ thống cho phép phát lại tối đa 3 lần. Khi phát hiện số lần thất bại đạt mốc 3, hệ thống tự động kích hoạt trạng thái `RETURNING` để chuyển hoàn bưu phẩm về người gửi, giải phóng sức chứa kho bãi.
-* **Tính Bất Biến (Immutable Terminal States):** Các trạng thái kết thúc gồm `DELIVERED` (Giao thành công & Thu tiền COD), `RETURNED` (Đã hoàn hàng về Shop) và `CANCELLED` (Hủy hợp lệ) là bất biến tuyệt đối nhằm bảo đảm tính toàn vẹn chứng từ tài chính và kế toán.
-* *Tài liệu chi tiết:* Xem mã nguồn Java State Machine và logic tự động chuyển hoàn tại [Cẩm nang 04 - Máy Trạng Thái Bưu Gửi](docs/04-logistics-domain-and-rbac-station-context.md#3-máy-trạng-thái-bưu-gửi-11-bước--tự-động-chuyển-hoàn-auto-returning) và kiến trúc phát sự kiện bất đồng bộ tại [Cẩm nang 03 - Kafka KRaft Cluster](docs/03-kafka-kraft-cluster-and-event-streaming.md).
+### 2.2. Vòng Đời Vận Đơn & Máy Trạng Thái (State Machine)
+* **11 mốc trạng thái tuần tự:** `CREATED` $\rightarrow$ `PENDING_ROUTING` $\rightarrow$ `ROUTE_ASSIGNED` $\rightarrow$ `PICKED_UP` $\rightarrow$ `IN_TRANSIT` $\rightarrow$ `ARRIVED_DEST_HUB` $\rightarrow$ `OUT_FOR_DELIVERY` $\rightarrow$ `DELIVERED`.
+* **Tự động chuyển hoàn (Auto-Returning):** Bưu tá báo phát thất bại (`DELIVERY_FAILED`) tối đa 3 lần; khi đủ 3 lần hệ thống tự chuyển sang `RETURNING` để hoàn hàng về người gửi.
+* **Trạng thái kết thúc bất biến:** `DELIVERED`, `RETURNED`, `CANCELLED` là trạng thái cuối không thể sửa đổi nhằm bảo toàn tính toàn vẹn chứng từ tài chính.
+* *Chi tiết:* [Cẩm nang 04 - Máy Trạng Thái Bưu Gửi](docs/04-logistics-domain-and-rbac-station-context.md#3-máy-trạng-thái-bưu-gửi-11-bước--tự-động-chuyển-hoàn-auto-returning) và [Cẩm nang 03 - Kafka KRaft Cluster](docs/03-kafka-kraft-cluster-and-event-streaming.md).
 
-### 2.3. Điều Phối Chuyến Xe Trục (Trips), Kiểm Soát Tải Trọng & Niêm Phong Seal
-* **Kiểm soát tải trọng theo thời gian thực (Load Capacity Bar):** Hệ thống tự động cộng dồn khối lượng thực tế và thể tích quy đổi của từng kiện hàng khi xếp lên chuyến xe. Giao diện trực quan hóa mức tải xe (Xanh lá < 80%, Vàng 80-99%, Đỏ >= 100% cảnh báo/chặn xếp thêm đơn) giúp doanh nghiệp tuân thủ nghiêm ngặt quy định tải trọng đường bộ.
-* **Niêm phong bảo an (Seal Number):** Trước khi xe tải xuất bến rời Hub, điều phối viên bắt buộc phải chốt mã số niêm chì (Seal). Khi xe cập bến Hub đích, thủ kho bắt buộc đối soát mã Seal thực tế trùng khớp với bảng kê điện tử (Manifest) mới được phép dỡ hàng.
-* **Chống xung đột đa luồng:** Áp dụng khóa phân tán Redis (`SETNX`) đảm bảo khi 2 bưu tá cùng quét một kiện hàng trên thiết bị cầm tay, chỉ duy nhất 1 người giành được quyền xử lý, tránh race condition trong môi trường đồng thời cao.
-* *Tài liệu chi tiết:* Xem thuật toán tính tải và quy trình niêm phong tại [Cẩm nang 04 - Quản Lý Chuyến Xe Trục](docs/04-logistics-domain-and-rbac-station-context.md#2-quản-lý-chuyến-xe-trục-đa-chặng-multi-leg-trips--manifests) và boilerplate khóa phân tán tại [Cẩm nang 05 - Redis Distributed Lock](docs/05-redis-caching-and-distributed-patterns.md#23-luồng-khóa-phân-tán-redis-distributed-lock---tránh-race-condition).
+### 2.3. Điều Phối Chuyến Xe Trục (Trips), Tải Trọng & Niêm Phong Seal
+* **Kiểm soát tải trọng theo thời gian thực:** Tự động cộng dồn khối lượng và thể tích quy đổi khi xếp kiện lên xe; thanh tải trọng cảnh báo theo ngưỡng (< 80% Xanh, 80-99% Vàng, $\ge 100\%$ Đỏ - chặn xếp thêm).
+* **Niêm phong bảo an (Seal Number):** Bắt buộc chốt mã niêm chì trước khi xe xuất bến; Hub đích đối soát mã Seal trùng khớp với Manifest điện tử mới được phép dỡ hàng.
+* **Chống xung đột đa luồng:** Áp dụng Redis Distributed Lock (`SETNX`) khi nhiều thiết bị cùng quét một kiện hàng trong môi trường đồng thời cao.
+* *Chi tiết:* [Cẩm nang 04 - Quản Lý Chuyến Xe Trục](docs/04-logistics-domain-and-rbac-station-context.md#2-quản-lý-chuyến-xe-trục-đa-chặng-multi-leg-trips--manifests) và [Cẩm nang 05 - Redis Distributed Lock](docs/05-redis-caching-and-distributed-patterns.md#23-luồng-khóa-phân-tán-redis-distributed-lock---tránh-race-condition).
 
-### 2.4. Quyết Toán Tài Chính COD 3 Pha & Báo Cáo Đối Soát Dòng Tiền (Financial Settlement & Reconciliation)
-* **Quản trị dòng tiền COD minh bạch:** Tách biệt rõ ranh giới giữa tiền thu hộ COD (tiền của Shop ủy thác) và tiền cước vận chuyển B2B. Giải quyết triệt để rủi ro thất thoát bằng máy trạng thái tài chính 3 pha độc lập với trạng thái phát hàng: `UNSETTLED` (Bưu tá tạm giữ tiền mặt, nợ quỹ trạm) -> `PENDING_SETTLEMENT` (Bưu tá nộp bảng kê ca phát, chờ thủ quỹ kiểm đếm) -> `SETTLED` (Thủ quỹ bưu cục kiểm đếm đủ và duyệt tiền nhập két trạm).
-* **Nghiệp vụ bưu tá nộp quỹ 1-Click & bưu cục duyệt quỹ:** Hỗ trợ bưu tá chọn lọc từng đơn hoặc bấm 1-click nộp toàn bộ ca phát; giao diện bưu cục đối soát tiền mặt tức thì với huy hiệu chấm tròn nhấp nháy động (`live-pulse-dot`).
-* **Ràng buộc ngữ cảnh trạm làm việc (Station Context Binding):** Ngăn chặn triệt để lỗ hổng nhân viên có vai trò `ROLE_POST_OFFICE_STAFF` tại trạm Hà Nội cố tình hoặc vô ý thao tác đơn hàng thuộc địa bàn TP.HCM. Thông tin trạm (`X-User-Station-Id`) được Gateway trích xuất từ JWT và kiểm tra chéo tại tầng Business Service.
-* **Thu hồi quyền tức thời qua Redis Blacklist:** Khi phát hiện nhân viên vi phạm hoặc đăng xuất, Gateway kiểm tra Redis Blacklist trong thời gian < 0.5ms để chặn đứng truy cập ngay lập tức mà không cần chờ JWT hết hạn.
-* *Tài liệu chi tiết:* Xem giải pháp Station Context Binding tại [Cẩm nang 04 - Bảo Mật Ngữ Cảnh Trạm](docs/04-logistics-domain-and-rbac-station-context.md#4-bảo-mật-ngữ-cảnh-trạm-station-context-rbac), kiến trúc quyết toán COD tại [Cẩm nang 09 - Quyết Toán COD & Báo Cáo Đối Soát Dòng Tiền](docs/09-cod-settlement-and-financial-reconciliation.md), và bảo mật Gateway tại [Cẩm nang 06 - Microservices Security & Redis Blacklist](docs/06-microservices-security-jwt-and-rbac.md).
+### 2.4. Quyết Toán Tài Chính COD 3 Pha & Đối Soát Dòng Tiền
+* **Máy trạng thái COD 3 pha:** Tách biệt tiền thu hộ COD và tiền cước B2B; chu trình 3 pha: `UNSETTLED` (Bưu tá giữ tiền mặt) $\rightarrow$ `PENDING_SETTLEMENT` (Bưu tá nộp bảng kê ca phát) $\rightarrow$ `SETTLED` (Thủ quỹ trạm duyệt nhập két).
+* **Ràng buộc ngữ cảnh trạm (Station Context RBAC):** Header `X-User-Station-Id` được trích xuất từ JWT tại Gateway và kiểm tra chéo tại Service, ngăn nhân viên thao tác ngoài phạm vi trạm phân công.
+* **Thu hồi phiên tức thời:** Kiểm tra Redis Blacklist (< 0.5ms) tại Gateway để vô hiệu hóa token đăng xuất mà không cần chờ JWT hết hạn.
+* *Chi tiết:* [Cẩm nang 04 - Station Context](docs/04-logistics-domain-and-rbac-station-context.md#4-bảo-mật-ngữ-cảnh-trạm-station-context-rbac), [Cẩm nang 06 - JWT & RBAC](docs/06-microservices-security-jwt-and-rbac.md), [Cẩm nang 09 - Quyết Toán COD](docs/09-cod-settlement-and-financial-reconciliation.md).
 
-### 2.5. Tối Ưu Hóa Trải Nghiệm Giao Diện & Phòng Thủ Cửa Ngõ (Performance & Gateway Defense)
-* **Client-side Caching với Vue 3 `<keep-alive>`:** Toàn bộ giao diện SPA áp dụng cơ chế lưu trữ các component vào RAM khi chuyển đổi menu sidebar. Triệt tiêu 100% các request `GET` dư thừa, tốc độ chuyển tab đạt tức thì (0ms latency), đồng thời bảo toàn nguyên vẹn bộ lọc tìm kiếm, phân trang và trạng thái checkbox đang chọn.
-* **Bộ lọc Rate Limiting phân tầng (Tiered Token Bucket):** Tại API Gateway, tách biệt hạn mức độc lập giữa thao tác đọc (`GET`: 200 req / 30s) và thao tác ghi (`POST/PUT/DELETE`: 30 req / 30s). Giúp người dùng lướt web mượt mà không lo chạm ngưỡng 429, trong khi các luồng nhạy cảm vẫn được bảo vệ nghiêm ngặt chống spam và brute-force.
-* **Xử lý an toàn CORS Preflight (`OPTIONS`):** Tự động bypass các request `OPTIONS` của trình duyệt trước khi trừ token rate limit, triệt tiêu hoàn toàn hiện tượng sập CORS giả lập trên Developer Console.
-* **Cụm Service Registry HA 2 chiều:** Khắc phục triệt để lỗi so khớp hostname `PeerEurekaNodes.isInstanceURL()` bằng cơ chế đan xen `localhost` và `127.0.0.1`, đảm bảo 100% dữ liệu microservice được nhân bản 2 chiều giữa các node Eureka.
-* *Tài liệu chi tiết:* Xem phân tích chuyên sâu tại [Cẩm nang 01 - Cấu Hình HA & Eureka Replication](docs/01-high-availability-and-nginx.md#34-bẫy-kỹ-thuật-eureka-peer-sync-1-chiều--cơ-chế-peereurekanodesisinstanceurl) và [Cẩm nang 05 - Redis Caching & Rate Limiter](docs/05-redis-caching-and-distributed-patterns.md#34-bộ-lọc-rate-limiting-phân-tầng-theo-http-method--xử-lý-an-toàn-cors).
+### 2.5. Tối Ưu Giao Diện & Phòng Thủ API Gateway
+* **Client-side Caching (Vue 3 `<keep-alive>`):** Giữ trạng thái component trên RAM khi chuyển tab, bảo toàn bộ lọc tìm kiếm và giảm thiểu request dư thừa.
+* **Rate Limiting phân tầng (Tiered Token Bucket):** Gateway giới hạn độc lập giữa thao tác đọc (`GET`: 200 req / 30s) và ghi (`POST/PUT/DELETE`: 30 req / 30s); tự động bypass CORS preflight (`OPTIONS`).
+* **Service Registry HA 2 chiều:** Đồng bộ song phương giữa các node Eureka bằng cấu hình đan xen `localhost` và `127.0.0.1`, tránh lỗi `PeerEurekaNodes.isInstanceURL()`.
+* *Chi tiết:* [Cẩm nang 01 - Cấu Hình HA & Eureka](docs/01-high-availability-and-nginx.md#34-bẫy-kỹ-thuật-eureka-peer-sync-1-chiều--cơ-chế-peereurekanodesisinstanceurl) và [Cẩm nang 05 - Redis Rate Limiter](docs/05-redis-caching-and-distributed-patterns.md#34-bộ-lọc-rate-limiting-phân-tầng-theo-http-method--xử-lý-an-toàn-cors).
 
-### 2.6. Điều Phối Bưu Tá Qua Telegram Bot & Thông Báo Thời Gian Thực (WebSocket / STOMP)
-* **Kênh điều phối di động tức thời (Telegram Bot):** Bưu tá hiện trường nhận thông báo lệnh phát hàng mới ngay trên ứng dụng Telegram di động mà không cần treo web portal. Tin nhắn điều phối gồm định dạng HTML trực quan: Mã vận đơn, thông tin người nhận, địa chỉ phát hàng, tiền thu hộ COD và ghi chú bưu gửi.
-* **Cơ chế Long-Polling linh hoạt:** Cho phép `notification-service` kết nối nhận lệnh điều phối `/link` từ máy chủ Telegram Cloud mà không yêu cầu Public IP tĩnh, chứng chỉ SSL công khai hay mở cổng Inbound qua tường lửa doanh nghiệp.
-* **WebSocket STOMP Broker (< 50ms):** Đẩy thông báo sự kiện bưu gửi thời gian thực tới chuông Notification Center và Toast pop-up trên Web Portal, giải phóng 100% tải HTTP Polling dư thừa từ Client.
-* *Tài liệu chi tiết:* Xem chi tiết cơ chế tại [Cẩm nang 07 - Telegram Bot & Realtime Notifications](docs/07-telegram-bot-and-realtime-notifications.md).
+### 2.6. Điều Phối Bưu Tá Qua Telegram Bot & WebSocket Thời Gian Thực
+* **Điều phối bưu tá qua Telegram Bot:** Gửi thông tin phát hàng (mã vận đơn, địa chỉ, COD, người nhận) trực tiếp đến Telegram bưu tá; kết nối qua Long-Polling không yêu cầu mở cổng Inbound hay IP tĩnh.
+* **Thông báo thời gian thực (WebSocket STOMP):** Đẩy thông báo sự kiện bưu gửi tức thì (< 50ms) tới Web Portal qua topic STOMP, thay thế cơ chế HTTP Polling.
+* *Chi tiết:* [Cẩm nang 07 - Telegram Bot & Realtime Notifications](docs/07-telegram-bot-and-realtime-notifications.md).
 
-### 2.7. Quản Trị Đội Ngũ Bưu Tá, Google Identity & Chống Quét Đúp (Idempotency)
-* **Phân tách nghiệp vụ quản lý bưu tá độc lập:** Định nghĩa bưu tá là tài nguyên vận hành giao vận theo Domain-Driven Design (DDD), gắn với ca làm việc thực địa (`ACTIVE`/`INACTIVE`), địa bàn bưu cục (`stationCode`) và kênh nhận tin (`telegram_chat_id`), độc lập hoàn toàn với tài khoản người dùng và khách hàng B2B.
-* **Xác thực đa nguồn Google OAuth2 & Avatar Stateless JWT:** Hỗ trợ xác thực Google ID Token qua Google API Client, nhúng trực tiếp claim `avatarUrl` vào JWT Payload giúp giao diện hiển thị ảnh đại diện với độ trễ 0ms mà không phát sinh thêm HTTP roundtrip.
-* **Mô hình Idempotency & OperationId trong Logistics:** Xử lý triệt để bài toán công nhân bóp cò máy quét barcode 2 lần liên tiếp (Double-Scanning) hoặc mạng 4G chập chờn gây gửi đúp request, đảm bảo 100% tính toàn vẹn trạng thái kiện hàng và bảng kê COD.
-* **Bộ lập lịch gom đơn tự động (Quartz Enterprise Scheduler) & Mốc Cut-off Buffer:** Ứng dụng Quartz Scheduler (`TripConsolidationJob` & `TripScheduleManager`) thay thế hoàn toàn cơ chế Polling cũ, tự động hóa gom kiện đạt ngưỡng tải trọng ($80\%$) và đóng sổ chuyến xe trước giờ xuất bến 30 phút. Tích hợp Kafka Event Streaming (`TripConsolidatedEvent`) và WebSocket STOMP cập nhật tức thì lên Web Portal (< 50ms).
-* *Tài liệu chi tiết:* Xem chi tiết kiến trúc tại [Cẩm nang 08 - Quản Trị Bưu Tá, Google Identity & Idempotency](docs/08-shipper-service-identity-and-idempotency.md).
+### 2.7. Quản Trị Bưu Tá, Google Identity & Chống Quét Đúp (Idempotency)
+* **Domain Bưu tá riêng biệt:** Quản lý bưu tá theo trạm (`stationCode`), trạng thái ca trực (`ACTIVE`/`INACTIVE`) và liên kết Telegram chat ID theo chuẩn Domain-Driven Design (DDD).
+* **Google OAuth2 & Idempotency:** Hỗ trợ xác thực Google ID Token với avatar nhúng trong JWT; áp dụng `OperationId` để xử lý lỗi quét đúp mã vạch (Double-Scanning) hoặc mạng chập chờn.
+* **Lập lịch gom chuyến xe (Quartz Scheduler):** Định kỳ kiểm tra tải trọng chuyến và tự động đóng sổ trước giờ khởi hành (Cut-off buffer 30 phút).
+* *Chi tiết:* [Cẩm nang 08 - Quản Trị Bưu Tá & Idempotency](docs/08-shipper-service-identity-and-idempotency.md).
 
+### 2.8. Phân Tích Đối Soát Dòng Tiền & Xuất Báo Cáo (CQRS)
+* **Tách luồng đọc báo cáo (CQRS):** Bảng tổng hợp báo cáo độc lập được cập nhật bất đồng bộ qua Kafka, không chạy aggregate nặng (`SUM`, `COUNT`, `GROUP BY`) trên CSDL giao dịch.
+* **Xuất báo cáo Excel 2 sheet:** Sheet 1 tổng hợp KPI tài chính (doanh thu, COD đã nộp, COD đang giữ); Sheet 2 chi tiết từng vận đơn để đối soát và kiểm toán.
+* *Chi tiết:* [Cẩm nang 09 - Quyết Toán COD & Báo Cáo Đối Soát](docs/09-cod-settlement-and-financial-reconciliation.md).
 
-### 2.8. Phân Tích Đối Soát Dòng Tiền & Xuất Báo Cáo Kiểm Toán (CQRS & Financial Reports)
-* **Tách biệt phân hệ báo cáo độc lập:** Ứng dụng mô hình CQRS (Command Query Responsibility Segregation). Thay vì chạy các query aggregate nặng (`SUM`, `COUNT`, `GROUP BY`) làm chậm CSDL giao dịch cốt lõi, hệ thống lưu trữ snapshot phân tích tối ưu và đồng bộ dữ liệu ngầm qua Kafka event streaming.
-* **Xuất báo cáo tài chính Excel 2 Sheet chuẩn kiểm toán:** Sử dụng Apache POI sinh file `.xlsx` chuyên nghiệp: Sheet 1 tổng hợp KPI tài chính (doanh thu cước, COD đã vào két, COD bưu tá đang giữ, tỷ lệ giao thành công); Sheet 2 là bảng kê chi tiết toàn bộ vận đơn phục vụ đối soát và lưu trữ thuế.
-* **Tương tác vi mô 60fps (Micro-Interactions & Transitions):** Tích hợp hiệu ứng chuyển động mượt mà, phản hồi visual tức thời khi nộp quỹ / duyệt quỹ, thông báo realtime không cần reload trang.
-* *Tài liệu chi tiết:* Xem chi tiết kiến trúc CQRS và xuất báo cáo tại [Cẩm nang 09 - Quyết Toán COD & Báo Cáo Đối Soát Dòng Tiền](docs/09-cod-settlement-and-financial-reconciliation.md).
+### 2.9. Động Cơ Định Giá & Ma Trận Cước Bưu Chính (Pricing Engine)
+* **Khối lượng thể tích:** Chuẩn IATA: $(L \times W \times H) / 5000 \times 1000$ (gram). Khối lượng tính cước là $\max(W_{\text{actual}}, W_{\text{volumetric}})$.
+* **Ma trận cước phân vùng & phân tầng:** Phân định Nội tỉnh (`INTRA_PROVINCE`) và Liên miền (`INTER_REGION`) với 3 gói dịch vụ: `ECO`, `STANDARD`, `EXPRESS`.
+* **Phụ phí tự động:** Nhiên liệu (6%), COD (1%, min 10.000 VNĐ), bảo hiểm khai giá (0.5%).
+* *Chi tiết:* [Cẩm nang 13 - Động Cơ Định Giá & Ma Trận Cước Bưu Chính](docs/13-pricing-engine-and-tariff-matrix.md).
 
-### 2.9. Động Cơ Ước Tính Cước Phí Đa Vùng & Ma Trận Cước Bưu Chính (Pricing Engine)
-* **Khối lượng quy đổi thể tích (Volumetric Weight):** Áp dụng chuẩn quốc tế IATA và bưu chính đường bộ: $(L \times W \times H) / 5000 \times 1000$ (gram). Khối lượng tính cước là $\max(W_{\text{actual}}, W_{\text{volumetric}})$, triệt tiêu rủi ro hàng cồng kềnh chiếm chỗ thùng xe tải.
-* **Phân vùng cước địa lý & 3 gói cước phân tầng:** Phân định rõ ràng giữa Nội tỉnh (`INTRA_PROVINCE`) và Liên miền (`INTER_REGION`); cung cấp 3 phân tầng dịch vụ: `ECO` (VNPT Tiết Kiệm), `STANDARD` (VNPT Tiêu Chuẩn), `EXPRESS` (VNPT Hỏa Tốc) với cước cơ bản và nấc lũy tiến mỗi kg tiếp theo.
-* **Cơ cấu phụ phí tự động:** Tự động tính phụ phí nhiên liệu xăng dầu ($6\%$), phí thu hộ COD ($1\%$, min 10.000 VNĐ) và phí bảo hiểm khai giá ($0.5\%$).
-* *Tài liệu chi tiết:* Xem chi tiết công thức và boilerplate bảng cước động tại [Cẩm nang 13 - Động Cơ Định Giá & Ma Trận Cước Bưu Chính](docs/13-pricing-engine-and-tariff-matrix.md).
+### 2.10. Trợ Lý AI & Quản Trị Khiếu Nại (Spring AI & Ollama)
+* **On-Premise LLM với Ollama (`qwen2.5:7b`):** Chạy cục bộ bảo mật thông tin khách hàng, tích hợp qua Spring AI `ChatClient`.
+* **Autonomous Tool Calling:** AI tự động gọi các công cụ nghiệp vụ nội bộ (`PostalAiTools`) để tra cứu lộ trình bưu phẩm, tính cước phí và kiểm tra trạng thái khiếu nại.
+* **Quản trị vòng đời khiếu nại:** 4 bước `SUBMITTED` $\rightarrow$ `INVESTIGATING` $\rightarrow$ `RESOLVED` / `REJECTED`, lưu trữ trên CSDL độc lập quản lý bằng Flyway.
+* *Chi tiết:* [Cẩm nang 14 - Trợ Lý Ảo GenAI & Spring AI Tool Calling](docs/14-spring-ai-agent-and-support-ticketing.md).
 
-### 2.10. Trợ Lý Ảo GenAI & Quản Trị Khiếu Nại Toàn Trình (Spring AI & Autonomous Agent)
-* **Kiến trúc On-Premise LLM với Ollama (`qwen2.5:7b`):** Vận hành mô hình ngôn ngữ lớn cục bộ trên máy chủ nội bộ thông qua chuẩn `Spring AI ChatClient`. Bảo mật dữ liệu cá nhân (PII) người gửi/nhận tuyệt đối 100%, chi phí 0 VNĐ và không bị phụ thuộc vào Cloud API rate limit.
-* **Cơ chế Autonomous Tool Calling (Function Calling):** Tự động nhận diện ý định tự nhiên của khách hàng để gọi các công cụ nội bộ (`PostalAiTools`): tra cứu hành trình vận đơn sống (`trackShipment`), tính cước phí dịch vụ (`calculateShippingTariff`) và tra cứu tiến độ khiếu nại (`lookUpTicketStatus`).
-* **Quản trị khiếu nại toàn trình (Dispute & Ticketing):** Tiếp nhận và quản lý vòng đời khiếu nại bưu gửi (giao chậm, hư hỏng, mất mát, sai lệch COD) qua quy trình 4 bước: `SUBMITTED` -> `INVESTIGATING` -> `RESOLVED` / `REJECTED`, tích hợp CSDL độc lập quản lý bằng Flyway.
-* *Tài liệu chi tiết:* Xem chi tiết kiến trúc Spring AI Tool Calling và System Prompting tại [Cẩm nang 14 - Trợ Lý Ảo GenAI & Cơ Chế Spring AI Tool Calling](docs/14-spring-ai-agent-and-support-ticketing.md).
+### 2.11. Đếm Ngược SLA RabbitMQ & Xử Lý Hủy Đơn Liên Dịch Vụ
+* **Polyglot Messaging:** Kết hợp RabbitMQ (đếm ngược SLA), Kafka (truyền phát sự kiện toàn mạng) và OpenFeign (giao tiếp đồng bộ).
+* **Bộ đếm lùi SLA qua Message TTL & DLX:** Hàng đợi tạm gắn TTL 120s kết hợp Dead-Letter Exchange; khi quá hạn không có nhân viên tiếp nhận, tin nhắn tự chuyển sang queue leo thang (`ESCALATED`) mà không cần polling CSDL.
+* **Xử lý hủy đơn liên dịch vụ:** CSKH duyệt khiếu nại hư hỏng/mất mát kích hoạt Feign Client hủy đơn bên `shipment-service`; `routing-service` lắng nghe sự kiện để gỡ kiện khỏi bảng kê và hoàn trả tải trọng xe.
+* *Chi tiết:* [Cẩm nang 15 - RabbitMQ SLA & Hủy Đơn Liên Dịch Vụ](docs/15-rabbitmq-priority-queue-and-sla-dead-letter-patterns.md).
 
-### 2.11. Đếm Ngược SLA RabbitMQ & Xử Lý Hủy Đơn Liên Dịch Vụ (Polyglot Messaging)
-* **Mô hình Polyglot Messaging phân tầng:** Ứng dụng RabbitMQ cho quản trị đếm lùi SLA thông minh nội bộ `support-service`, Kafka làm xương sống truyền phát sự kiện toàn mạng (`email-events`, `tracking-status-events`, `trip-events`, `trip-progress-events`), và OpenFeign kết nối đồng bộ tức thời khi cần hủy đơn bưu gửi (`POST /api/shipments/{code}/cancel`).
-* **Bộ đếm lùi SLA 2 phút chuẩn cơ học (Zero-Polling Timer):** Áp dụng Message TTL ($120.000\text{ms}$) trên hàng đợi tạm `support.ticket.sla.queue` kết hợp Dead-Letter Exchange (`support.sla.dlx.exchange`). Khi quá 2 phút không có chuyên viên tiếp nhận (`IN_PROGRESS`), tin nhắn tự động chuyển sang `support.ticket.outdate.queue`, kích hoạt `SLAEscalationConsumer` nâng trạng thái vé lên `ESCALATED` và bắn email cảnh báo khẩn cấp tới Quản lý qua Kafka mà không tốn $1\%$ tải quét CSDL (Zero Database Polling). Tinh giản hàng đợi ưu tiên không có consumer tiêu thụ, tập trung toàn bộ tài nguyên cho SLA.
-* **Xử lý hủy đơn liên dịch vụ & giải phóng tồn kho:** Khi CSKH chốt khiếu nại thuộc các danh mục `DAMAGED_GOODS`, `LOST_SHIPMENT`, `LOST_GOODS`, hoặc `CANCEL_REQUEST`, hệ thống tự động gọi Feign Client hủy đơn bên `shipment-service` với quyền `shipment:cancel_all` (kèm vai trò `ROLE_CS`).
-* **Đồng bộ đa định dạng thời gian & giải phóng tải xe (routing-service):** `ShipmentCancelledConsumer` trong `routing-service` đọc sự kiện hủy đơn từ `tracking-status-events`, hỗ trợ tương thích kép cả mảng số của Kafka Jackson `[yyyy,MM,dd,HH,mm,ss]` lẫn chuỗi ISO string (nhận cả `updateAt` và `updatedAt`). Nếu chuyến xe đang chờ xuất bến (`SCHEDULED`), hệ thống lập tức gỡ kiện khỏi bảng kê (Manifest `REMOVED`), trừ tải trọng xe và giải phóng tồn kho kho bãi (`CANCELLED`); nếu xe đang chạy (`IN_TRANSIT`), hệ thống gắn nhãn `HOLD_FOR_RETURN` để trạm kế tiếp tự động dỡ kiện nhập kho chờ chuyển hoàn.
-* *Tài liệu chi tiết:* Xem chi tiết kiến trúc và boilerplate độc lập tại [Cẩm nang 15 - Hàng Đợi Ưu Tiên RabbitMQ & Cơ Chế Đếm Ngược SLA](docs/15-rabbitmq-priority-queue-and-sla-dead-letter-patterns.md).
+### 2.12. Lưu Trữ Tệp Đính Kèm Khiếu Nại Với MinIO Object Storage
+* **Kiến trúc S3 Object Storage:** Lưu trữ chứng từ, ảnh hư hỏng và biên bản giải quyết tại MinIO (S3 API), tách biệt hoàn toàn dữ liệu nhị phân khỏi CSDL quan hệ.
+* **Tự khởi tạo Bucket & Chính sách truy cập:** `MinioBucketSupport` tự kiểm tra và tạo bucket kèm chính sách truy cập công khai khi khởi động; hỗ trợ Presigned URL có thời hạn cho chứng từ nhạy cảm.
+* **Distroless Container:** Sử dụng image Chainguard bảo mật cao, phân định rành mạch giữa Port 9000 (S3 API) và Port 9001 (Web Console).
+* *Chi tiết:* [Cẩm nang 16 - Lưu Trữ MinIO Object Storage & S3](docs/16-minio-object-storage-and-s3-boilerplate.md).
 
-### 2.12. Lưu Trữ Tệp Đính Kèm Khiếu Nại Với MinIO Object Storage (S3 Standard)
-* **Kiến trúc S3 Object Storage phân tầng:** Tách rời hoàn toàn tầng tính toán (Stateless `support-service`) và tầng lưu trữ tệp tin. Toàn bộ hình ảnh sự cố hư hỏng kiện hàng (`DAMAGED_GOODS`), hóa đơn bưu gửi (`LOST_SHIPMENT`), và biên bản giải quyết đền bù (`RESOLVED`) được lưu trữ tại cụm MinIO Object Storage chuẩn AWS S3 API, giải phóng $100\%$ tải lưu trữ BLOB nhị phân khỏi CSDL SQL Server và tránh mất mát dữ liệu do Pod container bị tiêu hủy (Ephemeral storage).
-* **Cơ chế tự phục hồi Bucket (Auto-Healing Bucket Support):** Áp dụng mẫu thiết kế Lazy Initialization & Double-Checked Locking (`MinioBucketSupport`) kết hợp cờ nguyên tử `AtomicBoolean`. Hệ thống tự động kiểm tra `bucketExists()`, tự tạo `support-tickets` và cấu hình chính sách `s3:GetObject` công khai trong runtime ngay khi có tệp tải lên đầu tiên, khắc phục triệt để lỗi xung đột khởi động chậm (Startup Race Condition) và lỗi `NoSuchBucket`.
-* **Mô hình bảo mật truy cập lai (Hybrid Access Control):** Cấu hình Anonymous Download Policy cho phép trình duyệt hiển thị tức thời ảnh kiện hàng trong luồng chat mà không bị lỗi đứt link hết hạn (Expired Presigned Link); đồng thời hỗ trợ cơ chế Presigned URLs (ký chữ ký số điện tử HMAC-SHA256 có thời hạn sống TTL 15-60 phút) cho các chứng từ nhạy cảm như hóa đơn tài chính và biên bản đền bù.
-* **Hạ tầng Container Chainguard Distroless bảo mật cao:** Triển khai image `cgr.dev/chainguard/minio:latest`, loại bỏ hoàn toàn các shell/package dư thừa, đạt $0$ lỗ hổng bảo mật (Zero Known CVEs) và phân định rành mạch giữa Port 9000 (S3 REST API) và Port 9001 (MinIO Web Console).
-* *Tài liệu chi tiết:* Xem chi tiết kiến trúc S3, phân tích Erasure Coding và bộ Boilerplate Spring Boot 3 độc lập tại [Cẩm nang 16 - Lưu Trữ Đối Tượng MinIO & S3 Boilerplate](docs/16-minio-object-storage-and-s3-boilerplate.md).
- 
-### 2.13. Thanh Toán Điện Tử VietQR Động, Chống Thanh Toán Đúp & Tự Động Hóa Chuông Topbar (Payment Gateway & Event-Driven Notification)
-* **Cổng thanh toán VietQR động chuẩn NAPAS 247:** Khởi tạo mã QR động tích hợp trực tiếp số tiền chính xác và nội dung nhận diện bưu gửi độc nhất cho cả cước vận chuyển B2B (`SHIPPING_FEE`) lẫn tiền thu hộ chặng cuối (`COD`). Người nhận quét mã thanh toán bằng bất kỳ ứng dụng Mobile Banking nào trong 3 giây với phí 0 VNĐ.
-* **Luồng sự kiện Kafka bất đồng bộ (`payment-success-events`):** Sau khi xác thực Webhook ngân hàng an toàn (kiểm tra Secret Key và chống Replay Attack), `payment-service` bắn sự kiện lên Kafka KRaft để đồng bộ trạng thái `PAID` sang `shipment-service` và hạch toán dòng tiền thu hộ sang `shipper-service`.
-* **Tự động hóa chuông 🔔 Topbar thời gian thực (< 50ms):** `notification-service` tiêu thụ sự kiện Kafka, tạo bản ghi `NotificationLog` (người nhận `SYSTEM_ALERT`) và phát sóng STOMP WebSocket tới `/topic/notifications/broadcast`. Quả chuông trên Topbar lập tức nhảy số đỏ +1 với hiệu ứng nhấp nháy `animate-pulse`, icon tiền tệ xanh ngọc emerald (`bg-emerald-600`), hiển thị chi tiết thời gian và dẫn thẳng tới bưu phẩm.
-* **Cơ chế phòng vệ thanh toán đúp đa tầng (Double-Payment Prevention):** Kiểm tra trạng thái giao dịch `SUCCESS` ngăn chặn sinh mã QR mới; cung cấp API `/api/payments/paid-codes` để giao diện tự động chuyển đổi nút bấm sang huy hiệu tĩnh "Đã Thu", triệt tiêu 100% rủi ro khách hàng quét mã trả tiền 2 lần.
-* *Tài liệu chi tiết:* Xem toàn văn kiến trúc, Webhook security và 10 câu hỏi phỏng vấn tại [Cẩm nang 17 - Cổng Thanh Toán VietQR & Đối Soát Tài Chính Tức Thời](docs/17-vietqr-payment-gateway-and-realtime-reconciliation.md).
+### 2.13. Cổng Thanh Toán VietQR & Thông Báo Thời Gian Thực
+* **VietQR động chuẩn NAPAS 247:** Tạo mã QR kèm số tiền và mã bưu gửi cho cả cước vận chuyển và tiền COD; người nhận quét thanh toán qua ứng dụng ngân hàng.
+* **Đồng bộ sự kiện & Chuông thông báo:** Webhook ngân hàng kích hoạt sự kiện Kafka `payment-success-events`, đẩy thông báo WebSocket STOMP tức thời (< 50ms) lên chuông Topbar của Web Portal.
+* **Chống thanh toán đúp:** Kiểm tra trạng thái giao dịch `SUCCESS` trước khi sinh mã QR; giao diện tự chuyển đổi nút bấm sang trạng thái "Đã Thu".
+* *Chi tiết:* [Cẩm nang 17 - Cổng Thanh Toán VietQR](docs/17-vietqr-payment-gateway-and-realtime-reconciliation.md).
 
----
+### 2.14. Đánh Giá Bưu Phẩm 2 Tầng & Tính KPI Bưu Tá
+* **Đánh giá 2 tầng độc lập:** Phân định rõ chất lượng vận chuyển / hàng hóa (`serviceRating`) và thái độ phục vụ của bưu tá (`shipperRating`) từ 1 đến 5 sao.
+* **Bảo vệ chống gian lận & Tính KPI thời gian thực:** Chỉ đánh giá đơn `DELIVERED`, xác thực số điện thoại và ràng buộc unique tracking; gửi sự kiện Kafka để cập nhật điểm KPI trung bình lũy kế của bưu tá.
+* **Hỗ trợ khiếu nại nhanh:** Tự động gắn cờ `suggestTicket = true` gợi ý mở ticket CSKH khi đánh giá dưới 3 sao.
+* *Chi tiết:* [Cẩm nang 18 - Đánh Giá Bưu Phẩm & KPI Bưu Tá](docs/18-shipment-rating-and-shipper-kpi.md).
 
-### 2.14. Đánh Giá Bưu Phẩm 2 Tầng & Tự Động Tính KPI Bưu Tá Lũy Kế (Rating & Event-Driven Shipper KPI)
-* **Phân tầng đánh giá 2 cấp độ độc lập:** Tách biệt rõ ràng giữa chất lượng dịch vụ vận chuyển / đóng gói (`serviceRating`) và thái độ phục vụ của bưu tá (`shipperRating`) theo thang điểm 1 đến 5 sao.
-* **Phòng vệ gian lận 3 lớp & Chống đánh giá lặp:** Chỉ cho phép đánh giá khi bưu gửi đã đạt trạng thái phát thành công `DELIVERED`, xác thực 4 số cuối số điện thoại người nhận (`verifiedPhone`), và áp dụng ràng buộc duy nhất `uq_shipment_ratings_tracking` trên cơ sở dữ liệu `rating_db`.
-* **Truy vết tự động danh tính bưu tá & Tính toán KPI thời gian thực:** Tự động đối soát `actorId` từ mốc giao hàng `HANDED_TO_COURIER` bên `tracking-service`, phát sự kiện `ShipmentFeedbackEvent` lên Kafka topic `shipment-feedbacks` để `shipper-service` cập nhật điểm số bình quân lũy kế tức thời (`rating_avg` và `rating_count`) với độ trễ dưới 10ms.
-* **Cơ chế cứu vãn trải nghiệm khách hàng (Customer Recovery):** Khi điểm đánh giá dưới 3 sao, hệ thống tự động gắn cờ `suggestTicket = true`, kích hoạt giao diện mở khiếu nại nhanh kết nối trực tiếp với trung tâm CSKH `support-service`.
-* *Tài liệu chi tiết:* Xem toàn văn kiến trúc, schema CSDL và bộ câu hỏi phỏng vấn tại [Cẩm nang 18 - Đánh Giá Bưu Phẩm 2 Tầng, Đối Soát KPI Bưu Tá & Luồng Sự Kiện Kafka](docs/18-shipment-rating-and-shipper-kpi.md).
+### 2.15. Giao Diện Single Page Application (SPA) & Clean URL
+* **Kiến trúc Vue 3 SPA:** Hợp nhất toàn bộ giao diện thành một SPA duy nhất (HTML5 History Mode), hỗ trợ URL chuẩn (`/tracking`, `/shipment`, `/trips`, `/fleet`, `/post-office`, `/hub-ops`, `/shipper`, `/report`, `/support`, v.v.).
+* **Thanh Sub-tab Segmented Pill đồng bộ:** Thiết kế dạng viên thuốc compact (~40px) có hiệu ứng chuyển động mượt mà trên 7 phân hệ, tích hợp nút Live Refresh 32px và chuẩn hóa làm tròn các tỷ lệ số liệu (SLA, công suất tải).
+* **Bảo vệ tuyến đường (Route Guard):** Lưu URL đích và tự động chuyển hướng đăng nhập khi chưa có phiên; hỗ trợ nút Back/Forward qua sự kiện `popstate`.
+* **SPA Server Fallback:** Node.js cấu hình rewrite URL về `index.html` và chuyển hướng 301 cho các đường dẫn HTML cũ.
 
-### 2.15. Kiến Trúc Frontend Single Page Application (SPA) & Clean URL Routing
-* **Chuyển dịch toàn diện sang Single Page Application (SPA):** Thay thế hoàn toàn kiến trúc multi-page rời rạc (`index.html`, `login.html`, `error.html`) bằng một ứng dụng SPA duy nhất trên nền Vue 3 + Tailwind CSS CDN, loại bỏ toàn bộ reload trang cứng, bảo tồn 100% state và dữ liệu RAM giữa các phiên thao tác.
-* **Định tuyến HTML5 History Mode (Clean URLs):** Loại bỏ dấu `#` hash fragment cổ điển, chuẩn hóa toàn bộ đường dẫn nghiệp vụ theo chuẩn URL thân thiện với người dùng:
-  * `/` hoặc `/tracking`: Tra cứu hành trình bưu phẩm toàn trình (`TrackingView`).
-  * `/login`: Cổng xác thực nghiệp vụ toàn màn hình (`LoginView`).
-  * `/shipment`: Khởi tạo và tạo đơn vận bưu chính B2B (`ShipmentView`).
-  * `/trips`: Quản lý chuyến xe trục gom hàng đa chặng (`TripsView`).
-  * `/post-office`: Khai thác bưu cục tiếp nhận & đóng túi thư (`PostOfficeOpsView`).
-  * `/hub-ops`: Khai thác phân luồng tại 5 Siêu Hub chia chọn (`HubOpsView`).
-  * `/shipper`: Bưu tá phát hàng chặng cuối & nộp tiền COD (`ShipperView`).
-  * `/shipper-directory`: Danh bạ bưu tá toàn mạng (`ShipperDirectoryView`).
-  * `/customer`: Danh bạ khách hàng & đối tác B2B (`CustomerView`).
-  * `/report`: Phân tích đối soát dòng tiền & xuất Excel kế toán (`ReportView`).
-  * `/calculator`: Ước tính cước phí bưu chính đa vùng (`TariffCalculatorView`).
-  * `/network`: Mạng lưới bưu cục gửi hàng toàn quốc (`NetworkView`).
-  * `/guide`: Cẩm nang bưu chính & quy cách đóng gói (`GuideView`).
-  * `/support`: CSKH, khiếu nại bưu gửi & Trợ lý ảo AI (`SupportView`).
-  * `/admin-rbac`: Quản trị hệ thống, phân quyền vai trò (`AdminRbacView`).
-  * `/profile`: Hồ sơ cá nhân & liên kết Google SSO (`ProfileView`).
-  * `*`: Xử lý mã lỗi hệ thống phân tán chuẩn hóa (`ErrorView` 404, 403, 503, 429).
-* **Cơ chế Route Guard & Khôi phục phiên làm việc (Session Restoration):**
-  * Tự động kiểm tra quyền (`Auth.hasPermission`) và vai trò (`Auth.hasRole`) trước khi kích hoạt component.
-  * Nếu người dùng chưa đăng nhập cố tình truy cập màn hình nghiệp vụ nội bộ (ví dụ: `/shipment`, `/trips`), SPA tự động chặn lại, lưu URL đích vào `sessionStorage.redirectAfterLogin` và điều hướng về `/login`. Sau khi đăng nhập thành công, hệ thống tự động đưa người dùng trở lại đúng màn hình đã yêu cầu.
-* **Layout điều kiện & Tối ưu thị giác (Full-page Login & Ambient Background):**
-  * Khi ở route `/login`, hệ thống tự động ẩn toàn bộ Sidebar, App Topbar, Footer và ChatbotWidget để tập trung trải nghiệm vào thẻ xác thực bảo mật, hiển thị nền toàn cảnh tối ưu (`auth-custom-bg` với hình nền `/images/my-bg.jpg` và các đốm sáng chuyển động `animate-float`).
-  * Sau khi đăng nhập thành công, layout chính (`InternalLayout` hoặc `PublicLayout`) được kích hoạt mượt mà mà không có hiện tượng chớp trắng trình duyệt.
-* **Hỗ trợ nút Back/Forward qua sự kiện `popstate`:** Lắng nghe và đồng bộ trạng thái `currentTab` tức thì theo lịch sử duyệt web của trình duyệt.
-* **Server-Side Fallback & Chuyển hướng tương thích ngược (301 Redirect):**
-  * Máy chủ Node.js tự động chuyển hướng HTTP 301 cho các liên kết cũ (`/login.html` ➔ `/login`, `/index.html` ➔ `/`, `/error.html` ➔ `/error`).
-  * Cơ chế SPA Fallback: Mọi request không chứa đuôi file tĩnh (`ext === ''`) và không thuộc `/api/` đều được trả về `index.html` (HTTP 200) để trình duyệt tự khởi chạy và ánh xạ route tương ứng.
+### 2.16. Transactional Outbox Pattern & Saga Compensation Phân Tán
+* **Khắc phục lỗi Dual-Write:** Lưu trữ bản ghi nghiệp vụ và `OutboxEvent` trong cùng một transaction CSDL SQL Server; bộ lập lịch định kỳ đọc và phát sự kiện lên Kafka có kiểm tra ACK.
+* **Saga Compensation:** Khi đơn bị hủy (`CANCELLED`), lưu tombstone vào Redis và phát sự kiện bù trừ: gỡ kiện khỏi chuyến xe chờ (`SCHEDULED`), trừ tải trọng xe; hoặc gắn nhãn `HOLD_FOR_RETURN` nếu xe đang chạy (`IN_TRANSIT`).
+* *Chi tiết:* [Cẩm nang 19 - Transactional Outbox & Saga Compensation](docs/19-transactional-outbox-and-saga-compensation.md).
+
+### 2.17. Ước Tính ETA Động & Dự Báo Sản Lượng Giao Hàng
+* **Động cơ ETA đa chặng:** Tính toán theo địa chỉ thực tế, giờ Cut-off (18h00), thời gian đệm quay đầu xe tại Hub (12h), khoảng cách địa lý và vận tốc định mức 55 km/h; tự động tái ước lượng định kỳ.
+* **Dự báo sản lượng ngày kế tiếp:** Tổng hợp từ 3 nguồn (đang trên đường về, tồn kho tại bưu cục, cam kết giao ngày mai) để tính tỷ lệ tải ca bưu tá (`utilizationRate`) và đưa ra cảnh báo quá tải kèm đề xuất nhân sự.
+* *Chi tiết:* [Cẩm nang 20 - Ước Tính ETA Động & Dự Báo Sản Lượng](docs/20-dynamic-eta-engine-and-delivery-forecast.md).
+
+### 2.18. Quản Trị Đội Xe (Fleet Management) & Bot Telegram Bưu Tá 2 Chiều
+* **Quản trị phương tiện:** Theo dõi 3 phân khúc xe (Xe tải liên tỉnh, Van trung chuyển, Xe máy bưu tá) về biển số, tải trọng, tình trạng bảo dưỡng và trạm gán qua giao diện `/fleet`.
+* **Tương tác 2 chiều qua Telegram Bot:** Bưu tá xem danh sách đơn phát hôm nay, bấm nút cập nhật giao thành công hoặc lý do thất bại, kiểm tra tiền COD đang giữ và nộp quỹ ca phát trực tiếp từ Telegram.
+* *Chi tiết:* [Cẩm nang 21 - Quản Trị Đội Xe & Telegram Bot Bưu Tá](docs/21-fleet-vehicle-management-and-shipper-bot-actions.md).
+
+### 2.19. Tự Động Hóa GitOps (ArgoCD) & Hệ Thống Giám Sát (Prometheus & Grafana)
+* **GitOps với ArgoCD:** Khai báo cấu hình K8s theo Git làm nguồn chân lý duy nhất, tự động đồng bộ và tự phục hồi khi có lệch cấu hình (`prune: true`, `selfHeal: true`).
+* **Hạ tầng quan sát phân tầng:** Prometheus tự động cào metrics từ các microservice Spring Boot (`/actuator/prometheus`), Node Exporter và Kube State Metrics; Grafana cung cấp 3 dashboard giám sát nghiệp vụ, hạ tầng K8s và JVM.
+* **Tối ưu HPA & Eureka:** Cấu hình HPA trần 3 replicas bảo vệ tài nguyên; gán Eureka instance ID ngẫu nhiên để tránh bản ghi rác khi Pod khởi động lại.
+* *Chi tiết:* [Cẩm nang 22 - GitOps ArgoCD & Giám Sát Prometheus Grafana](docs/22-gitops-argocd-and-prometheus-grafana-monitoring.md).
 
 ---
 
@@ -299,24 +286,28 @@ Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, m�
 
 | STT | Tài Liệu Chuyên Sâu | Nội Dung Trọng Tâm & Boilerplate Code |
 | :---: | :--- | :--- |
-| **01** | [**Kiến Trúc HA & Nginx Load Balancing**](docs/01-high-availability-and-nginx.md) | Cấu hình Nginx Edge Reverse Proxy Upstream Failover, khắc phục bẫy Eureka Peer Sync 1 chiều (`PeerEurekaNodes.isInstanceURL`), thiết lập cụm Eureka Server Peer-to-Peer Replication (`peer1`/`peer2`) và template `docker-compose` mẫu. |
-| **02** | [**Database Read-Write Splitting & Boilerplate**](docs/02-database-read-write-splitting-boilerplate.md) | Kỹ thuật tách luồng Đọc/Ghi qua Spring `AbstractRoutingDataSource`, xử lý `ThreadLocal`, cấu hình Hikari Pool, đồng bộ ngầm qua Kafka và **Bộ Template Generic độc lập** để copy vào dự án công ty. |
-| **03** | [**Kafka KRaft Cluster & Event Streaming HA**](docs/03-kafka-kraft-cluster-and-event-streaming.md) | Kiến trúc KRaft Consensus (Quorum Majority), tầng lưu trữ Append-Only Commit Log & Sparse Index, cơ chế Zero-Copy (`sendfile`), thuật toán băm `MurmurHash2`, Idempotent Producer & Exactly-Once (EOS), Cooperative Sticky Rebalance, Log Compaction & Tombstone, cụm 3-Broker Docker Compose, Boilerplate code và bộ 10 câu hỏi phỏng vấn. |
-| **04** | [**Nghiệp Vụ Logistics & Station Context RBAC**](docs/04-logistics-domain-and-rbac-station-context.md) | Logic Chuyến xe trục (Trips), thanh tải trọng (Load Bar), niêm phong Seal, dỡ hàng tại cổng Hub, tự động chuyển hoàn lần thứ 3 và bảo mật ngữ cảnh trạm làm việc. |
-| **05** | [**Redis Caching, Rate Limiter & Distributed Lock**](docs/05-redis-caching-and-distributed-patterns.md) | Sơ đồ luồng Cache-Aside (< 2ms), Token Bucket phân tầng Read/Write chống DDoS (Bucket4j), xử lý an toàn CORS Preflight (`OPTIONS`), Distributed Lock (`SETNX`) chống race condition và Generic `RedisCacheService` độc lập. |
-| **06** | [**Bảo Mật Microservices: Stateless JWT & RBAC**](docs/06-microservices-security-jwt-and-rbac.md) | Sơ đồ luồng Gateway Auth, Blacklist tức thời qua Redis (< 0.5ms), chống Header Spoofing (`HeaderMapRequestWrapper`), Spring Security 6.x và `UserContextHolder` boilerplate. |
-| **07** | [**Telegram Bot & Realtime Notification (WebSocket/STOMP)**](docs/07-telegram-bot-and-realtime-notifications.md) | Phân tích sâu Long-Polling vs Webhook, luồng liên kết bưu tá qua Feign Client, kiến trúc WebSocket STOMP Message Broker (< 50ms), HTML notification templates và xử lý lỗi Telegram API rate limit. |
-| **08** | [**Quản Trị Bưu Tá, Google Identity & Idempotency**](docs/08-shipper-service-identity-and-idempotency.md) | Phân tách vi dịch vụ `shipper-service` theo DDD, xác thực Google Identity & Avatar Stateless JWT, cơ chế Idempotent OperationId chống lỗi quét đúp mã vạch (Double-Scanning) và thuật toán Scheduler gom đơn có Cut-off buffer. |
-| **09** | [**Quyết Toán COD & Báo Cáo Đối Soát Dòng Tiền**](docs/09-cod-settlement-and-financial-reconciliation.md) | Kiến trúc máy trạng thái quyết toán COD 3 pha (`UNSETTLED` -> `PENDING_SETTLEMENT` -> `SETTLED`), nghiệp vụ bưu tá nộp quỹ ca phát, bưu cục kiểm đếm nhập két, đồng bộ Event-Driven qua Kafka sang `report-service` (Port 8091) và xuất file Excel 2-sheet đối soát tài chính theo chuẩn kiểm toán. |
-| **10** | [**Container Hóa Toàn Trình & Điều Phối HA (Docker & Compose)**](docs/10-docker-containerization-and-ha-orchestration.md) | Quy trình đóng gói Dockerfile chuẩn Java 21 / Node.js, quản trị Registry Docker Hub, xử lý bẫy mạng `SERVER_PORT` & Docker DNS, và **Bộ Boilerplate độc lập 23 Containers** (Kafka KRaft, Redis, SQL Server Volume, Eureka Peer, Nginx Failover). |
-| **11** | [**CI/CD Tự Động Hóa Với GitHub Actions (Microservices Monorepo)**](docs/11-cicd-github-actions-automation.md) | Lý thuyết nền tảng CI/CD & DevOps, kiến trúc 3-Stage Pipeline, bộ lọc thay đổi thông minh (`paths-filter`), ma trận build song song (`matrix`), kỹ thuật cách ly lỗi `fail-fast: false`, gắn nhãn Git SHA bất biến và Bot Telegram cảnh báo thời gian thực. |
-| **12** | [**Điều Phối Toàn Trình Trên Kubernetes (K8s Architecture, Production & Troubleshooting)**](docs/12-kubernetes-orchestration-and-deployment.md) | Kiến trúc Kubernetes chuẩn hóa cho 13 microservices nghiệp vụ, Gateway và Frontend SPA; sơ đồ kiến trúc Mermaid, Ingress NGINX SSL/TLS Wildcard (`mkcert` HTTPS 443 + HTTP 80 redirect), ClusterIP cách ly Database & Redis, tường lửa Zero-Trust NetworkPolicy, quy trình phát triển 2 vòng (Inner Loop vs Outer Loop) và sổ tay kubectl thực chiến. |
-| **13** | [**Động Cơ Định Giá & Ma Trận Cước Bưu Chính**](docs/13-pricing-engine-and-tariff-matrix.md) | Công thức quy đổi khối lượng thể tích ($L \times W \times H / 5000$), phân vùng cước Nội tỉnh vs Liên miền, 3 gói phân tầng `ECO`, `STANDARD`, `EXPRESS`, cơ cấu phụ phí (Xăng dầu 6%, COD 1%, Bảo hiểm 0.5%) và Boilerplate Bảng cước động lưu CSDL. |
-| **14** | [**Trợ Lý Ảo GenAI & Cơ Chế Spring AI Tool Calling**](docs/14-spring-ai-agent-and-support-ticketing.md) | Kiến trúc On-Premise LLM với Ollama (`qwen2.5:7b`), cơ chế Spring AI `ChatClient` Function Calling tự động gọi Feign Client tra cứu vận đơn & tính cước, kỹ thuật Prompt Engineering chống ảo giác và xử lý dự phòng khi AI quá tải. |
-| **15** | [**Đếm Ngược SLA RabbitMQ & Xử Lý Hủy Đơn Liên Dịch Vụ**](docs/15-rabbitmq-priority-queue-and-sla-dead-letter-patterns.md) | Kiến trúc Polyglot Messaging (RabbitMQ + Kafka + OpenFeign), bộ đếm ngược SLA 120s bằng Message TTL + Dead-Letter Exchange (DLX), tự động hủy đơn liên dịch vụ qua Feign (`shipment:cancel_all`), giải phóng tải chuyến xe & tồn kho kho bãi (`routing-service`), và cơ chế tương thích kép mốc thời gian Kafka. |
-| **16** | [**Lưu Trữ Đối Tượng MinIO & S3 Boilerplate**](docs/16-minio-object-storage-and-s3-boilerplate.md) | Kiến trúc S3 Object Storage, phân định Storage vs BLOB, cơ chế tự phục hồi Bucket (`MinioBucketSupport`), bảo mật Presigned URLs vs Public Download, xử lý sự cố Docker Hub & di trú Chainguard Distroless, cẩm nang lệnh `mc` CLI và **Bộ Boilerplate Spring Boot 3 độc lập** sẵn sàng copy vào dự án doanh nghiệp. |
-| **17** | [**Cổng Thanh Toán VietQR & Đối Soát Tài Chính Tức Thời**](docs/17-vietqr-payment-gateway-and-realtime-reconciliation.md) | Kiến trúc Cổng thanh toán VietQR động chuẩn NAPAS 247, xác thực Webhook bảo mật, luồng sự kiện Kafka `payment-success-events`, cơ chế tự động hóa quả chuông  Topbar nhảy số đỏ +1 qua WebSocket STOMP, kỹ thuật phòng vệ chống thanh toán đúp đa tầng, bộ Boilerplate Spring Boot 3 độc lập và 10 câu hỏi phỏng vấn tuyển dụng. |
-| **18** | [**Đánh Giá Bưu Phẩm 2 Tầng & Đối Soát KPI Bưu Tá Lũy Kế**](docs/18-shipment-rating-and-shipper-kpi.md) | Phân tầng đánh giá dịch vụ vs bưu tá (1-5 sao), phòng vệ gian lận 3 lớp (`DELIVERED` + 4 số cuối SĐT + Unique Constraint), tự động truy vết bưu tá phát hàng, công thức cập nhật điểm KPI bình quân gia số qua Kafka topic `shipment-feedbacks`, cơ chế cứu vãn khách hàng (`suggestTicket`) và 10 câu hỏi phỏng vấn. |
+| **01** | [**Kiến Trúc HA & Nginx Load Balancing**](docs/01-high-availability-and-nginx.md) | Cấu hình Nginx Upstream Failover, Eureka Peer-to-Peer Replication 2 chiều và Docker Compose HA. |
+| **02** | [**Database Read-Write Splitting & Boilerplate**](docs/02-database-read-write-splitting-boilerplate.md) | Phân tách Đọc/Ghi với Spring `AbstractRoutingDataSource`, HikariCP, `ThreadLocal` và Template Generic độc lập. |
+| **03** | [**Kafka KRaft Cluster & Event Streaming HA**](docs/03-kafka-kraft-cluster-and-event-streaming.md) | KRaft Consensus, Zero-Copy, Idempotent Producer, Exactly-Once Semantics và cụm 3 Broker Docker Compose. |
+| **04** | [**Nghiệp Vụ Logistics & Station Context RBAC**](docs/04-logistics-domain-and-rbac-station-context.md) | Quản lý chuyến xe trục, kiểm soát tải trọng, niêm phong Seal, tự động chuyển hoàn và Station Context RBAC. |
+| **05** | [**Redis Caching, Rate Limiter & Distributed Lock**](docs/05-redis-caching-and-distributed-patterns.md) | Cache-Aside (< 2ms), Token Bucket Rate Limiter phân tầng Read/Write, Redis Distributed Lock (`SETNX`). |
+| **06** | [**Bảo Mật Microservices: Stateless JWT & RBAC**](docs/06-microservices-security-jwt-and-rbac.md) | API Gateway Authentication, Redis Token Blacklist (< 0.5ms), chống Header Spoofing và Spring Security 6.x. |
+| **07** | [**Telegram Bot & Realtime Notification (WebSocket/STOMP)**](docs/07-telegram-bot-and-realtime-notifications.md) | Điều phối bưu tá qua Telegram Long-Polling, đẩy thông báo thời gian thực qua WebSocket STOMP Broker (< 50ms). |
+| **08** | [**Quản Trị Bưu Tá, Google Identity & Idempotency**](docs/08-shipper-service-identity-and-idempotency.md) | Domain Bưu tá theo DDD, xác thực Google OAuth2, Idempotent OperationId chống quét đúp và Quartz Scheduler gom chuyến. |
+| **09** | [**Quyết Toán COD & Báo Cáo Đối Soát Dòng Tiền**](docs/09-cod-settlement-and-financial-reconciliation.md) | Máy trạng thái COD 3 pha, nộp và duyệt quỹ tiền mặt, đồng bộ CQRS qua Kafka và xuất báo cáo Excel 2-sheet. |
+| **10** | [**Container Hóa Toàn Trình & Điều Phối HA (Docker & Compose)**](docs/10-docker-containerization-and-ha-orchestration.md) | Đóng gói Dockerfile Java 21 / Node.js, xử lý mạng Docker DNS và bộ Compose mẫu 23 containers độc lập. |
+| **11** | [**CI/CD Tự Động Hóa Với GitHub Actions (Microservices Monorepo)**](docs/11-cicd-github-actions-automation.md) | Pipeline 3 giai đoạn Monorepo (`paths-filter`, `matrix` build song song), gắn tag Git SHA và thông báo Telegram. |
+| **12** | [**Điều Phối Toàn Trình Trên Kubernetes (K8s Architecture, Production & Troubleshooting)**](docs/12-kubernetes-orchestration-and-deployment.md) | Triển khai 13 microservices trên K8s, Ingress NGINX SSL Wildcard, Zero-Trust NetworkPolicy và sổ tay kubectl. |
+| **13** | [**Động Cơ Định Giá & Ma Trận Cước Bưu Chính**](docs/13-pricing-engine-and-tariff-matrix.md) | Tính cước theo khối lượng thể tích IATA, ma trận cước 3 gói (ECO/STANDARD/EXPRESS) và phụ phí tự động. |
+| **14** | [**Trợ Lý Ảo GenAI & Cơ Chế Spring AI Tool Calling**](docs/14-spring-ai-agent-and-support-ticketing.md) | On-Premise LLM với Ollama (`qwen2.5:7b`), Spring AI Tool Calling tra cứu đơn/tính cước và vòng đời ticket khiếu nại. |
+| **15** | [**Đếm Ngược SLA RabbitMQ & Xử Lý Hủy Đơn Liên Dịch Vụ**](docs/15-rabbitmq-priority-queue-and-sla-dead-letter-patterns.md) | Polyglot Messaging, bộ đếm ngược SLA 120s bằng RabbitMQ TTL + DLX, hủy đơn liên dịch vụ qua OpenFeign. |
+| **16** | [**Lưu Trữ Đối Tượng MinIO & S3 Boilerplate**](docs/16-minio-object-storage-and-s3-boilerplate.md) | Lưu trữ chứng từ với MinIO S3 API, cơ chế tự tạo bucket (`MinioBucketSupport`), Presigned URLs và Distroless container. |
+| **17** | [**Cổng Thanh Toán VietQR & Đối Soát Tài Chính Tức Thời**](docs/17-vietqr-payment-gateway-and-realtime-reconciliation.md) | Cổng VietQR NAPAS 247 động, xác thực Webhook, Kafka event, thông báo chuông WebSocket và chống thanh toán đúp. |
+| **18** | [**Đánh Giá Bưu Phẩm 2 Tầng & Đối Soát KPI Bưu Tá Lũy Kế**](docs/18-shipment-rating-and-shipper-kpi.md) | Đánh giá 2 tầng (Dịch vụ & Bưu tá), xác thực số điện thoại, tính điểm KPI tự động qua Kafka và gợi ý mở ticket. |
+| **19** | [**Transactional Outbox & Saga Compensation**](docs/19-transactional-outbox-and-saga-compensation.md) | Xử lý Dual-Write với Outbox Pattern, Saga bù trừ hủy đơn, Redis Tombstone, gỡ kiện và giải phóng tải xe. |
+| **20** | [**Động Cơ ETA Động & Dự Báo Sản Lượng Giao Hàng**](docs/20-dynamic-eta-engine-and-delivery-forecast.md) | Ước tính ETA đa chặng theo Cut-off và vận tốc, dự báo sản lượng ngày mai từ 3 nguồn và cân đối tải bưu tá. |
+| **21** | [**Quản Trị Đội Xe Vận Tải & Tương Tác Bưu Tá Telegram Bot**](docs/21-fleet-vehicle-management-and-shipper-bot-actions.md) | Quản lý 3 phân khúc đội xe qua `/fleet`, Telegram Bot 2 chiều cho bưu tá cập nhật trạng thái đơn và nộp COD. |
+| **22** | [**Vận Hành GitOps Với ArgoCD & Giám Sát Toàn Diện**](docs/22-gitops-argocd-and-prometheus-grafana-monitoring.md) | Đồng bộ GitOps tự động với ArgoCD, giám sát Prometheus & 3 Grafana Dashboards (Nghiệp vụ, Hạ tầng, JVM). |
 
 ---
 
@@ -495,9 +486,14 @@ mini-waybill-platform/
 │   ├── 14-spring-ai-agent-and-support-ticketing.md
 │   ├── 15-rabbitmq-priority-queue-and-sla-dead-letter-patterns.md
 │   ├── 16-minio-object-storage-and-s3-boilerplate.md
-│   └── 17-vietqr-payment-gateway-and-realtime-reconciliation.md
+│   ├── 17-vietqr-payment-gateway-and-realtime-reconciliation.md
+│   ├── 18-shipment-rating-and-shipper-kpi.md
+│   ├── 19-transactional-outbox-and-saga-compensation.md
+│   ├── 20-dynamic-eta-engine-and-delivery-forecast.md
+│   ├── 21-fleet-vehicle-management-and-shipper-bot-actions.md
+│   └── 22-gitops-argocd-and-prometheus-grafana-monitoring.md
 │
-├── k8s/                       # Kubernetes manifests và overlay Minikube
+├── k8s/                       # Kubernetes manifests, ArgoCD GitOps & Prometheus/Grafana monitoring stack
 ├── scripts/                   # Script Minikube và đồng bộ dữ liệu DB
 ├── nginx/                     # Cấu hình Nginx Edge Load Balancer (nginx.conf)
 ├── api-gateway/               # Spring Cloud Gateway HA (Port 8080 & 8088)

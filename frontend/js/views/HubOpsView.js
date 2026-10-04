@@ -158,6 +158,7 @@
         emits: ['view-tracking'],
         setup(props, { emit }) {
             const currentSubtab = ref('scan');
+            const isDockCollapsed = ref(false);
             const isLoading = ref(false);
             const isActionRunning = ref(false);
             const inventorySource = ref('shipment-fallback');
@@ -1083,11 +1084,12 @@
                 handleStore,
                 handleReceiveAndStore,
                 viewTrackingDetail,
+                isDockCollapsed,
                 Utils
             };
         },
         template: `
-        <div class="space-y-3.5 pb-8 text-slate-800">
+        <div class="space-y-3.5 pb-8 text-slate-800 relative">
             <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                 <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
                 <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1137,39 +1139,68 @@
                 </div>
             </div>
 
-            <div class="flex items-center justify-between border-b border-slate-200">
-                <div class="flex space-x-4 sm:space-x-6 overflow-x-auto no-scrollbar pb-px">
+            <!-- Sub-Banner Action Bar: Compact Segmented Pill Bar -->
+            <div class="bg-white/95 backdrop-blur-md text-slate-700 rounded-2xl shadow-xs border border-slate-200/90 p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
+                <div class="bg-slate-100/90 p-1 rounded-xl border border-slate-200/70 inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
+                    <!-- Quét Tiếp Nhận Tab Button -->
                     <button
                         type="button"
                         @click="currentSubtab = 'scan'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all duration-200 border-b-2 whitespace-nowrap cursor-pointer',
-                            currentSubtab === 'scan' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800'
+                            'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                            currentSubtab === 'scan'
+                                ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
                         ]"
                     >
-                        QUÉT TIẾP NHẬN &amp; NHẬP KHO
+                        <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'scan' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                        </svg>
+                        <span class="truncate">Quét Tiếp Nhận</span>
+                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'scan' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
+                            {{ (kpiAwaitingIntake + kpiAwaitingStore) }}
+                        </span>
                     </button>
+
+                    <!-- Tồn Kho Hub Tab Button -->
                     <button
                         type="button"
                         @click="currentSubtab = 'inventory'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all duration-200 border-b-2 whitespace-nowrap cursor-pointer',
-                            currentSubtab === 'inventory' ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800'
+                            'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                            currentSubtab === 'inventory'
+                                ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
                         ]"
                     >
-                        QUẢN LÝ TỒN KHO HUB
+                        <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'inventory' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                        <span class="truncate">Tồn Kho Hub</span>
+                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'inventory' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
+                            {{ kpiTotalInHub }}
+                        </span>
                     </button>
                 </div>
-                <button
-                    type="button"
-                    @click="loadShipmentsData()"
-                    :disabled="isLoading"
-                    class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center space-x-1 border border-slate-200 shadow-xs cursor-pointer"
-                >
-                    <span v-if="isLoading" class="w-2.5 h-2.5 border-2 border-slate-600 border-t-transparent rounded-full animate-spin"></span>
-                    <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                    <span>Làm Mới</span>
-                </button>
+
+                <!-- Right Live Status & Mini Refresh Button -->
+                <div class="flex items-center space-x-2 shrink-0 px-1 py-0.5">
+                    <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/70">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>Thời gian thực</span>
+                    </span>
+                    <button
+                        type="button"
+                        @click="loadShipmentsData()"
+                        :disabled="isLoading"
+                        class="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 border border-slate-200/80 transition-all duration-200 active:scale-90 disabled:opacity-50 cursor-pointer shadow-2xs"
+                        title="Làm mới dữ liệu thời gian thực"
+                    >
+                        <svg class="w-3.5 h-3.5 transition-transform duration-300" :class="{ 'animate-spin text-emerald-600': isLoading }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <div v-if="isAdmin && selectedHub === 'ALL'" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 flex items-center justify-between gap-2">
@@ -1408,6 +1439,7 @@
                     </div>
                 </div>
             </div>
+        </div>
         </div>
         `
     };

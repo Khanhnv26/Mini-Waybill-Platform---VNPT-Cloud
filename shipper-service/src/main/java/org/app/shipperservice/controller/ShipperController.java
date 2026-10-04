@@ -7,6 +7,7 @@ import org.app.shipperservice.dto.request.LinkTelegramRequest;
 import org.app.shipperservice.dto.request.UpdateShipperRequest;
 import org.app.shipperservice.dto.response.ShipperLookupResponse;
 import org.app.shipperservice.dto.response.ShipperResponse;
+import org.app.shipperservice.dto.response.StationCapacityResponse;
 import org.app.shipperservice.service.ShipperService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,8 +29,10 @@ public class ShipperController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ShipperResponse>> getAllShippers() {
-        return ResponseEntity.ok(shipperService.getAllShippers());
+    public ResponseEntity<List<ShipperResponse>> getAllShippers(
+            @RequestParam(required = false) String stationCode,
+            @RequestParam(required = false) String shiftStatus) {
+        return ResponseEntity.ok(shipperService.getShippers(stationCode, shiftStatus));
     }
 
     @PutMapping("/{id}")
@@ -49,6 +52,23 @@ public class ShipperController {
         return ResponseEntity.ok(shipperService.findByCourierCode(courierCode));
     }
 
+    @GetMapping("/internal/by-chat/{telegramChatId}")
+    public ResponseEntity<ShipperLookupResponse> findByTelegramChatId(@PathVariable String telegramChatId) {
+        return ResponseEntity.ok(shipperService.findByTelegramChatId(telegramChatId));
+    }
+
+    @PatchMapping("/internal/{courierCode}/shift-status")
+    public ResponseEntity<ShipperResponse> updateShiftStatusByCourierCode(
+            @PathVariable String courierCode,
+            @RequestParam String shiftStatus) {
+        return ResponseEntity.ok(shipperService.updateShiftStatusByCourierCode(courierCode, shiftStatus));
+    }
+
+    @PostMapping("/internal/{courierCode}/toggle-shift")
+    public ResponseEntity<ShipperLookupResponse> toggleShiftStatus(@PathVariable String courierCode) {
+        return ResponseEntity.ok(shipperService.toggleShiftStatus(courierCode));
+    }
+
     @PostMapping("/internal/link-telegram")
     public ResponseEntity<Map<String, Object>> linkTelegram(@RequestBody LinkTelegramRequest linkTelegramRequest) {
         boolean success = shipperService.linkTelegramChatId(linkTelegramRequest.getCourierCode(), linkTelegramRequest.getTelegramChatId());
@@ -56,5 +76,15 @@ public class ShipperController {
                 "success", success,
                 "message", success ? "Liên kết Telegram thành công" : "Không tìm thấy mã bưu tá"
         ));
+    }
+
+    @GetMapping("/stations/{stationCode}/capacity")
+    public ResponseEntity<StationCapacityResponse> getStationCapacity(@PathVariable String stationCode) {
+        return ResponseEntity.ok(shipperService.getStationCapacity(stationCode));
+    }
+
+    @PatchMapping("/{shipperId}/shift-status")
+    public ResponseEntity<ShipperResponse> updateShiftStatus(@PathVariable Long shipperId, @RequestParam String shiftStatus) {
+        return ResponseEntity.ok(shipperService.updateShiftStatus(shipperId, shiftStatus));
     }
 }

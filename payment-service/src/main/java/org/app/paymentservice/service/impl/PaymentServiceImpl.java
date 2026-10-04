@@ -7,6 +7,7 @@ import org.app.paymentservice.dto.request.WebhookPayloadDto;
 import org.app.paymentservice.dto.response.PaymentResponse;
 import org.app.paymentservice.entity.*;
 import org.app.paymentservice.exception.InvalidWebhookException;
+import org.app.paymentservice.exception.PaymentException;
 import org.app.paymentservice.exception.PaymentNotFoundException;
 import org.app.paymentservice.repository.PaymentTransactionRepository;
 import org.app.paymentservice.repository.WebhookLogRepository;
@@ -44,6 +45,15 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentResponse createPayment(CreateQrRequest req) {
+        if (req == null || req.getTrackingCode() == null || req.getTrackingCode().isBlank()) {
+            throw new PaymentException("INVALID_REQUEST", "Mã vận đơn không được để trống!");
+        }
+
+        if (isShipmentCancelled(req.getTrackingCode())) {
+            log.warn("[PAYMENT] Từ chối tạo yêu cầu thanh toán cho đơn hàng đã hủy: {}", req.getTrackingCode());
+            throw new PaymentException("SHIPMENT_CANCELLED", "Đơn hàng " + req.getTrackingCode() + " đã bị hủy, không thể khởi tạo thanh toán cước phí hoặc COD!");
+        }
+
         PaymentType type = req.getPaymentType() != null ? req.getPaymentType() : PaymentType.COD;
 
         Optional<PaymentTransaction> successfulTx = paymentRepo.findByTrackingCodeOrderByCreatedAtDesc(req.getTrackingCode())
@@ -156,6 +166,13 @@ public class PaymentServiceImpl implements PaymentService {
             throw new InvalidWebhookException("Không thể trích xuất mã vận đơn từ nội dung chuyển khoản: " + rawContent);
         }
 
+        if (isShipmentCancelled(trackingCode)) {
+            webhookLog.setErrorMessage("Đơn hàng " + trackingCode + " đã bị hủy, từ chối ghi nhận thanh toán");
+            webhookLogRepo.save(webhookLog);
+            log.warn("[PAYMENT-WEBHOOK] Vận đơn {} đã bị hủy trước đó. Từ chối xử lý biến động số dư và ghi log.", trackingCode);
+            return false;
+        }
+
         Optional<PaymentTransaction> pendingTxOpt = paymentRepo
                 .findFirstByTrackingCodeAndStatusOrderByCreatedAtDesc(trackingCode, PaymentStatus.PENDING);
 
@@ -208,6 +225,11 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentResponse mockPay(String trackingCode) {
+        if (isShipmentCancelled(trackingCode)) {
+            log.warn("[PAYMENT-MOCK] Từ chối giả lập thanh toán cho đơn hàng đã hủy: {}", trackingCode);
+            throw new PaymentException("SHIPMENT_CANCELLED", "Đơn hàng " + trackingCode + " đã bị hủy, không thể thực hiện thanh toán!");
+        }
+
         PaymentResponse latest = getLatestByTrackingCode(trackingCode);
         BigDecimal amount = (latest != null && latest.getAmount() != null) ? latest.getAmount() : BigDecimal.valueOf(35000);
         String prefix = (latest != null && latest.getPaymentType() == PaymentType.COD) ? "COD " : "CUOC ";
@@ -221,6 +243,25 @@ public class PaymentServiceImpl implements PaymentService {
 
         processWebhook(mockDto);
         return getLatestByTrackingCode(trackingCode);
+    }
+
+    private boolean isShipmentCancelled(String trackingCode) {
+        if (trackingCode == null || trackingCode.isBlank()) {
+            return false;
+        }
+        String cleanCode = trackingCode.trim().toUpperCase();
+        try {
+            if (Boolean.TRUE.equals(redisTemplate.hasKey("shipment-cancelled:" + cleanCode))) {
+                return true;
+            }
+            String status = redisTemplate.opsForValue().get("shipment-status:" + cleanCode);
+            if ("CANCELLED".equalsIgnoreCase(status)) {
+                return true;
+            }
+        } catch (Exception e) {
+            log.warn("[PAYMENT] Không thể kiểm tra trạng thái hủy từ Redis cho mã {}: {}", cleanCode, e.getMessage());
+        }
+        return false;
     }
 
     private String extractTrackingCode(String content) {

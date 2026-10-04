@@ -3,7 +3,7 @@
 
     const PostOfficeOpsView = {
         name: 'PostOfficeOpsView',
-        emits: ['view-tracking'],
+        emits: ['view-tracking', 'switch-tab'],
         setup(props, { emit }) {
             const currentSubtab = ref('outbound');
             const isLoading = ref(false);
@@ -749,6 +749,61 @@
                 scopedShipments.value.filter(s => isInventoryShipment(s) && getInventoryBucket(s) === 'WAITING_HANDOFF').length
             );
 
+            const stationForecast = ref(null);
+            const isForecastLoading = ref(false);
+            const isDispatchingTelegram = ref(false);
+            const telegramDispatchAlert = ref(null);
+
+            const effectiveForecastStation = computed(() => {
+                if (selectedPostOffice.value && selectedPostOffice.value !== 'ALL') {
+                    return selectedPostOffice.value;
+                }
+                return stationCode.value || 'POST-HN-CG';
+            });
+
+            const loadStationForecast = async () => {
+                const targetStation = effectiveForecastStation.value;
+                if (!targetStation) return;
+                isForecastLoading.value = true;
+                telegramDispatchAlert.value = null;
+                try {
+                    const data = await RoutingService.getStationForecast(targetStation);
+                    stationForecast.value = data;
+                } catch (err) {
+                    console.warn('[PostOfficeOpsView] Lỗi tải số liệu dự báo ca mai:', err);
+                } finally {
+                    isForecastLoading.value = false;
+                }
+            };
+
+            const dispatchTelegramAlert = async () => {
+                const targetStation = effectiveForecastStation.value;
+                if (!targetStation) return;
+                isDispatchingTelegram.value = true;
+                telegramDispatchAlert.value = null;
+                try {
+                    const result = await RoutingService.dispatchStationTelegramForecast(targetStation);
+                    telegramDispatchAlert.value = {
+                        type: 'success',
+                        message: `Đã phát thông báo Telegram thành công tới ${result.successfullyDispatched}/${result.totalShippersTargeted} bưu tá trực ca mai! (${result.skippedNoTelegram} bưu tá chưa gắn Telegram)`
+                    };
+                } catch (err) {
+                    telegramDispatchAlert.value = {
+                        type: 'error',
+                        message: err.message || 'Lỗi khi gửi thông báo Telegram cho bưu tá'
+                    };
+                } finally {
+                    isDispatchingTelegram.value = false;
+                }
+            };
+
+            const isForecastExpanded = ref(true);
+            const forecastTotalCount = computed(() => stationForecast.value?.summary?.totalForecastOrders || 0);
+            const forecastSummary = computed(() => stationForecast.value?.summary || {});
+            const forecastCapacity = computed(() => stationForecast.value?.capacity || {});
+            const forecastShippers = computed(() => stationForecast.value?.shipperAllocations || []);
+            const forecastZones = computed(() => stationForecast.value?.zoneBreakdown || []);
+
             const currentSubtabCount = computed(() => {
                 if (currentSubtab.value === 'outbound') return outboundCount.value;
                 if (currentSubtab.value === 'inbound') return inboundCount.value;
@@ -1049,13 +1104,17 @@
                 currentPage.value = 1;
                 clearPostOfficeSelection();
                 selectedCodSettlementCodes.value = [];
+                loadStationForecast();
             });
 
-            watch(currentSubtab, () => {
+            watch(currentSubtab, (tab) => {
                 selectedStatusFilter.value = 'ALL';
                 currentPage.value = 1;
                 clearPostOfficeSelection();
                 selectedCodSettlementCodes.value = [];
+                if (tab === 'inbound') {
+                    loadStationForecast();
+                }
             });
 
             watch([selectedStatusFilter, searchQuery, pageSize], () => {
@@ -1577,8 +1636,23 @@
                 loadShippers(true);
             });
 
+            const isDockCollapsed = ref(false);
+
             return {
                 currentSubtab,
+                isForecastExpanded,
+                stationForecast,
+                isForecastLoading,
+                isDispatchingTelegram,
+                telegramDispatchAlert,
+                effectiveForecastStation,
+                loadStationForecast,
+                dispatchTelegramAlert,
+                forecastTotalCount,
+                forecastSummary,
+                forecastCapacity,
+                forecastShippers,
+                forecastZones,
                 isLoading,
                 isActionRunning,
                 shipmentsList,
@@ -1674,6 +1748,7 @@
                 openAllPendingCodConfirmModal,
                 executeConfirmCodSettlement,
                 getCodSettlementVisuals,
+                isDockCollapsed,
                 Utils
             };
         },
@@ -1722,77 +1797,110 @@
                     </div>
                 </div>
             </div>
-            <div class="flex items-center justify-between border-b border-slate-200">
-                <div class="flex space-x-4 sm:space-x-6 overflow-x-auto no-scrollbar pb-px flex-1 min-w-0 mr-3">
-                    <button 
+
+            <div class="bg-white/95 backdrop-blur-md text-slate-700 rounded-2xl shadow-xs border border-slate-200/90 p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
+                <div class="bg-slate-100/90 p-1 rounded-xl border border-slate-200/70 inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
+                    <button
+                        type="button"
                         @click="currentSubtab = 'outbound'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all duration-200 border-b-2 flex items-center space-x-2 whitespace-nowrap cursor-pointer',
-                            currentSubtab === 'outbound' 
-                                ? 'border-blue-600 text-blue-600' 
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                            'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                            currentSubtab === 'outbound'
+                                ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
                         ]"
                     >
-                        <span>KHAI THÁC ĐI (CHẤP NHẬN GỬI)</span>
-                        <span :class="[currentSubtab === 'outbound' ? 'bg-blue-100 text-blue-700 font-bold scale-105 shadow-xs' : 'bg-slate-100 text-slate-600', 'px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all duration-200 inline-block']">
+                        <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'outbound' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        </svg>
+                        <span class="truncate">Khai Thác Đi</span>
+                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'outbound' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
                             {{ outboundCount }}
                         </span>
                     </button>
 
-                    <button 
+                    <button
+                        type="button"
                         @click="currentSubtab = 'inbound'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all duration-200 border-b-2 flex items-center space-x-2 whitespace-nowrap cursor-pointer',
-                            currentSubtab === 'inbound' 
-                                ? 'border-blue-600 text-blue-600' 
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                            'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                            currentSubtab === 'inbound'
+                                ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
                         ]"
                     >
-                        <span>KHAI THÁC ĐẾN &amp; BÀN GIAO PHÁT</span>
-                        <span :class="[currentSubtab === 'inbound' ? 'bg-blue-100 text-blue-700 font-bold scale-105 shadow-xs' : 'bg-slate-100 text-slate-600', 'px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all duration-200 inline-block']">
+                        <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'inbound' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                        </svg>
+                        <span class="truncate">Khai Thác Đến</span>
+                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'inbound' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
                             {{ inboundCount }}
                         </span>
                     </button>
 
-                    <button 
+                    <button
+                        type="button"
                         @click="currentSubtab = 'inventory'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all duration-200 border-b-2 flex items-center space-x-2 whitespace-nowrap cursor-pointer',
-                            currentSubtab === 'inventory' 
-                                ? 'border-blue-600 text-blue-600' 
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                            'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                            currentSubtab === 'inventory'
+                                ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
                         ]"
                     >
-                        <span>KIỂM KÊ TỒN BƯU CỤC</span>
-                        <span :class="[currentSubtab === 'inventory' ? 'bg-blue-100 text-blue-700 font-bold scale-105 shadow-xs' : 'bg-slate-100 text-slate-600', 'px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all duration-200 inline-block']">
+                        <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'inventory' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                        <span class="truncate">Tồn Bưu Cục</span>
+                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'inventory' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
                             {{ inventoryCount }}
                         </span>
                     </button>
 
-                    <button 
+                    <button
+                        type="button"
                         @click="currentSubtab = 'cod-settlement'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all duration-200 border-b-2 flex items-center space-x-2 whitespace-nowrap cursor-pointer',
-                            currentSubtab === 'cod-settlement' 
-                                ? 'border-blue-600 text-blue-600' 
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                            'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                            currentSubtab === 'cod-settlement'
+                                ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
                         ]"
                     >
-                        <span>QUẢN LÝ QUỸ &amp; ĐỐI SOÁT COD</span>
-                        <span :class="[currentSubtab === 'cod-settlement' ? 'bg-blue-100 text-blue-700 font-bold scale-105 shadow-xs' : 'bg-slate-100 text-slate-600', 'px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all duration-200 inline-block']">
+                        <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'cod-settlement' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span class="truncate">Đối Soát COD</span>
+                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'cod-settlement' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
                             {{ codSettlementPendingCount }}
                         </span>
                     </button>
                 </div>
 
-                <button 
-                    @click="loadShipmentsData()" 
-                    :disabled="isLoading"
-                    class="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-lg bg-white hover:bg-slate-50 text-slate-700 transition flex items-center space-x-1 border border-slate-200 shadow-xs cursor-pointer"
-                >
-                    <span v-if="isLoading" class="w-2.5 h-2.5 border-2 border-slate-600 border-t-transparent rounded-full animate-spin"></span>
-                    <span>Làm Mới</span>
-                </button>
+                <div class="flex items-center space-x-2 shrink-0 px-1 py-0.5">
+                    <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/70">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>Thời gian thực</span>
+                    </span>
+                    <button
+                        type="button"
+                        @click="loadShipmentsData()"
+                        :disabled="isLoading"
+                        class="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 border border-slate-200/80 transition-all duration-200 active:scale-90 disabled:opacity-50 cursor-pointer shadow-2xs"
+                        title="Làm mới dữ liệu thời gian thực"
+                    >
+                        <svg
+                            class="w-3.5 h-3.5 transition-transform duration-300"
+                            :class="{ 'animate-spin text-emerald-600': isLoading }"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            viewBox="0 0 24 24"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <div
@@ -2234,7 +2342,7 @@
                     </div>
                 </div>
                 <div v-else :key="currentSubtab" class="space-y-3">
-                <div v-if="selectedPostOfficeItems.length" class="selection-summary-bar px-3 py-2 rounded-lg bg-slate-100 border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div v-if="selectedPostOfficeItems.length" class="selection-summary-bar px-3 py-2 rounded-lg bg-slate-100 border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                     <div>
                         <strong>{{ selectedPostOfficeItems.length }} kiện đã chọn</strong>
                         <span class="text-slate-500 ml-1">({{ selectedPostOfficeWeight.toFixed(1) }} kg)</span>

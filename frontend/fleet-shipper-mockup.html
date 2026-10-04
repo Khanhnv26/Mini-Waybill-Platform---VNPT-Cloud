@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full bg-[#f8fafc]">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VNPT Waybill Platform - Quản Lý Đội Xe & Ca Trực Bưu Tá</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; width: 100%; overflow: hidden; }
+        body {
+            background-color: #f8fafc;
+            color: #0f172a;
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 13px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+        .font-mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important; }
+
+        .vnpt-gradient {
+            background: linear-gradient(135deg, #005baa 0%, #0077d8 50%, #003e7e 100%) !important;
+            color: #ffffff;
+        }
+        .vnpt-hero-pattern {
+            background-image: radial-gradient(rgba(255, 255, 255, 0.15) 1.5px, transparent 1.5px);
+            background-size: 16px 16px;
+        }
+
+        .app-root { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+        .app-sidebar {
+            width: 260px;
+            background: #ffffff;
+            border-right: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            flex-shrink: 0;
+            z-index: 40;
+        }
+        
+        .main-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+        .app-topbar {
+            height: 58px;
+            background: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1.5rem;
+            flex-shrink: 0;
+            z-index: 30;
+        }
+        .app-viewport {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.25rem 1.5rem 3rem 1.5rem;
+            background: #f8fafc;
+        }
+
+        .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.62rem 0.85rem;
+            border-radius: 0.65rem;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            border: 1px solid transparent;
+            width: 100%;
+            background: transparent;
+            text-align: left;
+        }
+        .nav-btn:hover { background-color: #f1f5f9; color: #0f172a; }
+        .nav-btn.active {
+            background-color: #eff6ff;
+            color: #005baa;
+            font-weight: 700;
+            border-color: #bfdbfe;
+        }
+
+        .tab-btn {
+            padding: 0.48rem 0.95rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            border-radius: 0.5rem;
+            transition: all 0.15s ease;
+            cursor: pointer;
+            border: 1px solid transparent;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .tab-btn.active {
+            background-color: #005baa;
+            color: #ffffff;
+            box-shadow: 0 1px 3px rgba(0, 91, 170, 0.25);
+        }
+        .tab-btn:not(.active) {
+            background-color: #ffffff;
+            color: #475569;
+            border-color: #e2e8f0;
+        }
+        .tab-btn:not(.active):hover {
+            background-color: #f8fafc;
+            color: #0f172a;
+        }
+
+        .b2b-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+            transition: all 0.2s ease-in-out;
+        }
+        .b2b-card:hover {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-[#f8fafc]">
+
+<div class="app-root" id="app">
+    <!-- LEFT SIDEBAR -->
+    <aside class="app-sidebar">
+        <div>
+            <!-- BRAND LOGO -->
+            <div class="h-14 px-5 flex items-center gap-3 border-b border-slate-200">
+                <div class="w-8 h-8 rounded-lg bg-blue-700 flex items-center justify-center text-white shadow-sm font-bold text-base tracking-tight">
+                    V
+                </div>
+                <div>
+                    <div class="font-extrabold text-blue-900 leading-tight text-sm tracking-tight">VNPT POST</div>
+                    <div class="text-[10px] text-slate-500 font-semibold tracking-wider uppercase">Logistics Core B2B</div>
+                </div>
+            </div>
+
+            <!-- NAVIGATION ITEMS -->
+            <div class="p-3 space-y-1">
+                <div class="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hạ Tầng &amp; Vận Hành</div>
+                
+                <button class="nav-btn" onclick="alert('Module Tra Cứu Toàn Trình')">
+                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    <span>Tra Cứu Vận Đơn</span>
+                </button>
+
+                <button class="nav-btn" onclick="alert('Module Quản Lý Vận Đơn')">
+                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                    <span>Quản Lý Bưu Gửi</span>
+                </button>
+
+                <button class="nav-btn active">
+                    <svg class="w-4 h-4 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    <span>Đội Xe &amp; Ca Trực</span>
+                    <span class="ml-auto px-1.5 py-0.2 bg-blue-100 text-blue-800 text-[9.5px] font-bold rounded">Live</span>
+                </button>
+
+                <button class="nav-btn" onclick="alert('Module Điều Phối Chuyến Xe')">
+                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"></path></svg>
+                    <span>Điều Phối Chuyến Xe</span>
+                </button>
+
+                <button class="nav-btn" onclick="alert('Module Mạng Lưới Siêu HUB')">
+                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                    <span>Mạng Lưới HUB &amp; Kho</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="p-3 border-t border-slate-200">
+            <div class="flex items-center gap-2.5 p-2 bg-slate-50 rounded-xl border border-slate-200/80">
+                <div class="w-8 h-8 rounded-lg bg-blue-700 text-white font-bold flex items-center justify-center text-xs">
+                    ĐP
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-bold text-slate-800 text-xs truncate">Trung Tâm Điều Phối</div>
+                    <div class="text-[10px] text-slate-500 truncate">Hệ Thống Bưu Chính Quốc Gia</div>
+                </div>
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTAINER -->
+    <div class="main-container">
+        <!-- TOPBAR -->
+        <header class="app-topbar">
+            <div class="flex items-center gap-3">
+                <h1 class="text-sm font-extrabold text-slate-800 uppercase tracking-tight flex items-center gap-2">
+                    <svg class="w-4 h-4 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"></path></svg>
+                    Quản Trị Thực Tế Phương Tiện &amp; Ca Trực Bưu Tá
+                </h1>
+                <span class="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold border border-blue-200">
+                    Routing &amp; Shipper Services
+                </span>
+            </div>
+
+            <!-- TABS CONTROLLER -->
+            <div class="flex items-center gap-2">
+                <button id="tabBtnVehicles" class="tab-btn active" onclick="switchSubTab('vehicles')">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"></path></svg>
+                    <span>1. Quản Lý Đội Xe</span>
+                </button>
+                <button id="tabBtnShippers" class="tab-btn" onclick="switchSubTab('shippers')">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    <span>2. Ca Trực &amp; Năng Lực Bưu Tá</span>
+                </button>
+                <button id="tabBtnIntegration" class="tab-btn" onclick="switchSubTab('integration')">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    <span>3. Điều Phối Chuyến Xe (Demo)</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- VIEWPORT CONTENT -->
+        <main class="app-viewport">
+
+            <!-- ========================================== -->
+            <!-- SUB-TAB 1: QUẢN LÝ ĐỘI XE THỰC TẾ (FLEET) -->
+            <!-- ========================================== -->
+            <div id="sectionVehicles" class="space-y-3.5">
+                
+                <!-- TOP BANNER KPI -->
+                <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-sm relative overflow-hidden">
+                    <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
+
+                    <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
+                                    Fleet Operations
+                                </span>
+                                <span class="text-blue-100 text-xs font-medium">Trung Tâm Quản Lý Phương Tiện Vận Tải</span>
+                            </div>
+                            <h2 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
+                                Giám Sát Đội Xe Thực Tế Tại Các HUB &amp; Bưu Cục
+                            </h2>
+                            <p class="text-xs text-blue-100/90 mt-0.5 leading-normal max-w-2xl">
+                                Quản lý tập trung toàn bộ phương tiện vận tải đường trục và xe gom Feeder. Tự động liên kết trực tiếp với thuật toán tính thời gian giao hàng (ETA), tự động kích hoạt cảnh báo dời ETA (+12h) khi HUB xuất phát hết xe sẵn sàng.
+                            </p>
+                        </div>
+
+                        <!-- KPI CARDS ON BANNER -->
+                        <div class="flex items-center space-x-2 self-start md:self-auto flex-wrap sm:flex-nowrap gap-y-2">
+                            <div class="px-3 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[78px]">
+                                <div class="text-base font-extrabold leading-tight text-white font-mono" id="bannerTotalVehicles">24</div>
+                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Tổng Xe</div>
+                            </div>
+                            <div class="px-3 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[78px]">
+                                <div class="text-base font-extrabold leading-tight text-emerald-300 font-mono" id="bannerAvailableVehicles">16</div>
+                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Sẵn Sàng</div>
+                            </div>
+                            <div class="px-3 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[78px]">
+                                <div class="text-base font-extrabold leading-tight text-sky-200 font-mono" id="bannerOnTripVehicles">6</div>
+                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Chạy Tuyến</div>
+                            </div>
+                            <div class="px-3 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[78px]">
+                                <div class="text-base font-extrabold leading-tight text-amber-300 font-mono" id="bannerMaintenanceVehicles">2</div>
+                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Bảo Dưỡng</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FILTER BAR CARD -->
+                <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div class="flex flex-wrap items-center gap-2 flex-1">
+                        <div class="relative w-full sm:w-64">
+                            <input id="vehicleSearchInput" oninput="filterVehicles()" type="text" placeholder="Tìm biển số, tài xế, dòng xe..." 
+                                   class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:bg-white focus:border-blue-600 outline-none transition" />
+                            <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+
+                        <select id="vehicleStationFilter" onchange="filterVehicles()" class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white outline-none cursor-pointer">
+                            <option value="ALL">Tất cả HUB / Bưu cục</option>
+                            <option value="HUB-HN-01">Siêu HUB Hà Nội (HUB-HN-01)</option>
+                            <option value="HUB-DN-01">Siêu HUB Đà Nẵng (HUB-DN-01)</option>
+                            <option value="HUB-HCM-01">Siêu HUB TP.HCM (HUB-HCM-01)</option>
+                            <option value="HUB-HP-01">HUB Hải Phòng (HUB-HP-01)</option>
+                            <option value="HUB-CT-01">HUB Cần Thơ (HUB-CT-01)</option>
+                        </select>
+
+                        <select id="vehicleStatusFilter" onchange="filterVehicles()" class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white outline-none cursor-pointer">
+                            <option value="ALL">Tất cả trạng thái</option>
+                            <option value="AVAILABLE">AVAILABLE - Sẵn sàng xuất bến</option>
+                            <option value="ON_TRIP">ON_TRIP - Đang chạy tuyến</option>
+                            <option value="MAINTENANCE">MAINTENANCE - Bảo dưỡng</option>
+                        </select>
+
+                        <select id="vehicleTypeFilter" onchange="filterVehicles()" class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white outline-none cursor-pointer">
+                            <option value="ALL">Tất cả phân loại xe</option>
+                            <option value="TRUCK_1_5T">Tải 1.5T (Gom hàng nội đô)</option>
+                            <option value="TRUCK_2_5T">Tải 2.5T (Trung chuyển)</option>
+                            <option value="TRUCK_5T">Tải 5.0T (Liên tỉnh)</option>
+                            <option value="CONTAINER">Container 15.0T (Đường trục Bắc - Nam)</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button onclick="openAddVehicleModal()" class="px-3 py-1.5 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-lg text-xs transition shadow-xs flex items-center gap-1.5 cursor-pointer">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            <span>Thêm Xe Mới</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- VEHICLES TABLE CARD -->
+                <div class="b2b-card bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                                    <th class="py-2.5 px-3.5">Biển Kiểm Soát</th>
+                                    <th class="py-2.5 px-3.5">Dòng Xe &amp; Phân Loại</th>
+                                    <th class="py-2.5 px-3.5">Tải Trọng Tối Đa</th>
+                                    <th class="py-2.5 px-3.5">Trạm Đỗ Hiện Tại</th>
+                                    <th class="py-2.5 px-3.5">Tài Xế Phụ Trách</th>
+                                    <th class="py-2.5 px-3.5 text-center">Tình Trạng Xe</th>
+                                    <th class="py-2.5 px-3.5 text-right">Tác Vụ Kỹ Thuật</th>
+                                </tr>
+                            </thead>
+                            <tbody id="vehicleTableBody" class="divide-y divide-slate-100 text-xs">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ======================================================== -->
+            <!-- SUB-TAB 2: QUẢN LÝ CA TRỰC & NĂNG LỰC BƯU TÁ (SHIPPERS) -->
+            <!-- ======================================================== -->
+            <div id="sectionShippers" class="space-y-3.5 hidden">
+                
+                <!-- TOP BANNER CAPACITY -->
+                <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-sm relative overflow-hidden">
+                    <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
+
+                    <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
+                                    Shipper Shift &amp; Capacity Engine
+                                </span>
+                                <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
+                            </div>
+                            <h2 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
+                                Quản Lý Ca Trực &amp; Năng Lực Phát Hàng Bưu Tá
+                            </h2>
+                            <p class="text-xs text-blue-100/90 mt-0.5 leading-normal max-w-2xl">
+                                Kiểm soát trực tiếp trạng thái ca làm việc (Bật ca / Nghỉ ca) và giám sát tải trọng đơn hàng thực tế của bưu tá. Tự động đồng bộ với động cơ ETA nhằm cảnh báo quá tải trạm phát.
+                            </p>
+                        </div>
+
+                        <!-- KPI CARDS ON BANNER -->
+                        <div class="flex items-center space-x-2 self-start md:self-auto flex-wrap sm:flex-nowrap gap-y-2">
+                            <div class="px-3 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[78px]">
+                                <div class="text-base font-extrabold leading-tight text-white font-mono" id="bannerTotalShippers">18</div>
+                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Tổng Bưu Tá</div>
+                            </div>
+                            <div class="px-3 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[78px]">
+                                <div class="text-base font-extrabold leading-tight text-emerald-300 font-mono" id="bannerOnDutyShippers">14</div>
+                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Đang Bật Ca</div>
+                            </div>
+                            <div class="px-3 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[78px]">
+                                <div class="text-base font-extrabold leading-tight text-slate-300 font-mono" id="bannerOffDutyShippers">4</div>
+                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Nghỉ Ca</div>
+                            </div>
+                            <div class="px-3 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[78px]">
+                                <div class="text-base font-extrabold leading-tight text-sky-200 font-mono" id="bannerStationLoadRate">72%</div>
+                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Tải Trạm</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FILTER BAR CARD -->
+                <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div class="flex flex-wrap items-center gap-2 flex-1">
+                        <div class="relative w-full sm:w-64">
+                            <input id="shipperSearchInput" oninput="filterShippers()" type="text" placeholder="Tìm tên bưu tá, mã bưu tá, SĐT..." 
+                                   class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:bg-white focus:border-blue-600 outline-none transition" />
+                            <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+
+                        <select id="shipperStationFilter" onchange="filterShippers()" class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white outline-none cursor-pointer">
+                            <option value="ALL">Tất cả bưu cục / trạm phát</option>
+                            <option value="POST-HN-CG">Bưu cục Cầu Giấy (POST-HN-CG)</option>
+                            <option value="POST-HN-DDA">Bưu cục Đống Đa (POST-HN-DDA)</option>
+                            <option value="POST-HN-HBT">Bưu cục Hai Bà Trưng (POST-HN-HBT)</option>
+                            <option value="POST-DN-HC">Bưu cục Hải Châu (POST-DN-HC)</option>
+                            <option value="POST-HCM-Q1">Bưu cục Quận 1 (POST-HCM-Q1)</option>
+                            <option value="POST-HCM-TB">Bưu cục Tân Bình (POST-HCM-TB)</option>
+                        </select>
+
+                        <select id="shipperShiftFilter" onchange="filterShippers()" class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white outline-none cursor-pointer">
+                            <option value="ALL">Tất cả ca trực</option>
+                            <option value="ON_DUTY">Đang bật ca (ON_DUTY)</option>
+                            <option value="OFF_DUTY">Đang nghỉ ca (OFF_DUTY)</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button onclick="toggleAllShippersShift()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs transition border border-slate-200 flex items-center gap-1.5 cursor-pointer">
+                            <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            <span>Chuyển Ca Nhanh</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SHIPPERS TABLE CARD -->
+                <div class="b2b-card bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                                    <th class="py-2.5 px-3.5">Mã &amp; Họ Tên Bưu Tá</th>
+                                    <th class="py-2.5 px-3.5">Bưu Cục Tuyến Phát</th>
+                                    <th class="py-2.5 px-3.5 text-center">Trạng Thái Ca Trực</th>
+                                    <th class="py-2.5 px-3.5">Tải Đơn Thực Tế Trong Ca</th>
+                                    <th class="py-2.5 px-3.5 text-center">Đánh Giá (Sao)</th>
+                                    <th class="py-2.5 px-3.5 text-center">Telegram Bot</th>
+                                    <th class="py-2.5 px-3.5 text-right">Điều Phối Ca Trực</th>
+                                </tr>
+                            </thead>
+                            <tbody id="shipperTableBody" class="divide-y divide-slate-100 text-xs">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ============================================================== -->
+            <!-- SUB-TAB 3: MINH HỌA LẬP CHUYẾN TỰ ĐỘNG CHỌN XE THỰC TẾ (DEMO) -->
+            <!-- ============================================================== -->
+            <div id="sectionIntegration" class="space-y-3.5 hidden">
+                <div class="b2b-card bg-white border border-slate-200 rounded-xl p-5 shadow-xs max-w-4xl mx-auto space-y-4">
+                    <div class="border-b border-slate-200 pb-3">
+                        <div class="text-[11px] font-bold text-blue-700 uppercase tracking-wider">Tích Hợp Điều Phối Vận Tải</div>
+                        <h2 class="text-base font-extrabold text-slate-900 mt-0.5">Khởi Tạo Chuyến Xe - Tự Động Chọn Xe Sẵn Sàng Tại Bãi</h2>
+                        <p class="text-xs text-slate-500 mt-1">
+                            Hệ thống tự động liên kết danh sách phương tiện thực tế. Khi chọn Hub xuất phát, dropdown chỉ hiển thị các xe có trạng thái <b class="text-emerald-700">AVAILABLE</b> tại bãi đó kèm thông số tải trọng và tài xế chính.
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Mã Lệnh Điều Phối Chuyến</label>
+                            <input type="text" value="TRIP-HN-HCM-20261002-01" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800" readonly />
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Hub Xuất Phát (Origin Hub)</label>
+                            <select id="demoOriginHub" onchange="updateDemoVehicleSelect()" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-800 focus:border-blue-600 outline-none">
+                                <option value="HUB-HN-01">Siêu HUB Hà Nội (HUB-HN-01)</option>
+                                <option value="HUB-DN-01">Siêu HUB Đà Nẵng (HUB-DN-01)</option>
+                                <option value="HUB-HCM-01">Siêu HUB TP.HCM (HUB-HCM-01)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Hub Đích Đến (Destination Hub)</label>
+                            <select class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-800 focus:border-blue-600 outline-none">
+                                <option value="HUB-HCM-01">Siêu HUB TP.HCM (HUB-HCM-01)</option>
+                                <option value="HUB-DN-01">Siêu HUB Đà Nẵng (HUB-DN-01)</option>
+                                <option value="HUB-HN-01">Siêu HUB Hà Nội (HUB-HN-01)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+                                <span>Chọn Xe Khả Dụng Từ Bãi (Auto-Filter)</span>
+                                <span class="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">AVAILABLE Only</span>
+                            </label>
+                            <select id="demoVehicleSelect" onchange="updateDemoVehicleDetails()" class="w-full px-3 py-2 bg-emerald-50/50 border border-emerald-300 rounded-lg text-xs font-bold text-slate-800 focus:border-emerald-600 outline-none">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- SELECTED VEHICLE LIVE SPECS CARD -->
+                    <div id="demoVehicleDetailBox" class="bg-blue-50/70 border border-blue-200 rounded-xl p-3.5 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="font-mono font-bold text-blue-900 text-sm" id="demoDetailPlate">29H-882.11</span>
+                                <span class="text-xs text-blue-700 font-medium" id="demoDetailModel">Hyundai Mighty 2.5T</span>
+                            </div>
+                            <span class="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                Sẵn sàng xuất bến
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 text-[11px] text-slate-600 border-t border-blue-200/70 pt-2">
+                            <div>Tải trọng thiết kế: <b class="font-mono text-slate-800" id="demoDetailCapacity">2,500 kg</b></div>
+                            <div>Tài xế phân công: <b class="text-slate-800" id="demoDetailDriver">Nguyễn Văn Toàn</b></div>
+                            <div>SĐT liên hệ: <b class="font-mono text-slate-800" id="demoDetailPhone">0912.111.222</b></div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
+                        <button onclick="confirmDemoTripCreation()" class="py-2 px-5 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-lg text-xs transition shadow-sm cursor-pointer">
+                            Khởi Tạo Chuyến Xe Ngay
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<script>
+    let vehiclesData = [
+        { id: 1, plate: '29H-882.11', model: 'Hyundai Mighty 2.5T', type: 'TRUCK_2_5T', capacity: 2500, hub: 'HUB-HN-01', status: 'AVAILABLE', driver: 'Nguyễn Văn Toàn', phone: '0912.111.222' },
+        { id: 2, plate: '29C-551.40', model: 'Isuzu Forward 5.0T', type: 'TRUCK_5T', capacity: 5000, hub: 'HUB-HN-01', status: 'AVAILABLE', driver: 'Trần Văn Long', phone: '0912.333.444' },
+        { id: 3, plate: '29D-123.88', model: 'Kia K250 1.5T', type: 'TRUCK_1_5T', capacity: 1500, hub: 'HUB-HN-01', status: 'MAINTENANCE', driver: 'Lê Văn Tâm', phone: '0912.555.666' },
+        { id: 4, plate: '29C-991.02', model: 'Hyundai Mighty 2.5T', type: 'TRUCK_2_5T', capacity: 2500, hub: 'HUB-HN-01', status: 'ON_TRIP', driver: 'Phạm Minh Tuấn', phone: '0912.777.888' },
+        { id: 5, plate: '43C-772.19', model: 'Hino 300 3.5T', type: 'TRUCK_2_5T', capacity: 3500, hub: 'HUB-DN-01', status: 'AVAILABLE', driver: 'Hoàng Văn Nam', phone: '0913.666.777' },
+        { id: 6, plate: '43D-441.22', model: 'Isuzu Forward 5.0T', type: 'TRUCK_5T', capacity: 5000, hub: 'HUB-DN-01', status: 'AVAILABLE', driver: 'Đỗ Hùng Dũng', phone: '0913.888.999' },
+        { id: 7, plate: '51D-998.01', model: 'Isuzu Giga 15T', type: 'CONTAINER', capacity: 15000, hub: 'HUB-HCM-01', status: 'AVAILABLE', driver: 'Phạm Văn Hùng', phone: '0918.888.999' },
+        { id: 8, plate: '51C-663.22', model: 'Hyundai Mighty 2.5T', type: 'TRUCK_2_5T', capacity: 2500, hub: 'HUB-HCM-01', status: 'ON_TRIP', driver: 'Đặng Văn Bình', phone: '0918.999.000' },
+        { id: 9, plate: '51C-334.55', model: 'Kia K250 1.5T', type: 'TRUCK_1_5T', capacity: 1500, hub: 'HUB-HCM-01', status: 'MAINTENANCE', driver: 'Võ Minh Trí', phone: '0918.111.222' }
+    ];
+
+    let shippersData = [
+        { id: 101, code: 'CP-HN-001', name: 'Nguyễn Văn Phát', phone: '0981.234.567', station: 'POST-HN-CG', shift: 'ON_DUTY', currentOrders: 28, maxOrders: 40, rating: 4.9, telegram: true },
+        { id: 102, code: 'CP-HN-002', name: 'Trần Đình Trọng', phone: '0981.345.678', station: 'POST-HN-CG', shift: 'ON_DUTY', currentOrders: 36, maxOrders: 40, rating: 4.8, telegram: true },
+        { id: 103, code: 'CP-HN-003', name: 'Lê Hoàng Nam', phone: '0981.456.789', station: 'POST-HN-CG', shift: 'OFF_DUTY', currentOrders: 0, maxOrders: 40, rating: 4.7, telegram: false },
+        { id: 104, code: 'CP-HN-004', name: 'Vũ Đức Đam', phone: '0981.567.890', station: 'POST-HN-DDA', shift: 'ON_DUTY', currentOrders: 39, maxOrders: 40, rating: 5.0, telegram: true },
+        { id: 105, code: 'CP-HN-005', name: 'Phạm Quang Sáng', phone: '0981.678.901', station: 'POST-HN-HBT', shift: 'ON_DUTY', currentOrders: 22, maxOrders: 40, rating: 4.9, telegram: true },
+        { id: 106, code: 'CP-DN-001', name: 'Phan Văn Đức', phone: '0983.111.222', station: 'POST-DN-HC', shift: 'ON_DUTY', currentOrders: 18, maxOrders: 35, rating: 4.9, telegram: true },
+        { id: 107, code: 'CP-HCM-001', name: 'Huỳnh Tấn Tài', phone: '0989.222.333', station: 'POST-HCM-Q1', shift: 'ON_DUTY', currentOrders: 44, maxOrders: 45, rating: 4.6, telegram: true },
+        { id: 108, code: 'CP-HCM-002', name: 'Đoàn Văn Hậu', phone: '0989.333.444', station: 'POST-HCM-TB', shift: 'OFF_DUTY', currentOrders: 0, maxOrders: 40, rating: 4.8, telegram: true }
+    ];
+
+    function switchSubTab(tab) {
+        document.getElementById('sectionVehicles').classList.add('hidden');
+        document.getElementById('sectionShippers').classList.add('hidden');
+        document.getElementById('sectionIntegration').classList.add('hidden');
+
+        document.getElementById('tabBtnVehicles').classList.remove('active');
+        document.getElementById('tabBtnShippers').classList.remove('active');
+        document.getElementById('tabBtnIntegration').classList.remove('active');
+
+        if (tab === 'vehicles') {
+            document.getElementById('sectionVehicles').classList.remove('hidden');
+            document.getElementById('tabBtnVehicles').classList.add('active');
+            renderVehicles();
+        } else if (tab === 'shippers') {
+            document.getElementById('sectionShippers').classList.remove('hidden');
+            document.getElementById('tabBtnShippers').classList.add('active');
+            renderShippers();
+        } else if (tab === 'integration') {
+            document.getElementById('sectionIntegration').classList.remove('hidden');
+            document.getElementById('tabBtnIntegration').classList.add('active');
+            updateDemoVehicleSelect();
+        }
+    }
+
+    function renderVehicles() {
+        const query = (document.getElementById('vehicleSearchInput')?.value || '').toLowerCase().trim();
+        const station = document.getElementById('vehicleStationFilter')?.value || 'ALL';
+        const status = document.getElementById('vehicleStatusFilter')?.value || 'ALL';
+        const type = document.getElementById('vehicleTypeFilter')?.value || 'ALL';
+
+        const filtered = vehiclesData.filter(v => {
+            const matchQ = !query || v.plate.toLowerCase().includes(query) || v.driver.toLowerCase().includes(query) || v.model.toLowerCase().includes(query);
+            const matchStation = station === 'ALL' || v.hub === station;
+            const matchStatus = status === 'ALL' || v.status === status;
+            const matchType = type === 'ALL' || v.type === type;
+            return matchQ && matchStation && matchStatus && matchType;
+        });
+
+        const total = vehiclesData.length;
+        const available = vehiclesData.filter(x => x.status === 'AVAILABLE').length;
+        const onTrip = vehiclesData.filter(x => x.status === 'ON_TRIP').length;
+        const maintenance = vehiclesData.filter(x => x.status === 'MAINTENANCE').length;
+
+        document.getElementById('bannerTotalVehicles').innerText = total;
+        document.getElementById('bannerAvailableVehicles').innerText = available;
+        document.getElementById('bannerOnTripVehicles').innerText = onTrip;
+        document.getElementById('bannerMaintenanceVehicles').innerText = maintenance;
+
+        const tbody = document.getElementById('vehicleTableBody');
+        if (!tbody) return;
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">Không tìm thấy phương tiện nào phù hợp với bộ lọc</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(v => {
+            let statusBadge = '';
+            if (v.status === 'AVAILABLE') {
+                statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>Sẵn Sàng
+                </span>`;
+            } else if (v.status === 'ON_TRIP') {
+                statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5"></span>Đang Chạy
+                </span>`;
+            } else {
+                statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5"></span>Bảo Dưỡng
+                </span>`;
+            }
+
+            return `
+                <tr class="hover:bg-slate-50/70 transition">
+                    <td class="py-2.5 px-3.5">
+                        <div class="font-mono font-bold text-slate-900">${v.plate}</div>
+                    </td>
+                    <td class="py-2.5 px-3.5">
+                        <div class="font-semibold text-slate-800">${v.model}</div>
+                        <div class="text-[10.5px] text-slate-500 font-mono">${v.type}</div>
+                    </td>
+                    <td class="py-2.5 px-3.5">
+                        <span class="font-mono font-bold text-slate-700">${v.capacity.toLocaleString()} kg</span>
+                    </td>
+                    <td class="py-2.5 px-3.5">
+                        <span class="inline-flex items-center gap-1 font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-[11px]">
+                            ${v.hub}
+                        </span>
+                    </td>
+                    <td class="py-2.5 px-3.5">
+                        <div class="font-bold text-slate-800">${v.driver}</div>
+                        <div class="text-[10.5px] text-slate-500 font-mono">${v.phone}</div>
+                    </td>
+                    <td class="py-2.5 px-3.5 text-center">
+                        ${statusBadge}
+                    </td>
+                    <td class="py-2.5 px-3.5 text-right whitespace-nowrap">
+                        <div class="inline-flex items-center gap-1">
+                            ${v.status === 'AVAILABLE' ? `
+                                <button onclick="changeVehicleStatus(${v.id}, 'MAINTENANCE')" class="px-2 py-1 bg-amber-50 hover:bg-amber-600 text-amber-700 hover:text-white rounded-lg text-[11px] font-bold transition border border-amber-200" title="Chuyển sang bảo dưỡng">
+                                    Bảo Dưỡng
+                                </button>
+                            ` : v.status === 'MAINTENANCE' ? `
+                                <button onclick="changeVehicleStatus(${v.id}, 'AVAILABLE')" class="px-2 py-1 bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white rounded-lg text-[11px] font-bold transition border border-emerald-200" title="Đã sửa xong, đưa về bãi">
+                                    Hoàn Tất
+                                </button>
+                            ` : `
+                                <span class="text-[11px] text-slate-400 italic">Đang chạy tuyến</span>
+                            `}
+                            <button onclick="editVehicleDriver(${v.id})" class="p-1 text-slate-400 hover:text-blue-700 hover:bg-slate-100 rounded-lg transition" title="Đổi tài xế">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function filterVehicles() {
+        renderVehicles();
+    }
+
+    function changeVehicleStatus(id, newStatus) {
+        const item = vehiclesData.find(x => x.id === id);
+        if (item) {
+            item.status = newStatus;
+            renderVehicles();
+        }
+    }
+
+    function editVehicleDriver(id) {
+        const item = vehiclesData.find(x => x.id === id);
+        if (item) {
+            const newDriver = prompt(`Nhập tên tài xế mới cho xe ${item.plate}:`, item.driver);
+            if (newDriver && newDriver.trim()) {
+                item.driver = newDriver.trim();
+                renderVehicles();
+            }
+        }
+    }
+
+    function openAddVehicleModal() {
+        const plate = prompt('Nhập Biển Số Xe (Ví dụ: 29C-112.34):');
+        if (!plate || !plate.trim()) return;
+        vehiclesData.push({
+            id: Date.now(),
+            plate: plate.trim().toUpperCase(),
+            model: 'Hyundai Mighty 2.5T',
+            type: 'TRUCK_2_5T',
+            capacity: 2500,
+            hub: 'HUB-HN-01',
+            status: 'AVAILABLE',
+            driver: 'Tài xế phân công',
+            phone: '0912.000.111'
+        });
+        renderVehicles();
+    }
+
+    function renderShippers() {
+        const query = (document.getElementById('shipperSearchInput')?.value || '').toLowerCase().trim();
+        const station = document.getElementById('shipperStationFilter')?.value || 'ALL';
+        const shift = document.getElementById('shipperShiftFilter')?.value || 'ALL';
+
+        const filtered = shippersData.filter(s => {
+            const matchQ = !query || s.code.toLowerCase().includes(query) || s.name.toLowerCase().includes(query) || s.phone.includes(query);
+            const matchStation = station === 'ALL' || s.station === station;
+            const matchShift = shift === 'ALL' || s.shift === shift;
+            return matchQ && matchStation && matchShift;
+        });
+
+        const total = shippersData.length;
+        const onDuty = shippersData.filter(x => x.shift === 'ON_DUTY').length;
+        const offDuty = shippersData.filter(x => x.shift === 'OFF_DUTY').length;
+
+        document.getElementById('bannerTotalShippers').innerText = total;
+        document.getElementById('bannerOnDutyShippers').innerText = onDuty;
+        document.getElementById('bannerOffDutyShippers').innerText = offDuty;
+
+        const tbody = document.getElementById('shipperTableBody');
+        if (!tbody) return;
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">Không tìm thấy bưu tá nào phù hợp với bộ lọc</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(s => {
+            const isOnDuty = s.shift === 'ON_DUTY';
+            const percent = Math.min(100, Math.round((s.currentOrders / s.maxOrders) * 100));
+            const isNearLimit = percent >= 90;
+
+            return `
+                <tr class="hover:bg-slate-50/70 transition">
+                    <td class="py-2.5 px-3.5">
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 rounded-lg ${isOnDuty ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'} font-bold flex items-center justify-center text-xs">
+                                ${s.name.charAt(0)}
+                            </div>
+                            <div>
+                                <div class="font-bold text-slate-900">${s.name}</div>
+                                <div class="text-[10px] text-blue-700 font-mono font-bold">${s.code} • ${s.phone}</div>
+                            </div>
+                        </div>
+                    </td>
+
+                    <td class="py-2.5 px-3.5">
+                        <span class="inline-flex items-center gap-1 font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-[11px]">
+                            ${s.station}
+                        </span>
+                    </td>
+
+                    <td class="py-2.5 px-3.5 text-center">
+                        <button onclick="toggleShipperShift(${s.id})" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-bold cursor-pointer transition ${isOnDuty ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100' : 'bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200'}">
+                            <span class="w-1.5 h-1.5 rounded-full ${isOnDuty ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}"></span>
+                            <span>${isOnDuty ? 'BẬT CA (ON_DUTY)' : 'NGHỈ CA (OFF_DUTY)'}</span>
+                        </button>
+                    </td>
+
+                    <td class="py-2.5 px-3.5">
+                        <div class="w-36">
+                            <div class="flex justify-between text-[10.5px] mb-1 font-mono">
+                                <span class="font-bold ${isNearLimit ? 'text-amber-600 font-black' : 'text-slate-700'}">${s.currentOrders} / ${s.maxOrders} đơn</span>
+                                <span class="text-slate-500">${percent}%</span>
+                            </div>
+                            <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                <div class="h-full rounded-full ${isNearLimit ? 'bg-amber-500' : 'bg-emerald-500'}" style="width: ${percent}%"></div>
+                            </div>
+                        </div>
+                    </td>
+
+                    <td class="py-2.5 px-3.5 text-center">
+                        <span class="inline-flex items-center gap-1 font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 text-[11px]">
+                            <svg class="w-3 h-3 text-amber-500 fill-current inline-block flex-shrink-0" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                            <span>${s.rating}</span>
+                        </span>
+                    </td>
+
+                    <td class="py-2.5 px-3.5 text-center">
+                        ${s.telegram ? `
+                            <span class="text-blue-600 text-[10.5px] font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-200 inline-flex items-center gap-1">
+                                <svg class="w-3 h-3 text-blue-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .37z"/></svg>
+                                Kết nối
+                            </span>
+                        ` : `
+                            <span class="text-slate-400 text-[10.5px] italic">Chưa nối</span>
+                        `}
+                    </td>
+
+                    <td class="py-2.5 px-3.5 text-right whitespace-nowrap">
+                        <button onclick="toggleShipperShift(${s.id})" class="px-2.5 py-1 ${isOnDuty ? 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200' : 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600'} rounded-lg text-[11px] font-bold transition border shadow-xs cursor-pointer">
+                            ${isOnDuty ? 'Nghỉ Ca' : 'Bật Ca'}
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function filterShippers() {
+        renderShippers();
+    }
+
+    function toggleShipperShift(id) {
+        const item = shippersData.find(x => x.id === id);
+        if (item) {
+            item.shift = item.shift === 'ON_DUTY' ? 'OFF_DUTY' : 'ON_DUTY';
+            if (item.shift === 'OFF_DUTY') {
+                item.currentOrders = 0;
+            } else {
+                item.currentOrders = Math.floor(Math.random() * 20) + 15;
+            }
+            renderShippers();
+        }
+    }
+
+    function toggleAllShippersShift() {
+        const currentOn = shippersData.filter(x => x.shift === 'ON_DUTY').length;
+        const target = currentOn > 3 ? 'OFF_DUTY' : 'ON_DUTY';
+        shippersData.forEach(s => {
+            s.shift = target;
+            if (target === 'OFF_DUTY') s.currentOrders = 0;
+            else s.currentOrders = Math.floor(Math.random() * 20) + 15;
+        });
+        renderShippers();
+    }
+
+    function updateDemoVehicleSelect() {
+        const originHub = document.getElementById('demoOriginHub')?.value || 'HUB-HN-01';
+        const select = document.getElementById('demoVehicleSelect');
+        if (!select) return;
+
+        const availableAtHub = vehiclesData.filter(v => v.hub === originHub && v.status === 'AVAILABLE');
+
+        if (availableAtHub.length === 0) {
+            select.innerHTML = `<option value="">[HẾT XE KHẢ DỤNG] - Chờ xe quay đầu (+12h ETA)</option>`;
+            select.className = "w-full px-3 py-2 bg-rose-50 border border-rose-300 rounded-lg text-xs font-bold text-rose-800";
+            document.getElementById('demoVehicleDetailBox').classList.add('hidden');
+            return;
+        }
+
+        select.className = "w-full px-3 py-2 bg-emerald-50/50 border border-emerald-300 rounded-lg text-xs font-bold text-slate-800 focus:border-emerald-600 outline-none";
+        document.getElementById('demoVehicleDetailBox').classList.remove('hidden');
+
+        select.innerHTML = availableAtHub.map(v => `
+            <option value="${v.plate}">${v.plate} — ${v.model} (${v.capacity.toLocaleString()} kg) • ${v.driver}</option>
+        `).join('');
+
+        updateDemoVehicleDetails();
+    }
+
+    function updateDemoVehicleDetails() {
+        const plate = document.getElementById('demoVehicleSelect')?.value;
+        const v = vehiclesData.find(x => x.plate === plate);
+        if (!v) return;
+
+        document.getElementById('demoDetailPlate').innerText = v.plate;
+        document.getElementById('demoDetailModel').innerText = v.model;
+        document.getElementById('demoDetailCapacity').innerText = v.capacity.toLocaleString() + ' kg';
+        document.getElementById('demoDetailDriver').innerText = v.driver;
+        document.getElementById('demoDetailPhone').innerText = v.phone;
+    }
+
+    function confirmDemoTripCreation() {
+        const plate = document.getElementById('demoVehicleSelect')?.value;
+        const v = vehiclesData.find(x => x.plate === plate);
+        if (v) {
+            v.status = 'ON_TRIP';
+            alert(`Khởi tạo chuyến thành công! Xe ${v.plate} đã chuyển sang trạng thái ON_TRIP.`);
+            renderVehicles();
+            switchSubTab('vehicles');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        renderVehicles();
+        renderShippers();
+    });
+</script>
+</body>
+</html>

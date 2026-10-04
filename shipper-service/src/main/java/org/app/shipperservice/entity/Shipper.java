@@ -40,6 +40,15 @@ public class Shipper {
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
+    @Column(name = "shift_status", nullable = false, length = 20)
+    private String shiftStatus;
+
+    @Column(name = "max_orders_per_shift", nullable = false)
+    private Integer maxOrdersPerShift;
+
+    @Column(name = "current_orders_count", nullable = false)
+    private Integer currentOrdersCount;
+
     @Column(name = "rating_avg")
     private Double ratingAvg;
 
@@ -57,6 +66,18 @@ public class Shipper {
 
         if(this.status == null) {
             this.status = "ACTIVE";
+        }
+
+        if(this.shiftStatus == null) {
+            this.shiftStatus = "ON_DUTY";
+        }
+
+        if (this.maxOrdersPerShift == null) {
+            this.maxOrdersPerShift = 40;
+        }
+
+        if (this.currentOrdersCount == null) {
+            this.currentOrdersCount = 0;
         }
 
         if (this.ratingAvg == null) {

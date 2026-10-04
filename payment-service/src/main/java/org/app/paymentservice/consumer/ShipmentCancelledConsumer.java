@@ -6,6 +6,7 @@ import org.app.paymentservice.dto.event.ShipmentStatusUpdatedEvent;
 import org.app.paymentservice.entity.PaymentStatus;
 import org.app.paymentservice.entity.PaymentTransaction;
 import org.app.paymentservice.repository.PaymentTransactionRepository;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.annotation.BackOff;
 import org.springframework.kafka.annotation.DltHandler;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -13,6 +14,7 @@ import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.List;
 
 @Service
@@ -21,6 +23,7 @@ import java.util.List;
 public class ShipmentCancelledConsumer {
 
     private final PaymentTransactionRepository paymentTransactionRepository;
+    private final StringRedisTemplate redisTemplate;
 
     @KafkaListener(topics = "tracking-status-events", groupId = "payment-cancel-group")
     @RetryableTopic(attempts = "3", backOff = @BackOff(delay = 1000, multiplier = 2))
@@ -32,22 +35,33 @@ public class ShipmentCancelledConsumer {
         }
 
         String trackingCode = event.getTrackingCode().trim().toUpperCase();
-        List<PaymentTransaction> successTxs = paymentTransactionRepository
-                .findByTrackingCodeOrderByCreatedAtDesc(trackingCode)
-                .stream()
-                .filter(tx -> tx.getStatus() == PaymentStatus.SUCCESS)
-                .toList();
 
-        if (successTxs.isEmpty()) {
-            log.info("[PAYMENT-CANCEL] Đơn {} bị hủy nhưng không có giao dịch SUCCESS cần hoàn.", trackingCode);
+        try {
+            redisTemplate.opsForValue().set("shipment-cancelled:" + trackingCode, "1", Duration.ofDays(30));
+        } catch (Exception e) {
+            log.warn("[PAYMENT-CANCEL] Lỗi ghi nhận Redis tombstone cho đơn {}: {}", trackingCode, e.getMessage());
+        }
+
+        List<PaymentTransaction> allTxs = paymentTransactionRepository
+                .findByTrackingCodeOrderByCreatedAtDesc(trackingCode);
+
+        if (allTxs.isEmpty()) {
+            log.info("[PAYMENT-CANCEL] Đơn {} bị hủy nhưng chưa có giao dịch nào được tạo.", trackingCode);
             return;
         }
 
-        for (PaymentTransaction tx : successTxs) {
-            tx.setStatus(PaymentStatus.CANCELLED);
-            paymentTransactionRepository.save(tx);
-            log.info("[PAYMENT-CANCEL] Hoàn tiền demo: giao dịch {} của đơn {} -> CANCELLED",
-                    tx.getPaymentCode(), trackingCode);
+        for (PaymentTransaction tx : allTxs) {
+            if (tx.getStatus() == PaymentStatus.PENDING) {
+                tx.setStatus(PaymentStatus.CANCELLED);
+                paymentTransactionRepository.save(tx);
+                log.info("[PAYMENT-CANCEL] Hủy bỏ giao dịch PENDING: mã {} của đơn {} do đơn hàng bị hủy",
+                        tx.getPaymentCode(), trackingCode);
+            } else if (tx.getStatus() == PaymentStatus.SUCCESS) {
+                tx.setStatus(PaymentStatus.CANCELLED);
+                paymentTransactionRepository.save(tx);
+                log.info("[PAYMENT-CANCEL] Hoàn tiền demo: giao dịch SUCCESS {} của đơn {} -> CANCELLED",
+                        tx.getPaymentCode(), trackingCode);
+            }
         }
     }
 

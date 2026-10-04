@@ -4,12 +4,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.app.shipmentservice.client.CustomerClient;
 import org.app.shipmentservice.client.HubClient;
+import org.app.shipmentservice.client.RoutingClient;
 import org.app.shipmentservice.consumer.ShipmentStatusConsumer;
 import org.app.shipmentservice.dto.event.CreateShipmentEvent;
 import org.app.shipmentservice.dto.event.ShipmentStatusUpdatedEvent;
 import org.app.shipmentservice.dto.request.CancelShipmentRequest;
 import org.app.shipmentservice.dto.request.CreateShipmentRequest;
+import org.app.shipmentservice.dto.request.EtaCalculationRequest;
 import org.app.shipmentservice.dto.response.CustomerValidationResponse;
+import org.app.shipmentservice.dto.response.EtaCalculationResponse;
 import org.app.shipmentservice.dto.response.HubResponse;
 import org.app.shipmentservice.entity.*;
 import org.app.shipmentservice.exception.DuplicateRequestException;
@@ -20,6 +23,7 @@ import org.app.shipmentservice.pricing.dto.TariffCalculationResponse;
 import org.app.shipmentservice.pricing.service.TariffPricingService;
 import org.app.shipmentservice.repository.OutboxEventRepository;
 import org.app.shipmentservice.repository.ShipmentRepository;
+import org.app.shipmentservice.service.EtaRecalculationService;
 import org.app.shipmentservice.service.ShipmentService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -50,6 +54,8 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final TariffPricingService tariffPricingService;
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
+    private final RoutingClient routingClient;
+    private final EtaRecalculationService etaRecalculationService;
 
     private Long resolveCustomerId(String currentUserId) {
         if (currentUserId == null || currentUserId.isBlank() || "null".equalsIgnoreCase(currentUserId)) {
@@ -245,6 +251,33 @@ public class ShipmentServiceImpl implements ShipmentService {
             totalFee = baseFee.add(codFee).add(fuelFee);
         }
 
+        // === TÍNH TOÁN ETA VÀ GÁN CHUYẾN XE (GỌI ROUTING-SERVICE) ===
+        LocalDateTime estimatedDeliveryAt = LocalDateTime.now().plusDays(2);
+        LocalDateTime estimatedDeliveryMax = estimatedDeliveryAt.plusHours(12);
+        String assignedTripCode = null;
+
+        try {
+            EtaCalculationRequest etaReq = EtaCalculationRequest.builder()
+                    .senderAddress(request.getSenderAddress())
+                    .receiverAddress(request.getReceiverAddress())
+                    .weight(weight)
+                    .serviceType(request.getServiceType() != null ? request.getServiceType().name() : "STANDARD")
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            EtaCalculationResponse etaRes = routingClient.calculateEta(etaReq);
+            if (etaRes != null) {
+                if (etaRes.getEstimatedDeliveryTime() != null) {
+                    estimatedDeliveryAt = etaRes.getEstimatedDeliveryTime();
+                }
+                if (etaRes.getEstimatedDeliveryMax() != null) {
+                    estimatedDeliveryMax = etaRes.getEstimatedDeliveryMax();
+                }
+                assignedTripCode = etaRes.getAssignedTripCode();
+            }
+        } catch (Exception e) {
+            log.warn("[SHIPMENT] Không gọi được routing-service tính ETA, dùng fallback SLA: {}", e.getMessage());
+        }
 
         String trackingCode = "WB" + System.currentTimeMillis() + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
         Shipment shipment = Shipment.builder()
@@ -265,6 +298,9 @@ public class ShipmentServiceImpl implements ShipmentService {
                 .codAmount(request.getCodAmount())
                 .shippingFee(baseFee)
                 .totalFee(totalFee)
+                .estimatedDeliveryAt(estimatedDeliveryAt)
+                .estimatedDeliveryMax(estimatedDeliveryMax)
+                .assignedTripCode(assignedTripCode)
                 .build();
         Shipment saved = shipmentRepository.save(shipment);
         redisTemplate.opsForValue().set(redisKey, saved.getTrackingCode(), Duration.ofHours(24));
@@ -288,6 +324,15 @@ public class ShipmentServiceImpl implements ShipmentService {
         kafkaTemplate.send("shipment-events",String.valueOf(saved.getTrackingCode()),event);
 
         return saved;
+    }
+
+    @Override
+    public Shipment recalculateEta(String trackingCode) {
+        Shipment shipment = etaRecalculationService.recalculateByTrackingCode(trackingCode);
+        if (shipment == null) {
+            throw new RuntimeException("Không tìm thấy shipment với tracking code: " + trackingCode);
+        }
+        return shipment;
     }
 
     @Override
@@ -575,6 +620,17 @@ public class ShipmentServiceImpl implements ShipmentService {
         }
         log.info("[SHIPMENT-COD] Thủ quỹ {} đã duyệt nộp quỹ thành công {} vận đơn", officerId, updatedList.size());
         return updatedList;
+    }
+
+    private String resolveHubCode(String address, String
+            defaultHub) {
+        if (address == null || address.isBlank()) return
+                defaultHub;
+        String lower = address.toLowerCase();
+        if (lower.contains("hà nội") || lower.contains("ha noi") || lower.contains("hn")) return "HUB-HN-01";
+        if (lower.contains("đà nẵng") || lower.contains("da nang") || lower.contains("dn")) return "HUB-DN-01";
+        if (lower.contains("hồ chí minh") || lower.contains("ho chi minh") || lower.contains("hcm") || lower.contains("sài gòn")) return "HUB-HCM-01";
+        return defaultHub;
     }
 }
 

@@ -4,17 +4,20 @@ import org.app.paymentservice.dto.event.ShipmentStatusUpdatedEvent;
 import org.app.paymentservice.entity.PaymentStatus;
 import org.app.paymentservice.entity.PaymentTransaction;
 import org.app.paymentservice.repository.PaymentTransactionRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -25,8 +28,19 @@ class ShipmentCancelledConsumerTest {
     @Mock
     private PaymentTransactionRepository paymentTransactionRepository;
 
+    @Mock
+    private StringRedisTemplate redisTemplate;
+
+    @Mock
+    private ValueOperations<String, String> valueOperations;
+
     @InjectMocks
     private ShipmentCancelledConsumer consumer;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+    }
 
     @Test
     void huyDonThiHoanTienGiaoDichSuccess() {
@@ -58,7 +72,7 @@ class ShipmentCancelledConsumerTest {
     }
 
     @Test
-    void boQuaKhiKhongCoGiaoDichSuccess() {
+    void huyDonThiHuyCaGiaoDichPending() {
         PaymentTransaction pending = PaymentTransaction.builder()
                 .paymentCode("PAY_WB123")
                 .trackingCode("WB123")
@@ -72,7 +86,7 @@ class ShipmentCancelledConsumerTest {
                 .status("CANCELLED")
                 .build());
 
-        assertThat(pending.getStatus()).isEqualTo(PaymentStatus.PENDING);
-        verify(paymentTransactionRepository, never()).save(any());
+        assertThat(pending.getStatus()).isEqualTo(PaymentStatus.CANCELLED);
+        verify(paymentTransactionRepository).save(pending);
     }
 }
