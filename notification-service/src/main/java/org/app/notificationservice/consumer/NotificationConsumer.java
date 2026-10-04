@@ -12,6 +12,7 @@ import org.app.notificationservice.dto.response.ShipperLookupResponse;
 import org.app.notificationservice.entity.NotificationLog;
 import org.app.notificationservice.repository.NotificationRepository;
 import org.app.notificationservice.service.EmailService;
+import org.app.notificationservice.service.ShipperOrderIndexService;
 import org.app.notificationservice.service.TelegramService;
 import org.app.notificationservice.util.EmailTemplateHelper;
 import org.app.sharedevents.entity.TripConsolidatedEvent;
@@ -38,6 +39,7 @@ public class NotificationConsumer {
     private final TelegramService telegramService;
     private final SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper;
+    private final ShipperOrderIndexService shipperOrderIndexService;
 
     @KafkaListener(topics = "shipment-events", groupId = "notification-group")
     public void handleShipmentCreated(CreateShipmentEvent event) {
@@ -99,10 +101,17 @@ public class NotificationConsumer {
         publishTrackingWsEvent(event);
         if (event.getCodSettlementStatus() != null && !event.getCodSettlementStatus().isBlank()) {
             saveCodBell(event);
+            shipperOrderIndexService.removeCodPendingByTrackingCode(event.getTrackingCode());
             return;
         }
         String status = event.getStatus();
         log.info("[NOTIFICATION] Nhận event cập nhật trạng thái: {} -> {}", event.getTrackingCode(), status);
+
+        if (status != null && "DELIVERED".equals(status)) {
+            shipperOrderIndexService.moveToCodPending(event.getTrackingCode());
+        } else if (status != null && Set.of("RETURNED", "CANCELLED").contains(status)) {
+            shipperOrderIndexService.removeOrderByTrackingCode(event.getTrackingCode());
+        }
 
         if (status != null && Set.of("DELIVERY_FAILED", "RETURNING").contains(status)) {
             String assignedCourier = stringRedisTemplate.opsForValue().get("shipper:assigned:" + event.getTrackingCode());
@@ -187,6 +196,7 @@ public class NotificationConsumer {
 
         stringRedisTemplate.opsForValue()
                 .set("shipper:assigned:" + trackingCode, courierCode, Duration.ofDays(30));
+        shipperOrderIndexService.addOrder(courierCode, trackingCode);
 
         try {
             ShipperLookupResponse shipper = shipperClient.findByCourierCode(courierCode);

@@ -18,6 +18,9 @@ public interface TripRepository extends JpaRepository<Trip, Long> {
     List<Trip> findAllByOrderByCreatedAtDesc();
 
     List<Trip> findByStatus(String status);
+    List<Trip> findByStatusIn(List<String> statuses);
+
+    boolean existsByVehiclePlateAndStatusIn(String vehiclePlate, List<String> statuses);
 
     boolean existsByTripCode(String tripCode);
 

@@ -23,6 +23,7 @@ import org.app.shipmentservice.pricing.dto.TariffCalculationResponse;
 import org.app.shipmentservice.pricing.service.TariffPricingService;
 import org.app.shipmentservice.repository.OutboxEventRepository;
 import org.app.shipmentservice.repository.ShipmentRepository;
+import org.app.shipmentservice.service.EtaRecalculationService;
 import org.app.shipmentservice.service.ShipmentService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -54,6 +55,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
     private final RoutingClient routingClient;
+    private final EtaRecalculationService etaRecalculationService;
 
     private Long resolveCustomerId(String currentUserId) {
         if (currentUserId == null || currentUserId.isBlank() || "null".equalsIgnoreCase(currentUserId)) {
@@ -322,6 +324,15 @@ public class ShipmentServiceImpl implements ShipmentService {
         kafkaTemplate.send("shipment-events",String.valueOf(saved.getTrackingCode()),event);
 
         return saved;
+    }
+
+    @Override
+    public Shipment recalculateEta(String trackingCode) {
+        Shipment shipment = etaRecalculationService.recalculateByTrackingCode(trackingCode);
+        if (shipment == null) {
+            throw new RuntimeException("Không tìm thấy shipment với tracking code: " + trackingCode);
+        }
+        return shipment;
     }
 
     @Override

@@ -8,4 +8,5 @@ import java.util.Optional;
 public interface HubRepository extends JpaRepository<Hub,Long> {
     Optional<Hub> findByHubCode(String hubCode);
     Optional<Hub> findByProvinceIgnoreCase(String province);
+    java.util.List<Hub> findByHubType(String hubType);
 }

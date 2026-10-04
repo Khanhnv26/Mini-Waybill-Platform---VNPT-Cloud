@@ -22,4 +22,7 @@ public interface TripManifestRepository extends JpaRepository<TripManifest, Long
     Double sumActiveWeightByTripId(@Param("tripId") Long tripId);
     Optional<TripManifest> findByTrackingCodeAndStatus(String trackingCode, String status);
     List<TripManifest> findByTrackingCode(String trackingCode);
+    List<TripManifest> findByDropoffLocationCodeAndStatus(String dropoffLocationCode, String status);
+    List<TripManifest> findByDestinationHubAndStatus(String destinationHub, String status);
+    List<TripManifest> findByTripIdInAndStatus(List<Long> tripIds, String status);
 }

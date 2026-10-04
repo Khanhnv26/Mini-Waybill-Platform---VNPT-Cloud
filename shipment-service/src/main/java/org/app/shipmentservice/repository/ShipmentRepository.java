@@ -1,6 +1,8 @@
 package org.app.shipmentservice.repository;
 
 import org.app.shipmentservice.entity.Shipment;
+import org.app.shipmentservice.entity.ShipmentStatus;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -15,4 +17,6 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
     List<Shipment> findAllByCustomerIdOrderByCreatedAtDesc(Long customerId);
 
     List<Shipment> findAllByOrderByCreatedAtDesc();
+
+    List<Shipment> findByCurrentStatusNotIn(List<ShipmentStatus> statuses, Pageable pageable);
 }

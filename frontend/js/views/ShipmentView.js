@@ -8,6 +8,7 @@
         emits: ['created-shipment'],
         setup(props, { emit }) {
             const currentSubtab = ref('create');
+            const isDockCollapsed = ref(false);
 
             const isSubmitting = ref(false);
             const hubsList = ref([]);
@@ -1116,11 +1117,12 @@
                 isShipmentPaid,
                 paidTrackingCodes,
                 handleCheckoutMockPay,
+                isDockCollapsed,
                 Utils
             };
         },
         template: `
-            <div class="space-y-4 pb-8 text-slate-800">
+            <div class="space-y-4 pb-8 text-slate-800 relative">
                 <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
 
@@ -1157,46 +1159,63 @@
                     </div>
                 </div>
 
-                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
-                    <div class="flex items-center space-x-2">
-                        <button 
-                            type="button" 
+                <!-- Sub-Banner Action Bar: Compact Segmented Pill Bar -->
+                <div class="bg-white/95 backdrop-blur-md text-slate-700 rounded-2xl shadow-xs border border-slate-200/90 p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
+                    <div class="bg-slate-100/90 p-1 rounded-xl border border-slate-200/70 inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
+                        <!-- Tạo Bưu Gửi Tab Button -->
+                        <button
+                            type="button"
                             @click="switchSubtab('create')"
                             :class="[
-                                'px-4 py-2 rounded-xl text-xs font-bold transition-all',
+                                'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                                 currentSubtab === 'create'
-                                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                                    ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
+                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
                             ]"
                         >
-                            Khởi Tạo Bưu Gửi Mới
+                            <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'create' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span class="truncate">Tạo Bưu Gửi</span>
                         </button>
 
-                        <button 
-                            type="button" 
+                        <!-- Danh Sách Vận Đơn Tab Button -->
+                        <button
+                            type="button"
                             @click="switchSubtab('list')"
                             :class="[
-                                'px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5',
+                                'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                                 currentSubtab === 'list'
-                                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                                    : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                                    ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
+                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
                             ]"
                         >
-                            <span>Quản Lý Danh Sách Vận Đơn</span>
-                            <span :class="currentSubtab === 'list' ? 'bg-white/25 text-white' : 'bg-blue-100 text-blue-700'" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold">
+                            <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'list' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                            </svg>
+                            <span class="truncate">Danh Sách</span>
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'list' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
                                 {{ shipmentsList.length }}
                             </span>
                         </button>
                     </div>
 
-                    <div v-if="currentSubtab === 'list'" class="flex items-center space-x-2">
-                        <button 
+                    <!-- Right Live Status & Mini Refresh Button -->
+                    <div class="flex items-center space-x-2 shrink-0 px-1 py-0.5">
+                        <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/70">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span>Thời gian thực</span>
+                        </span>
+                        <button
                             type="button"
-                            @click="loadShipments"
+                            @click="loadShipments()"
                             :disabled="isLoadingShipments"
-                            class="px-3.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold transition disabled:opacity-50 shadow-sm"
+                            class="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 border border-slate-200/80 transition-all duration-200 active:scale-90 disabled:opacity-50 cursor-pointer shadow-2xs"
+                            title="Làm mới dữ liệu thời gian thực"
                         >
-                            {{ isLoadingShipments ? 'Đang Tải...' : 'Làm Mới' }}
+                            <svg class="w-3.5 h-3.5 transition-transform duration-300" :class="{ 'animate-spin text-emerald-600': isLoadingShipments }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
                         </button>
                     </div>
                 </div>

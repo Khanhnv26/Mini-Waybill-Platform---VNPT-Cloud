@@ -186,8 +186,73 @@
                 return Math.min(100, Math.round((cur / max) * 100));
             };
 
+            const isManualChatIdOpen = ref(false);
+            const isSendingTest = ref(false);
+            const copiedTelegramCommand = ref(false);
+
+            const maskChatId = (chatId) => {
+                if (!chatId) return '';
+                const str = String(chatId).trim();
+                if (str.length <= 4) return str;
+                return `${str.slice(0, 3)}••••${str.slice(-2)}`;
+            };
+
+            const copyTelegramCommand = async () => {
+                const code = form.courierCode ? form.courierCode.trim().toUpperCase() : '';
+                const cmd = `/link ${code || '<MÃ_BƯU_TÁ>'}`;
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(cmd);
+                    } else {
+                        const tempInput = document.createElement('input');
+                        tempInput.value = cmd;
+                        document.body.appendChild(tempInput);
+                        tempInput.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(tempInput);
+                    }
+                    copiedTelegramCommand.value = true;
+                    setTimeout(() => {
+                        copiedTelegramCommand.value = false;
+                    }, 2000);
+                    if (window.Utils) window.Utils.showToast('Đã sao chép cú pháp', cmd, 'success');
+                } catch {
+                    if (window.Utils) window.Utils.showToast('Sao chép thất bại', cmd, 'warning');
+                }
+            };
+
+            const unlinkTelegram = () => {
+                form.telegramChatId = '';
+                if (window.Utils) window.Utils.showToast('Đã xóa liên kết', 'Bấm "Lưu Thông Tin" để hoàn tất gỡ bỏ liên kết Telegram.', 'info');
+            };
+
+            const sendTelegramTest = async () => {
+                const chatId = (form.telegramChatId || '').trim();
+                if (!chatId) {
+                    if (window.Utils) window.Utils.showToast('Chưa có Chat ID', 'Vui lòng liên kết Telegram trước khi thử nghiệm.', 'warning');
+                    return;
+                }
+                isSendingTest.value = true;
+                try {
+                    if (typeof NotificationService !== 'undefined' && NotificationService.sendTelegramTest) {
+                        await NotificationService.sendTelegramTest(
+                            chatId,
+                            `🔔 [VNPT POST TEST] Xin chào bưu tá ${form.fullName || form.courierCode}! Kênh thông báo Telegram của bạn đã kết nối thành công với hệ thống Mini Waybill.`
+                        );
+                        if (window.Utils) window.Utils.showToast('Đã gửi tin nhắn test', 'Tin nhắn thử nghiệm đã được gửi đến Telegram của bưu tá.', 'success');
+                    } else {
+                        if (window.Utils) window.Utils.showToast('Dịch vụ chưa sẵn sàng', 'NotificationService chưa được nạp.', 'warning');
+                    }
+                } catch (err) {
+                    if (window.Utils) window.Utils.showToast('Lỗi gửi tin nhắn', err.message || 'Không thể gửi tin nhắn thử nghiệm qua Telegram', 'error');
+                } finally {
+                    isSendingTest.value = false;
+                }
+            };
+
             const openCreate = () => {
                 Object.assign(form, emptyForm());
+                isManualChatIdOpen.value = false;
                 showModal.value = true;
             };
 
@@ -197,12 +262,13 @@
                     courierCode: item.courierCode || '',
                     fullName: item.fullName || '',
                     phone: item.phone || '',
-                    telegramChatId: '',
+                    telegramChatId: item.telegramChatId || '',
                     stationCode: item.stationCode || 'POST-HN-CG',
                     status: item.status || 'ACTIVE',
                     shiftStatus: item.shiftStatus || 'ON_DUTY',
                     maxOrdersPerShift: item.maxOrdersPerShift || 40
                 });
+                isManualChatIdOpen.value = false;
                 showModal.value = true;
             };
 
@@ -231,7 +297,7 @@
                     fullName: form.fullName.trim(),
                     phone: form.phone.trim() || null,
                     stationCode: form.stationCode || null,
-                    telegramChatId: form.telegramChatId.trim() || null,
+                    telegramChatId: form.telegramChatId ? form.telegramChatId.trim() : '',
                     shiftStatus: form.shiftStatus,
                     maxOrdersPerShift: parseInt(form.maxOrdersPerShift, 10) || 40
                 };
@@ -239,7 +305,6 @@
                 try {
                     if (form.id) {
                         payload.status = form.status;
-                        if (!payload.telegramChatId) delete payload.telegramChatId;
                         await ShipperDirectoryService.update(form.id, payload);
                         if (window.Utils) window.Utils.showToast('Đã cập nhật', `Bưu tá ${payload.courierCode} đã được lưu.`, 'success');
                     } else {
@@ -360,6 +425,13 @@
                 save,
                 toggleShiftStatus,
                 toggleAllShippersShift,
+                isManualChatIdOpen,
+                isSendingTest,
+                copiedTelegramCommand,
+                maskChatId,
+                copyTelegramCommand,
+                unlinkTelegram,
+                sendTelegramTest,
                 confirmToggleStatus,
                 executeToggleStatus,
                 loadShippers
@@ -811,34 +883,128 @@
                                         </div>
                                     </div>
 
-                                    <div class="space-y-2 pt-2">
+                                    <div class="space-y-3 pt-2">
                                         <div class="text-[11px] font-black uppercase tracking-wider text-sky-700 border-b border-sky-100 pb-1 flex items-center justify-between">
-                                            <span>2. Kênh Thông Báo Telegram Bot</span>
-                                            <span class="text-[10px] text-sky-600 lowercase font-normal">Tự động nhận đơn</span>
+                                            <span class="flex items-center space-x-1.5">
+                                                <svg class="w-3.5 h-3.5 text-sky-600" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.37.74-.56 2.92-1.27 4.86-2.11 5.83-2.52 2.78-1.16 3.35-1.36 3.73-1.37.08 0 .27.02.39.12.1.08.13.2.14.28-.01.06-.01.19-.03.3z"/>
+                                                </svg>
+                                                <span>2. Kênh Thông Báo Telegram Bot</span>
+                                            </span>
+                                            <span class="text-[10px] text-sky-600 font-semibold">Tự động nhận đơn</span>
                                         </div>
 
-                                        <div class="p-2.5 rounded-xl bg-sky-50 border border-sky-200/80 text-xs text-sky-900 space-y-1">
-                                            <div class="font-bold flex items-center space-x-1.5 text-sky-800">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-sky-600"></span>
-                                                <span>Cách bưu tá tự kết nối Telegram Bot:</span>
+                                        <div v-if="form.telegramChatId" class="p-3 rounded-xl bg-emerald-50/80 border border-emerald-200 space-y-2.5">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center space-x-2">
+                                                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                    <span class="text-xs font-bold text-emerald-900">Đã Kết Nối Telegram Bot Thành Công</span>
+                                                </div>
+                                                <span class="px-2 py-0.5 rounded text-[10.5px] font-bold bg-emerald-100 text-emerald-800 font-mono">
+                                                    Chat ID: {{ maskChatId(form.telegramChatId) }}
+                                                </span>
                                             </div>
-                                            <p class="text-[11px] text-sky-700">
-                                                Bưu tá mở bot Telegram hệ thống và gửi lệnh: 
-                                                <code class="px-1.5 py-0.5 rounded bg-white font-mono font-bold text-sky-800 border border-sky-300">/link {{ form.courierCode || '&lt;MÃ_BƯU_TÁ&gt;' }}</code>
+
+                                            <p class="text-[11px] text-emerald-700 leading-relaxed">
+                                                Bưu tá đang nhận thông báo điều phối đơn, dự báo ca trực và kế hoạch giao hàng tự động qua Telegram cá nhân.
                                             </p>
+
+                                            <div class="flex items-center space-x-2 pt-1 border-t border-emerald-100">
+                                                <button
+                                                    type="button"
+                                                    @click="sendTelegramTest()"
+                                                    :disabled="isSendingTest"
+                                                    class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-60"
+                                                >
+                                                    <span v-if="isSendingTest" class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                                    <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                                                    </svg>
+                                                    <span>Gửi Tin Nhắn Thử Nghiệm</span>
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    @click="unlinkTelegram()"
+                                                    class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-red-50 text-red-600 border border-red-200 hover:border-red-300 font-semibold text-xs transition cursor-pointer"
+                                                    title="Hủy liên kết tài khoản Telegram này"
+                                                >
+                                                    Hủy Liên Kết
+                                                </button>
+                                            </div>
                                         </div>
 
-                                        <div>
-                                            <label class="block text-[11px] font-bold text-slate-700 mb-1">
-                                                Gán Thủ Công Telegram Chat ID (Tùy chọn)
-                                            </label>
-                                            <input 
-                                                v-model="form.telegramChatId" 
-                                                maxlength="50"
-                                                placeholder="Chỉ nhập khi cần gắn mới hoặc can thiệp trực tiếp"
-                                                class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
-                                            />
-                                            <span class="text-[10px] text-slate-400 mt-1 block">Để trống nếu để bưu tá tự gửi cú pháp liên kết qua Telegram.</span>
+                                        <div v-else class="space-y-2.5">
+                                            <div class="p-3.5 rounded-xl bg-sky-50/80 border border-sky-200 space-y-2.5">
+                                                <div class="flex items-center justify-between">
+                                                    <span class="text-xs font-bold text-sky-900 flex items-center space-x-1.5">
+                                                        <span class="w-2 h-2 rounded-full bg-sky-500"></span>
+                                                        <span>Chưa Kết Nối Telegram Bot</span>
+                                                    </span>
+                                                    <span class="text-[10.5px] text-slate-500">Liên kết 1 chạm</span>
+                                                </div>
+
+                                                <p class="text-[11px] text-slate-600 leading-normal">
+                                                    Bưu tá chỉ cần mở Bot Telegram để tự động kích hoạt nhận ca mà không cần nhớ hay nhập ID:
+                                                </p>
+
+                                                <div class="flex flex-wrap items-center gap-2 pt-1">
+                                                    <a
+                                                        :href="'https://t.me/NovaWay_Bill_Bot?start=link_' + (form.courierCode || '')"
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        :class="[
+                                                            'px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs transition flex items-center space-x-1.5',
+                                                            !form.courierCode ? 'opacity-50 pointer-events-none' : ''
+                                                        ]"
+                                                    >
+                                                        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.37.74-.56 2.92-1.27 4.86-2.11 5.83-2.52 2.78-1.16 3.35-1.36 3.73-1.37.08 0 .27.02.39.12.1.08.13.2.14.28-.01.06-.01.19-.03.3z"/>
+                                                        </svg>
+                                                        <span>Mở Bot Telegram (Tự động liên kết)</span>
+                                                    </a>
+
+                                                    <button
+                                                        type="button"
+                                                        @click="copyTelegramCommand()"
+                                                        class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold transition flex items-center space-x-1 cursor-pointer"
+                                                    >
+                                                        <svg class="w-3 h-3 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                                        </svg>
+                                                        <span>{{ copiedTelegramCommand ? 'Đã chép lệnh!' : 'Sao chép cú pháp' }}</span>
+                                                    </button>
+                                                </div>
+
+                                                <div class="text-[10.5px] text-slate-500 pt-0.5">
+                                                    Cú pháp thủ công: <code class="px-1.5 py-0.5 rounded bg-white border border-slate-200 font-mono text-sky-800 font-bold">/link {{ form.courierCode || '&lt;MÃ_BƯU_TÁ&gt;' }}</code> gửi tới <strong>@NovaWay_Bill_Bot</strong>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <button
+                                                    type="button"
+                                                    @click="isManualChatIdOpen = !isManualChatIdOpen"
+                                                    class="text-[11px] font-semibold text-slate-500 hover:text-slate-800 flex items-center space-x-1 transition cursor-pointer"
+                                                >
+                                                    <svg :class="['w-3 h-3 transition-transform', isManualChatIdOpen ? 'rotate-90' : '']" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path>
+                                                    </svg>
+                                                    <span>Nhập Telegram Chat ID thủ công (Dành cho Quản trị viên)</span>
+                                                </button>
+
+                                                <div v-show="isManualChatIdOpen" class="mt-2 space-y-1">
+                                                    <input
+                                                        v-model="form.telegramChatId"
+                                                        maxlength="50"
+                                                        placeholder="Nhập mã số Telegram Chat ID (VD: 123456789)"
+                                                        class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
+                                                    />
+                                                    <span class="text-[10px] text-slate-400 block">
+                                                        Bưu tá có thể lấy Chat ID bằng cách nhắn <code>/myid</code> cho bot.
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 

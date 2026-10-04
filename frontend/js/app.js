@@ -5,6 +5,7 @@
         '/': 'tracking',
         '/index.html': 'tracking',
         '/tracking': 'tracking',
+        '/dashboard': 'dashboard',
         '/shipment': 'shipment',
         '/trips': 'trips',
         '/fleet': 'fleet',
@@ -31,6 +32,7 @@
     };
 
     const TAB_ROUTE_MAP = {
+        'dashboard': '/dashboard',
         'tracking': '/tracking',
         'shipment': '/shipment',
         'trips': '/trips',
@@ -489,6 +491,13 @@
 
             const allNavigationTabs = [
                 { 
+                    id: 'dashboard', 
+                    name: 'Bảng Điều Hành', 
+                    component: 'DashboardView', 
+                    staffOnly: true,
+                    icon: 'M4 5a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10-5a1 1 0 011-1h4a1 1 0 011 1v9a1 1 0 01-1 1h-4a1 1 0 01-1-1v-9z'
+                },
+                { 
                     id: 'tracking', 
                     name: 'Tra Cứu Bưu Gửi', 
                     component: 'TrackingView', 
@@ -616,6 +625,9 @@
                 void authVersion.value;
                 void currentUser.value;
                 return allNavigationTabs.filter(tab => {
+                    if (tab.staffOnly) {
+                        if (typeof Auth === 'undefined' || !Auth.isInternalStaff()) return false;
+                    }
                     if (tab.role) {
                         if (typeof Auth === 'undefined') return false;
                         return Auth.hasRole(tab.role);
@@ -682,7 +694,7 @@
                 const resolved = resolveRoute(urlObj.pathname);
 
                 const targetTab = allNavigationTabs.find(t => t.id === resolved.tab);
-                if (!currentUser.value && targetTab && (targetTab.permission || targetTab.role)) {
+                if (!currentUser.value && targetTab && (targetTab.permission || targetTab.role || targetTab.staffOnly)) {
                     try {
                         sessionStorage.setItem('redirectAfterLogin', urlObj.pathname + urlObj.search);
                     } catch (e) {}
@@ -702,6 +714,13 @@
                 if (resolved.tab === 'login' && currentUser.value) {
                     navigateTo('/tracking', true);
                     return;
+                }
+
+                if (targetTab && targetTab.staffOnly) {
+                    if (typeof Auth === 'undefined' || !Auth.isInternalStaff()) {
+                        showError(403, 'Quyền Truy Cập Bị Chặn (403)', 'Chức năng này chỉ dành riêng cho cán bộ nhân viên vận hành nội bộ!');
+                        return;
+                    }
                 }
 
                 if (targetTab && targetTab.role) {
@@ -752,7 +771,8 @@
                     currentUser.value = Auth.getUser();
                 }
                 fetchNotifications();
-                const target = sessionStorage.getItem('redirectAfterLogin') || '/tracking';
+                const defaultTarget = (typeof Auth !== 'undefined' && Auth.isInternalStaff()) ? '/dashboard' : '/tracking';
+                const target = sessionStorage.getItem('redirectAfterLogin') || defaultTarget;
                 sessionStorage.removeItem('redirectAfterLogin');
                 navigateTo(target, true);
             };
@@ -1301,6 +1321,7 @@
         app.component('login-view', window.LoginView);
     }
     if (window.TrackingView) app.component('TrackingView', window.TrackingView);
+    if (window.DashboardView) app.component('DashboardView', window.DashboardView);
     if (window.ShipmentView) app.component('ShipmentView', window.ShipmentView);
     if (window.PostOfficeOpsView) app.component('PostOfficeOpsView', window.PostOfficeOpsView);
     if (window.HubOpsView) app.component('HubOpsView', window.HubOpsView);

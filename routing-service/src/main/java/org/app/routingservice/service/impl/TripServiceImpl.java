@@ -118,6 +118,9 @@ public class TripServiceImpl implements TripService {
                         if ("DISABLED".equals(v.getStatus())) {
                             throw new IllegalStateException("Xe " + v.getVehiclePlate() + " đã bị vô hiệu hóa, không thể điều phối!");
                         }
+                        v.setStatus("ON_TRIP");
+                        vehicleRepository.save(v);
+                        log.info("Xe {} được chốt trạng thái ON_TRIP cho chuyến mới.", v.getVehiclePlate());
                     });
         }
 

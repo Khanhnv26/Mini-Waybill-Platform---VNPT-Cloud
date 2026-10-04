@@ -48,6 +48,11 @@ public class ShipmentController {
         return ResponseEntity.ok(shipments);
     }
 
+    @PostMapping("/{code}/recalculate-eta")
+    public ResponseEntity<Shipment> recalculateEta(@PathVariable("code") String code) {
+        return ResponseEntity.ok(shipmentService.recalculateEta(code));
+    }
+
     @PostMapping("/{code}/cancel")
     public ResponseEntity<Shipment> cancelShipment(
             @PathVariable("code") String code,

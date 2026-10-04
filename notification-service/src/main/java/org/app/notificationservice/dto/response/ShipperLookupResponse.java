@@ -15,5 +15,6 @@ public class ShipperLookupResponse {
     private String phone;
     private String telegramChatId;
     private String stationCode;
+    private String shiftStatus;
     private boolean found;
 }

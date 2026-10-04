@@ -5,6 +5,7 @@
         name: 'AdminRbacView',
         setup() {
             const currentSubtab = ref('matrix');
+            const isDockCollapsed = ref(false);
             const isLoading = ref(false);
             const isSaving = ref(false);
 
@@ -368,11 +369,12 @@
                 toggleUserRole,
                 handleSaveUserRoles,
                 toggleUserStatus,
+                isDockCollapsed,
                 Utils
             };
         },
         template: `
-        <div class="space-y-3.5 pb-8 text-slate-800">
+        <div class="space-y-3.5 pb-8 text-slate-800 relative">
             <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                 <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
 
@@ -409,36 +411,66 @@
                 </div>
             </div>
 
-            <div class="flex items-center justify-between border-b border-slate-200">
-                <div class="flex space-x-4 sm:space-x-6">
-                    <button 
+            <!-- Sub-Banner Action Bar: Compact Segmented Pill Bar -->
+            <div class="bg-white/95 backdrop-blur-md text-slate-700 rounded-2xl shadow-xs border border-slate-200/90 p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
+                <div class="bg-slate-100/90 p-1 rounded-xl border border-slate-200/70 inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
+                    <!-- Ma Trận RBAC Tab Button -->
+                    <button
+                        type="button"
                         @click="currentSubtab = 'matrix'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center space-x-1.5',
-                            currentSubtab === 'matrix' 
-                                ? 'border-blue-600 text-blue-700' 
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                            'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                            currentSubtab === 'matrix'
+                                ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
                         ]"
                     >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'matrix' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                         </svg>
-                        <span>MA TRẬN ĐẶC QUYỀN (VAI TRÒ - QUYỀN HẠN)</span>
+                        <span class="truncate">Ma Trận RBAC</span>
+                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'matrix' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
+                            {{ rolesList.length }}
+                        </span>
                     </button>
 
-                    <button 
+                    <!-- Người Dùng Tab Button -->
+                    <button
+                        type="button"
                         @click="currentSubtab = 'users'"
                         :class="[
-                            'pb-2.5 text-xs sm:text-sm font-bold transition-all border-b-2 flex items-center space-x-1.5',
-                            currentSubtab === 'users' 
-                                ? 'border-blue-600 text-blue-700' 
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                            'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                            currentSubtab === 'users'
+                                ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
                         ]"
                     >
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                        <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'users' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                         </svg>
-                        <span>HỒ SƠ NGƯỜI DÙNG &amp; CẤP PHÁT VAI TRÒ</span>
+                        <span class="truncate">Người Dùng</span>
+                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'users' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
+                            {{ usersList.length }}
+                        </span>
+                    </button>
+                </div>
+
+                <!-- Right Live Status & Mini Refresh Button -->
+                <div class="flex items-center space-x-2 shrink-0 px-1 py-0.5">
+                    <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/70">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>Thời gian thực</span>
+                    </span>
+                    <button
+                        type="button"
+                        @click="loadMatrixData(); loadUsersData()"
+                        :disabled="isLoading"
+                        class="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 border border-slate-200/80 transition-all duration-200 active:scale-90 disabled:opacity-50 cursor-pointer shadow-2xs"
+                        title="Làm mới dữ liệu thời gian thực"
+                    >
+                        <svg class="w-3.5 h-3.5 transition-transform duration-300" :class="{ 'animate-spin text-emerald-600': isLoading }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
                     </button>
                 </div>
             </div>

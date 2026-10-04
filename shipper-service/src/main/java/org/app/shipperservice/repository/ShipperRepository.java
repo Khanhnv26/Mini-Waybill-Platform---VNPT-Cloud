@@ -12,6 +12,8 @@ import java.util.Optional;
 public interface ShipperRepository extends JpaRepository<Shipper, Long> {
     Optional<Shipper> findByCourierCode(String courierCode);
 
+    Optional<Shipper> findByTelegramChatId(String telegramChatId);
+
     List<Shipper> findByStationCode(String stationCode);
     long countByStationCode(String stationCode);
     long countByStationCodeAndStatusAndShiftStatus(String stationCode, String status, String shiftStatus);

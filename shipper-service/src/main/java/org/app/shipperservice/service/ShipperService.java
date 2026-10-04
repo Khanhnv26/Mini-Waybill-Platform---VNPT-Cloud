@@ -15,8 +15,11 @@ public interface ShipperService {
     ShipperResponse updateShipper(Long id, UpdateShipperRequest updateShipperRequest);
     ShipperResponse deleteShipper(Long id);
     ShipperLookupResponse findByCourierCode(String courierCode);
+    ShipperLookupResponse findByTelegramChatId(String telegramChatId);
     boolean linkTelegramChatId(String courierCode, String telegramChatId);
     StationCapacityResponse getStationCapacity(String stationCode);
     ShipperResponse updateShiftStatus(Long shipperId, String shiftStatus);
+    ShipperResponse updateShiftStatusByCourierCode(String courierCode, String shiftStatus);
+    ShipperLookupResponse toggleShiftStatus(String courierCode);
 
 }

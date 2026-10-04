@@ -9,4 +9,6 @@ import java.util.Optional;
 public interface RoutingAssignmentRepository extends JpaRepository<RoutingAssignment, Long> {
     List<RoutingAssignment> findByStatus(String status);
     Optional<RoutingAssignment> findByTrackingCode(String trackingCode);
+    List<RoutingAssignment> findByDestPostOffice(String destPostOffice);
+    List<RoutingAssignment> findByDestPostOfficeAndStatusIn(String destPostOffice, List<String> statuses);
 }

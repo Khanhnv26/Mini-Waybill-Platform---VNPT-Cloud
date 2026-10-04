@@ -6,6 +6,7 @@ import org.app.routingservice.dto.vehicle.CreateVehicleRequest;
 import org.app.routingservice.dto.vehicle.UpdateVehicleRequest;
 import org.app.routingservice.dto.vehicle.VehicleResponse;
 import org.app.routingservice.entity.Vehicle;
+import org.app.routingservice.repository.TripRepository;
 import org.app.routingservice.repository.VehicleRepository;
 import org.app.routingservice.service.VehicleService;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ public class VehicleServiceImpl implements VehicleService {
 
 
     private final VehicleRepository vehicleRepository;
+    private final TripRepository tripRepository;
 
 
     @Override
@@ -78,6 +80,17 @@ public class VehicleServiceImpl implements VehicleService {
         Vehicle vehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy xe với ID: " + id));
 
+        if (request.getStatus() != null) {
+            String targetStatus = request.getStatus().trim().toUpperCase();
+            if (isLockedStatus(targetStatus) && hasActiveTrip(vehicle.getVehiclePlate())) {
+                throw new IllegalStateException("Xe " + vehicle.getVehiclePlate() + " đang được điều phối cho chuyến xe, không thể đổi trạng thái sang " + targetStatus + ".");
+            }
+        }
+        if ((request.getCurrentHub() != null || request.getPayloadCapacity() != null)
+                && hasTransitTrip(vehicle.getVehiclePlate())) {
+            throw new IllegalStateException("Xe " + vehicle.getVehiclePlate() + " đang trên chuyến, không thể thay đổi Hub hiện tại hoặc tải trọng.");
+        }
+
         if (request.getModelName() != null) vehicle.setModelName(request.getModelName().trim());
         if (request.getVehicleType() != null) vehicle.setVehicleType(request.getVehicleType().trim());
         if (request.getPayloadCapacity() != null) vehicle.setPayloadCapacity(request.getPayloadCapacity());
@@ -106,8 +119,30 @@ public class VehicleServiceImpl implements VehicleService {
 
         }
 
+        if (isLockedStatus(normalizedStatus) && hasActiveTrip(vehicle.getVehiclePlate())) {
+            throw new IllegalStateException("Xe " + vehicle.getVehiclePlate() + " đang được điều phối cho chuyến xe, không thể đổi trạng thái sang " + normalizedStatus + ".");
+        }
+
         vehicle.setStatus(normalizedStatus);
         return mapToResponse(vehicleRepository.save(vehicle));
+    }
+
+    private boolean isLockedStatus(String status) {
+        return "MAINTENANCE".equals(status) || "DISABLED".equals(status);
+    }
+
+    private boolean hasActiveTrip(String vehiclePlate) {
+        if (vehiclePlate == null || vehiclePlate.isBlank()) {
+            return false;
+        }
+        return tripRepository.existsByVehiclePlateAndStatusIn(vehiclePlate, List.of("SCHEDULED", "IN_TRANSIT"));
+    }
+
+    private boolean hasTransitTrip(String vehiclePlate) {
+        if (vehiclePlate == null || vehiclePlate.isBlank()) {
+            return false;
+        }
+        return tripRepository.existsByVehiclePlateAndStatusIn(vehiclePlate, List.of("IN_TRANSIT"));
     }
 
     private VehicleResponse mapToResponse(Vehicle v) {

@@ -6,6 +6,7 @@ import org.app.shipmentservice.dto.event.ShipmentStatusUpdatedEvent;
 import org.app.shipmentservice.entity.Shipment;
 import org.app.shipmentservice.entity.ShipmentStatus;
 import org.app.shipmentservice.repository.ShipmentRepository;
+import org.app.shipmentservice.service.EtaRecalculationService;
 import org.springframework.cloud.loadbalancer.annotation.LoadBalancerClient;
 import org.springframework.kafka.annotation.BackOff;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -13,12 +14,21 @@ import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.Set;
+
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class ShipmentStatusConsumer {
 
+    private static final Set<ShipmentStatus> ETA_SENSITIVE_STATUSES = Set.of(
+            ShipmentStatus.PICKED_UP,
+            ShipmentStatus.IN_TRANSIT,
+            ShipmentStatus.ARRIVED_DEST_HUB,
+            ShipmentStatus.OUT_FOR_DELIVERY);
+
     private final ShipmentRepository shipmentRepository;
+    private final EtaRecalculationService etaRecalculationService;
 
     @KafkaListener(topics = "tracking-status-events", groupId = "shipment-group")
     @RetryableTopic(attempts = "3", backOff = @BackOff(delay = 1000, multiplier = 2))
@@ -55,6 +65,14 @@ public class ShipmentStatusConsumer {
         shipmentRepository.save(shipment);
         log.info("[SHIPMENT] Đồng bộ thành công: {} | {} → {}",
                 event.getTrackingCode(), oldStatus, newStatus);
+
+        if (ETA_SENSITIVE_STATUSES.contains(newStatus)) {
+            try {
+                etaRecalculationService.recalculateByTrackingCode(event.getTrackingCode());
+            } catch (Exception e) {
+                log.warn("[SHIPMENT] Không tính lại được ETA cho đơn {}: {}", event.getTrackingCode(), e.getMessage());
+            }
+        }
     }
 
 

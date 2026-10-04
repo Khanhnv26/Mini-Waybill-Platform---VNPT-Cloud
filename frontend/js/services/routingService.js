@@ -300,6 +300,24 @@
         async updateVehicleStatus(id, status) {
             const response = await Api.patch(`/api/routing/vehicles/${encodePath(id)}/status?status=${encodePath(status)}`);
             return parseResponse(response, 'Không thể cập nhật trạng thái phương tiện');
+        },
+
+        async getStationForecast(stationCode, date) {
+            const query = date ? `?date=${encodeURIComponent(date)}` : '';
+            const response = await Api.get(`/api/routing/forecast/station/${encodePath(stationCode)}${query}`);
+            return parseResponse(response, 'Không thể tải số liệu dự báo ca ngày mai');
+        },
+
+        async getShipperForecast(courierCode, date) {
+            const query = date ? `?date=${encodeURIComponent(date)}` : '';
+            const response = await Api.get(`/api/routing/forecast/shipper/${encodePath(courierCode)}${query}`);
+            return parseResponse(response, 'Không thể tải dự báo ca phát của bưu tá');
+        },
+
+        async dispatchStationTelegramForecast(stationCode, date) {
+            const query = date ? `?date=${encodeURIComponent(date)}` : '';
+            const response = await Api.post(`/api/routing/forecast/station/${encodePath(stationCode)}/dispatch-telegram${query}`, {});
+            return parseResponse(response, 'Không thể phát thông báo Telegram dự báo ca mai');
         }
     };
 

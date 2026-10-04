@@ -7,8 +7,11 @@ import org.app.routingservice.dto.operation.StationCapacityDto;
 import org.app.routingservice.entity.Hub;
 import org.app.routingservice.entity.Trip;
 import org.app.routingservice.repository.HubRepository;
+import org.app.routingservice.repository.TripManifestRepository;
 import org.app.routingservice.repository.TripRepository;
+import org.app.routingservice.repository.TripStopRepository;
 import org.app.routingservice.repository.VehicleRepository;
+import org.app.routingservice.repository.WarehouseInventoryRepository;
 import org.app.routingservice.service.impl.DeliveryEtaServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,6 +44,15 @@ class DeliveryEtaServiceTest {
 
     @Mock
     private HubRepository hubRepository;
+
+    @Mock
+    private WarehouseInventoryRepository warehouseInventoryRepository;
+
+    @Mock
+    private TripManifestRepository tripManifestRepository;
+
+    @Mock
+    private TripStopRepository tripStopRepository;
 
     @InjectMocks
     private DeliveryEtaServiceImpl deliveryEtaService;
@@ -177,5 +189,110 @@ class DeliveryEtaServiceTest {
 
         assertNotNull(response);
         assertTrue(response.getEstimatedDeliveryTime().isAfter(LocalDateTime.now().plusHours(36)));
+    }
+
+    @Test
+    @DisplayName("ETA theo chặng: đơn IN_TRANSIT dùng chuyến đang chạy và khoảng cách còn lại")
+    void testCalculateDeliveryEta_LegAwareInTransit() {
+        Hub dnHub = Hub.builder()
+                .hubCode("HUB-DN-01")
+                .hubName("Siêu Hub Đà Nẵng")
+                .province("Đà Nẵng")
+                .latitude(16.0544)
+                .longitude(108.2021)
+                .build();
+
+        when(hubRepository.findByHubCode("HUB-DN-01")).thenReturn(Optional.of(dnHub));
+        when(hubRepository.findByHubCode("HUB-HCM-01")).thenReturn(Optional.of(hcmHub));
+        when(hubRepository.findByHubCode("HUB-HN-01")).thenReturn(Optional.of(hnHub));
+
+        Trip trip = Trip.builder()
+                .tripCode("TRP-DN-HCM-01")
+                .vehiclePlate("29H-999.99")
+                .status("IN_TRANSIT")
+                .currentHub("HUB-DN-01")
+                .build();
+        when(tripRepository.findByTripCode("TRP-DN-HCM-01")).thenReturn(Optional.of(trip));
+
+        when(shipperClient.getStationCapacity("HUB-HCM-01")).thenReturn(
+                StationCapacityDto.builder()
+                        .stationCode("HUB-HCM-01")
+                        .availableCapacity(30)
+                        .isOverLoaded(false)
+                        .build()
+        );
+
+        EtaCalculationRequest request = EtaCalculationRequest.builder()
+                .destinationHub("HUB-HCM-01")
+                .assignedTripCode("TRP-DN-HCM-01")
+                .currentStatus("IN_TRANSIT")
+                .currentLocation("HUB-DN-01")
+                .weight(2.0)
+                .milestoneAt(LocalDateTime.now())
+                .build();
+
+        EtaCalculationResponse response = deliveryEtaService.calculateDeliveryEta(request);
+
+        assertNotNull(response);
+        assertEquals("IN_TRANSIT_LEG", response.getEtaBasis());
+        assertEquals("TRP-DN-HCM-01", response.getAssignedTripCode());
+        assertEquals("LINEHAUL", response.getCurrentLeg());
+        assertNotNull(response.getRemainingDistanceKm());
+        assertTrue(response.getRemainingDistanceKm() > 0);
+        assertTrue(response.getEstimatedDeliveryTime().isBefore(LocalDateTime.now().plusHours(36)));
+    }
+
+    @Test
+    @DisplayName("ETA theo chặng: đơn ARRIVED_DEST_HUB chỉ còn last-mile và chịu quá tải trạm")
+    void testCalculateDeliveryEta_ArrivedDestHub() {
+        when(hubRepository.findByHubCode("HUB-HCM-01")).thenReturn(Optional.of(hcmHub));
+        when(hubRepository.findByHubCode("HUB-HN-01")).thenReturn(Optional.of(hnHub));
+        when(shipperClient.getStationCapacity("HUB-HCM-01")).thenReturn(
+                StationCapacityDto.builder()
+                        .stationCode("HUB-HCM-01")
+                        .availableCapacity(0)
+                        .isOverLoaded(true)
+                        .build()
+        );
+
+        EtaCalculationRequest request = EtaCalculationRequest.builder()
+                .destinationHub("HUB-HCM-01")
+                .currentStatus("ARRIVED_DEST_HUB")
+                .currentLocation("HUB-HCM-01")
+                .weight(1.0)
+                .milestoneAt(LocalDateTime.now())
+                .build();
+
+        EtaCalculationResponse response = deliveryEtaService.calculateDeliveryEta(request);
+
+        assertNotNull(response);
+        assertEquals("DEST_HUB_LAST_MILE", response.getEtaBasis());
+        assertEquals(0.0, response.getRemainingDistanceKm());
+        assertEquals("DESTINATION_FEEDER", response.getCurrentLeg());
+        // last-mile 4h + 24h quá tải
+        assertTrue(response.getEstimatedDeliveryTime().isAfter(LocalDateTime.now().plusHours(24)));
+    }
+
+    @Test
+    @DisplayName("ETA theo chặng: đơn OUT_FOR_DELIVERY chỉ tính last-mile, bỏ qua công suất trạm")
+    void testCalculateDeliveryEta_OutForDelivery() {
+        when(hubRepository.findByHubCode("HUB-HCM-01")).thenReturn(Optional.of(hcmHub));
+        when(hubRepository.findByHubCode("HUB-HN-01")).thenReturn(Optional.of(hnHub));
+
+        EtaCalculationRequest request = EtaCalculationRequest.builder()
+                .destinationHub("HUB-HCM-01")
+                .currentStatus("OUT_FOR_DELIVERY")
+                .currentLocation("HUB-HCM-01")
+                .weight(1.0)
+                .milestoneAt(LocalDateTime.now())
+                .build();
+
+        EtaCalculationResponse response = deliveryEtaService.calculateDeliveryEta(request);
+
+        assertNotNull(response);
+        assertEquals("LAST_MILE", response.getEtaBasis());
+        assertEquals(0.0, response.getRemainingDistanceKm());
+        assertEquals("LAST_MILE", response.getCurrentLeg());
+        assertTrue(response.getEstimatedDeliveryTime().isBefore(LocalDateTime.now().plusHours(6)));
     }
 }

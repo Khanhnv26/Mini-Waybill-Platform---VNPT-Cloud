@@ -27,4 +27,9 @@ public class EtaCalculationResponse {
     private Integer availableCapacityAtDest;
     private Boolean isFleetConstrained;
 
+    //leg-aware ETA
+    private String currentLeg;
+    private Double remainingDistanceKm;
+    private String etaBasis;
+
 }

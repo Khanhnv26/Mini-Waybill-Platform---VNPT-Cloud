@@ -14,6 +14,7 @@ import java.util.List;
 @RequestMapping("/api/notifications")
 public class NotificationController {
     private final NotificationService notificationService;
+    private final org.app.notificationservice.service.TelegramService telegramService;
 
     @GetMapping("/{trackingCode}")
     public ResponseEntity<List<NotificationLog>> getNotificationsByTrackingCode(@PathVariable String trackingCode) {
@@ -49,5 +50,16 @@ public class NotificationController {
             notificationService.markAllAsRead(userEmail.trim(), roles);
         }
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/telegram/send")
+    public ResponseEntity<java.util.Map<String, Object>> sendTelegramMessage(@RequestBody java.util.Map<String, String> payload) {
+        String chatId = payload != null ? payload.get("chatId") : null;
+        String message = payload != null ? payload.get("message") : null;
+        if (chatId != null && !chatId.isBlank() && message != null && !message.isBlank()) {
+            telegramService.sendMessage(chatId, message);
+            return ResponseEntity.ok(java.util.Map.of("success", true, "message", "Đã gửi thông báo Telegram"));
+        }
+        return ResponseEntity.badRequest().body(java.util.Map.of("success", false, "error", "chatId và message không được để trống"));
     }
 }

@@ -20,4 +20,11 @@ public class EtaCalculationRequest {
     private String serviceType;
     private LocalDateTime createdAt;
 
+    // ==== Leg-aware ETA context (tùy chọn) ====
+    private String trackingCode;
+    private String currentStatus;
+    private String currentLocation;
+    private String assignedTripCode;
+    private LocalDateTime milestoneAt;
+
 }

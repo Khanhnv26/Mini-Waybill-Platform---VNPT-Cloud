@@ -52,6 +52,23 @@ public class ShipperController {
         return ResponseEntity.ok(shipperService.findByCourierCode(courierCode));
     }
 
+    @GetMapping("/internal/by-chat/{telegramChatId}")
+    public ResponseEntity<ShipperLookupResponse> findByTelegramChatId(@PathVariable String telegramChatId) {
+        return ResponseEntity.ok(shipperService.findByTelegramChatId(telegramChatId));
+    }
+
+    @PatchMapping("/internal/{courierCode}/shift-status")
+    public ResponseEntity<ShipperResponse> updateShiftStatusByCourierCode(
+            @PathVariable String courierCode,
+            @RequestParam String shiftStatus) {
+        return ResponseEntity.ok(shipperService.updateShiftStatusByCourierCode(courierCode, shiftStatus));
+    }
+
+    @PostMapping("/internal/{courierCode}/toggle-shift")
+    public ResponseEntity<ShipperLookupResponse> toggleShiftStatus(@PathVariable String courierCode) {
+        return ResponseEntity.ok(shipperService.toggleShiftStatus(courierCode));
+    }
+
     @PostMapping("/internal/link-telegram")
     public ResponseEntity<Map<String, Object>> linkTelegram(@RequestBody LinkTelegramRequest linkTelegramRequest) {
         boolean success = shipperService.linkTelegramChatId(linkTelegramRequest.getCourierCode(), linkTelegramRequest.getTelegramChatId());

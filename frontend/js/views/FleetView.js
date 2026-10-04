@@ -1,5 +1,5 @@
 (function () {
-    const { ref, reactive, computed, onMounted } = Vue;
+    const { ref, reactive, computed, onMounted, watch } = Vue;
 
     const HUBS = [
         { code: 'HUB-HN-01', label: 'Siêu HUB Hà Nội (HUB-HN-01)' },
@@ -111,6 +111,40 @@
                 }
                 return list;
             });
+
+            const currentPage = ref(1);
+            const pageSize = ref(10);
+
+            const totalPages = computed(() => {
+                if (pageSize.value === -1) return 1;
+                return Math.ceil(filteredVehicles.value.length / pageSize.value) || 1;
+            });
+
+            const startIndex = computed(() => {
+                if (filteredVehicles.value.length === 0) return 0;
+                return (currentPage.value - 1) * pageSize.value + 1;
+            });
+
+            const endIndex = computed(() => {
+                if (pageSize.value === -1) return filteredVehicles.value.length;
+                return Math.min(currentPage.value * pageSize.value, filteredVehicles.value.length);
+            });
+
+            const paginatedVehicles = computed(() => {
+                if (pageSize.value === -1) return filteredVehicles.value;
+                const start = (currentPage.value - 1) * pageSize.value;
+                return filteredVehicles.value.slice(start, start + pageSize.value);
+            });
+
+            watch([searchQuery, hubFilter, statusFilter, typeFilter, pageSize], () => {
+                currentPage.value = 1;
+            });
+
+            const goToPage = (page) => {
+                if (page >= 1 && page <= totalPages.value) {
+                    currentPage.value = page;
+                }
+            };
 
             const handleTypeChangeInAdd = () => {
                 const found = VEHICLE_TYPES.find(t => t.code === addForm.vehicleType);
@@ -247,6 +281,13 @@
                 editForm,
                 kpiStats,
                 filteredVehicles,
+                currentPage,
+                pageSize,
+                totalPages,
+                startIndex,
+                endIndex,
+                paginatedVehicles,
+                goToPage,
                 hubs: HUBS,
                 vehicleTypes: VEHICLE_TYPES,
                 loadVehicles,
@@ -402,7 +443,7 @@
                                         {{ isLoading ? 'Đang tải dữ liệu đội xe...' : 'Không tìm thấy phương tiện nào phù hợp với bộ lọc.' }}
                                     </td>
                                 </tr>
-                                <tr v-for="v in filteredVehicles" :key="v.id" class="hover:bg-slate-50/70 transition">
+                                <tr v-for="v in paginatedVehicles" :key="v.id" class="hover:bg-slate-50/70 transition">
                                     <td class="py-2.5 px-3.5">
                                         <div class="flex items-center gap-2">
                                             <div class="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
@@ -499,6 +540,52 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50/50 text-xs text-slate-600 gap-2">
+                        <div class="flex items-center space-x-2">
+                            <span>Hiển thị <b>{{ startIndex }}</b> - <b>{{ endIndex }}</b> trên tổng <b>{{ filteredVehicles.length }}</b> xe</span>
+                            <span class="text-slate-300">|</span>
+                            <span>Số dòng:</span>
+                            <select 
+                                v-model.number="pageSize" 
+                                class="px-1.5 py-0.5 bg-white border border-slate-200 rounded font-bold text-slate-700 focus:outline-none focus:border-blue-600 cursor-pointer"
+                            >
+                                <option :value="5">5</option>
+                                <option :value="10">10</option>
+                                <option :value="20">20</option>
+                                <option :value="-1">Tất cả</option>
+                            </select>
+                        </div>
+
+                        <div v-if="totalPages > 1" class="flex items-center space-x-1 self-end sm:self-auto">
+                            <button 
+                                @click="goToPage(currentPage - 1)" 
+                                :disabled="currentPage === 1"
+                                class="px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold cursor-pointer"
+                            >
+                                ‹
+                            </button>
+                            <button 
+                                v-for="p in totalPages" 
+                                :key="p"
+                                @click="goToPage(p)"
+                                :class="[
+                                    'px-2.5 py-1 rounded-md text-xs font-bold transition cursor-pointer',
+                                    currentPage === p 
+                                        ? 'bg-blue-600 text-white shadow-xs' 
+                                        : 'bg-white border border-slate-200 hover:bg-slate-100 text-slate-700'
+                                ]"
+                            >
+                                {{ p }}
+                            </button>
+                            <button 
+                                @click="goToPage(currentPage + 1)" 
+                                :disabled="currentPage === totalPages"
+                                class="px-2.5 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-bold cursor-pointer"
+                            >
+                                ›
+                            </button>
+                        </div>
                     </div>
                 </div>
 

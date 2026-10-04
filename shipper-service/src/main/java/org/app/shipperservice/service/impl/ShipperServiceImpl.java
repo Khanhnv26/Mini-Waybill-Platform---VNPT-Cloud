@@ -29,7 +29,7 @@ public class ShipperServiceImpl implements ShipperService {
                         .courierCode(createShipperRequest.getCourierCode())
                         .fullName(createShipperRequest.getFullName())
                         .phone(createShipperRequest.getPhone())
-                        .telegramChatId(createShipperRequest.getTelegramChatId())
+                        .telegramChatId(createShipperRequest.getTelegramChatId() != null && !createShipperRequest.getTelegramChatId().isBlank() ? createShipperRequest.getTelegramChatId().trim() : null)
                         .stationCode(createShipperRequest.getStationCode())
                         .status("ACTIVE")
                         .shiftStatus("ON_DUTY")
@@ -66,7 +66,7 @@ public class ShipperServiceImpl implements ShipperService {
         if (updateShipperRequest.getCourierCode() != null) shipper.setCourierCode(updateShipperRequest.getCourierCode());
         if (updateShipperRequest.getFullName() != null) shipper.setFullName(updateShipperRequest.getFullName());
         if (updateShipperRequest.getPhone() != null) shipper.setPhone(updateShipperRequest.getPhone());
-        if (updateShipperRequest.getTelegramChatId() != null) shipper.setTelegramChatId(updateShipperRequest.getTelegramChatId());
+        if (updateShipperRequest.getTelegramChatId() != null) shipper.setTelegramChatId(updateShipperRequest.getTelegramChatId().isBlank() ? null : updateShipperRequest.getTelegramChatId().trim());
         if (updateShipperRequest.getStationCode() != null) shipper.setStationCode(updateShipperRequest.getStationCode());
         if (updateShipperRequest.getStatus() != null) shipper.setStatus(updateShipperRequest.getStatus());
         if (updateShipperRequest.getShiftStatus() != null) shipper.setShiftStatus(updateShipperRequest.getShiftStatus().trim().toUpperCase());
@@ -90,17 +90,35 @@ public class ShipperServiceImpl implements ShipperService {
     @Transactional(readOnly = true)
     public ShipperLookupResponse findByCourierCode(String courierCode) {
         return shipperRepository.findByCourierCode(courierCode)
-                .map(shipper -> ShipperLookupResponse.builder()
-                        .courierCode(shipper.getCourierCode())
-                        .fullName(shipper.getFullName())
-                        .phone(shipper.getPhone())
-                        .telegramChatId(shipper.getTelegramChatId())
-                        .stationCode(shipper.getStationCode())
-                        .found(true)
-                        .build())
+                .map(this::toLookupResponse)
                 .orElse(ShipperLookupResponse.builder()
                         .found(false)
                         .build());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ShipperLookupResponse findByTelegramChatId(String telegramChatId) {
+        if (telegramChatId == null || telegramChatId.isBlank()) {
+            return ShipperLookupResponse.builder().found(false).build();
+        }
+        return shipperRepository.findByTelegramChatId(telegramChatId.trim())
+                .map(this::toLookupResponse)
+                .orElse(ShipperLookupResponse.builder()
+                        .found(false)
+                        .build());
+    }
+
+    private ShipperLookupResponse toLookupResponse(Shipper shipper) {
+        return ShipperLookupResponse.builder()
+                .courierCode(shipper.getCourierCode())
+                .fullName(shipper.getFullName())
+                .phone(shipper.getPhone())
+                .telegramChatId(shipper.getTelegramChatId())
+                .stationCode(shipper.getStationCode())
+                .shiftStatus(shipper.getShiftStatus() != null ? shipper.getShiftStatus() : "ON_DUTY")
+                .found(true)
+                .build();
     }
 
     @Override
@@ -145,14 +163,40 @@ public class ShipperServiceImpl implements ShipperService {
         Shipper shipper = shipperRepository.findById(shipperId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bưu tá với id: " + shipperId));
 
+        applyShiftStatus(shipper, shiftStatus);
+        Shipper updated = shipperRepository.save(shipper);
+        return toShipperResponse(updated);
+    }
+
+    @Override
+    @Transactional
+    public ShipperResponse updateShiftStatusByCourierCode(String courierCode, String shiftStatus) {
+        Shipper shipper = shipperRepository.findByCourierCode(courierCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bưu tá với mã: " + courierCode));
+
+        applyShiftStatus(shipper, shiftStatus);
+        Shipper updated = shipperRepository.save(shipper);
+        return toShipperResponse(updated);
+    }
+
+    private void applyShiftStatus(Shipper shipper, String shiftStatus) {
         String normalized = shiftStatus != null ? shiftStatus.trim().toUpperCase() : "ON_DUTY";
         if (!List.of("ON_DUTY", "OFF_DUTY").contains(normalized)) {
             throw new IllegalArgumentException("Trạng thái ca trực không hợp lệ: " + shiftStatus);
         }
-
         shipper.setShiftStatus(normalized);
+    }
+
+    @Override
+    @Transactional
+    public ShipperLookupResponse toggleShiftStatus(String courierCode) {
+        Shipper shipper = shipperRepository.findByCourierCode(courierCode)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bưu tá với mã: " + courierCode));
+
+        String next = "ON_DUTY".equalsIgnoreCase(shipper.getShiftStatus()) ? "OFF_DUTY" : "ON_DUTY";
+        shipper.setShiftStatus(next);
         Shipper updated = shipperRepository.save(shipper);
-        return toShipperResponse(updated);
+        return toLookupResponse(updated);
     }
 
     private ShipperResponse toShipperResponse(Shipper shipper) {
@@ -162,6 +206,7 @@ public class ShipperServiceImpl implements ShipperService {
                 .courierCode(shipper.getCourierCode())
                 .fullName(shipper.getFullName())
                 .phone(shipper.getPhone())
+                .telegramChatId(shipper.getTelegramChatId())
                 .hasLinkedTelegram(shipper.getTelegramChatId() != null && !shipper.getTelegramChatId().isBlank())
                 .stationCode(shipper.getStationCode())
                 .status(shipper.getStatus())

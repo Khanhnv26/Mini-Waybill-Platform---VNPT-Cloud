@@ -22,5 +22,9 @@ public class ShipmentDetailResponse {
     private String receiverAddress;
     private BigDecimal codAmount;
     private String serviceType;
+    private String currentStatus;
+    private String codSettlementStatus;
+    private BigDecimal shippingFee;
+    private BigDecimal totalFee;
 
 }

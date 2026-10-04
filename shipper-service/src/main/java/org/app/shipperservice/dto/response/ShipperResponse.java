@@ -14,6 +14,7 @@ public class ShipperResponse {
     private String courierCode;
     private String fullName;
     private String phone;
+    private String telegramChatId;
     private boolean hasLinkedTelegram;
     private String stationCode;
     private String status;
