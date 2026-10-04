@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: payment-service
-          image: khanhnv26/payment-service:193194431878a31d63b18bd37a516456b99cec85
+          image: khanhnv26/payment-service:f89f6420b8d700a5104dab537077ff8f24fc1b93
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
