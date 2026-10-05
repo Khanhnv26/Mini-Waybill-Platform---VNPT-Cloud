@@ -3244,6 +3244,16 @@
                     </div>
 
                     <div class="flex items-center space-x-2 text-xs">
+                        <div 
+                            @click="toggleSchedulerMode()"
+                            class="flex items-center space-x-2 px-3 py-1.5 rounded-lg border text-xs cursor-pointer transition select-none"
+                            :class="[schedulerConfig.enabled ? 'bg-blue-50 border-blue-200 text-blue-800 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-600', isUpdatingScheduler ? 'opacity-60 pointer-events-none' : '']"
+                            title="Nhấn để chuyển đổi chế độ lập lịch gom hàng tự động hoặc thủ công"
+                        >
+                            <span v-if="isUpdatingScheduler" class="w-2.5 h-2.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
+                            <span v-else class="w-2 h-2 rounded-full" :class="schedulerConfig.enabled ? 'bg-blue-600 animate-pulse' : 'bg-slate-400'"></span>
+                            <span>Lịch Chạy: <strong>{{ schedulerConfig.enabled ? 'Tự Động (mỗi ' + Math.round(schedulerConfig.intervalSeconds / 60) + ' phút)' : 'Thủ Công' }}</strong></span>
+                        </div>
                         <button 
                             type="button"
                             @click="openCreateTripModal('ORIGIN_FEEDER')"
@@ -3472,10 +3482,11 @@
                         <div 
                             @click="toggleSchedulerMode()"
                             class="flex items-center space-x-2 px-3 py-1.5 rounded-lg border text-xs cursor-pointer transition select-none"
-                            :class="schedulerConfig.enabled ? 'bg-blue-50 border-blue-200 text-blue-800 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-600'"
+                            :class="[schedulerConfig.enabled ? 'bg-blue-50 border-blue-200 text-blue-800 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-600', isUpdatingScheduler ? 'opacity-60 pointer-events-none' : '']"
                             title="Nhấn để chuyển đổi chế độ lập lịch gom hàng tự động hoặc thủ công"
                         >
-                            <span class="w-2 h-2 rounded-full" :class="schedulerConfig.enabled ? 'bg-blue-600 animate-pulse' : 'bg-slate-400'"></span>
+                            <span v-if="isUpdatingScheduler" class="w-2.5 h-2.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
+                            <span v-else class="w-2 h-2 rounded-full" :class="schedulerConfig.enabled ? 'bg-blue-600 animate-pulse' : 'bg-slate-400'"></span>
                             <span>Lịch Chạy: <strong>{{ schedulerConfig.enabled ? 'Tự Động (mỗi ' + Math.round(schedulerConfig.intervalSeconds / 60) + ' phút)' : 'Thủ Công' }}</strong></span>
                         </div>
                         <button 
@@ -3650,6 +3661,16 @@
                     </div>
                     <div v-if="feederSubtab === 'pending'" class="flex items-center space-x-2 text-xs">
                         <span class="text-slate-500 font-medium hidden sm:inline">Đã chọn: <strong class="text-emerald-700">{{ selectedDestinationFeederItems.length }} kiện</strong> ({{ selectedDestinationFeederWeight.toFixed(1) }} kg)</span>
+                        <div 
+                            @click="toggleSchedulerMode()"
+                            class="flex items-center space-x-2 px-3 py-1.5 rounded-lg border text-xs cursor-pointer transition select-none"
+                            :class="[schedulerConfig.enabled ? 'bg-blue-50 border-blue-200 text-blue-800 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-600', isUpdatingScheduler ? 'opacity-60 pointer-events-none' : '']"
+                            title="Nhấn để chuyển đổi chế độ lập lịch gom hàng tự động hoặc thủ công"
+                        >
+                            <span v-if="isUpdatingScheduler" class="w-2.5 h-2.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
+                            <span v-else class="w-2 h-2 rounded-full" :class="schedulerConfig.enabled ? 'bg-blue-600 animate-pulse' : 'bg-slate-400'"></span>
+                            <span>Lịch Chạy: <strong>{{ schedulerConfig.enabled ? 'Tự Động (mỗi ' + Math.round(schedulerConfig.intervalSeconds / 60) + ' phút)' : 'Thủ Công' }}</strong></span>
+                        </div>
                         <button 
                             type="button"
                             @click="handleReceiveAllIncomingFeeder"
@@ -3661,6 +3682,16 @@
                         </button>
                     </div>
                     <div v-else class="flex items-center space-x-2 text-xs">
+                        <div 
+                            @click="toggleSchedulerMode()"
+                            class="flex items-center space-x-2 px-3 py-1.5 rounded-lg border text-xs cursor-pointer transition select-none"
+                            :class="[schedulerConfig.enabled ? 'bg-blue-50 border-blue-200 text-blue-800 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-600', isUpdatingScheduler ? 'opacity-60 pointer-events-none' : '']"
+                            title="Nhấn để chuyển đổi chế độ lập lịch gom hàng tự động hoặc thủ công"
+                        >
+                            <span v-if="isUpdatingScheduler" class="w-2.5 h-2.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
+                            <span v-else class="w-2 h-2 rounded-full" :class="schedulerConfig.enabled ? 'bg-blue-600 animate-pulse' : 'bg-slate-400'"></span>
+                            <span>Lịch Chạy: <strong>{{ schedulerConfig.enabled ? 'Tự Động (mỗi ' + Math.round(schedulerConfig.intervalSeconds / 60) + ' phút)' : 'Thủ Công' }}</strong></span>
+                        </div>
                         <button 
                             type="button"
                             @click="openCreateTripModal('DESTINATION_FEEDER')"
