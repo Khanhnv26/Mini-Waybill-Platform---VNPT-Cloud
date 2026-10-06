@@ -40,22 +40,29 @@ public class ShipmentCancelledConsumer {
     @Transactional
     @RetryableTopic(attempts = "3", backOff = @BackOff(delay = 1000, multiplier = 2))
     public void handleCancelledShipmentEvent(ShipmentStatusUpdatedEvent event) {
-        if (event == null || event.getTrackingCode() == null || event.getTrackingCode().isBlank()
-                || !"CANCELLED".equalsIgnoreCase(event.getStatus())) {
+        if (event == null || event.getTrackingCode() == null || event.getTrackingCode().isBlank()) {
             return;
         }
 
-        String trackingCode = event.getTrackingCode().trim().toUpperCase();
-        // This key is a durable cancellation tombstone. RoutingConsumer checks it
-        // so a late shipment-created event cannot recreate a routable assignment.
-        String tombstoneKey = "shipment-cancelled:" + trackingCode;
-        redisTemplate.opsForValue().set(tombstoneKey, "1", Duration.ofDays(30));
+        String status = event.getStatus() != null ? event.getStatus().trim().toUpperCase() : "";
+        if (!"CANCELLED".equals(status) && !"RETURNING".equals(status)) {
+            return;
+        }
 
-        String processedKey = "shipment-cancel-processed:" + trackingCode;
+        boolean isReturning = "RETURNING".equals(status);
+        String trackingCode = event.getTrackingCode().trim().toUpperCase();
+
+        if (!isReturning) {
+            // Chỉ ghi tombstone nếu đơn THỰC SỰ bị hủy vĩnh viễn (CANCELLED)
+            String tombstoneKey = "shipment-cancelled:" + trackingCode;
+            redisTemplate.opsForValue().set(tombstoneKey, "1", Duration.ofDays(30));
+        }
+
+        String processedKey = (isReturning ? "shipment-return-processed:" : "shipment-cancel-processed:") + trackingCode;
         Boolean isFirstTime = redisTemplate.opsForValue().setIfAbsent(
                 processedKey, "1", Duration.ofDays(30));
         if (Boolean.FALSE.equals(isFirstTime)) {
-            log.info("Sự kiện hủy đơn hàng {} đã được xử lý trước đó. Bỏ qua.", trackingCode);
+            log.info("Sự kiện {} đơn hàng {} đã được xử lý trước đó. Bỏ qua.", status, trackingCode);
             return;
         }
 
@@ -68,6 +75,8 @@ public class ShipmentCancelledConsumer {
             Optional<RoutingAssignment> assignment = routingAssignmentRepository.findByTrackingCode(trackingCode);
             WarehouseInventory inventory = inventoryRepository.findByTrackingCode(trackingCode).orElse(null);
 
+            String targetStatus = isReturning ? "RETURNING" : "CANCELLED";
+
             if (activeManifest.isPresent()) {
                 TripManifest manifest = activeManifest.get();
                 Trip trip = tripRepository.findById(manifest.getTripId()).orElse(null);
@@ -76,47 +85,41 @@ public class ShipmentCancelledConsumer {
                     manifest.setStatus("REMOVED");
                     manifest.setUnloadedAt(now);
                     manifestRepository.save(manifest);
-                    releaseCancelledInventory(inventory, now);
-                    assignment.ifPresent(this::markCancelled);
+                    releaseInventory(inventory, targetStatus, now);
+                    assignment.ifPresent(a -> markStatus(a, targetStatus));
                     refreshTripTotals(trip);
-                    log.info("[ROUTING-KAFKA] Đã gỡ đơn hủy {} khỏi chuyến xe {} và giải phóng tồn kho.",
-                            trackingCode, trip.getTripCode());
+                    log.info("[ROUTING-KAFKA] Đã gỡ đơn {} ({}) khỏi chuyến xe {} và cập nhật tồn kho.",
+                            trackingCode, targetStatus, trip.getTripCode());
                 } else if (trip != null && "IN_TRANSIT".equalsIgnoreCase(trip.getStatus())) {
-                    // Keep the physical reservation until the vehicle reaches its next stop.
-                    // arriveAtStop will unload this manifest into a terminal CANCELLED inventory row.
                     if ("LOADED".equalsIgnoreCase(manifest.getStatus())) {
                         manifest.setStatus("HOLD_FOR_RETURN");
                         manifestRepository.save(manifest);
                     }
-                    assignment.ifPresent(this::markCancelled);
-                    log.warn("[ROUTING-KAFKA] Chuyến xe {} đang chạy; giữ đơn {} tại chuyến để dỡ ở trạm kế tiếp.",
-                            trip.getTripCode(), trackingCode);
+                    assignment.ifPresent(a -> markStatus(a, targetStatus));
+                    log.warn("[ROUTING-KAFKA] Chuyến xe {} đang chạy; giữ đơn {} tại chuyến để dỡ ở trạm kế tiếp theo luồng {}.",
+                            trip.getTripCode(), trackingCode, targetStatus);
                 }
             } else {
-                // Cancellation can arrive before routing assignment creation or after a leg unload.
-                // Persist the terminal state wherever routing already has a record.
-                assignment.ifPresent(this::markCancelled);
+                assignment.ifPresent(a -> markStatus(a, targetStatus));
                 if (inventory != null && inventory.getActiveTripId() == null) {
-                    releaseCancelledInventory(inventory, now);
+                    releaseInventory(inventory, targetStatus, now);
                 }
-                log.info("[ROUTING-KAFKA] Đã ghi nhận hủy đơn {} dù chưa có manifest đang chạy.", trackingCode);
+                log.info("[ROUTING-KAFKA] Đã ghi nhận {} cho đơn {} dù chưa có manifest đang chạy.", targetStatus, trackingCode);
             }
         } catch (RuntimeException failure) {
-            // Let RetryableTopic retry the database operation instead of permanently
-            // acknowledging an event whose reservation cleanup failed.
             redisTemplate.delete(processedKey);
             throw failure;
         }
     }
 
-    private void markCancelled(RoutingAssignment assignment) {
-        assignment.setStatus("CANCELLED");
+    private void markStatus(RoutingAssignment assignment, String targetStatus) {
+        assignment.setStatus(targetStatus);
         routingAssignmentRepository.save(assignment);
     }
 
-    private void releaseCancelledInventory(WarehouseInventory inventory, LocalDateTime now) {
+    private void releaseInventory(WarehouseInventory inventory, String targetStatus, LocalDateTime now) {
         if (inventory == null) return;
-        inventory.setInventoryStatus("CANCELLED");
+        inventory.setInventoryStatus(targetStatus);
         inventory.setActiveTripId(null);
         inventory.setReservedAt(null);
         inventory.setUpdatedAt(now);

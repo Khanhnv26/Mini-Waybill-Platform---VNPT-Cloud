@@ -3,6 +3,7 @@ package org.app.notificationservice.bot;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.app.notificationservice.dto.response.PaymentResponse;
+import org.app.notificationservice.dto.response.ReturnRequestResponse;
 import org.app.notificationservice.dto.response.ShipmentDetailResponse;
 import org.app.notificationservice.dto.response.ShipperForecastResponse;
 import org.app.notificationservice.dto.response.ShipperLookupResponse;
@@ -232,14 +233,24 @@ public class ShipperBotHandler {
 
         String status = safe(order.getCurrentStatus());
         boolean isReturnStage = "RETURNING".equalsIgnoreCase(status) || "OUT_FOR_RETURN".equalsIgnoreCase(status);
+        ReturnRequestResponse returnReq = isReturnStage ? shipperBotService.getReturnRequest(trackingCode) : null;
+        boolean isCounterPickup = returnReq != null && "COUNTER_PICKUP".equalsIgnoreCase(returnReq.getReturnMode());
+        boolean isPrepaid = returnReq != null && "PREPAID".equalsIgnoreCase(returnReq.getFeePaymentStatus());
+        boolean isPostalFault = returnReq != null && returnReq.isPostalFault();
 
         StringBuilder text = new StringBuilder()
                 .append(statusBadge(status)).append(" <b>").append(esc(order.getTrackingCode())).append("</b>\n");
         if (isReturnStage) {
+            BigDecimal returnFee = shipperBotService.calculateReturnFee(order);
+            String feeDisplay = (isPrepaid || isPostalFault || returnFee.compareTo(BigDecimal.ZERO) == 0)
+                    ? (isPrepaid ? "0đ (Đã trả trước qua VietQR)" : (isPostalFault ? "0đ (Lỗi bưu cục - Miễn phí)" : "0đ"))
+                    : formatMoney(returnFee) + " (50%)";
+
             text.append("Người gửi: ").append(esc(safe(order.getSenderName()))).append("\n")
                     .append("SĐT: ").append(esc(safe(order.getSenderPhone()))).append("\n")
                     .append("Địa chỉ hoàn: ").append(esc(safe(order.getSenderAddress()))).append("\n")
-                    .append("Cước hoàn (50%): ").append(formatMoney(shipperBotService.calculateReturnFee(order))).append("\n");
+                    .append("Hình thức hoàn: ").append(isCounterPickup ? "<b>Tại bưu cục (COUNTER_PICKUP)</b>" : "Giao tận nơi (DOORSTEP)").append("\n")
+                    .append("Cước hoàn: ").append(feeDisplay).append("\n");
         } else {
             text.append("Người nhận: ").append(esc(safe(order.getReceiverName()))).append("\n")
                     .append("SĐT: ").append(esc(safe(order.getReceiverPhone()))).append("\n")
@@ -260,7 +271,13 @@ public class ShipperBotHandler {
             case "DELIVERY_FAILED" -> {
                 rows.add(row(cb("🔁 Tái phát", "rt:" + trackingCode), cb("⚠️ Thất bại lại", "fl:" + trackingCode)));
             }
-            case "RETURNING" -> rows.add(row(cb("📦 Nhận phát hoàn", "ar:" + trackingCode)));
+            case "RETURNING" -> {
+                if (isCounterPickup) {
+                    text.append("\n\n⚠️ <i>Lưu ý: Đơn hàng nhận tại quầy. Bưu phẩm lưu kho bưu cục, bưu tá không nhận phát hoàn tận nhà.</i>");
+                } else {
+                    rows.add(row(cb("📦 Nhận phát hoàn", "ar:" + trackingCode)));
+                }
+            }
             case "OUT_FOR_RETURN" -> rows.add(row(cb("🏠 Đã trả người gửi", "rr:" + trackingCode)));
             default -> { }
         }
@@ -451,10 +468,15 @@ public class ShipperBotHandler {
                     markup(List.of(row(cb("Danh sách", "o:ALL:0"), cb("Menu", "m")))));
             return;
         }
-        shipperBotService.acceptReturn(shipper.getCourierCode(), trackingCode);
-        bot.editHtml(chatId, messageId,
-                "📦 <b>Đã nhận phát hoàn</b>\nĐơn <code>" + esc(trackingCode) + "</code> đang phát hoàn về người gửi.",
-                markup(List.of(row(cb("Chi tiết đơn", "d:" + trackingCode), cb("Danh sách", "o:ALL:0"), cb("Menu", "m")))));
+        try {
+            shipperBotService.acceptReturn(shipper.getCourierCode(), trackingCode);
+            bot.editHtml(chatId, messageId,
+                    "📦 <b>Đã nhận phát hoàn</b>\nĐơn <code>" + esc(trackingCode) + "</code> đang phát hoàn về người gửi.",
+                    markup(List.of(row(cb("Chi tiết đơn", "d:" + trackingCode), cb("Danh sách", "o:ALL:0"), cb("Menu", "m")))));
+        } catch (IllegalStateException e) {
+            bot.editHtml(chatId, messageId, "⚠️ " + esc(e.getMessage()),
+                    markup(List.of(row(cb("Chi tiết đơn", "d:" + trackingCode), cb("Danh sách", "o:ALL:0"), cb("Menu", "m")))));
+        }
     }
 
     private void showReturnChooser(TelegramBot bot, String chatId, Integer messageId,
@@ -463,18 +485,25 @@ public class ShipperBotHandler {
         if (order == null) {
             return;
         }
+        ReturnRequestResponse returnReq = shipperBotService.getReturnRequest(trackingCode);
         BigDecimal fee = shipperBotService.calculateReturnFee(order);
+        boolean isPrepaid = returnReq != null && "PREPAID".equalsIgnoreCase(returnReq.getFeePaymentStatus());
+        boolean isPostalFault = returnReq != null && returnReq.isPostalFault();
+        String feeDesc = (isPrepaid || isPostalFault || fee.compareTo(BigDecimal.ZERO) == 0)
+                ? (isPrepaid ? "0đ (Đã trả trước qua VietQR)" : (isPostalFault ? "0đ (Lỗi bưu cục - Miễn phí)" : "0đ"))
+                : formatMoney(fee) + " (50%)";
+
         String text = "🏠 <b>Xác nhận trả hàng cho người gửi</b>\n"
                 + esc(trackingCode) + "\n"
                 + "Người gửi: " + esc(safe(order.getSenderName())) + "\n"
                 + "Địa chỉ: " + esc(safe(order.getSenderAddress())) + "\n"
-                + "Cước hoàn (50%): <b>" + formatMoney(fee) + "</b>";
+                + "Cước hoàn: <b>" + feeDesc + "</b>";
 
         List<List<InlineKeyboardButton>> rows = new ArrayList<>();
-        if (fee.compareTo(BigDecimal.ZERO) > 0) {
+        if (fee.compareTo(BigDecimal.ZERO) > 0 && !isPrepaid && !isPostalFault) {
             rows.add(row(cb("💵 Thu tiền mặt", "rrc:" + trackingCode), cb("📱 Thu VietQR", "rrq:" + trackingCode)));
         } else {
-            rows.add(row(cb("✅ Xác nhận đã trả", "rrc:" + trackingCode)));
+            rows.add(row(cb("✅ Xác nhận đã trả (Không thu cước)", "rrc:" + trackingCode)));
         }
         rows.add(row(cb("Quay lại", "d:" + trackingCode), cb("Menu", "m")));
         bot.editHtml(chatId, messageId, text, markup(rows));

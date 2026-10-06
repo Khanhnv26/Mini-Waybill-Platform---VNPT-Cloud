@@ -39,11 +39,11 @@ public enum ShipmentStatus {
             case ROUTE_ASSIGNED:
                 return nextStatus == PICKED_UP;
             case PICKED_UP:
-                return nextStatus == IN_TRANSIT;
+                return nextStatus == IN_TRANSIT || nextStatus == RETURNING;
             case IN_TRANSIT:
-                return nextStatus == ARRIVED_DEST_HUB;
+                return nextStatus == ARRIVED_DEST_HUB || nextStatus == RETURNING;
             case ARRIVED_DEST_HUB:
-                return nextStatus == OUT_FOR_DELIVERY;
+                return nextStatus == OUT_FOR_DELIVERY || nextStatus == RETURNING;
             case OUT_FOR_DELIVERY:
                 return Set.of(DELIVERED, DELIVERY_FAILED, RETURNING).contains(nextStatus);
             case DELIVERED:

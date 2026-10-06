@@ -39,6 +39,10 @@ class ShipmentStatusTest {
     void testCancelAndReturnTransitions() {
         assertTrue(ShipmentStatus.ROUTE_ASSIGNED.canTransitionTo(ShipmentStatus.CANCELLED));
         assertTrue(ShipmentStatus.IN_TRANSIT.canTransitionTo(ShipmentStatus.CANCELLED));
+        assertTrue(ShipmentStatus.PICKED_UP.canTransitionTo(ShipmentStatus.RETURNING));
+        assertTrue(ShipmentStatus.IN_TRANSIT.canTransitionTo(ShipmentStatus.RETURNING));
+        assertTrue(ShipmentStatus.ARRIVED_DEST_HUB.canTransitionTo(ShipmentStatus.RETURNING));
+        assertTrue(ShipmentStatus.RETURNING.canTransitionTo(ShipmentStatus.OUT_FOR_RETURN));
         assertTrue(ShipmentStatus.RETURNING.canTransitionTo(ShipmentStatus.RETURNED));
         assertFalse(ShipmentStatus.RETURNED.canTransitionTo(ShipmentStatus.OUT_FOR_DELIVERY));
     }

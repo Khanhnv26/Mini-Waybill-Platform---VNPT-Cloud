@@ -274,6 +274,7 @@
                 if (!item) return '';
                 if (isOutboundStaged(item)) return 'STORED_OFFICE';
                 if (isWaitingHandoff(item)) return 'WAITING_HANDOFF';
+                if (isReturnReadyAtOrigin(item)) return 'COUNTER_PICKUP';
                 return '';
             };
 
@@ -749,6 +750,10 @@
                 scopedShipments.value.filter(s => isInventoryShipment(s) && getInventoryBucket(s) === 'WAITING_HANDOFF').length
             );
 
+            const inventoryCounterPickupCount = computed(() =>
+                scopedShipments.value.filter(s => isInventoryShipment(s) && getInventoryBucket(s) === 'COUNTER_PICKUP').length
+            );
+
             const stationForecast = ref(null);
             const isForecastLoading = ref(false);
             const isDispatchingTelegram = ref(false);
@@ -863,6 +868,9 @@
                                     : getInventoryBucket(s);
                             if (sf === 'RETURNING') {
                                 return ['RETURNING', 'RETURNED'].includes(bucket) || ['RETURNING', 'RETURNED'].includes(getShipmentStatusText(s));
+                            }
+                            if (sf === 'COUNTER_PICKUP') {
+                                return bucket === 'COUNTER_PICKUP';
                             }
                             if (bucket) return bucket === sf;
                             return getShipmentStatusText(s) === sf;
@@ -1496,6 +1504,90 @@
                 }
             };
 
+            const showReturnHandoverModal = ref(false);
+            const isReturnLoading = ref(false);
+            const returnHandoverForm = reactive({
+                trackingCode: '',
+                senderName: '',
+                senderPhone: '',
+                senderAddress: '',
+                returnMode: 'COUNTER_PICKUP',
+                returnFee: 0,
+                feePaymentStatus: 'UNPAID',
+                postalFault: false,
+                reasonCode: '',
+                reasonNote: '',
+                note: ''
+            });
+
+            const openReturnHandoverModal = async (item) => {
+                if (!item) return;
+                showReturnHandoverModal.value = true;
+                isReturnLoading.value = true;
+                returnHandoverForm.trackingCode = item.trackingCode;
+                returnHandoverForm.senderName = item.senderName || '';
+                returnHandoverForm.senderPhone = item.senderPhone || '';
+                returnHandoverForm.senderAddress = item.senderAddress || '';
+                returnHandoverForm.returnMode = 'COUNTER_PICKUP';
+                returnHandoverForm.returnFee = Math.round(Number(item.shippingFee || item.totalFee || 35000) * 0.5);
+                returnHandoverForm.feePaymentStatus = 'UNPAID';
+                returnHandoverForm.postalFault = false;
+                returnHandoverForm.reasonCode = '';
+                returnHandoverForm.reasonNote = '';
+                const poCode = selectedPostOffice.value !== 'ALL' ? selectedPostOffice.value : (getOriginPostOfficeInfo(item).code || 'bưu cục');
+                returnHandoverForm.note = `Bưu cục [${poCode}] phát trả bưu phẩm hoàn tại quầy cho người gửi`;
+
+                try {
+                    const shipmentService = getShipmentService();
+                    if (shipmentService && typeof shipmentService.getReturnRequest === 'function') {
+                        const req = await shipmentService.getReturnRequest(item.trackingCode);
+                        if (req) {
+                            returnHandoverForm.returnMode = req.returnMode || 'COUNTER_PICKUP';
+                            returnHandoverForm.returnFee = Number(req.returnFee || 0);
+                            returnHandoverForm.feePaymentStatus = req.feePaymentStatus || 'UNPAID';
+                            returnHandoverForm.postalFault = Boolean(req.postalFault);
+                            returnHandoverForm.reasonCode = req.reasonCode || '';
+                            returnHandoverForm.reasonNote = req.reasonNote || '';
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[PostOfficeOpsView] Không lấy được thông tin ReturnRequest:', e);
+                } finally {
+                    isReturnLoading.value = false;
+                }
+            };
+
+            const confirmReturnHandover = async () => {
+                if (isActionRunning.value) return;
+                const poCode = selectedPostOffice.value !== 'ALL' ? selectedPostOffice.value : null;
+                const isPrepaid = returnHandoverForm.feePaymentStatus === 'PREPAID';
+                const isPostalFault = returnHandoverForm.postalFault;
+                const isWaived = returnHandoverForm.feePaymentStatus === 'WAIVED';
+                let feeNote = '';
+                if (isPostalFault) {
+                    feeNote = ' - Miễn cước (Lỗi bưu cục)';
+                } else if (isPrepaid) {
+                    feeNote = ' - Đã thanh toán trước qua VietQR';
+                } else if (isWaived) {
+                    feeNote = ' - Miễn cước';
+                } else if (returnHandoverForm.returnFee > 0) {
+                    feeNote = ` - Đã thu cước hoàn ${Utils.formatCurrency(returnHandoverForm.returnFee)} tại quầy`;
+                }
+
+                const fullNote = `${returnHandoverForm.note}${feeNote}`;
+                try {
+                    await handleUpdateStatus(
+                        returnHandoverForm.trackingCode,
+                        'RETURNED',
+                        poCode,
+                        fullNote
+                    );
+                    showReturnHandoverModal.value = false;
+                } catch (err) {
+                    console.error('[PostOfficeOpsView] Lỗi xác nhận trả hàng:', err);
+                }
+            };
+
             const handleQuickScan = (requestedStatus = '') => {
                 const cleanCode = normalizeCode(scanInputCode.value);
                 if (!cleanCode) {
@@ -1682,6 +1774,7 @@
                 kpiDeliveredInbound,
                 inventoryStagedCount,
                 inventoryWaitingHandoffCount,
+                inventoryCounterPickupCount,
                 currentSubtabCount,
                 isReturnReadyAtOrigin,
                 getOriginPostOfficeInfo,
@@ -1711,6 +1804,11 @@
                 viewTrackingDetail,
                 showHandoffModal,
                 handoffForm,
+                showReturnHandoverModal,
+                isReturnLoading,
+                returnHandoverForm,
+                openReturnHandoverModal,
+                confirmReturnHandover,
                 availableCouriers,
                 shippersList,
                 isShippersLoading,
@@ -2057,6 +2155,13 @@
                                 class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
                             >
                                 Hàng đến chờ bàn giao bưu tá ({{ inventoryWaitingHandoffCount }})
+                            </button>
+                            <button 
+                                @click="selectedStatusFilter = 'COUNTER_PICKUP'; currentPage = 1"
+                                :class="selectedStatusFilter === 'COUNTER_PICKUP' ? 'bg-white text-orange-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                class="px-2.5 py-1 rounded-md text-[11px] transition cursor-pointer"
+                            >
+                                Chờ nhận tại quầy (Hoàn) ({{ inventoryCounterPickupCount }})
                             </button>
                         </div>
 
@@ -2441,9 +2546,9 @@
 
                                             <template v-else-if="isReturnReadyAtOrigin(item)">
                                                 <button
-                                                    @click="handleUpdateStatus(item.trackingCode, 'RETURNED', getOriginPostOfficeInfo(item).code, 'Bưu cục gửi đã hoàn trả bưu gửi cho người gửi')"
+                                                    @click="openReturnHandoverModal(item)"
                                                     :disabled="isActionRunning || (isAdmin && selectedPostOffice === 'ALL')"
-                                                    class="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded text-[11px] font-semibold transition shadow-xs"
+                                                    class="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded text-[11px] font-semibold transition shadow-xs inline-flex items-center gap-1"
                                                 >
                                                     Xác Nhận Đã Hoàn Người Gửi
                                                 </button>
@@ -2523,6 +2628,16 @@
                                                     title="Bàn giao bưu gửi cho bưu tá phát chặng cuối"
                                                 >
                                                     <span>Bàn Giao Bưu Tá</span>
+                                                </button>
+                                            </template>
+                                            <template v-else-if="isReturnReadyAtOrigin(item)">
+                                                <button 
+                                                    @click="openReturnHandoverModal(item)"
+                                                    :disabled="isActionRunning || (isAdmin && selectedPostOffice === 'ALL')"
+                                                    class="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded text-[11px] font-semibold transition shadow-xs inline-flex items-center gap-1"
+                                                    title="Phát trả bưu phẩm hoàn cho người gửi tại quầy"
+                                                >
+                                                    <span>Trả Hàng Tại Quầy</span>
                                                 </button>
                                             </template>
                                             <template v-else>
@@ -2745,6 +2860,99 @@
                                     class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-sm disabled:opacity-50 inline-flex items-center justify-center min-w-[160px]"
                                 >
                                     <span>{{ isConfirmingSettlement ? 'Đang Xử Lý...' : 'Xác Nhận Đã Thu Quỹ' }}</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </Transition>
+            </teleport>
+            <teleport to="body">
+                <Transition name="modal">
+                    <div v-if="showReturnHandoverModal" class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-5 border border-slate-200 text-xs space-y-4">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z"></path></svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-sm text-slate-900 uppercase tracking-wider">
+                                            Trả Hàng Cho Người Gửi Tại Quầy
+                                        </h3>
+                                        <p class="text-[11px] text-slate-500 mt-0.5">Xác nhận giao bưu phẩm hoàn về tay người gửi</p>
+                                    </div>
+                                </div>
+                                <button @click="showReturnHandoverModal = false" class="text-slate-400 hover:text-slate-600 p-1 rounded hover:bg-slate-100 transition" aria-label="Đóng">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                </button>
+                            </div>
+
+                            <div v-if="isReturnLoading" class="py-6 text-center text-slate-500">
+                                <span class="inline-block animate-spin mr-2">⏳</span> Đang kiểm tra chính sách cước hoàn...
+                            </div>
+
+                            <div v-else class="space-y-3">
+                                <div class="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-slate-600">Mã vận đơn:</span>
+                                        <span class="font-mono font-bold text-blue-700 text-sm">{{ returnHandoverForm.trackingCode }}</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-slate-600">Người gửi:</span>
+                                        <span class="font-bold text-slate-800">{{ returnHandoverForm.senderName }} ({{ returnHandoverForm.senderPhone }})</span>
+                                    </div>
+                                    <div class="flex justify-between items-start text-[11px]">
+                                        <span class="text-slate-500 shrink-0 mr-2">Địa chỉ:</span>
+                                        <span class="text-slate-700 text-right">{{ returnHandoverForm.senderAddress }}</span>
+                                    </div>
+                                    <div class="flex justify-between items-center text-[11px]">
+                                        <span class="text-slate-500">Hình thức hoàn:</span>
+                                        <span class="font-semibold text-slate-800">
+                                            {{ returnHandoverForm.returnMode === 'COUNTER_PICKUP' ? '🏢 Nhận tại quầy bưu cục (COUNTER_PICKUP)' : '🚚 Giao tận nơi (DOORSTEP)' }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="p-3 rounded-lg border text-xs" :class="returnHandoverForm.postalFault || returnHandoverForm.feePaymentStatus === 'PREPAID' || returnHandoverForm.feePaymentStatus === 'WAIVED' ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span class="font-bold" :class="returnHandoverForm.postalFault || returnHandoverForm.feePaymentStatus === 'PREPAID' || returnHandoverForm.feePaymentStatus === 'WAIVED' ? 'text-emerald-800' : 'text-amber-800'">
+                                            {{ returnHandoverForm.postalFault ? 'Lỗi bưu cục - Miễn cước hoàn' : (returnHandoverForm.feePaymentStatus === 'PREPAID' ? 'Đã thanh toán trước qua VietQR' : (returnHandoverForm.feePaymentStatus === 'WAIVED' ? 'Miễn cước hoàn' : 'Cước hoàn thu tại quầy:')) }}
+                                        </span>
+                                        <span class="font-mono font-extrabold text-sm" :class="returnHandoverForm.postalFault || returnHandoverForm.feePaymentStatus === 'PREPAID' || returnHandoverForm.feePaymentStatus === 'WAIVED' ? 'text-emerald-700' : 'text-amber-900'">
+                                            {{ (returnHandoverForm.postalFault || returnHandoverForm.feePaymentStatus === 'PREPAID' || returnHandoverForm.feePaymentStatus === 'WAIVED') ? '0 VNĐ' : Utils.formatCurrency(returnHandoverForm.returnFee) }}
+                                        </span>
+                                    </div>
+                                    <p class="text-[11px]" :class="returnHandoverForm.postalFault || returnHandoverForm.feePaymentStatus === 'PREPAID' || returnHandoverForm.feePaymentStatus === 'WAIVED' ? 'text-emerald-600' : 'text-amber-700'">
+                                        {{ (returnHandoverForm.postalFault || returnHandoverForm.feePaymentStatus === 'PREPAID' || returnHandoverForm.feePaymentStatus === 'WAIVED') ? '✅ Giao dịch viên trao bưu phẩm trực tiếp cho khách, KHÔNG thu thêm cước.' : '⚠️ Vui lòng thu tiền mặt cước hoàn từ người gửi trước khi bàn giao bưu phẩm.' }}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-medium text-slate-600 mb-1">Ghi chú xác nhận:</label>
+                                    <input 
+                                        v-model="returnHandoverForm.note"
+                                        type="text" 
+                                        maxlength="255"
+                                        placeholder="Ghi chú xác nhận phát hoàn..."
+                                        class="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs focus:border-blue-600 outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-end space-x-2 border-t border-slate-100 pt-3">
+                                <button 
+                                    @click="showReturnHandoverModal = false"
+                                    class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
+                                >
+                                    Hủy Bỏ
+                                </button>
+                                <button 
+                                    @click="confirmReturnHandover()"
+                                    :disabled="isActionRunning || isReturnLoading || (isAdmin && selectedPostOffice === 'ALL')"
+                                    class="px-4 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold transition shadow-xs disabled:opacity-50 inline-flex items-center space-x-1"
+                                >
+                                    <span v-if="isActionRunning">Đang xử lý...</span>
+                                    <span v-else>Xác Nhận Đã Trả Khách</span>
                                 </button>
                             </div>
                         </div>

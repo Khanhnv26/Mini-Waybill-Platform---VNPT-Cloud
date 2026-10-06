@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.app.paymentservice.dto.event.ShipmentStatusUpdatedEvent;
 import org.app.paymentservice.entity.PaymentStatus;
 import org.app.paymentservice.entity.PaymentTransaction;
+import org.app.paymentservice.entity.PaymentType;
 import org.app.paymentservice.repository.PaymentTransactionRepository;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.annotation.BackOff;
@@ -29,38 +30,53 @@ public class ShipmentCancelledConsumer {
     @RetryableTopic(attempts = "3", backOff = @BackOff(delay = 1000, multiplier = 2))
     @Transactional
     public void handleCancelledShipment(ShipmentStatusUpdatedEvent event) {
-        if (event == null || event.getTrackingCode() == null || event.getTrackingCode().isBlank()
-                || !"CANCELLED".equalsIgnoreCase(event.getStatus())) {
+        if (event == null || event.getTrackingCode() == null || event.getTrackingCode().isBlank()) {
             return;
         }
 
+        String status = event.getStatus() != null ? event.getStatus().trim().toUpperCase() : "";
         String trackingCode = event.getTrackingCode().trim().toUpperCase();
 
-        try {
-            redisTemplate.opsForValue().set("shipment-cancelled:" + trackingCode, "1", Duration.ofDays(30));
-        } catch (Exception e) {
-            log.warn("[PAYMENT-CANCEL] Lỗi ghi nhận Redis tombstone cho đơn {}: {}", trackingCode, e.getMessage());
-        }
+        if ("CANCELLED".equals(status)) {
+            try {
+                redisTemplate.opsForValue().set("shipment-cancelled:" + trackingCode, "1", Duration.ofDays(30));
+            } catch (Exception e) {
+                log.warn("[PAYMENT-CANCEL] Lỗi ghi nhận Redis tombstone cho đơn {}: {}", trackingCode, e.getMessage());
+            }
 
-        List<PaymentTransaction> allTxs = paymentTransactionRepository
-                .findByTrackingCodeOrderByCreatedAtDesc(trackingCode);
+            List<PaymentTransaction> allTxs = paymentTransactionRepository
+                    .findByTrackingCodeOrderByCreatedAtDesc(trackingCode);
 
-        if (allTxs.isEmpty()) {
-            log.info("[PAYMENT-CANCEL] Đơn {} bị hủy nhưng chưa có giao dịch nào được tạo.", trackingCode);
-            return;
-        }
+            if (allTxs.isEmpty()) {
+                log.info("[PAYMENT-CANCEL] Đơn {} bị hủy nhưng chưa có giao dịch nào được tạo.", trackingCode);
+                return;
+            }
 
-        for (PaymentTransaction tx : allTxs) {
-            if (tx.getStatus() == PaymentStatus.PENDING) {
-                tx.setStatus(PaymentStatus.CANCELLED);
-                paymentTransactionRepository.save(tx);
-                log.info("[PAYMENT-CANCEL] Hủy bỏ giao dịch PENDING: mã {} của đơn {} do đơn hàng bị hủy",
-                        tx.getPaymentCode(), trackingCode);
-            } else if (tx.getStatus() == PaymentStatus.SUCCESS) {
-                tx.setStatus(PaymentStatus.CANCELLED);
-                paymentTransactionRepository.save(tx);
-                log.info("[PAYMENT-CANCEL] Hoàn tiền demo: giao dịch SUCCESS {} của đơn {} -> CANCELLED",
-                        tx.getPaymentCode(), trackingCode);
+            for (PaymentTransaction tx : allTxs) {
+                if (tx.getStatus() == PaymentStatus.PENDING) {
+                    tx.setStatus(PaymentStatus.CANCELLED);
+                    paymentTransactionRepository.save(tx);
+                    log.info("[PAYMENT-CANCEL] Hủy bỏ giao dịch PENDING: mã {} của đơn {} do đơn hàng bị hủy",
+                            tx.getPaymentCode(), trackingCode);
+                } else if (tx.getStatus() == PaymentStatus.SUCCESS) {
+                    tx.setStatus(PaymentStatus.CANCELLED);
+                    paymentTransactionRepository.save(tx);
+                    log.info("[PAYMENT-CANCEL] Hoàn tiền demo: giao dịch SUCCESS {} của đơn {} -> CANCELLED",
+                            tx.getPaymentCode(), trackingCode);
+                }
+            }
+        } else if ("RETURNING".equals(status)) {
+            // Khi đơn chuyển hoàn: COD chuyển VOID (hủy thu hộ), không ghi tombstone để vẫn cho phép thanh toán cước hoàn
+            List<PaymentTransaction> allTxs = paymentTransactionRepository
+                    .findByTrackingCodeOrderByCreatedAtDesc(trackingCode);
+
+            for (PaymentTransaction tx : allTxs) {
+                if (tx.getPaymentType() == PaymentType.COD && tx.getStatus() == PaymentStatus.PENDING) {
+                    tx.setStatus(PaymentStatus.CANCELLED);
+                    paymentTransactionRepository.save(tx);
+                    log.info("[PAYMENT-RETURN] Đã hủy thu COD (VOID): mã {} của đơn {} do đơn chuyển hoàn RETURNING",
+                            tx.getPaymentCode(), trackingCode);
+                }
             }
         }
     }

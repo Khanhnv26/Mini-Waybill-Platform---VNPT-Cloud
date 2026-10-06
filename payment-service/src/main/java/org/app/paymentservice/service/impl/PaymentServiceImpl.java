@@ -77,7 +77,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         String paymentCode = "PAY_" + req.getTrackingCode() + "_" + System.currentTimeMillis();
-        String memoPrefix = (type == PaymentType.SHIPPING_FEE) ? "CUOC " : "COD ";
+        String memoPrefix = (type == PaymentType.SHIPPING_FEE) ? "CUOC " : (type == PaymentType.RETURN_FEE ? "HOAN " : "COD ");
         String qrUrl = vietQrService.generateQrUrl(req.getAmount(), memoPrefix + req.getTrackingCode(), paymentCode);
 
         PaymentTransaction tx = PaymentTransaction.builder()

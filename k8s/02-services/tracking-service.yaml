@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: tracking-service
-          image: khanhnv26/tracking-service:latest
+          image: khanhnv26/tracking-service:9aa561bd217ece600edfa523355a5d917a4d0ccf
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

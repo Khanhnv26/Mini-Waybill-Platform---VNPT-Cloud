@@ -8,6 +8,7 @@ import org.app.notificationservice.client.ShipmentClient;
 import org.app.notificationservice.client.ShipperClient;
 import org.app.notificationservice.client.TrackingClient;
 import org.app.notificationservice.dto.response.PaymentResponse;
+import org.app.notificationservice.dto.response.ReturnRequestResponse;
 import org.app.notificationservice.dto.response.ShipmentDetailResponse;
 import org.app.notificationservice.dto.response.ShipperForecastResponse;
 import org.app.notificationservice.dto.response.ShipperLookupResponse;
@@ -158,6 +159,19 @@ public class ShipperBotServiceImpl implements ShipperBotService {
     }
 
     @Override
+    public ReturnRequestResponse getReturnRequest(String trackingCode) {
+        if (trackingCode == null || trackingCode.isBlank()) {
+            return null;
+        }
+        try {
+            return shipmentClient.getReturnRequest(trackingCode);
+        } catch (Exception e) {
+            log.warn("[SHIPPER-BOT] Không lấy được ReturnRequest cho đơn {}: {}", trackingCode, e.getMessage());
+            return null;
+        }
+    }
+
+    @Override
     public boolean isOrderOwnedBy(String courierCode, String trackingCode) {
         return shipperOrderIndexService.isAssignedTo(courierCode, trackingCode);
     }
@@ -205,6 +219,11 @@ public class ShipperBotServiceImpl implements ShipperBotService {
 
     @Override
     public ShipmentDetailResponse acceptReturn(String courierCode, String trackingCode) {
+        ReturnRequestResponse returnReq = getReturnRequest(trackingCode);
+        if (returnReq != null && "COUNTER_PICKUP".equalsIgnoreCase(returnReq.getReturnMode())) {
+            throw new IllegalStateException("Đơn hàng được yêu cầu nhận tại quầy (COUNTER_PICKUP). Bưu tá không nhận phát hoàn tận nhà!");
+        }
+
         ShipmentDetailResponse shipment = fetchShipment(trackingCode);
         String senderName = shipment != null ? safe(shipment.getSenderName()) : "người gửi";
         trackingClient.updateStatus(trackingCode, Map.of(
@@ -218,12 +237,26 @@ public class ShipperBotServiceImpl implements ShipperBotService {
     @Override
     public ShipmentDetailResponse confirmReturned(String courierCode, String trackingCode, boolean viaQr) {
         ShipmentDetailResponse shipment = fetchShipment(trackingCode);
+        ReturnRequestResponse returnReq = getReturnRequest(trackingCode);
         String senderName = shipment != null ? safe(shipment.getSenderName()) : "người gửi";
         String senderAddress = shipment != null ? safe(shipment.getSenderAddress()) : "";
         BigDecimal returnFee = calculateReturnFee(shipment);
-        String paymentText = viaQr
-                ? "đã thu cước hoàn " + formatMoney(returnFee) + " (50%) qua VietQR"
-                : "đã thu tiền mặt cước hoàn " + formatMoney(returnFee) + " (50%)";
+
+        String paymentText;
+        if (returnReq != null && returnReq.isPostalFault()) {
+            paymentText = "cước hoàn 0đ (Lỗi phía bưu cục - Miễn cước hoàn)";
+        } else if (returnReq != null && "PREPAID".equalsIgnoreCase(returnReq.getFeePaymentStatus())) {
+            paymentText = "cước hoàn 0đ (Người gửi đã trả trước qua VietQR)";
+        } else if (returnReq != null && "WAIVED".equalsIgnoreCase(returnReq.getFeePaymentStatus())) {
+            paymentText = "cước hoàn 0đ (Miễn phí cước hoàn)";
+        } else if (returnFee.compareTo(BigDecimal.ZERO) == 0) {
+            paymentText = "miễn cước hoàn 0đ";
+        } else if (viaQr) {
+            paymentText = "đã thu cước hoàn " + formatMoney(returnFee) + " (50%) qua VietQR";
+        } else {
+            paymentText = "đã thu tiền mặt cước hoàn " + formatMoney(returnFee) + " (50%)";
+        }
+
         trackingClient.updateStatus(trackingCode, Map.of(
                 "status", "RETURNED",
                 "locationCode", stationOf(courierCode),
@@ -255,7 +288,16 @@ public class ShipperBotServiceImpl implements ShipperBotService {
         if (shipment == null) {
             throw new IllegalStateException("Không tìm thấy đơn " + trackingCode);
         }
+        ReturnRequestResponse returnReq = getReturnRequest(trackingCode);
+        if (returnReq != null && (returnReq.isPostalFault()
+                || "PREPAID".equalsIgnoreCase(returnReq.getFeePaymentStatus())
+                || "WAIVED".equalsIgnoreCase(returnReq.getFeePaymentStatus()))) {
+            throw new IllegalStateException("Đơn hoàn này đã được thanh toán trước hoặc miễn phí. Không cần tạo mã QR!");
+        }
         BigDecimal returnFee = calculateReturnFee(shipment);
+        if (returnFee.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalStateException("Đơn hoàn này không phát sinh cước cần thu.");
+        }
         return paymentClient.createQr(Map.of(
                 "trackingCode", trackingCode,
                 "amount", returnFee,
@@ -309,9 +351,23 @@ public class ShipperBotServiceImpl implements ShipperBotService {
 
     // ------------------------------------------------------------------ helpers
 
+    @Override
     public BigDecimal calculateReturnFee(ShipmentDetailResponse shipment) {
         if (shipment == null) {
             return DEFAULT_RETURN_BASE_FEE.multiply(RETURN_FEE_RATE).setScale(0, RoundingMode.HALF_UP);
+        }
+        if (shipment.getTrackingCode() != null && !shipment.getTrackingCode().isBlank()) {
+            ReturnRequestResponse returnReq = getReturnRequest(shipment.getTrackingCode());
+            if (returnReq != null) {
+                if (returnReq.isPostalFault()
+                        || "PREPAID".equalsIgnoreCase(returnReq.getFeePaymentStatus())
+                        || "WAIVED".equalsIgnoreCase(returnReq.getFeePaymentStatus())) {
+                    return BigDecimal.ZERO;
+                }
+                if (returnReq.getReturnFee() != null) {
+                    return returnReq.getReturnFee();
+                }
+            }
         }
         BigDecimal base = shipment.getShippingFee();
         if (base == null || base.compareTo(BigDecimal.ZERO) <= 0) {

@@ -19,8 +19,18 @@ class ShipmentStatusTest {
     }
 
     @Test
-    @DisplayName("Trạng thái RETURNING chỉ có thể kết thúc bằng RETURNED")
+    @DisplayName("Khách có thể yêu cầu hoàn từ các chặng đang luân chuyển: PICKED_UP, IN_TRANSIT, ARRIVED_DEST_HUB")
+    void testInTransitReturningTransitions() {
+        assertTrue(ShipmentStatus.PICKED_UP.canTransitionTo(ShipmentStatus.RETURNING));
+        assertTrue(ShipmentStatus.IN_TRANSIT.canTransitionTo(ShipmentStatus.RETURNING));
+        assertTrue(ShipmentStatus.ARRIVED_DEST_HUB.canTransitionTo(ShipmentStatus.RETURNING));
+        assertTrue(ShipmentStatus.DELIVERY_FAILED.canTransitionTo(ShipmentStatus.RETURNING));
+    }
+
+    @Test
+    @DisplayName("Trạng thái RETURNING có thể chuyển sang OUT_FOR_RETURN hoặc kết thúc bằng RETURNED")
     void testReturningTransitions() {
+        assertTrue(ShipmentStatus.RETURNING.canTransitionTo(ShipmentStatus.OUT_FOR_RETURN));
         assertTrue(ShipmentStatus.RETURNING.canTransitionTo(ShipmentStatus.RETURNED));
         assertFalse(ShipmentStatus.RETURNING.canTransitionTo(ShipmentStatus.OUT_FOR_DELIVERY));
         assertFalse(ShipmentStatus.RETURNING.canTransitionTo(ShipmentStatus.DELIVERED));

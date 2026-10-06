@@ -855,37 +855,39 @@
                     </div>
                 </div>
 
-                <div v-if="showAvatarModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-                    <div class="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-2xl border border-slate-200">
-                        <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                            <h4 class="font-bold text-xs text-slate-800 uppercase tracking-wide">Cập Nhật Ảnh Đại Diện</h4>
-                            <button @click="showAvatarModal = false" class="w-6 h-6 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center text-sm font-bold cursor-pointer">&times;</button>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1">Dán liên kết ảnh trực tuyến (URL):</label>
-                            <input 
-                                v-model="avatarInputUrl" 
-                                type="url" 
-                                maxlength="500"
-                                placeholder="https://domain.com/avatar.jpg" 
-                                class="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 outline-none focus:border-blue-600"
-                            />
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 mb-1.5">Hoặc chọn phong cách nhận diện VNPT:</label>
-                            <div class="grid grid-cols-4 gap-2">
-                                <div @click="selectPresetColor('bg-blue-600')" class="h-10 rounded-lg bg-blue-600 cursor-pointer flex items-center justify-center text-white text-xs font-bold hover:scale-105 transition shadow-xs">Xanh</div>
-                                <div @click="selectPresetColor('bg-slate-800')" class="h-10 rounded-lg bg-slate-800 cursor-pointer flex items-center justify-center text-white text-xs font-bold hover:scale-105 transition shadow-xs">Đen</div>
-                                <div @click="selectPresetColor('bg-emerald-600')" class="h-10 rounded-lg bg-emerald-600 cursor-pointer flex items-center justify-center text-white text-xs font-bold hover:scale-105 transition shadow-xs">Lá</div>
-                                <div @click="selectPresetColor('bg-indigo-600')" class="h-10 rounded-lg bg-indigo-600 cursor-pointer flex items-center justify-center text-white text-xs font-bold hover:scale-105 transition shadow-xs">Tím</div>
+                <teleport to="body">
+                    <div v-if="showAvatarModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                        <div class="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-2xl border border-slate-200">
+                            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                                <h4 class="font-bold text-xs text-slate-800 uppercase tracking-wide">Cập Nhật Ảnh Đại Diện</h4>
+                                <button @click="showAvatarModal = false" class="w-6 h-6 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center text-sm font-bold cursor-pointer">&times;</button>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">Dán liên kết ảnh trực tuyến (URL):</label>
+                                <input 
+                                    v-model="avatarInputUrl" 
+                                    type="url" 
+                                    maxlength="500" 
+                                    placeholder="https://domain.com/avatar.jpg" 
+                                    class="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 outline-none focus:border-blue-600" 
+                                />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1.5">Hoặc chọn phong cách nhận diện VNPT:</label>
+                                <div class="grid grid-cols-4 gap-2">
+                                    <div @click="selectPresetColor('bg-blue-600')" class="h-10 rounded-lg bg-blue-600 cursor-pointer flex items-center justify-center text-white text-xs font-bold hover:scale-105 transition shadow-xs">Xanh</div>
+                                    <div @click="selectPresetColor('bg-slate-800')" class="h-10 rounded-lg bg-slate-800 cursor-pointer flex items-center justify-center text-white text-xs font-bold hover:scale-105 transition shadow-xs">Đen</div>
+                                    <div @click="selectPresetColor('bg-emerald-600')" class="h-10 rounded-lg bg-emerald-600 cursor-pointer flex items-center justify-center text-white text-xs font-bold hover:scale-105 transition shadow-xs">Lá</div>
+                                    <div @click="selectPresetColor('bg-indigo-600')" class="h-10 rounded-lg bg-indigo-600 cursor-pointer flex items-center justify-center text-white text-xs font-bold hover:scale-105 transition shadow-xs">Tím</div>
+                                </div>
+                            </div>
+                            <div class="pt-2 flex justify-end space-x-2">
+                                <button @click="showAvatarModal = false" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer">Đóng</button>
+                                <button @click="saveAvatarFromUrl" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer">Áp Dụng</button>
                             </div>
                         </div>
-                        <div class="pt-2 flex justify-end space-x-2">
-                            <button @click="showAvatarModal = false" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer">Đóng</button>
-                            <button @click="saveAvatarFromUrl" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer">Áp Dụng</button>
-                        </div>
                     </div>
-                </div>
+                </teleport>
             </div>
         `
     };

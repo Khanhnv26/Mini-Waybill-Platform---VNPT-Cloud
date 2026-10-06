@@ -184,6 +184,7 @@
             const notFoundCode = ref('');
 
             const currentShipment = ref(null);
+            const currentReturnRequest = ref(null);
             const trackingHistory = ref([]);
             const historyExpanded = ref(false);
             const routeInfo = ref(null);
@@ -1256,12 +1257,17 @@
                         if (missing) return null;
                         throw err;
                     });
-                    const [data, detail, routingHistory, assignment] = await Promise.all([
+                    const returnRequestPromise = (typeof ShipmentService !== 'undefined' && typeof ShipmentService.getReturnRequest === 'function')
+                        ? ShipmentService.getReturnRequest(code).catch(() => null)
+                        : Promise.resolve(null);
+                    const [data, detail, routingHistory, assignment, returnReq] = await Promise.all([
                         trackingPromise,
                         loadShipmentDetail(code),
                         routingHistoryPromise,
-                        routingAssignmentPromise
+                        routingAssignmentPromise,
+                        returnRequestPromise
                     ]);
+                    currentReturnRequest.value = returnReq;
 
                     if (!data && !detail) {
                         currentShipment.value = null;
@@ -1757,6 +1763,7 @@
                 deliveredTime,
                 focusSearchInput,
                 currentShipment,
+                currentReturnRequest,
                 trackingHistory,
                 sortedHistory,
                 historyExpanded,
@@ -2497,6 +2504,42 @@
                     </div>
                 </div>
 
+                <!-- Return Flow Notification Banner -->
+                <div v-if="currentShipment && (['RETURNING', 'OUT_FOR_RETURN', 'RETURNED'].includes(currentShipment.status) || currentReturnRequest)" class="b2b-card bg-amber-50/90 border border-amber-300/80 rounded-xl p-3.5 shadow-xs text-xs space-y-2">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                            <span class="font-extrabold text-amber-900 uppercase tracking-wider text-[11px]">Bưu Gửi Đang Trong Luồng Chuyển Hoàn</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                {{ currentReturnRequest?.returnMode === 'COUNTER_PICKUP' ? 'Nhận tại quầy bưu cục (Lưu kho 7 ngày)' : 'Phát hoàn tận nơi cho người gửi' }}
+                            </span>
+                        </div>
+                        <span v-if="currentReturnRequest?.postalFault" class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                            Miễn cước (Lỗi bưu chính)
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-[11.5px] border-t border-amber-200/70">
+                        <div>
+                            <span class="text-slate-500">Người khởi tạo:</span>
+                            <strong class="ml-1 text-slate-800">
+                                {{ currentReturnRequest?.initiator === 'CUSTOMER' ? 'Người gửi (Shop)' : (currentReturnRequest?.initiator === 'SYSTEM' ? 'Hệ thống tự động (quá 3 lần)' : 'Điều phối viên CSKH') }}
+                            </strong>
+                        </div>
+                        <div>
+                            <span class="text-slate-500">Lý do hoàn:</span>
+                            <strong class="ml-1 text-slate-800">{{ currentReturnRequest?.reason || 'Chuyển hoàn theo yêu cầu' }}</strong>
+                        </div>
+                        <div>
+                            <span class="text-slate-500">Cước hoàn:</span>
+                            <strong class="ml-1 text-amber-900 font-mono">{{ Utils.formatCurrency(currentReturnRequest?.returnFee || 17500) }}</strong>
+                            <span class="ml-1 text-[10px] font-bold" :class="currentReturnRequest?.feePaymentStatus === 'PREPAID' ? 'text-emerald-700' : 'text-slate-500'">
+                                ({{ currentReturnRequest?.feePaymentStatus === 'PREPAID' ? 'Đã trả trước' : (currentReturnRequest?.feePaymentStatus === 'WAIVED' ? 'Miễn phí' : 'Thu khi giao hoàn') }})
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
                 <div v-if="!currentShipment" class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-2">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div class="flex items-center space-x-2 w-full sm:w-auto flex-1 max-w-lg min-w-0">
@@ -2533,12 +2576,10 @@
                                 <span>{{ isLoading ? 'Đang Tra Cứu...' : 'Tra Cứu' }}</span>
                             </button>
                         </div>
-                        <div v-if="currentShipment" class="flex items-center space-x-2 text-xs">
-                            <span class="text-slate-500 font-medium">Trạng thái bưu gửi:</span>
-                            <span :class="['px-3 py-1 rounded-full font-bold border text-xs inline-flex items-center space-x-1.5', Utils.getStatusBadgeClass(currentShipment.status)]">
-                                <span class="w-2 h-2 rounded-full bg-current"></span>
-                                <span>{{ Utils.formatStatusText(currentShipment.status) }}</span>
-                            </span>
+                        <div class="flex items-center space-x-2 text-xs text-slate-500">
+                            <span>Mã mẫu:</span>
+                            <button type="button" @click="fillSampleCode('VNPT-HN-SG-9821')" class="font-mono text-blue-600 hover:underline font-bold transition-colors cursor-pointer bg-blue-50 px-2 py-0.5 rounded border border-blue-200">VNPT-HN-SG-9821</button>
+                            <button type="button" @click="fillSampleCode('WB902188214')" class="font-mono text-blue-600 hover:underline font-bold transition-colors cursor-pointer bg-blue-50 px-2 py-0.5 rounded border border-blue-200">WB902188214</button>
                         </div>
                     </div>
                     <div v-if="validationError" class="text-rose-600 text-[11.5px] font-semibold flex items-center space-x-1.5 pt-1 animate-pulse">
@@ -3164,7 +3205,8 @@
                     <div v-else class="text-center py-10 text-xs text-slate-400">
                         Chưa có lịch sử luân chuyển nào cho mã bưu gửi này.
                     </div>
-                <div v-if="isRatingModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs modal-backdrop-enter">
+                <teleport to="body">
+                    <div v-if="isRatingModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm modal-backdrop-enter">
                     <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden modal-box-enter text-slate-800">
                         <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
                             <div class="flex items-center space-x-2.5">
@@ -3376,6 +3418,7 @@
                         </div>
                     </div>
                 </div>
+            </teleport>
             </div>
         </div>
         </div>

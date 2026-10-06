@@ -808,9 +808,12 @@ public class TripServiceImpl implements TripService {
                 item.setUnloadedAt(arrivalAt);
                 tripManifestRepository.save(item);
 
+                boolean isCancelled = Boolean.TRUE.equals(redisTemplate.hasKey("shipment-cancelled:" + item.getTrackingCode().trim().toUpperCase()));
+                String targetInventoryStatus = isCancelled ? "CANCELLED" : "RETURNING";
+
                 warehouseInventoryRepository.findByTrackingCode(item.getTrackingCode()).ifPresent(inventory -> {
                     inventory.setLocationCode(currentStop.getHubCode());
-                    inventory.setInventoryStatus("CANCELLED");
+                    inventory.setInventoryStatus(targetInventoryStatus);
                     inventory.setActiveTripId(null);
                     inventory.setStoredAt(arrivalAt);
                     inventory.setReservedAt(null);
@@ -818,19 +821,21 @@ public class TripServiceImpl implements TripService {
                     warehouseInventoryRepository.save(inventory);
                 });
                 routingAssignmentRepository.findByTrackingCode(item.getTrackingCode()).ifPresent(assignment -> {
-                    assignment.setStatus("CANCELLED");
+                    assignment.setStatus(targetInventoryStatus);
                     routingAssignmentRepository.save(assignment);
                 });
 
-                String returnNote = String.format(
-                        "Bưu gửi đã hủy được dỡ tại trạm kế tiếp %s từ chuyến xe %s để xử lý hoàn.",
-                        currentStop.getHubCode(), trip.getTripCode());
+                String returnNote = isCancelled
+                        ? String.format("Bưu gửi đã hủy được dỡ tại trạm kế tiếp %s từ chuyến xe %s để xử lý hoàn.",
+                                currentStop.getHubCode(), trip.getTripCode())
+                        : String.format("Bưu gửi chuyển hoàn được dỡ tại trạm kế tiếp %s từ chuyến xe %s để xử lý chuyển về bưu cục gốc.",
+                                currentStop.getHubCode(), trip.getTripCode());
                 TransportLeg itemLeg = item.getTransportLeg() != null
                         ? item.getTransportLeg()
                         : inferTransportLeg(item.getPickupLocationCode(), item.getDropoffLocationCode());
-                recordLifecycle(item.getTrackingCode(), "CANCELLED", OperationType.UNLOADED, itemLeg,
+                recordLifecycle(item.getTrackingCode(), targetInventoryStatus, OperationType.UNLOADED, itemLeg,
                         currentStop.getHubCode(), trip.getTripCode(), null, returnNote, arrivalAt,
-                        "UNLOAD-CANCELLED:" + trip.getTripCode() + ":" + item.getTrackingCode()
+                        "UNLOAD-" + targetInventoryStatus + ":" + trip.getTripCode() + ":" + item.getTrackingCode()
                                 + ":" + currentStop.getHubCode());
                 unloadedCount++;
                 continue;

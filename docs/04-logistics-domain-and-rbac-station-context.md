@@ -45,24 +45,34 @@ flowchart TD
 stateDiagram-v2
     [*] --> CREATED: Tiếp nhận tại quầy / Shop B2B
     CREATED --> PENDING_ROUTING: Chờ xếp lịch xe
-    CREATED --> CANCELLED: Khách / CS hủy đơn
+    CREATED --> CANCELLED: Khách / CS hủy đơn (Trước khi lấy hàng)
     
     PENDING_ROUTING --> ROUTE_ASSIGNED: Đã xác định lộ trình Siêu Hub
     PENDING_ROUTING --> CANCELLED: Hủy trước khi xuất kho
     
     ROUTE_ASSIGNED --> PICKED_UP: Bưu cục/Hub quét nhận vào kho
+    ROUTE_ASSIGNED --> CANCELLED: Hủy trước khi bưu tá quét nhận
+    
     PICKED_UP --> IN_TRANSIT: Đóng chuyến xe luân chuyển
+    PICKED_UP --> RETURNING: Khách hàng chủ động yêu cầu hoàn
     
     IN_TRANSIT --> IN_TRANSIT: Luân chuyển qua các Hub trung gian
-    IN_TRANSIT --> OUT_FOR_DELIVERY: Bưu cục phát bàn giao bưu tá
+    IN_TRANSIT --> ARRIVED_DEST_HUB: Cập bến bưu cục / Hub phát
+    IN_TRANSIT --> RETURNING: Khách hàng yêu cầu hoàn giữa đường
+    
+    ARRIVED_DEST_HUB --> OUT_FOR_DELIVERY: Bưu cục phát bàn giao bưu tá
+    ARRIVED_DEST_HUB --> RETURNING: Khách hàng yêu cầu hoàn tại trạm phát
     
     OUT_FOR_DELIVERY --> DELIVERED: Phát thành công & Thu tiền COD
     OUT_FOR_DELIVERY --> DELIVERY_FAILED: Giao thất bại (Khách hẹn / Sai địa chỉ)
+    OUT_FOR_DELIVERY --> RETURNING: Khách hàng yêu cầu hoàn
     
-    DELIVERY_FAILED --> OUT_FOR_DELIVERY: Bưu tá đi phát lại (< 3 lần)
-    DELIVERY_FAILED --> RETURNING: Tự động chuyển hoàn (Thất bại lần 3)
+    DELIVERY_FAILED --> OUT_FOR_DELIVERY: Tái phát (< 3 lần / Sau khi đổi SĐT, địa chỉ)
+    DELIVERY_FAILED --> RETURNING: Khách chọn hoàn / Hết hạn 24h / Thất bại lần 3
     
-    RETURNING --> RETURNED: Hoàn bưu gửi về người gửi
+    RETURNING --> OUT_FOR_RETURN: Bưu tá xuất phát giao hoàn tận nơi (DOORSTEP)
+    RETURNING --> RETURNED: Khách nhận tại quầy (COUNTER_PICKUP)
+    OUT_FOR_RETURN --> RETURNED: Hoàn bưu gửi thành công về tay người gửi
     
     DELIVERED --> [*]
     CANCELLED --> [*]
@@ -73,33 +83,22 @@ stateDiagram-v2
 1. `CREATED`: Đơn vừa tạo tại quầy hoặc trên Web Shop.
 2. `PENDING_ROUTING`: Chờ thuật toán ghép tuyến.
 3. `ROUTE_ASSIGNED`: Đã xác định lộ trình qua các Hub.
-4. `PICKED_UP`: Hub/Bưu cục quét nhận hàng vào kho.
+4. `PICKED_UP`: Hub/Bưu cục quét nhận hàng vào kho (bắt đầu quyền sở hữu vật lý, không thể Hủy, chỉ được Yêu cầu hoàn).
 5. `IN_TRANSIT`: Hàng đang di chuyển trên xe tải luân chuyển.
-6. `ARRIVED_DEST_HUB`: Hàng đã cập bến Hub phát.
+6. `ARRIVED_DEST_HUB`: Hàng đã cập bến Hub / Bưu cục phát.
 7. `OUT_FOR_DELIVERY`: Bưu tá đã xuất phát đi giao.
 8. `DELIVERED`: *(Điểm dừng)* Giao thành công, thu tiền COD.
-9. `DELIVERY_FAILED`: Giao thất bại kèm lý do cụ thể.
-10. `RETURNING`: Đang trên đường chuyển hoàn về Shop.
-11. `RETURNED`: *(Điểm dừng)* Hoàn tất trả hàng cho Shop.
-12. `CANCELLED`: *(Điểm dừng)* Khách/CS hủy đơn hợp lệ.
+9. `DELIVERY_FAILED`: Giao thất bại kèm lý do cụ thể (mở cửa sổ quyết định 24 giờ cho khách hàng).
+10. `RETURNING`: Đang trên đường chuyển hoàn về bưu cục gửi / người gửi.
+11. `OUT_FOR_RETURN`: Bưu tá tiếp nhận bưu phẩm hoàn, xuất phát giao hoàn về tận nhà người gửi.
+12. `RETURNED`: *(Điểm dừng)* Hoàn tất trả hàng cho người gửi (tại quầy hoặc tận nơi).
+13. `CANCELLED`: *(Điểm dừng)* Khách/CS hủy đơn hợp lệ (chỉ áp dụng trước khi bưu cục quét nhận hàng).
 
-### 3.2. Logic Tự Động Chuyển Hoàn Khi Thất Bại 3 Lần
-Trích đoạn code thực tế tại `TrackingServiceImpl.java`:
-```java
-if (newStatus == ShipmentStatus.DELIVERY_FAILED) {
-    long failedCount = trackingHistoryRepository.countByTrackingCodeAndStatus(
-        trackingCode, 
-        ShipmentStatus.DELIVERY_FAILED.name()
-    );
-
-    // Nếu đã thất bại 3 lần -> Tự động ép chuyển hoàn
-    if (failedCount >= 3) {
-        newStatus = ShipmentStatus.RETURNING;
-        request.setStatus(ShipmentStatus.RETURNING.name());
-        request.setNote("Giao thất bại lần 3 - Hệ thống tự động kích hoạt chuyển hoàn về người gửi");
-    }
-}
-```
+### 3.2. Chu Trình Chuyển Hoàn Hàng & Quyết Định Xử Lý Giao Thất Bại (Customer Return Flow)
+* **Chủ động yêu cầu hoàn:** Khách hàng (Shop) có thể chủ động bấm *"Yêu cầu hoàn"* từ `PICKED_UP` đến `DELIVERY_FAILED`. Tiền COD được hủy (`0đ`), cước hoàn tính bằng 50% cước gốc (hoặc 0đ nếu lỗi do bưu cục).
+* **Cửa sổ xử lý giao thất bại 24h:** Khi đơn hàng `DELIVERY_FAILED`, khách hàng có 3 lựa chọn: (1) Yêu cầu phát lại, (2) Đổi SĐT/Địa chỉ người nhận trong cùng quận/huyện, (3) Chuyển hoàn về. Nếu quá 24h không chọn, hệ thống tự động tái phát; nếu thất bại lần 3, tự động chuyển hoàn.
+* **Hình thức nhận hoàn:** Nhận tận nơi (`DOORSTEP`) hoặc Nhận tại quầy bưu cục (`COUNTER_PICKUP` lưu kho 7 ngày).
+* *Chi tiết kiến trúc:* Xem toàn bộ thiết kế nghiệp vụ, cơ chế Outbox Event, Saga bồi hoàn và tích hợp VietQR tại [Cẩm Nang Kỹ Thuật 23: Quy Trình Hoàn Hàng Toàn Diện (Customer Return Flow & Failure Decision SLA)](23-customer-return-flow.md).
 
 ### 3.3. Phân Tách Trạng Thái Vận Chuyển (`DELIVERED`) & Quyết Toán Thu Hộ (`SETTLED`)
 * **Lưu ý nghiệp vụ cốt lõi:** Khi vận đơn đạt trạng thái kết thúc `DELIVERED` (Giao thành công), tiến trình vận chuyển vật lý đã hoàn tất nhưng **chu trình tài chính mới chỉ bắt đầu**.

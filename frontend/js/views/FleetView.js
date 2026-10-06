@@ -590,138 +590,142 @@
                 </div>
 
                 <!-- MODAL THÊM XE MỚI -->
-                <div v-if="showAddModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-                    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 animate-in fade-in duration-150">
-                        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-                            <div class="flex items-center gap-2">
-                                <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                    </svg>
+                <teleport to="body">
+                    <div v-if="showAddModal" class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in duration-150">
+                            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                        </svg>
+                                    </div>
+                                    <h3 class="font-bold text-slate-900 text-sm">Thêm Phương Tiện Vận Tải Mới</h3>
                                 </div>
-                                <h3 class="font-bold text-slate-900 text-sm">Thêm Phương Tiện Vận Tải Mới</h3>
-                            </div>
-                            <button @click="showAddModal = false" class="text-slate-400 hover:text-slate-600 text-sm cursor-pointer">&times;</button>
-                        </div>
-
-                        <form @submit.prevent="submitAddVehicle" class="space-y-3.5 mt-4 text-xs">
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block font-bold text-slate-700 mb-1">Biển Kiểm Soát *</label>
-                                    <input v-model="addForm.vehiclePlate" type="text" placeholder="VD: 29H-999.88" required maxlength="20" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold focus:bg-white outline-none" />
-                                </div>
-                                <div>
-                                    <label class="block font-bold text-slate-700 mb-1">Dòng Xe (Model) *</label>
-                                    <input v-model="addForm.modelName" type="text" placeholder="VD: Isuzu Forward 5T" required maxlength="50" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-medium focus:bg-white outline-none" />
-                                </div>
+                                <button @click="showAddModal = false" class="text-slate-400 hover:text-slate-600 text-sm cursor-pointer">&times;</button>
                             </div>
 
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block font-bold text-slate-700 mb-1">Phân Loại Xe *</label>
-                                    <select v-model="addForm.vehicleType" @change="handleTypeChangeInAdd" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-medium focus:bg-white outline-none">
-                                        <option v-for="t in vehicleTypes" :key="t.code" :value="t.code">{{ t.label }}</option>
-                                    </select>
+                            <form @submit.prevent="submitAddVehicle" class="space-y-3.5 mt-4 text-xs">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block font-bold text-slate-700 mb-1">Biển Kiểm Soát *</label>
+                                        <input v-model="addForm.vehiclePlate" type="text" placeholder="VD: 29H-999.88" required maxlength="20" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold focus:bg-white outline-none" />
+                                    </div>
+                                    <div>
+                                        <label class="block font-bold text-slate-700 mb-1">Dòng Xe (Model) *</label>
+                                        <input v-model="addForm.modelName" type="text" placeholder="VD: Isuzu Forward 5T" required maxlength="50" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-medium focus:bg-white outline-none" />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label class="block font-bold text-slate-700 mb-1">Tải Trọng Tối Đa (kg) *</label>
-                                    <input v-model.number="addForm.payloadCapacity" type="number" min="100" max="30000" step="100" required class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold focus:bg-white outline-none" />
-                                </div>
-                            </div>
 
-                            <div>
-                                <label class="block font-bold text-slate-700 mb-1">HUB Đỗ Ban Đầu *</label>
-                                <select v-model="addForm.currentHub" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-bold text-blue-700 focus:bg-white outline-none">
-                                    <option v-for="h in hubs" :key="h.code" :value="h.code">{{ h.label }}</option>
-                                </select>
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block font-bold text-slate-700 mb-1">Tài Xế Phụ Trách</label>
-                                    <input v-model="addForm.assignedDriverName" type="text" placeholder="VD: Nguyễn Văn Nam" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-medium focus:bg-white outline-none" />
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block font-bold text-slate-700 mb-1">Phân Loại Xe *</label>
+                                        <select v-model="addForm.vehicleType" @change="handleTypeChangeInAdd" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-medium focus:bg-white outline-none">
+                                            <option v-for="t in vehicleTypes" :key="t.code" :value="t.code">{{ t.label }}</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block font-bold text-slate-700 mb-1">Tải Trọng Tối Đa (kg) *</label>
+                                        <input v-model.number="addForm.payloadCapacity" type="number" min="100" max="30000" step="100" required class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold focus:bg-white outline-none" />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label class="block font-bold text-slate-700 mb-1">Số Điện Thoại Tài Xế</label>
-                                    <input v-model="addForm.driverPhone" type="text" placeholder="VD: 0912.888.999" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono focus:bg-white outline-none" />
-                                </div>
-                            </div>
 
-                            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                                <button type="button" @click="showAddModal = false" class="px-3.5 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg font-bold transition cursor-pointer">Hủy</button>
-                                <button type="submit" :disabled="isSaving" class="px-4 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-lg font-bold transition shadow-xs cursor-pointer disabled:opacity-50">
-                                    {{ isSaving ? 'Đang Lưu...' : 'Xác Nhận Thêm Xe' }}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- MODAL SỬA THÔNG TIN XE -->
-                <div v-if="showEditModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-                    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 animate-in fade-in duration-150">
-                        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-                            <div class="flex items-center gap-2">
-                                <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
-                                    </svg>
-                                </div>
-                                <h3 class="font-bold text-slate-900 text-sm">Cập Nhật Thông Tin Xe: {{ editForm.vehiclePlate }}</h3>
-                            </div>
-                            <button @click="showEditModal = false" class="text-slate-400 hover:text-slate-600 text-sm cursor-pointer">&times;</button>
-                        </div>
-
-                        <form @submit.prevent="submitEditVehicle" class="space-y-3.5 mt-4 text-xs">
-                            <div class="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label class="block font-bold text-slate-700 mb-1">Dòng Xe (Model)</label>
-                                    <input v-model="editForm.modelName" type="text" required maxlength="50" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-medium focus:bg-white outline-none" />
-                                </div>
-                                <div>
-                                    <label class="block font-bold text-slate-700 mb-1">Tải Trọng (kg)</label>
-                                    <input v-model.number="editForm.payloadCapacity" type="number" min="100" max="30000" step="100" required class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold focus:bg-white outline-none" />
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block font-bold text-slate-700 mb-1">HUB Đỗ Hiện Tại</label>
-                                    <select v-model="editForm.currentHub" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-bold text-blue-700 focus:bg-white outline-none">
+                                    <label class="block font-bold text-slate-700 mb-1">HUB Đỗ Ban Đầu *</label>
+                                    <select v-model="addForm.currentHub" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-bold text-blue-700 focus:bg-white outline-none">
                                         <option v-for="h in hubs" :key="h.code" :value="h.code">{{ h.label }}</option>
                                     </select>
                                 </div>
-                                <div>
-                                    <label class="block font-bold text-slate-700 mb-1">Trạng Thái Xe</label>
-                                    <select v-model="editForm.status" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-bold focus:bg-white outline-none">
-                                        <option value="AVAILABLE">AVAILABLE - Sẵn sàng</option>
-                                        <option value="ON_TRIP">ON_TRIP - Chạy tuyến</option>
-                                        <option value="MAINTENANCE">MAINTENANCE - Bảo dưỡng</option>
-                                        <option value="DISABLED">DISABLED - Vô hiệu hóa</option>
-                                    </select>
-                                </div>
-                            </div>
 
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block font-bold text-slate-700 mb-1">Tài Xế Phụ Trách</label>
-                                    <input v-model="editForm.assignedDriverName" type="text" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-medium focus:bg-white outline-none" />
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block font-bold text-slate-700 mb-1">Tài Xế Phụ Trách</label>
+                                        <input v-model="addForm.assignedDriverName" type="text" placeholder="VD: Nguyễn Văn Nam" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-medium focus:bg-white outline-none" />
+                                    </div>
+                                    <div>
+                                        <label class="block font-bold text-slate-700 mb-1">Số Điện Thoại Tài Xế</label>
+                                        <input v-model="addForm.driverPhone" type="text" placeholder="VD: 0912.888.999" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono focus:bg-white outline-none" />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label class="block font-bold text-slate-700 mb-1">Số Điện Thoại</label>
-                                    <input v-model="editForm.driverPhone" type="text" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono focus:bg-white outline-none" />
-                                </div>
-                            </div>
 
-                            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                                <button type="button" @click="showEditModal = false" class="px-3.5 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg font-bold transition cursor-pointer">Hủy</button>
-                                <button type="submit" :disabled="isSaving" class="px-4 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-lg font-bold transition shadow-xs cursor-pointer disabled:opacity-50">
-                                    {{ isSaving ? 'Đang Lưu...' : 'Lưu Thay Đổi' }}
-                                </button>
-                            </div>
-                        </form>
+                                <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                                    <button type="button" @click="showAddModal = false" class="px-3.5 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg font-bold transition cursor-pointer">Hủy</button>
+                                    <button type="submit" :disabled="isSaving" class="px-4 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-lg font-bold transition shadow-xs cursor-pointer disabled:opacity-50">
+                                        {{ isSaving ? 'Đang Lưu...' : 'Xác Nhận Thêm Xe' }}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
+                </teleport>
+
+                <!-- MODAL SỬA THÔNG TIN XE -->
+                <teleport to="body">
+                    <div v-if="showEditModal" class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+                        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in duration-150">
+                            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                        </svg>
+                                    </div>
+                                    <h3 class="font-bold text-slate-900 text-sm">Cập Nhật Thông Tin Xe: {{ editForm.vehiclePlate }}</h3>
+                                </div>
+                                <button @click="showEditModal = false" class="text-slate-400 hover:text-slate-600 text-sm cursor-pointer">&times;</button>
+                            </div>
+
+                            <form @submit.prevent="submitEditVehicle" class="space-y-3.5 mt-4 text-xs">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block font-bold text-slate-700 mb-1">Dòng Xe (Model)</label>
+                                        <input v-model="editForm.modelName" type="text" required maxlength="50" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-medium focus:bg-white outline-none" />
+                                    </div>
+                                    <div>
+                                        <label class="block font-bold text-slate-700 mb-1">Tải Trọng (kg)</label>
+                                        <input v-model.number="editForm.payloadCapacity" type="number" min="100" max="30000" step="100" required class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold focus:bg-white outline-none" />
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block font-bold text-slate-700 mb-1">HUB Đỗ Hiện Tại</label>
+                                        <select v-model="editForm.currentHub" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-bold text-blue-700 focus:bg-white outline-none">
+                                            <option v-for="h in hubs" :key="h.code" :value="h.code">{{ h.label }}</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block font-bold text-slate-700 mb-1">Trạng Thái Xe</label>
+                                        <select v-model="editForm.status" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-bold focus:bg-white outline-none">
+                                            <option value="AVAILABLE">AVAILABLE - Sẵn sàng</option>
+                                            <option value="ON_TRIP">ON_TRIP - Chạy tuyến</option>
+                                            <option value="MAINTENANCE">MAINTENANCE - Bảo dưỡng</option>
+                                            <option value="DISABLED">DISABLED - Vô hiệu hóa</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block font-bold text-slate-700 mb-1">Tài Xế Phụ Trách</label>
+                                        <input v-model="editForm.assignedDriverName" type="text" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-medium focus:bg-white outline-none" />
+                                    </div>
+                                    <div>
+                                        <label class="block font-bold text-slate-700 mb-1">Số Điện Thoại</label>
+                                        <input v-model="editForm.driverPhone" type="text" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono focus:bg-white outline-none" />
+                                    </div>
+                                </div>
+
+                                <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                                    <button type="button" @click="showEditModal = false" class="px-3.5 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg font-bold transition cursor-pointer">Hủy</button>
+                                    <button type="submit" :disabled="isSaving" class="px-4 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-lg font-bold transition shadow-xs cursor-pointer disabled:opacity-50">
+                                        {{ isSaving ? 'Đang Lưu...' : 'Lưu Thay Đổi' }}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </teleport>
             </div>
         `
     };

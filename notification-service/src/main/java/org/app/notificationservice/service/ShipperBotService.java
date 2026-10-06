@@ -1,6 +1,7 @@
 package org.app.notificationservice.service;
 
 import org.app.notificationservice.dto.response.PaymentResponse;
+import org.app.notificationservice.dto.response.ReturnRequestResponse;
 import org.app.notificationservice.dto.response.ShipmentDetailResponse;
 import org.app.notificationservice.dto.response.ShipperForecastResponse;
 import org.app.notificationservice.dto.response.ShipperLookupResponse;
@@ -24,6 +25,8 @@ public interface ShipperBotService {
     List<ShipmentDetailResponse> getPendingCodOrders(String courierCode);
 
     ShipmentDetailResponse getOrder(String trackingCode);
+
+    ReturnRequestResponse getReturnRequest(String trackingCode);
 
     boolean isOrderOwnedBy(String courierCode, String trackingCode);
 

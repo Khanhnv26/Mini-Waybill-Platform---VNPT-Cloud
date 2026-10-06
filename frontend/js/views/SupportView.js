@@ -1572,7 +1572,8 @@
 
                 </div>
 
-                <div v-if="showResolveModal && modalTicket" class="fixed inset-0 z-50 modal-backdrop-enter bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-3">
+                <teleport to="body">
+                    <div v-if="showResolveModal && modalTicket" class="fixed inset-0 z-[100] modal-backdrop-enter bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3">
                     <div class="modal-box-enter bg-white rounded-xl shadow-xl border border-slate-200 max-w-4xl w-full overflow-hidden text-xs">
                         <div class="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
                             <div class="flex items-center space-x-2">
@@ -1730,6 +1731,7 @@
                         </div>
                     </div>
                 </div>
+                </teleport>
 
             </div>
         `
