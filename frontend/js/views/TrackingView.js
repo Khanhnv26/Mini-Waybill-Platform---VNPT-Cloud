@@ -3205,7 +3205,8 @@
                     <div v-else class="text-center py-10 text-xs text-slate-400">
                         Chưa có lịch sử luân chuyển nào cho mã bưu gửi này.
                     </div>
-                <div v-if="isRatingModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs modal-backdrop-enter">
+                <teleport to="body">
+                    <div v-if="isRatingModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm modal-backdrop-enter">
                     <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full overflow-hidden modal-box-enter text-slate-800">
                         <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
                             <div class="flex items-center space-x-2.5">
@@ -3417,6 +3418,7 @@
                         </div>
                     </div>
                 </div>
+            </teleport>
             </div>
         </div>
         </div>
