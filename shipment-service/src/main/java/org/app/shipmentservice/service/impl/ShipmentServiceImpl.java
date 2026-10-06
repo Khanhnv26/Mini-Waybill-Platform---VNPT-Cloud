@@ -415,14 +415,20 @@ public class ShipmentServiceImpl implements ShipmentService {
         boolean isCsRole = roles != null && roles.contains("ROLE_CS");
         boolean hasAdminPermission = hasCancelAllPermission || isAdminRole || isCsRole;
 
+        ShipmentStatus currentStatus = shipment.getCurrentStatus();
+
         if (!hasAdminPermission) {
             Long myCustomerId = resolveCustomerId(currentUserId);
             if (!shipment.getCustomerId().equals(myCustomerId)) {
                 throw new ForbiddenException("Người dùng không có quyền hủy đơn hàng của khách khác!");
             }
+            if (currentStatus != ShipmentStatus.CREATED
+                    && currentStatus != ShipmentStatus.PENDING_ROUTING
+                    && currentStatus != ShipmentStatus.ROUTE_ASSIGNED) {
+                throw new IllegalStateException("Đơn hàng đã được bưu cục tiếp nhận hoặc đang vận chuyển (" + currentStatus + "), không thể hủy. Vui lòng chọn 'Yêu cầu hoàn'!");
+            }
         }
 
-        ShipmentStatus currentStatus = shipment.getCurrentStatus();
         if (currentStatus == ShipmentStatus.CANCELLED) {
             throw new IllegalStateException("Đơn hàng đã bị hủy trước đó: " + trackCode);
         }

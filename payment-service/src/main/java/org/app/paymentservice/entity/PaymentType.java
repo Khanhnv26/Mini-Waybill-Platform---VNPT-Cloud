@@ -2,5 +2,6 @@ package org.app.paymentservice.entity;
 
 public enum PaymentType {
     COD,
-    SHIPPING_FEE
+    SHIPPING_FEE,
+    RETURN_FEE
 }

@@ -840,8 +840,33 @@
                 }
             };
 
+            const returnRequestCache = new Map();
+            const getReturnRequestInfo = async (trackingCode) => {
+                if (!trackingCode) return null;
+                if (returnRequestCache.has(trackingCode)) return returnRequestCache.get(trackingCode);
+                try {
+                    if (typeof ShipmentService !== 'undefined' && typeof ShipmentService.getReturnRequest === 'function') {
+                        const req = await ShipmentService.getReturnRequest(trackingCode);
+                        if (req) {
+                            returnRequestCache.set(trackingCode, req);
+                            return req;
+                        }
+                    }
+                } catch (e) {}
+                return null;
+            };
+
             const getReturnFee = (shipment) => {
                 if (!shipment) return 17500;
+                const cachedReq = returnRequestCache.get(shipment.trackingCode);
+                if (cachedReq) {
+                    if (cachedReq.feePaymentStatus === 'PREPAID' || cachedReq.feePaymentStatus === 'WAIVED' || cachedReq.postalFault) {
+                        return 0;
+                    }
+                    if (cachedReq.returnFee !== undefined && cachedReq.returnFee !== null) {
+                        return Number(cachedReq.returnFee);
+                    }
+                }
                 const baseFee = Number(shipment.shippingFee || shipment.totalFee || 35000);
                 return Math.round(baseFee * 0.5);
             };
@@ -857,7 +882,7 @@
                 isReturnQrPaidSuccess.value = false;
             };
 
-            const openReturnActionModal = (shipment) => {
+            const openReturnActionModal = async (shipment) => {
                 returnTargetShipment.value = shipment;
                 returnPaymentMethod.value = 'CASH';
                 returnSuccessNote.value = '';
@@ -867,11 +892,21 @@
                 returnQrCountdown.value = 600;
                 if (returnQrInterval) clearInterval(returnQrInterval);
                 if (returnQrPollInterval) clearInterval(returnQrPollInterval);
+                await getReturnRequestInfo(shipment.trackingCode);
                 showReturnActionModal.value = true;
             };
 
             const handleAcceptReturnDelivery = async (shipment) => {
                 if (!shipment) return;
+                const req = await getReturnRequestInfo(shipment.trackingCode);
+                if (req && req.returnMode === 'COUNTER_PICKUP') {
+                    Utils.showToast(
+                        'Tự Nhận Tại Bưu Cục',
+                        `Bưu gửi ${shipment.trackingCode} đã được đăng ký tự nhận tại quầy bưu cục (COUNTER_PICKUP). Bưu phẩm lưu kho 7 ngày tại bưu cục gốc, không giao tận nơi.`,
+                        'warning'
+                    );
+                    return;
+                }
                 isActionRunning.value = true;
                 try {
                     const locationCode = getLastMileLocation(shipment) || 'DELIVERY_OFFICE';

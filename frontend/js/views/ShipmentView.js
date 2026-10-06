@@ -1,6 +1,6 @@
 
 (function () {
-    const { ref, reactive, computed, watch, onMounted } = Vue;
+    const { ref, reactive, computed, watch, onMounted, onUnmounted } = Vue;
 
     const ShipmentView = {
         name: 'ShipmentView',
@@ -509,10 +509,280 @@
             const cancelReasonCode = ref('CHANGE_MIND');
             const cancelReasonNote = ref('');
 
+            // --- RETURN & FAILURE DECISIONS STATE & LOGIC ---
+            const pendingDecisions = ref([]);
+            const isLoadingDecisions = ref(false);
+            const returnRequestsList = ref([]);
+            const isLoadingReturns = ref(false);
+            const nowTime = ref(Date.now());
+            let decisionCountdownTimer = null;
+
+            const selectedReturnStatusFilter = ref('ALL');
+            const returnSearchQuery = ref('');
+
+            const loadPendingDecisions = async () => {
+                isLoadingDecisions.value = true;
+                try {
+                    const data = await ShipmentService.getPendingFailureDecisions();
+                    pendingDecisions.value = Array.isArray(data) ? data : [];
+                } catch (e) {
+                    console.warn('[ShipmentView] Lỗi tải pending decisions:', e);
+                } finally {
+                    isLoadingDecisions.value = false;
+                }
+            };
+
+            const loadReturnRequests = async () => {
+                isLoadingReturns.value = true;
+                try {
+                    const data = await ShipmentService.listReturnRequests();
+                    returnRequestsList.value = Array.isArray(data) ? data : [];
+                } catch (e) {
+                    console.warn('[ShipmentView] Lỗi tải return requests:', e);
+                } finally {
+                    isLoadingReturns.value = false;
+                }
+            };
+
             const canCancelShipment = (s) => {
                 if (!s) return false;
                 const status = s.currentStatus || s.status;
-                return status !== 'DELIVERED' && status !== 'RETURNED' && status !== 'CANCELLED';
+                if (isAdmin.value || isCSStaff.value) {
+                    return status !== 'DELIVERED' && status !== 'RETURNED' && status !== 'CANCELLED';
+                }
+                return ['CREATED', 'PENDING_ROUTING', 'ROUTE_ASSIGNED'].includes(status);
+            };
+
+            const canRequestReturn = (s) => {
+                if (!s) return false;
+                const status = s.currentStatus || s.status;
+                const eligibleStatuses = [
+                    'PICKED_UP', 'ARRIVED_ORIGIN_HUB', 'IN_TRANSIT', 
+                    'ARRIVED_DEST_HUB', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED'
+                ];
+                if (!eligibleStatuses.includes(status)) return false;
+                if (['RETURNING', 'OUT_FOR_RETURN', 'RETURNED', 'CANCELLED'].includes(status)) return false;
+                const existing = returnRequestsList.value.find(r => r.trackingCode === s.trackingCode);
+                if (existing && existing.status !== 'CANCELLED') return false;
+                return true;
+            };
+
+            const formatRemainingTime = (deadline) => {
+                if (!deadline) return '24:00:00';
+                const target = new Date(deadline).getTime();
+                const diff = Math.max(0, Math.floor((target - nowTime.value) / 1000));
+                if (diff <= 0) return 'Đã hết hạn 24h';
+                const h = Math.floor(diff / 3600);
+                const m = Math.floor((diff % 3600) / 60);
+                const s = diff % 60;
+                return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            };
+
+            const isDecisionUrgent = (deadline) => {
+                if (!deadline) return false;
+                const target = new Date(deadline).getTime();
+                const diff = Math.floor((target - nowTime.value) / 1000);
+                return diff > 0 && diff < 7200;
+            };
+
+            // 3-step Return Modal state
+            const showReturnModal = ref(false);
+            const returnModalStep = ref(1);
+            const selectedShipmentForReturn = ref(null);
+            const isReturnSubmitting = ref(false);
+            const returnQuoteData = ref(null);
+            const isLoadingReturnQuote = ref(false);
+
+            const returnForm = reactive({
+                reason: 'CUSTOMER_REQUEST',
+                notes: '',
+                returnMode: 'DOORSTEP',
+                feePaymentStatus: 'PAY_ON_RECEIPT'
+            });
+
+            const openReturnModal = async (s) => {
+                selectedShipmentForReturn.value = s;
+                returnModalStep.value = 1;
+                returnForm.reason = 'CUSTOMER_REQUEST';
+                returnForm.notes = '';
+                returnForm.returnMode = 'DOORSTEP';
+                returnForm.feePaymentStatus = 'PAY_ON_RECEIPT';
+                returnQuoteData.value = null;
+                showReturnModal.value = true;
+
+                try {
+                    isLoadingReturnQuote.value = true;
+                    const quote = await ShipmentService.getReturnQuote(s.trackingCode);
+                    returnQuoteData.value = quote;
+                } catch (err) {
+                    console.warn('[ShipmentView] Không tải được báo giá cước hoàn:', err);
+                } finally {
+                    isLoadingReturnQuote.value = false;
+                }
+            };
+
+            const confirmReturnRequest = async () => {
+                if (!selectedShipmentForReturn.value) return;
+                isReturnSubmitting.value = true;
+                const code = selectedShipmentForReturn.value.trackingCode;
+                try {
+                    const payload = {
+                        reason: returnForm.reason + (returnForm.notes ? `: ${returnForm.notes}` : ''),
+                        notes: returnForm.notes,
+                        returnMode: returnForm.returnMode,
+                        feePaymentStatus: returnForm.feePaymentStatus
+                    };
+                    const res = await ShipmentService.createReturnRequest(code, payload);
+                    Utils.showToast('Yêu Cầu Hoàn Thành Công', `Vận đơn ${code} đã được chuyển sang trạng thái Đang Chuyển Hoàn (RETURNING).`, 'success');
+                    showReturnModal.value = false;
+
+                    if (returnForm.feePaymentStatus === 'PREPAID' && res.returnFee > 0) {
+                        openReturnCheckout(res);
+                    }
+
+                    await loadShipments();
+                    await loadReturnRequests();
+                    await loadPendingDecisions();
+                } catch (err) {
+                    Utils.showToast('Lỗi Tạo Yêu Cầu Hoàn', err.message || 'Không thể tạo yêu cầu hoàn hàng', 'error');
+                } finally {
+                    isReturnSubmitting.value = false;
+                }
+            };
+
+            // Update Info Modal (Failure Decision)
+            const showUpdateInfoModal = ref(false);
+            const selectedDecisionForUpdate = ref(null);
+            const isSubmittingUpdateInfo = ref(false);
+            const updateInfoForm = reactive({
+                newReceiverPhone: '',
+                newReceiverAddress: '',
+                notes: ''
+            });
+
+            const openUpdateInfoModal = (decision) => {
+                selectedDecisionForUpdate.value = decision;
+                const currentShipment = decision.shipment || shipmentsList.value.find(s => s.trackingCode === decision.trackingCode);
+                updateInfoForm.newReceiverPhone = currentShipment?.receiverPhone || '';
+                updateInfoForm.newReceiverAddress = currentShipment?.receiverAddress || '';
+                updateInfoForm.notes = '';
+                showUpdateInfoModal.value = true;
+            };
+
+            const confirmUpdateInfo = async () => {
+                if (!selectedDecisionForUpdate.value) return;
+                const code = selectedDecisionForUpdate.value.trackingCode;
+                isSubmittingUpdateInfo.value = true;
+                try {
+                    await ShipmentService.submitFailureDecision(code, {
+                        decisionType: 'UPDATE_INFO',
+                        newReceiverPhone: updateInfoForm.newReceiverPhone.trim(),
+                        newReceiverAddress: updateInfoForm.newReceiverAddress.trim(),
+                        notes: updateInfoForm.notes ? updateInfoForm.notes.trim() : 'Shop đã cập nhật thông tin người nhận mới'
+                    });
+                    Utils.showToast('Cập Nhật Thành Công', `Đã đổi thông tin người nhận cho vận đơn ${code} và lên lịch giao lại.`);
+                    showUpdateInfoModal.value = false;
+                    await loadPendingDecisions();
+                    await loadShipments();
+                } catch (err) {
+                    Utils.showToast('Lỗi Cập Nhật', err.message || 'Không thể cập nhật thông tin người nhận', 'error');
+                } finally {
+                    isSubmittingUpdateInfo.value = false;
+                }
+            };
+
+            // Redeliver Action (Failure Decision)
+            const handleFailureRedeliver = async (decision) => {
+                const code = decision.trackingCode;
+                try {
+                    await ShipmentService.submitFailureDecision(code, {
+                        decisionType: 'REDELIVER',
+                        notes: 'Shop yêu cầu giao lại không đổi thông tin'
+                    });
+                    Utils.showToast('Yêu Cầu Giao Lại', `Đã ghi nhận yêu cầu giao lại cho đơn hàng ${code}. Bưu tá sẽ đi phát lại trong ca tiếp theo.`);
+                    await loadPendingDecisions();
+                    await loadShipments();
+                } catch (err) {
+                    Utils.showToast('Lỗi Xử Lý', err.message || 'Không thể gửi yêu cầu giao lại', 'error');
+                }
+            };
+
+            const handleFailureReturn = (decision) => {
+                const s = decision.shipment || shipmentsList.value.find(item => item.trackingCode === decision.trackingCode) || { trackingCode: decision.trackingCode };
+                openReturnModal(s);
+            };
+
+            // Postal Fault Modal (CS/Admin)
+            const showPostalFaultModal = ref(false);
+            const selectedReturnForPostalFault = ref(null);
+            const postalFaultReason = ref('Lỗi chuyển phát trễ hạn / định tuyến sai bởi bưu chính');
+            const isSubmittingPostalFault = ref(false);
+
+            const openPostalFaultModal = (returnReq) => {
+                selectedReturnForPostalFault.value = returnReq;
+                postalFaultReason.value = 'Lỗi chuyển phát trễ hạn / định tuyến sai bởi bưu chính';
+                showPostalFaultModal.value = true;
+            };
+
+            const confirmPostalFault = async () => {
+                if (!selectedReturnForPostalFault.value) return;
+                const code = selectedReturnForPostalFault.value.trackingCode;
+                isSubmittingPostalFault.value = true;
+                try {
+                    await ShipmentService.updatePostalFault(code, {
+                        postalFault: true,
+                        reason: postalFaultReason.value
+                    });
+                    Utils.showToast('Đã Xác Nhận Lỗi Bưu Chính', `Vận đơn ${code} đã được miễn toàn bộ cước hoàn (0 VNĐ).`);
+                    showPostalFaultModal.value = false;
+                    await loadReturnRequests();
+                    await loadShipments();
+                } catch (err) {
+                    Utils.showToast('Lỗi Cập Nhật', err.message || 'Không thể xác nhận lỗi bưu chính', 'error');
+                } finally {
+                    isSubmittingPostalFault.value = false;
+                }
+            };
+
+            // Return KPIs & Filtering
+            const returnKpis = computed(() => {
+                const list = returnRequestsList.value || [];
+                const shipList = shipmentsList.value || [];
+                const returningCount = shipList.filter(s => s.currentStatus === 'RETURNING').length;
+                const counterPickupCount = list.filter(r => r.returnMode === 'COUNTER_PICKUP' && r.status !== 'CANCELLED').length;
+                const outForReturnCount = shipList.filter(s => s.currentStatus === 'OUT_FOR_RETURN').length;
+                const returnedCount = shipList.filter(s => s.currentStatus === 'RETURNED').length;
+                return { returningCount, counterPickupCount, outForReturnCount, returnedCount };
+            });
+
+            const filteredReturnRequests = computed(() => {
+                let list = returnRequestsList.value || [];
+                if (selectedReturnStatusFilter.value && selectedReturnStatusFilter.value !== 'ALL') {
+                    list = list.filter(r => r.status === selectedReturnStatusFilter.value || r.feePaymentStatus === selectedReturnStatusFilter.value || r.returnMode === selectedReturnStatusFilter.value);
+                }
+                if (returnSearchQuery.value && returnSearchQuery.value.trim()) {
+                    const q = returnSearchQuery.value.trim().toLowerCase();
+                    list = list.filter(r => 
+                        (r.trackingCode && r.trackingCode.toLowerCase().includes(q)) ||
+                        (r.reason && r.reason.toLowerCase().includes(q)) ||
+                        (r.notes && r.notes.toLowerCase().includes(q))
+                    );
+                }
+                return list;
+            });
+
+            const openReturnCheckout = (returnReq) => {
+                const shipment = shipmentsList.value.find(s => s.trackingCode === returnReq.trackingCode) || {
+                    trackingCode: returnReq.trackingCode,
+                    shippingFee: (returnReq.returnFee || 17500) * 2,
+                    totalFee: returnReq.returnFee || 17500
+                };
+                openCheckoutModal({
+                    ...shipment,
+                    totalFee: returnReq.returnFee || 17500,
+                    shippingFee: returnReq.returnFee || 17500,
+                    _isReturnFee: true
+                });
             };
 
             const openCancelModal = (s) => {
@@ -544,6 +814,12 @@
             const switchSubtab = (tab) => {
                 currentSubtab.value = tab;
                 if (tab === 'list') {
+                    loadShipments();
+                } else if (tab === 'need_action') {
+                    loadPendingDecisions();
+                    loadShipments();
+                } else if (tab === 'returns') {
+                    loadReturnRequests();
                     loadShipments();
                 }
             };
@@ -1017,8 +1293,17 @@
             onMounted(() => {
                 loadHubs();
                 loadShipments();
+                loadPendingDecisions();
+                loadReturnRequests();
                 loadMyProfile();
                 loadCustomersList();
+                decisionCountdownTimer = setInterval(() => {
+                    nowTime.value = Date.now();
+                }, 1000);
+            });
+
+            onUnmounted(() => {
+                if (decisionCountdownTimer) clearInterval(decisionCountdownTimer);
             });
 
             return {
@@ -1118,6 +1403,45 @@
                 paidTrackingCodes,
                 handleCheckoutMockPay,
                 isDockCollapsed,
+                // Return & Failure Decisions exports
+                pendingDecisions,
+                isLoadingDecisions,
+                returnRequestsList,
+                isLoadingReturns,
+                nowTime,
+                formatRemainingTime,
+                isDecisionUrgent,
+                canRequestReturn,
+                showReturnModal,
+                returnModalStep,
+                selectedShipmentForReturn,
+                isReturnSubmitting,
+                returnQuoteData,
+                isLoadingReturnQuote,
+                returnForm,
+                openReturnModal,
+                confirmReturnRequest,
+                showUpdateInfoModal,
+                selectedDecisionForUpdate,
+                isSubmittingUpdateInfo,
+                updateInfoForm,
+                openUpdateInfoModal,
+                confirmUpdateInfo,
+                handleFailureRedeliver,
+                handleFailureReturn,
+                showPostalFaultModal,
+                selectedReturnForPostalFault,
+                postalFaultReason,
+                isSubmittingPostalFault,
+                openPostalFaultModal,
+                confirmPostalFault,
+                returnKpis,
+                selectedReturnStatusFilter,
+                returnSearchQuery,
+                filteredReturnRequests,
+                openReturnCheckout,
+                loadPendingDecisions,
+                loadReturnRequests,
                 Utils
             };
         },
@@ -1196,6 +1520,49 @@
                             <span class="truncate">Danh Sách</span>
                             <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'list' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
                                 {{ shipmentsList.length }}
+                            </span>
+                        </button>
+
+                        <!-- Cần Xử Lý (Giao Thất Bại) Tab Button -->
+                        <button
+                            type="button"
+                            @click="switchSubtab('need_action')"
+                            :class="[
+                                'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                                currentSubtab === 'need_action'
+                                    ? 'bg-white text-rose-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
+                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
+                            ]"
+                        >
+                            <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'need_action' ? 'text-rose-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span class="truncate">Cần Xử Lý</span>
+                            <span 
+                                class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" 
+                                :class="pendingDecisions.length > 0 ? (currentSubtab === 'need_action' ? 'bg-rose-100 text-rose-800 animate-pulse' : 'bg-rose-500 text-white animate-pulse') : (currentSubtab === 'need_action' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600')"
+                            >
+                                {{ pendingDecisions.length }}
+                            </span>
+                        </button>
+
+                        <!-- Đơn Hoàn Tab Button -->
+                        <button
+                            type="button"
+                            @click="switchSubtab('returns')"
+                            :class="[
+                                'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                                currentSubtab === 'returns'
+                                    ? 'bg-white text-amber-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
+                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
+                            ]"
+                        >
+                            <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'returns' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
+                            </svg>
+                            <span class="truncate">Đơn Hoàn</span>
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'returns' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200/70 text-slate-600'">
+                                {{ returnRequestsList.length }}
                             </span>
                         </button>
                     </div>
@@ -2065,6 +2432,17 @@
                                                 >
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                                 </button>
+                                                <button 
+                                                    v-else-if="canRequestReturn(s)"
+                                                    type="button"
+                                                    @click="openReturnModal(s)"
+                                                    class="p-1 bg-amber-50 hover:bg-amber-600 text-amber-700 hover:text-white rounded-lg border border-amber-300 hover:border-amber-600 transition shadow-xs cursor-pointer"
+                                                    title="Yêu cầu chuyển hoàn bưu gửi này về người gửi"
+                                                >
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
+                                                    </svg>
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -2097,6 +2475,392 @@
                                     Sau
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Cần Xử Lý (Giao Thất Bại - Cửa sổ 24h) -->
+                <div v-else-if="currentSubtab === 'need_action'" key="need_action" class="space-y-4">
+                    <!-- Banner Info Header -->
+                    <div class="b2b-card bg-gradient-to-r from-rose-50 via-amber-50 to-orange-50 border border-rose-200 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="space-y-1">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-600 text-white tracking-wider">
+                                    Cửa Sổ Quyết Định 24 Giờ
+                                </span>
+                                <span class="text-xs font-bold text-rose-900">Xử Lý Giao Không Thành Công</span>
+                            </div>
+                            <p class="text-xs text-slate-600 leading-relaxed">
+                                Bưu gửi phát không thành công (lần 1 hoặc lần 2). Khách hàng có <strong>24 giờ</strong> để chọn giao lại, đổi thông tin người nhận hoặc chủ động hoàn về. Nếu quá hạn 24h, hệ thống tự động giao lại.
+                            </p>
+                        </div>
+                        <div class="flex items-center space-x-2 shrink-0">
+                            <button
+                                type="button"
+                                @click="loadPendingDecisions"
+                                :disabled="isLoadingDecisions"
+                                class="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold shadow-xs flex items-center space-x-1.5 transition active:scale-95"
+                            >
+                                <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': isLoadingDecisions }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                <span>Làm mới</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div v-if="pendingDecisions.length === 0" class="b2b-card bg-white border border-slate-200 rounded-xl p-8 sm:p-12 text-center shadow-sm">
+                        <div class="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto mb-3 text-emerald-600 shadow-sm">
+                            <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        <h3 class="text-sm sm:text-base font-bold text-slate-800">Không có đơn hàng nào cần xử lý</h3>
+                        <p class="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
+                            Mọi bưu phẩm đều đang được vận hành thuận lợi hoặc đã được bạn quyết định hướng xử lý.
+                        </p>
+                    </div>
+
+                    <!-- Decision Cards Grid -->
+                    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                        <div 
+                            v-for="d in pendingDecisions" 
+                            :key="d.id"
+                            class="b2b-card bg-white border rounded-xl p-4 shadow-sm space-y-3 transition-all hover:shadow-md"
+                            :class="isDecisionUrgent(d.deadline) ? 'border-rose-300 ring-1 ring-rose-300/50' : 'border-slate-200 hover:border-blue-300'"
+                        >
+                            <!-- Card Header -->
+                            <div class="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
+                                <div>
+                                    <div class="flex items-center space-x-1.5">
+                                        <button 
+                                            type="button" 
+                                            @click="viewTracking(d.trackingCode)" 
+                                            class="font-mono font-black text-xs text-blue-700 hover:underline cursor-pointer"
+                                            title="Xem tra cứu hành trình"
+                                        >
+                                            {{ d.trackingCode }}
+                                        </button>
+                                        <button 
+                                            type="button" 
+                                            @click="copyTrackingCode(d.trackingCode)" 
+                                            class="text-slate-400 hover:text-slate-600 p-0.5" 
+                                            title="Sao chép mã"
+                                        >
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                        </button>
+                                    </div>
+                                    <span class="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold" :class="d.failureCount >= 2 ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-amber-100 text-amber-800 border border-amber-200'">
+                                        Giao thất bại lần {{ d.failureCount }}/3
+                                    </span>
+                                </div>
+
+                                <!-- Countdown timer pill -->
+                                <div class="text-right">
+                                    <div 
+                                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold shadow-2xs border"
+                                        :class="isDecisionUrgent(d.deadline) ? 'bg-rose-50 text-rose-700 border-rose-300 animate-pulse' : 'bg-amber-50 text-amber-800 border-amber-200'"
+                                    >
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        <span>{{ formatRemainingTime(d.deadline) }}</span>
+                                    </div>
+                                    <div class="text-[9.5px] text-slate-400 mt-0.5 font-medium">Hạn tự động giao lại</div>
+                                </div>
+                            </div>
+
+                            <!-- Failure reason & Shipper note -->
+                            <div class="p-2.5 bg-rose-50/70 border border-rose-200/80 rounded-lg text-xs space-y-1">
+                                <div class="flex items-center space-x-1.5 text-rose-900 font-bold text-[11px]">
+                                    <svg class="w-3.5 h-3.5 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                    <span>Lý do shipper báo:</span>
+                                </div>
+                                <div class="text-slate-800 font-medium text-[11.5px] pl-5">
+                                    {{ d.reason || 'Khách không nghe máy / Thuê bao' }}
+                                </div>
+                                <div v-if="d.notes" class="text-slate-500 text-[10.5px] italic pl-5">
+                                    "{{ d.notes }}"
+                                </div>
+                            </div>
+
+                            <!-- Receiver info -->
+                            <div class="text-xs space-y-1 text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-200/60">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold text-slate-800 text-[11.5px]">{{ d.shipment?.receiverName || 'Người nhận' }}</span>
+                                    <span class="font-mono text-slate-700 font-bold text-[11px]">{{ d.shipment?.receiverPhone || 'N/A' }}</span>
+                                </div>
+                                <div class="text-[10.5px] text-slate-500 line-clamp-2" :title="d.shipment?.receiverAddress">
+                                    {{ d.shipment?.receiverAddress || 'N/A' }}
+                                </div>
+                            </div>
+
+                            <!-- 3 Action Buttons -->
+                            <div class="grid grid-cols-3 gap-1.5 pt-1">
+                                <button
+                                    type="button"
+                                    @click="handleFailureRedeliver(d)"
+                                    class="px-2 py-2 bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-300 hover:border-emerald-600 rounded-lg text-[10.5px] font-bold transition flex flex-col items-center justify-center gap-0.5 cursor-pointer shadow-xs active:scale-95"
+                                    title="Yêu cầu bưu tá đi phát lại vào ca tiếp theo"
+                                >
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                    <span>Giao Lại</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    @click="openUpdateInfoModal(d)"
+                                    class="px-2 py-2 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-300 hover:border-blue-600 rounded-lg text-[10.5px] font-bold transition flex flex-col items-center justify-center gap-0.5 cursor-pointer shadow-xs active:scale-95"
+                                    title="Đổi số điện thoại hoặc địa chỉ nhận cùng quận"
+                                >
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                    <span>Đổi SĐT/ĐC</span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    @click="handleFailureReturn(d)"
+                                    class="px-2 py-2 bg-amber-50 hover:bg-amber-600 text-amber-800 hover:text-white border border-amber-300 hover:border-amber-600 rounded-lg text-[10.5px] font-bold transition flex flex-col items-center justify-center gap-0.5 cursor-pointer shadow-xs active:scale-95"
+                                    title="Yêu cầu hoàn ngay về shop không giao lại"
+                                >
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+                                    <span>Hoàn Về</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Đơn Hoàn -->
+                <div v-else-if="currentSubtab === 'returns'" key="returns" class="space-y-4">
+                    <!-- 4 KPI Stat Cards -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
+                            <div class="text-[11px] font-bold text-blue-600 uppercase tracking-wide">Đang Chuyển Hoàn</div>
+                            <div class="mt-1.5 text-2xl font-black font-mono text-blue-700">{{ returnKpis.returningCount }}</div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">Kiện đang trên xe quay về Hub/Bưu cục gốc</div>
+                        </div>
+
+                        <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
+                            <div class="text-[11px] font-bold text-amber-600 uppercase tracking-wide">Chờ Nhận Tại Bưu Cục</div>
+                            <div class="mt-1.5 text-2xl font-black font-mono text-amber-600">{{ returnKpis.counterPickupCount }}</div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">Shop tự đến nhận trong hạn 7 ngày</div>
+                        </div>
+
+                        <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
+                            <div class="text-[11px] font-bold text-indigo-600 uppercase tracking-wide">Đang Phát Hoàn</div>
+                            <div class="mt-1.5 text-2xl font-black font-mono text-indigo-600">{{ returnKpis.outForReturnCount }}</div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">Bưu tá đang trên đường giao về shop</div>
+                        </div>
+
+                        <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
+                            <div class="text-[11px] font-bold text-emerald-600 uppercase tracking-wide">Đã Hoàn Tất</div>
+                            <div class="mt-1.5 text-2xl font-black font-mono text-emerald-600">{{ returnKpis.returnedCount }}</div>
+                            <div class="text-[10px] text-slate-400 mt-0.5">Đã bàn giao về tay người gửi</div>
+                        </div>
+                    </div>
+
+                    <!-- Search & Filter Bar -->
+                    <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3 sm:p-3.5 shadow-sm">
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                            <div class="relative flex-1 min-w-0">
+                                <input 
+                                    v-model="returnSearchQuery"
+                                    type="text"
+                                    maxlength="50"
+                                    placeholder="Tìm kiếm theo mã vận đơn, lý do hoàn..."
+                                    class="w-full pl-3.5 pr-12 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
+                                />
+                                <button 
+                                    v-if="returnSearchQuery" 
+                                    @click="returnSearchQuery = ''"
+                                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-xs text-slate-400 hover:text-slate-600 font-medium"
+                                >
+                                    Xóa
+                                </button>
+                            </div>
+
+                            <div class="flex flex-wrap items-center gap-2">
+                                <select 
+                                    v-model="selectedReturnStatusFilter"
+                                    class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
+                                >
+                                    <option value="ALL">Tất cả trạng thái ({{ returnRequestsList.length }})</option>
+                                    <option value="CONFIRMED">Đã xác nhận hoàn</option>
+                                    <option value="PROCESSING">Đang xử lý hoàn</option>
+                                    <option value="COMPLETED">Đã hoàn tất</option>
+                                    <option value="DOORSTEP">Phát hoàn tận nơi</option>
+                                    <option value="COUNTER_PICKUP">Nhận tại bưu cục</option>
+                                    <option value="PREPAID">Đã trả trước cước</option>
+                                    <option value="PAY_ON_RECEIPT">Thu cước khi nhận</option>
+                                    <option value="WAIVED">Miễn cước (Lỗi bưu chính)</option>
+                                </select>
+
+                                <button 
+                                    type="button" 
+                                    @click="loadReturnRequests" 
+                                    :disabled="isLoadingReturns"
+                                    class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-2xs"
+                                >
+                                    <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': isLoadingReturns }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                    <span>Làm mới</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Returns Table -->
+                    <div class="b2b-card bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                        <th class="py-3 px-3.5">Mã Vận Đơn</th>
+                                        <th class="py-3 px-3.5">Khởi Tạo &amp; Lý Do</th>
+                                        <th class="py-3 px-3.5">Phương Thức Hoàn</th>
+                                        <th class="py-3 px-3.5">Cước Phí Hoàn</th>
+                                        <th class="py-3 px-3.5">Trạng Thái</th>
+                                        <th class="py-3 px-3.5 text-right">Thao Tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <tr v-if="filteredReturnRequests.length === 0">
+                                        <td colspan="6" class="py-8 text-center text-slate-400 italic">
+                                            Không có đơn hoàn nào phù hợp điều kiện lọc.
+                                        </td>
+                                    </tr>
+                                    <tr 
+                                        v-for="r in filteredReturnRequests" 
+                                        :key="r.id"
+                                        class="hover:bg-slate-50/60 transition"
+                                    >
+                                        <td class="py-3 px-3.5 whitespace-nowrap">
+                                            <div class="flex items-center space-x-1.5">
+                                                <button 
+                                                    type="button" 
+                                                    @click="viewTracking(r.trackingCode)" 
+                                                    class="font-mono font-bold text-xs text-blue-700 hover:underline cursor-pointer"
+                                                >
+                                                    {{ r.trackingCode }}
+                                                </button>
+                                                <button 
+                                                    type="button" 
+                                                    @click="copyTrackingCode(r.trackingCode)" 
+                                                    class="text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer" 
+                                                    title="Sao chép"
+                                                >
+                                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                                </button>
+                                            </div>
+                                            <div class="text-[10px] text-slate-400 font-mono mt-0.5">
+                                                {{ Utils.formatDateTime(r.createdAt) }}
+                                            </div>
+                                        </td>
+
+                                        <td class="py-3 px-3.5 max-w-xs">
+                                            <div class="flex items-center space-x-1.5">
+                                                <span 
+                                                    class="px-1.5 py-0.2 rounded text-[9.5px] font-bold"
+                                                    :class="r.initiator === 'CUSTOMER' ? 'bg-blue-50 text-blue-700 border border-blue-200' : (r.initiator === 'SYSTEM' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-purple-50 text-purple-700 border border-purple-200')"
+                                                >
+                                                    {{ r.initiator === 'CUSTOMER' ? 'Shop yêu cầu' : (r.initiator === 'SYSTEM' ? 'Tự động (3 lần)' : 'CSKH điều phối') }}
+                                                </span>
+                                            </div>
+                                            <div class="text-[11px] text-slate-700 font-medium truncate mt-0.5" :title="r.reason">
+                                                {{ r.reason || 'N/A' }}
+                                            </div>
+                                        </td>
+
+                                        <td class="py-3 px-3.5 whitespace-nowrap">
+                                            <span 
+                                                v-if="r.returnMode === 'DOORSTEP'" 
+                                                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-blue-50 text-blue-700 border border-blue-200"
+                                            >
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                                                <span>Phát tận nơi</span>
+                                            </span>
+                                            <span 
+                                                v-else 
+                                                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-amber-50 text-amber-800 border border-amber-300"
+                                                title="Lưu kho 7 ngày tại bưu cục gốc"
+                                            >
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                                <span>Nhận tại bưu cục (7 ngày)</span>
+                                            </span>
+                                        </td>
+
+                                        <td class="py-3 px-3.5 whitespace-nowrap">
+                                            <div class="font-mono font-bold text-slate-800 text-[11.5px]">
+                                                {{ Utils.formatCurrency(r.returnFee || 17500) }}
+                                            </div>
+                                            <div class="mt-0.5">
+                                                <span 
+                                                    v-if="r.feePaymentStatus === 'PREPAID'" 
+                                                    class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                                >
+                                                    Đã trả trước
+                                                </span>
+                                                <span 
+                                                    v-else-if="r.feePaymentStatus === 'WAIVED'" 
+                                                    class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-purple-50 text-purple-700 border border-purple-200"
+                                                >
+                                                    Miễn phí (Lỗi BC)
+                                                </span>
+                                                <span 
+                                                    v-else 
+                                                    class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-slate-100 text-slate-600 border border-slate-200"
+                                                >
+                                                    Thu khi nhận
+                                                </span>
+                                            </div>
+                                        </td>
+
+                                        <td class="py-3 px-3.5 whitespace-nowrap">
+                                            <span 
+                                                class="px-2 py-0.5 rounded-full text-[10.5px] font-bold border"
+                                                :class="r.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'"
+                                            >
+                                                {{ r.status === 'COMPLETED' ? 'Đã hoàn tất' : (r.status === 'PROCESSING' ? 'Đang luân chuyển' : 'Đã xác nhận') }}
+                                            </span>
+                                        </td>
+
+                                        <td class="py-3 px-3.5 text-right whitespace-nowrap">
+                                            <div class="inline-flex items-center justify-end gap-1">
+                                                <!-- VietQR Pay Button if Unpaid -->
+                                                <button 
+                                                    v-if="r.feePaymentStatus !== 'PREPAID' && r.feePaymentStatus !== 'WAIVED' && r.returnFee > 0"
+                                                    type="button"
+                                                    @click="openReturnCheckout(r)"
+                                                    class="px-2 py-1 bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white rounded-lg text-[10.5px] font-bold transition border border-emerald-200 hover:border-emerald-600 shadow-xs flex items-center gap-1 cursor-pointer"
+                                                    title="Thanh toán trước cước hoàn qua VietQR"
+                                                >
+                                                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+                                                    <span>Trả Cước QR</span>
+                                                </button>
+
+                                                <!-- Postal fault waiver button (Admin/CS) -->
+                                                <button
+                                                    v-if="(isAdmin || isCSStaff) && !r.postalFault"
+                                                    type="button"
+                                                    @click="openPostalFaultModal(r)"
+                                                    class="px-2 py-1 bg-purple-50 hover:bg-purple-600 text-purple-700 hover:text-white rounded-lg text-[10.5px] font-bold transition border border-purple-200 hover:border-purple-600 shadow-xs flex items-center gap-1 cursor-pointer"
+                                                    title="CSKH xác nhận lỗi bưu chính (Miễn cước hoàn)"
+                                                >
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                                                    <span>Lỗi BC</span>
+                                                </button>
+
+                                                <!-- View tracking button -->
+                                                <button 
+                                                    type="button"
+                                                    @click="viewTracking(r.trackingCode)"
+                                                    class="p-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white rounded-lg border border-blue-200 hover:border-blue-600 transition shadow-xs cursor-pointer"
+                                                    title="Xem chi tiết hành trình chuyển hoàn"
+                                                >
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -2553,6 +3317,351 @@
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+                </Transition>
+                </teleport>
+
+                <!-- Modal 3 Bước Yêu Cầu Hoàn Hàng -->
+                <teleport to="body">
+                <Transition name="modal">
+                <div v-if="showReturnModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+                    <div class="bg-white rounded-2xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto">
+                        <!-- Header & Stepper -->
+                        <div class="border-b border-slate-100 pb-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center font-bold">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-sm font-bold text-slate-800">Yêu Cầu Chuyển Hoàn Bưu Gửi</h3>
+                                        <p class="text-[11px] text-slate-500 font-mono">Vận đơn: <span class="font-bold text-blue-700">{{ selectedShipmentForReturn?.trackingCode }}</span></p>
+                                    </div>
+                                </div>
+                                <button type="button" @click="showReturnModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 cursor-pointer">&times;</button>
+                            </div>
+
+                            <!-- Stepper pills -->
+                            <div class="grid grid-cols-3 gap-2 mt-3 pt-2 border-t border-slate-100 text-center text-[11px] font-bold">
+                                <div class="py-1 rounded-lg transition" :class="returnModalStep === 1 ? 'bg-amber-100 text-amber-800 ring-1 ring-amber-300' : (returnModalStep > 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-50 text-slate-400')">
+                                    1. Lý do hoàn
+                                </div>
+                                <div class="py-1 rounded-lg transition" :class="returnModalStep === 2 ? 'bg-amber-100 text-amber-800 ring-1 ring-amber-300' : (returnModalStep > 2 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-50 text-slate-400')">
+                                    2. Hình thức nhận
+                                </div>
+                                <div class="py-1 rounded-lg transition" :class="returnModalStep === 3 ? 'bg-amber-100 text-amber-800 ring-1 ring-amber-300' : 'bg-slate-50 text-slate-400'">
+                                    3. Cước &amp; Xác nhận
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 1: Reason -->
+                        <div v-if="returnModalStep === 1" class="space-y-3.5 text-xs">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">
+                                    Lý do yêu cầu hoàn hàng <span class="text-rose-500">*</span>
+                                </label>
+                                <select 
+                                    v-model="returnForm.reason"
+                                    class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none"
+                                >
+                                    <option value="CUSTOMER_REQUEST">Khách hàng đổi ý / Hủy nhận hàng</option>
+                                    <option value="WRONG_INFO">Nhập sai thông tin (SĐT hoặc địa chỉ người nhận)</option>
+                                    <option value="UNREACHABLE">Không thể liên lạc người nhận nhiều lần</option>
+                                    <option value="DAMAGED_OR_DEFECTIVE">Hàng hóa phát hiện lỗi, hư hỏng hoặc thu hồi</option>
+                                    <option value="OTHER">Lý do khác</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label class="block text-[11px] font-bold text-slate-700">Ghi chú chi tiết cho bưu tá / bưu cục (Không bắt buộc)</label>
+                                    <span class="text-[10px] text-slate-400 font-mono">{{ (returnForm.notes || '').length }}/255</span>
+                                </div>
+                                <textarea 
+                                    v-model="returnForm.notes" 
+                                    rows="3" 
+                                    maxlength="255"
+                                    placeholder="VD: Khách báo đi công tác không nhận được, chuyển hoàn gấp về shop..."
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none resize-none"
+                                ></textarea>
+                            </div>
+
+                            <div class="p-3 bg-blue-50/70 border border-blue-200/80 rounded-xl text-[11px] text-blue-900 leading-relaxed">
+                                <strong>Lưu ý:</strong> Sau khi hoàn hàng, kiện hàng sẽ được gỡ khỏi luồng phát cho người nhận và định tuyến quay ngược về điểm xuất phát.
+                            </div>
+
+                            <div class="pt-2 flex items-center justify-end space-x-2 border-t border-slate-100">
+                                <button type="button" @click="showReturnModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition cursor-pointer">
+                                    Hủy bỏ
+                                </button>
+                                <button type="button" @click="returnModalStep = 2" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer flex items-center space-x-1">
+                                    <span>Tiếp theo: Chọn hình thức</span>
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Return Mode Selection -->
+                        <div v-else-if="returnModalStep === 2" class="space-y-3.5 text-xs">
+                            <div class="text-[11.5px] font-bold text-slate-700">
+                                Chọn phương thức nhận lại hàng hoàn:
+                            </div>
+
+                            <!-- Option 1: DOORSTEP -->
+                            <div 
+                                @click="returnForm.returnMode = 'DOORSTEP'"
+                                class="p-3.5 border rounded-xl cursor-pointer transition flex items-start space-x-3"
+                                :class="returnForm.returnMode === 'DOORSTEP' ? 'border-blue-500 bg-blue-50/40 ring-2 ring-blue-500/20' : 'border-slate-200 hover:border-slate-300 bg-white'"
+                            >
+                                <div class="mt-0.5">
+                                    <input type="radio" v-model="returnForm.returnMode" value="DOORSTEP" class="text-blue-600 focus:ring-blue-500" />
+                                </div>
+                                <div class="space-y-1 flex-1">
+                                    <div class="font-bold text-slate-900 text-xs flex items-center justify-between">
+                                        <span>Bưu tá phát hoàn tận nơi (Mặc định)</span>
+                                        <span class="px-2 py-0.2 rounded text-[10px] font-bold bg-blue-100 text-blue-700">DOORSTEP</span>
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 leading-relaxed">
+                                        Bưu tá phụ trách tuyến sẽ giao hàng hoàn trả về tận địa chỉ kho / shop ban đầu của bạn.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Option 2: COUNTER_PICKUP -->
+                            <div 
+                                @click="returnForm.returnMode = 'COUNTER_PICKUP'"
+                                class="p-3.5 border rounded-xl cursor-pointer transition flex items-start space-x-3"
+                                :class="returnForm.returnMode === 'COUNTER_PICKUP' ? 'border-blue-500 bg-blue-50/40 ring-2 ring-blue-500/20' : 'border-slate-200 hover:border-slate-300 bg-white'"
+                            >
+                                <div class="mt-0.5">
+                                    <input type="radio" v-model="returnForm.returnMode" value="COUNTER_PICKUP" class="text-blue-600 focus:ring-blue-500" />
+                                </div>
+                                <div class="space-y-1 flex-1">
+                                    <div class="font-bold text-slate-900 text-xs flex items-center justify-between">
+                                        <span>Tự nhận tại bưu cục gốc (Lưu kho 7 ngày)</span>
+                                        <span class="px-2 py-0.2 rounded text-[10px] font-bold bg-amber-100 text-amber-800">COUNTER_PICKUP</span>
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 leading-relaxed">
+                                        Hàng sẽ lưu tại bưu cục gốc <strong>{{ senderPostOfficeInfo.name }}</strong>. Bạn có <strong>7 ngày</strong> để chủ động ra nhận (quá 7 ngày hệ thống tự động điều bưu tá phát tận nơi).
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="pt-2 flex items-center justify-between border-t border-slate-100">
+                                <button type="button" @click="returnModalStep = 1" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition cursor-pointer">
+                                    Quay lại
+                                </button>
+                                <button type="button" @click="returnModalStep = 3" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer flex items-center space-x-1">
+                                    <span>Tiếp theo: Xem cước phí</span>
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Step 3: Fee Transparency, COD Warning & Payment -->
+                        <div v-else-if="returnModalStep === 3" class="space-y-3.5 text-xs">
+                            <!-- Fee breakdown card -->
+                            <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+                                <div class="flex items-center justify-between border-b border-slate-200/70 pb-2">
+                                    <span class="text-slate-500">Cước phát gửi ban đầu:</span>
+                                    <span class="font-mono font-bold text-slate-700">{{ Utils.formatCurrency(returnQuoteData?.originalShippingFee || selectedShipmentForReturn?.shippingFee || 35000) }}</span>
+                                </div>
+                                <div class="flex items-center justify-between border-b border-slate-200/70 pb-2">
+                                    <span class="text-slate-500">Tỷ lệ phí hoàn (Chính sách VNPT):</span>
+                                    <span class="font-bold text-slate-700">50% cước chính</span>
+                                </div>
+                                <div class="flex items-center justify-between border-b border-slate-200/70 pb-2">
+                                    <div>
+                                        <div class="font-bold text-slate-800 text-[11.5px]">Phí Chuyển Hoàn Bưu Gửi:</div>
+                                        <div v-if="returnQuoteData?.postalFault" class="text-[10px] text-purple-600 font-bold">Miễn phí hoàn do lỗi bưu chính</div>
+                                    </div>
+                                    <div class="font-mono text-base font-extrabold" :class="returnQuoteData?.postalFault ? 'text-purple-600' : 'text-blue-700'">
+                                        {{ Utils.formatCurrency(returnQuoteData?.returnFee || 17500) }}
+                                    </div>
+                                </div>
+
+                                <!-- COD Void Alert -->
+                                <div class="p-2.5 bg-amber-50 border border-amber-200 rounded-lg flex items-start space-x-2 text-[11px] text-amber-900">
+                                    <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                    <div>
+                                        <strong>Tiền thu hộ COD:</strong> Tiền COD <span class="font-mono font-bold">({{ Utils.formatCurrency(selectedShipmentForReturn?.codAmount || 0) }})</span> sẽ được <strong>HỦY BỎ (0 VNĐ)</strong> và không thu từ người nhận.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Payment Choice -->
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1.5">
+                                    Phương thức thanh toán cước hoàn:
+                                </label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <label 
+                                        class="p-2.5 border rounded-lg cursor-pointer flex items-center space-x-2 transition"
+                                        :class="returnForm.feePaymentStatus === 'PAY_ON_RECEIPT' ? 'border-blue-500 bg-blue-50/50' : 'border-slate-200 bg-white'"
+                                    >
+                                        <input type="radio" v-model="returnForm.feePaymentStatus" value="PAY_ON_RECEIPT" class="text-blue-600" />
+                                        <div>
+                                            <div class="font-bold text-slate-800 text-[11px]">Thu khi nhận hàng</div>
+                                            <div class="text-[10px] text-slate-400">Trả tiền mặt/QR khi bưu tá giao</div>
+                                        </div>
+                                    </label>
+
+                                    <label 
+                                        class="p-2.5 border rounded-lg cursor-pointer flex items-center space-x-2 transition"
+                                        :class="returnForm.feePaymentStatus === 'PREPAID' ? 'border-blue-500 bg-blue-50/50' : 'border-slate-200 bg-white'"
+                                    >
+                                        <input type="radio" v-model="returnForm.feePaymentStatus" value="PREPAID" class="text-blue-600" />
+                                        <div>
+                                            <div class="font-bold text-slate-800 text-[11px]">Trả trước VietQR</div>
+                                            <div class="text-[10px] text-slate-400">Quét mã QR thanh toán ngay</div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="pt-2 flex items-center justify-between border-t border-slate-100">
+                                <button type="button" @click="returnModalStep = 2" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition cursor-pointer">
+                                    Quay lại
+                                </button>
+                                <button 
+                                    type="button" 
+                                    @click="confirmReturnRequest" 
+                                    :disabled="isReturnSubmitting"
+                                    class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer disabled:opacity-50 flex items-center space-x-1.5"
+                                >
+                                    <span v-if="isReturnSubmitting" class="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></span>
+                                    <span>{{ isReturnSubmitting ? 'Đang Xử Lý Hoàn...' : 'Xác Nhận Yêu Cầu Chuyển Hoàn' }}</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </Transition>
+                </teleport>
+
+                <!-- Modal Cập Nhật Thông Tin Giao Lại (Đổi SĐT / Địa chỉ) -->
+                <teleport to="body">
+                <Transition name="modal">
+                <div v-if="showUpdateInfoModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+                    <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-800">Cập Nhật Thông Tin &amp; Giao Lại</h3>
+                                <p class="text-[11px] text-slate-500 font-mono">Vận đơn: <span class="font-bold text-blue-700">{{ selectedDecisionForUpdate?.trackingCode }}</span></p>
+                            </div>
+                            <button type="button" @click="showUpdateInfoModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 cursor-pointer">&times;</button>
+                        </div>
+
+                        <div class="space-y-3 text-xs">
+                            <div class="p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-[11px] text-blue-900">
+                                <strong>Quy định VNPT Post:</strong> Bạn có thể đổi số điện thoại hoặc địa chỉ mới của người nhận trong <strong>cùng địa bàn Quận/Huyện</strong> để bưu cục phát hiện tại tiếp tục giao lại.
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">
+                                    Số điện thoại người nhận mới <span class="text-rose-500">*</span>
+                                </label>
+                                <input 
+                                    v-model="updateInfoForm.newReceiverPhone" 
+                                    type="text" 
+                                    maxlength="15"
+                                    placeholder="0912..."
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none"
+                                />
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">
+                                    Địa chỉ chi tiết mới (Cùng quận/huyện)
+                                </label>
+                                <textarea 
+                                    v-model="updateInfoForm.newReceiverAddress" 
+                                    rows="2" 
+                                    maxlength="255"
+                                    placeholder="Số nhà, ngõ, tên đường mới trong cùng quận/huyện..."
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none resize-none"
+                                ></textarea>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">
+                                    Ghi chú cho shipper
+                                </label>
+                                <input 
+                                    v-model="updateInfoForm.notes" 
+                                    type="text" 
+                                    maxlength="255"
+                                    placeholder="VD: Người nhận đổi giờ làm về nhà sau 18h..."
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="pt-2 flex items-center justify-end space-x-2 border-t border-slate-100">
+                            <button type="button" @click="showUpdateInfoModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition cursor-pointer">
+                                Hủy bỏ
+                            </button>
+                            <button 
+                                type="button" 
+                                @click="confirmUpdateInfo" 
+                                :disabled="isSubmittingUpdateInfo || !updateInfoForm.newReceiverPhone"
+                                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
+                            >
+                                {{ isSubmittingUpdateInfo ? 'Đang Lưu...' : 'Xác Nhận & Giao Lại' }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                </Transition>
+                </teleport>
+
+                <!-- Modal CSKH Xác Nhận Lỗi Bưu Chính -->
+                <teleport to="body">
+                <Transition name="modal">
+                <div v-if="showPostalFaultModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+                    <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                            <div>
+                                <h3 class="text-sm font-bold text-purple-900">Xác Nhận Lỗi Bưu Chính (CSKH)</h3>
+                                <p class="text-[11px] text-slate-500 font-mono">Vận đơn: <span class="font-bold text-purple-700">{{ selectedReturnForPostalFault?.trackingCode }}</span></p>
+                            </div>
+                            <button type="button" @click="showPostalFaultModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 cursor-pointer">&times;</button>
+                        </div>
+
+                        <div class="space-y-3 text-xs">
+                            <div class="p-2.5 bg-purple-50 border border-purple-200 rounded-xl text-[11px] text-purple-900 leading-relaxed">
+                                <strong>Hiệu lực nghiệp vụ:</strong> Khi xác nhận do lỗi của phía bưu chính (phát trễ hẹn nghiêm trọng, thất lạc hoặc sai lệch định tuyến), cước hoàn sẽ tự động <strong>miễn phí 100% (0 VNĐ)</strong> cho khách hàng.
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">
+                                    Lý do xác nhận lỗi bưu chính <span class="text-rose-500">*</span>
+                                </label>
+                                <textarea 
+                                    v-model="postalFaultReason" 
+                                    rows="3" 
+                                    maxlength="255"
+                                    placeholder="Ghi rõ biên bản / lý do lỗi phía bưu chính để đối soát..."
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 outline-none resize-none"
+                                ></textarea>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 flex items-center justify-end space-x-2 border-t border-slate-100">
+                            <button type="button" @click="showPostalFaultModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition cursor-pointer">
+                                Hủy bỏ
+                            </button>
+                            <button 
+                                type="button" 
+                                @click="confirmPostalFault" 
+                                :disabled="isSubmittingPostalFault || !postalFaultReason"
+                                class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer disabled:opacity-50"
+                            >
+                                {{ isSubmittingPostalFault ? 'Đang Xử Lý...' : 'Xác Nhận Miễn Cước (0đ)' }}
+                            </button>
                         </div>
                     </div>
                 </div>

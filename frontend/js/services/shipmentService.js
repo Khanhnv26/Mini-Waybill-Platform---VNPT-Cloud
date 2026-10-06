@@ -90,6 +90,74 @@
                 throw new Error(errData.error || errData.message || 'Lỗi khi xác nhận thu quỹ COD');
             }
             return response.json();
+        },
+
+        async getReturnQuote(trackingCode) {
+            const response = await Api.get(`/api/shipments/${encodeURIComponent(trackingCode)}/return-quote`);
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || errData.message || 'Lỗi khi lấy báo giá cước hoàn');
+            }
+            return response.json();
+        },
+
+        async createReturnRequest(trackingCode, payload) {
+            const response = await Api.post(`/api/shipments/${encodeURIComponent(trackingCode)}/return-requests`, payload);
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || errData.message || 'Lỗi khi tạo yêu cầu hoàn hàng');
+            }
+            return response.json();
+        },
+
+        async getReturnRequest(trackingCode) {
+            const response = await Api.get(`/api/shipments/${encodeURIComponent(trackingCode)}/return-request`);
+            if (!response.ok) {
+                if (response.status === 404) return null;
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || errData.message || 'Lỗi khi lấy thông tin yêu cầu hoàn');
+            }
+            return response.json();
+        },
+
+        async listReturnRequests(status = null) {
+            let url = '/api/shipments/return-requests';
+            if (status) {
+                url += `?status=${encodeURIComponent(status)}`;
+            }
+            const response = await Api.get(url);
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || errData.message || 'Lỗi khi tải danh sách yêu cầu hoàn');
+            }
+            return response.json();
+        },
+
+        async updatePostalFault(trackingCode, payload) {
+            const response = await Api.patch(`/api/shipments/${encodeURIComponent(trackingCode)}/return-request/postal-fault`, payload);
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || errData.message || 'Lỗi khi cập nhật lỗi bưu chính');
+            }
+            return response.json();
+        },
+
+        async getPendingFailureDecisions() {
+            const response = await Api.get('/api/shipments/pending-decisions');
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || errData.message || 'Lỗi khi tải danh sách đơn cần xử lý giao thất bại');
+            }
+            return response.json();
+        },
+
+        async submitFailureDecision(trackingCode, payload) {
+            const response = await Api.post(`/api/shipments/${encodeURIComponent(trackingCode)}/failure-decision`, payload);
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || errData.message || 'Lỗi khi xử lý quyết định giao không thành công');
+            }
+            return response.json();
         }
     };
 
