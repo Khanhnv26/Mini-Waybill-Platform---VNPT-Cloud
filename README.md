@@ -442,11 +442,42 @@ kubectl get application -n argocd
 
 ---
 
-### Phương Án Phụ: Khởi chạy qua Docker Compose & Local Spring Boot (Phát triển cục bộ)
+### 5.6. Khởi Chạy Toàn Bộ Bằng Docker Thuần (Docker Compose Pre-built Images)
 
-#### Bước 1: Khởi động Hạ tầng Docker HA
+Phương án này dành cho môi trường không sử dụng Kubernetes, muốn khởi chạy nhanh chóng toàn bộ nền tảng (Hạ tầng HA, 13 Microservices nghiệp vụ, Nginx Edge và Frontend SPA) trực tiếp từ các Docker images đã đóng gói sẵn:
+
 ```bash
+# Khởi động toàn bộ 100% hệ thống từ Docker Hub images
 docker compose up -d
+```
+
+> **Cơ chế:** Docker Compose sẽ tự động kéo các image `khanhnv26/*:1.0` từ Docker Hub, tạo mạng bridge nội bộ `mini-waybill-platform_default` và kết nối toàn bộ 13 microservices khép kín trong Docker.
+
+**Bảng cổng truy cập trực tiếp trên `localhost`:**
+* **Web Portal (Frontend qua Nginx):** [http://localhost](http://localhost) (Port 80)
+* **Frontend Node Instances:** [http://localhost:3000](http://localhost:3000) và [http://localhost:3001](http://localhost:3001)
+* **Kafka UI:** [http://localhost:8090](http://localhost:8090) (Quản trị 3 Brokers Kafka KRaft)
+* **RabbitMQ Management:** [http://localhost:15672](http://localhost:15672) (`admin` / `admin`)
+* **MinIO Web Console:** [http://localhost:9001](http://localhost:9001) (`minioadmin` / `minioadmin`)
+* **MinIO S3 API:** `http://localhost:9000` (Bucket: `support-tickets`)
+* **Eureka Service Registry:** [http://localhost:8761](http://localhost:8761) và [http://localhost:8762](http://localhost:8762)
+* **SQL Server Replica:** `localhost:2433` (`sa` / `Replica@123456`)
+* **Redis Cache:** `localhost:6379`
+
+Lệnh dừng toàn bộ hệ thống:
+```bash
+docker compose down
+```
+
+---
+
+### 5.7. Khởi Chạy Kết Hợp Để Lập Trình & Debug Code (Docker Hạ Tầng + Local Spring Boot)
+
+Dành cho lập trình viên muốn chỉnh sửa source code Java/Vue và debug trực tiếp bằng IDE hoặc Maven:
+
+#### Bước 1: Khởi động Hạ tầng Docker HA (Chỉ chạy các container phụ trợ)
+```bash
+docker compose up -d kafka-1 kafka-2 kafka-3 kafka-ui redis rabbitmq minio sqlserver-replica rating-db-init
 ```
 * **Kafka UI:** [http://localhost:8090](http://localhost:8090) (Kiểm tra 3 Brokers online).
 * **RabbitMQ Management:** [http://localhost:15672](http://localhost:15672) (`admin` / `admin`).
