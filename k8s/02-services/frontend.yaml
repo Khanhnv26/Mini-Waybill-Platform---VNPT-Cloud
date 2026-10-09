@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: khanhnv26/frontend:7691103d9aee7cac18327038c5dc719a2a622d52
+          image: khanhnv26/frontend:0d91eb22e9c84afe69a00eb4c4de37fa7d00855c
           imagePullPolicy: IfNotPresent
           command: ["node", "server.js", "3000"]
           ports:
