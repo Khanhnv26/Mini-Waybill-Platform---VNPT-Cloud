@@ -15,7 +15,7 @@
 [![Telegram Bot](https://img.shields.io/badge/Telegram%20Bot-Long--Polling%20Dispatch-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://core.telegram.org/bots)
 [![Google OAuth2](https://img.shields.io/badge/Google%20OAuth2-Identity%20Services%20SSO-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://developers.google.com/identity)
 [![Docker](https://img.shields.io/badge/Docker%20Compose-Containerized%20HA-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-Minikube%20Local%20Development-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://kubernetes.io/)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-Docker%20Desktop%20%7C%20Enterprise-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://kubernetes.io/)
 [![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-Smart%20Monorepo%20CI%2FCD-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/features/actions)
 [![Swagger / OpenAPI](https://img.shields.io/badge/OpenAPI-Springdoc%203.1.0-85EA2D?style=for-the-badge&logo=openapiinitiative&logoColor=black)](https://springdoc.org/)
 [![Quartz Scheduler](https://img.shields.io/badge/Quartz-Enterprise%20Scheduler-007ACC?style=for-the-badge&logo=spring&logoColor=white)](https://www.quartz-scheduler.org/)
@@ -313,95 +313,171 @@ Toàn bộ chi tiết triển khai kiến trúc, cú pháp cấu hình mẫu, m�
 
 ## 5. Hướng Dẫn Khởi Chạy Nhanh (Quickstart)
 
-### Cách 1: Khởi chạy trên Kubernetes (Docker Desktop)
-Đây là phương án chuẩn hóa và tối ưu nhất trên Windows, sử dụng Ingress NGINX với SSL/TLS Termination và toàn bộ vi dịch vụ hoạt động khép kín trong cụm:
+Hệ thống được chuẩn hóa triển khai khép kín trên **Kubernetes (Docker Desktop)** kết hợp cơ chế **GitOps tự động với ArgoCD**, hệ thống giám sát phân tầng **Prometheus & Grafana**, và bảo mật truyền thông **SSL/TLS Wildcard (HTTPS)**.
 
-1. **Kích hoạt Kubernetes trong Docker Desktop:** Mở Docker Desktop $\rightarrow$ Settings $\rightarrow$ Kubernetes $\rightarrow$ Tích chọn **Enable Kubernetes** $\rightarrow$ Bấm **Apply & restart**.
-2. **Khởi tạo Chứng Chỉ SSL/TLS Wildcard với `mkcert` (Bắt buộc cho HTTPS & Google OAuth):**
+---
+
+### 5.1. Chuẩn Bị Môi Trường (Chỉ cần làm 1 lần ban đầu)
+
+#### Bước 1: Kích hoạt Kubernetes trong Docker Desktop
+* Mở **Docker Desktop** $\rightarrow$ Cài đặt ⚙️ (**Settings**) $\rightarrow$ Mục **Kubernetes**.
+* Tích chọn **Enable Kubernetes** $\rightarrow$ Bấm **Apply & restart** (Đợi thanh trạng thái Kubernetes chuyển sang màu xanh).
+
+#### Bước 2: Sinh Cặp Chứng Chỉ SSL Wildcard với `mkcert` (Bắt buộc cho HTTPS & Google OAuth)
 ```powershell
-# Cài đặt CA gốc tin cậy vào Windows Certificate Store (chỉ cần chạy 1 lần)
+# Cài đặt CA gốc tin cậy vào Windows Certificate Store (chỉ cần chạy 1 lần duy nhất)
 mkcert -install
 
 # Sinh cặp chứng chỉ Wildcard cho toàn bộ domain nội bộ
-mkcert waybill.vn "*.waybill.vn"
+mkcert "waybill.vn" "*.waybill.vn" "localhost" 127.0.0.1
+Copy-Item "waybill.vn+3.pem" "waybill.vn+1.pem" -Force -ErrorAction SilentlyContinue
+Copy-Item "waybill.vn+3-key.pem" "waybill.vn+1-key.pem" -Force -ErrorAction SilentlyContinue
 ```
-3. **Cấu hình phân giải DNS cục bộ trên Windows (`hosts` file):**
-Mở Notepad bằng quyền **Administrator**, mở file `C:\Windows\System32\drivers\etc\hosts` và thêm dòng sau:
-```text
-127.0.0.1 waybill.vn api.waybill.vn storage.waybill.vn grafana.waybill.vn dashboard.waybill.vn
-```
-4. **Thiết lập Namespaces, TLS Secrets, ConfigMap và Runtime Secrets:**
+
+#### Bước 3: Cấu hình phân giải DNS cục bộ trên Windows (`hosts` file)
+Mở PowerShell bằng quyền **Administrator** và thêm các domain vào file `hosts`:
 ```powershell
-# Khởi tạo các Namespaces
-kubectl apply -f .\k8s\00-namespaces\
-
-# Nạp TLS Secret vào 3 namespaces phục vụ Ingress tương ứng
-kubectl create secret tls waybill-tls --cert=waybill.vn+1.pem --key=waybill.vn+1-key.pem -n waybill
-kubectl create secret tls monitoring-tls --cert=waybill.vn+1.pem --key=waybill.vn+1-key.pem -n monitor
-kubectl create secret tls dashboard-tls --cert=waybill.vn+1.pem --key=waybill.vn+1-key.pem -n kubernetes-dashboard
-
-# Tạo Secret nghiệp vụ và ConfigMap runtime
-kubectl create secret generic waybill-runtime -n waybill --from-literal=db-password="Replica@123456" --from-literal=jwt-secret="9a7b8c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b" --from-literal=rabbitmq-user="admin" --from-literal=rabbitmq-password="admin" --from-literal=minio-user="minioadmin" --from-literal=minio-password="minioadmin" --from-literal=ai-api-key="default-key" --dry-run=client -o yaml | kubectl apply -f -
-kubectl create configmap waybill-config -n waybill --from-literal=AI_BASE_URL="http://host.docker.internal:11434/v1" --from-literal=AI_MODEL="qwen2.5:3b" --from-literal=MINIO_PUBLIC_URL="https://storage.waybill.vn" --dry-run=client -o yaml | kubectl apply -f -
+@"
+127.0.0.1 waybill.vn api.waybill.vn storage.waybill.vn
+127.0.0.1 dashboard.waybill.vn
+127.0.0.1 grafana.waybill.vn
+127.0.0.1 prometheus.waybill.vn
+"@ | Out-File -FilePath C:\Windows\System32\drivers\etc\hosts -Append -Encoding ascii
 ```
-5. **Triển khai toàn bộ cụm hạ tầng, vi dịch vụ, Ingress và Giám sát:**
-```powershell
-kubectl apply -f .\k8s\01-infrastructure\
-kubectl apply -f .\k8s\02-services\
-kubectl apply -f .\k8s\03-ingress\
-kubectl apply -f .\k8s\04-monitoring\
-```
-
-**Bảng cổng truy cập & URL dịch vụ chuẩn hóa (HTTPS):**
-* **Web Portal (SPA):** [https://waybill.vn](https://waybill.vn) (Trang chủ), [https://waybill.vn/login](https://waybill.vn/login) (Đăng nhập Google OAuth / Demo), [https://waybill.vn/tracking](https://waybill.vn/tracking) (Tra cứu), [https://waybill.vn/shipment](https://waybill.vn/shipment) (Tạo vận đơn).
-* **API Gateway HA:** [https://api.waybill.vn](https://api.waybill.vn) (Kiểm tra sức khỏe: `https://api.waybill.vn/actuator/health`).
-* **MinIO Object Storage:** [https://storage.waybill.vn](https://storage.waybill.vn); Web Console mở qua `kubectl port-forward svc/minio 9001:9001 -n waybill` $\rightarrow$ [http://localhost:9001](http://localhost:9001) (`minioadmin` / `minioadmin`).
-* **Grafana Monitoring:** [https://grafana.waybill.vn](https://grafana.waybill.vn) (`admin` / `admin`).
-* **Kubernetes Dashboard:** [https://dashboard.waybill.vn](https://dashboard.waybill.vn) *(Lấy Token đăng nhập: `kubectl -n kubernetes-dashboard create token kubernetes-dashboard`)*.
-* **SQL Server 2022 Replica:** Kết nối qua script bảo mật `powershell -ExecutionPolicy Bypass -File scripts/db-connect.ps1` (Port `2433`, User `sa` / `Replica@123456`).
-* **Eureka Service Registry:** Mở tạm thời qua `kubectl port-forward svc/eureka-peer1 8761:8761 -n waybill` $\rightarrow$ [http://localhost:8761](http://localhost:8761).
 
 ---
 
-### Cách 2: Khởi chạy trên Minikube (Hyper-V)
-Minikube triển khai 12 microservices nghiệp vụ, API Gateway, Frontend, Kafka, Redis, Eureka, RabbitMQ, MinIO và SQL Server có PVC. Profile mặc định cần khoảng 6 CPU, 10 GiB RAM và 40 GiB đĩa; có thể điều chỉnh qua tham số script.
+### 5.2. Triển Khai Toàn Trình Với 1 Script Duy Nhất (Automated 1-Click Deploy)
+
+Chỉ cần chạy một script duy nhất, toàn bộ hệ thống sẽ tự động cấu hình từ A-Z:
+* Cài đặt **Ingress NGINX Controller** & cấu hình Zero-Trust Webhook.
+* Cài đặt **Metrics-Server** (hỗ trợ Auto-scaling HPA).
+* Khởi tạo Namespaces (`waybill`, `monitor`, `argocd`, `kubernetes-dashboard`).
+* Tự động nạp Runtime Secrets, ConfigMaps và chứng chỉ SSL TLS.
+* Triển khai Cụm hạ tầng HA (SQL Server 2022, Kafka KRaft, Redis, Eureka HA, RabbitMQ, MinIO S3).
+* Khởi chạy tự động Job `sqlserver-init-db` tạo sẵn 12 CSDL nghiệp vụ.
+* Triển khai 13 Microservices nghiệp vụ + Web Portal Frontend SPA.
+* Thiết lập Ingress Rules và hệ thống giám sát phân tầng Prometheus & Grafana.
+* Cài đặt **ArgoCD Controller** và kích hoạt GitOps Application `waybill-microservices`.
 
 ```powershell
-# Tạo cấu hình local (thay tất cả giá trị ReplaceWith bằng giá trị riêng)
-Copy-Item .env.minikube.example .env.minikube
-notepad .env.minikube
-
-# Chạy PowerShell có quyền truy cập Hyper-V
-.\scripts\minikube-up.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\deploy-standardized-k8s.ps1
 ```
-
-Script khởi động profile Hyper-V, bật Ingress, build và nạp image local, tạo Kubernetes Secrets từ `.env.minikube`, khởi tạo database rồi triển khai ứng dụng. Thêm dòng IP mà script in ra vào `C:\Windows\System32\drivers\etc\hosts` bằng quyền Administrator:
-
-```text
-<MINIKUBE_IP> waybill.vn api.waybill.vn storage.waybill.vn grafana.waybill.vn dashboard.waybill.vn
-```
-
-* **Web Portal (SPA):** [https://waybill.vn](https://waybill.vn) (tự động chuyển hướng từ HTTP port 80).
-* **API Gateway:** [https://api.waybill.vn](https://api.waybill.vn)
-* **Tệp MinIO public:** `https://storage.waybill.vn`; console qua `kubectl port-forward svc/minio 9001:9001 -n waybill`.
-* **Grafana Dashboard:** [https://grafana.waybill.vn](https://grafana.waybill.vn)
-* **Kubernetes Dashboard:** [https://dashboard.waybill.vn](https://dashboard.waybill.vn)
-* **SQL Server:** chạy `kubectl port-forward svc/sqlserver-replica 2433:2433 -n waybill`, sau đó kết nối tới `localhost,2433` bằng `sa` và mật khẩu trong `.env.minikube`.
-* **Eureka:** chạy `kubectl port-forward svc/eureka-peer1 8761:8761 -n waybill`, sau đó mở [http://localhost:8761](http://localhost:8761).
-* **Cập nhật một service:** `.\scripts\rebuild-and-deploy.ps1 -Service shipment-service`
-* **Dừng cụm:** `minikube stop -p minikube` (giữ lại PVC và dữ liệu).
-
-Thay đổi tài nguyên profile theo máy host, ví dụ: `.\scripts\minikube-up.ps1 -Cpus 4 -MemoryMb 8192 -DiskSize 30g`.
-Support AI mặc định gọi Ollama trên host tại `AI_BASE_URL` trong `.env.minikube`; Ollama cần chạy và lắng nghe trên địa chỉ có thể truy cập từ Minikube để chức năng AI hoạt động.
-Nếu PVC SQL Server đã có dữ liệu, đặt `MINIKUBE_DB_PASSWORD` đúng với mật khẩu `sa` đang dùng; không xóa PVC để xử lý lỗi đăng nhập.
 
 ---
 
-### Cách 3: Khởi chạy qua Docker Compose & Local Spring Boot
+### 5.3. Đồng Bộ Dữ Liệu CSDL Từ Local Lên K8s (Tùy chọn - Optional)
 
-#### Bước 1: Khởi động Hạ tầng Docker HA
+Nếu bạn có sẵn dữ liệu nghiệp vụ trên SQL Server máy host (cổng `1433`) và muốn đồng bộ lên Pod `sqlserver-replica` trên K8s (cổng `2433`):
+
+```powershell
+# Nếu mật khẩu sa máy host là 'sa' (mặc định)
+powershell -ExecutionPolicy Bypass -File .\scripts\sync-db-to-k8s.ps1
+
+# Nếu mật khẩu sa máy host khác, truyền tham số -SourcePass
+powershell -ExecutionPolicy Bypass -File .\scripts\sync-db-to-k8s.ps1 -SourcePass "mat_khau_sa_cua_ban"
+```
+> **Cơ chế:** Script sẽ tự động backup 12 database thành các file `.bak`, copy trực tiếp vào Pod K8s, thực thi `RESTORE WITH REPLACE` và tự động dọn dẹp file tạm.
+
+---
+
+### 5.4. Bảng Tra Cứu Cổng & Địa Chỉ Dịch Vụ Chuẩn Hóa
+
+| Dịch Vụ / Thành Phần | Địa Chỉ Truy Cập / URL | Thông Tin Đăng Nhập & Ghi Chú |
+| :--- | :--- | :--- |
+| **Web Portal (Frontend SPA)** | [https://waybill.vn](https://waybill.vn) *(hoặc [http://waybill.vn](http://waybill.vn))* | Đăng nhập tài khoản demo hoặc Google OAuth2 |
+| **API Gateway Trung Tâm** | [https://api.waybill.vn](https://api.waybill.vn) | Cổng định tuyến API HA (Actuator / Health) |
+| **ArgoCD GitOps Console** | [https://localhost:8443](https://localhost:8443) | Xem lệnh Port-forward & lấy Password bên dưới |
+| **Grafana Monitoring** | [https://grafana.waybill.vn](https://grafana.waybill.vn) | Tài khoản: `admin` / `admin` (3 Dashboards nạp sẵn) |
+| **Prometheus TSDB** | [http://prometheus.waybill.vn](http://prometheus.waybill.vn) | Giao diện cào metrics và truy vấn PromQL |
+| **Kubernetes Dashboard** | [https://dashboard.waybill.vn](https://dashboard.waybill.vn) | Đăng nhập bằng Token (lệnh lấy token bên dưới) |
+| **MinIO Object Storage Console** | [http://localhost:9001](http://localhost:9001) | Cần port-forward; Tài khoản: `minioadmin` / `minioadmin` |
+| **MinIO S3 Public Endpoint** | [https://storage.waybill.vn](https://storage.waybill.vn) | Lưu trữ chứng từ, ảnh đính kèm ticket |
+| **SQL Server 2022 Replica** | `localhost:2433` (kết nối SSMS / DBeaver) | User: `sa` / Pass: `Replica@123456` |
+| **Eureka Service Registry** | [http://localhost:8761](http://localhost:8761) | Cần port-forward; giám sát 13 microservices đăng ký |
+
+---
+
+### 5.5. Bí Kíp Vận Hành & Xử Lý Sự Cố Nhanh (Tips & FAQ)
+
+#### 1. Mẹo xử lý cảnh báo SSL trên trình duyệt:
+* Vì đây là môi trường local, nếu trình duyệt Chrome/Edge hiển thị cảnh báo đỏ *"Your connection is not private"* do cache SSL cũ:
+  * Nhấp chuột vào vị trí bất kỳ trên màn hình cảnh báo và gõ trực tiếp dãy chữ: **`thisisunsafe`** (Trình duyệt sẽ ngay lập tức mở trang web).
+  * Hoặc truy cập trực tiếp qua cổng HTTP không mã hóa: [http://waybill.vn](http://waybill.vn).
+
+#### 2. Mở cổng & lấy mật khẩu đăng nhập ArgoCD Web:
+* **Mở cổng kết nối:**
+  ```powershell
+  kubectl port-forward svc/argocd-server -n argocd 8443:443
+  ```
+* **Lấy mật khẩu tài khoản `admin` của ArgoCD:**
+  ```powershell
+  [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String((kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}")))
+  ```
+
+#### 3. Lấy Token đăng nhập Kubernetes Dashboard:
+```powershell
+kubectl -n kubernetes-dashboard create token kubernetes-dashboard
+```
+Copy chuỗi token hiển thị và dán vào ô **Token** trên trang [https://dashboard.waybill.vn](https://dashboard.waybill.vn).
+
+#### 4. Mở cổng MinIO Web Console & Eureka Registry:
+* Mở giao diện MinIO: `kubectl port-forward svc/minio 9001:9001 -n waybill` $\rightarrow$ truy cập [http://localhost:9001](http://localhost:9001).
+* Mở giao diện Eureka: `kubectl port-forward svc/eureka-peer1 8761:8761 -n waybill` $\rightarrow$ truy cập [http://localhost:8761](http://localhost:8761).
+
+#### 5. Kiểm tra sức khỏe, tải CPU/RAM của hệ thống:
+```powershell
+# Xem trạng thái tất cả các Pods trong hệ thống
+kubectl get pods -n waybill
+kubectl get pods -n monitor
+kubectl get pods -n argocd
+
+# Kiểm tra mức độ tiêu thụ CPU và RAM theo thời gian thực (nhờ Metrics-Server)
+kubectl top nodes
+kubectl top pods -n waybill
+
+# Kiểm tra trạng thái đồng bộ GitOps của ArgoCD
+kubectl get application -n argocd
+```
+
+---
+
+### 5.6. Khởi Chạy Toàn Bộ Bằng Docker Thuần (Docker Compose Pre-built Images)
+
+Phương án này dành cho môi trường không sử dụng Kubernetes, muốn khởi chạy nhanh chóng toàn bộ nền tảng (Hạ tầng HA, 13 Microservices nghiệp vụ, Nginx Edge và Frontend SPA) trực tiếp từ các Docker images đã đóng gói sẵn:
+
 ```bash
+# Khởi động toàn bộ 100% hệ thống từ Docker Hub images
 docker compose up -d
+```
+
+> **Cơ chế:** Docker Compose sẽ tự động kéo các image `khanhnv26/*:1.0` từ Docker Hub, tạo mạng bridge nội bộ `mini-waybill-platform_default` và kết nối toàn bộ 13 microservices khép kín trong Docker.
+
+**Bảng cổng truy cập trực tiếp trên `localhost`:**
+* **Web Portal (Frontend qua Nginx):** [http://localhost](http://localhost) (Port 80)
+* **Frontend Node Instances:** [http://localhost:3000](http://localhost:3000) và [http://localhost:3001](http://localhost:3001)
+* **Kafka UI:** [http://localhost:8090](http://localhost:8090) (Quản trị 3 Brokers Kafka KRaft)
+* **RabbitMQ Management:** [http://localhost:15672](http://localhost:15672) (`admin` / `admin`)
+* **MinIO Web Console:** [http://localhost:9001](http://localhost:9001) (`minioadmin` / `minioadmin`)
+* **MinIO S3 API:** `http://localhost:9000` (Bucket: `support-tickets`)
+* **Eureka Service Registry:** [http://localhost:8761](http://localhost:8761) và [http://localhost:8762](http://localhost:8762)
+* **SQL Server Replica:** `localhost:2433` (`sa` / `Replica@123456`)
+* **Redis Cache:** `localhost:6379`
+
+Lệnh dừng toàn bộ hệ thống:
+```bash
+docker compose down
+```
+
+---
+
+### 5.7. Khởi Chạy Kết Hợp Để Lập Trình & Debug Code (Docker Hạ Tầng + Local Spring Boot)
+
+Dành cho lập trình viên muốn chỉnh sửa source code Java/Vue và debug trực tiếp bằng IDE hoặc Maven:
+
+#### Bước 1: Khởi động Hạ tầng Docker HA (Chỉ chạy các container phụ trợ)
+```bash
+docker compose up -d kafka-1 kafka-2 kafka-3 kafka-ui redis rabbitmq minio sqlserver-replica rating-db-init
 ```
 * **Kafka UI:** [http://localhost:8090](http://localhost:8090) (Kiểm tra 3 Brokers online).
 * **RabbitMQ Management:** [http://localhost:15672](http://localhost:15672) (`admin` / `admin`).

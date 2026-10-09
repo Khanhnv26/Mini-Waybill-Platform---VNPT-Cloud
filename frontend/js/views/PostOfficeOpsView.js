@@ -193,7 +193,7 @@
                 if (currentSubtab.value === 'outbound') {
                     const originPo = normalizeCode(getOriginPostOfficeInfo(item).code).toUpperCase();
                     if (originPo !== selected && location !== selected) return false;
-                    return location === selected || ['ROUTE_ASSIGNED', 'PENDING_ROUTING', 'PICKED_UP', 'IN_TRANSIT', 'RETURNING', 'RETURNED'].includes(
+                    return location === selected || ['ROUTE_ASSIGNED', 'PENDING_ROUTING', 'PICKED_UP', 'IN_TRANSIT', 'RETURNING', 'OUT_FOR_RETURN', 'RETURNED'].includes(
                         normalizeCode(item.currentStatus || item.status).toUpperCase()
                     );
                 }
@@ -240,7 +240,7 @@
                 if (!item) return '';
                 const status = getShipmentStatusText(item);
                 const inventory = getInventoryStatus(item);
-                if (status === 'RETURNING') return 'RETURNING';
+                if (status === 'RETURNING' || status === 'OUT_FOR_RETURN') return 'RETURNING';
                 if (status === 'RETURNED') return 'RETURNED';
                 if (['CREATED', 'PENDING_ROUTING', 'ROUTE_ASSIGNED'].includes(status)) return 'WAITING_INTAKE';
                 if (isOutboundStaged(item)) return 'STORED_OFFICE';
@@ -265,7 +265,7 @@
                 if (status === 'OUT_FOR_DELIVERY') return 'OUT_FOR_DELIVERY';
                 if (status === 'DELIVERED') return 'DELIVERED';
                 if (status === 'DELIVERY_FAILED') return 'FAILED';
-                if (status === 'RETURNING') return 'RETURNING';
+                if (status === 'RETURNING' || status === 'OUT_FOR_RETURN') return 'RETURNING';
                 if (status === 'RETURNED') return 'RETURNED';
                 return '';
             };
@@ -346,6 +346,9 @@
                     return backAtOrigin
                         ? { key: 'CONFIRM_RETURN', label: 'Xác nhận đã hoàn người gửi', targetStatus: 'RETURNED' }
                         : { key: 'WAITING', label: 'Đang chuyển hoàn về bưu cục gửi', targetStatus: '' };
+                }
+                if (status === 'OUT_FOR_RETURN') {
+                    return { key: 'IN_PROGRESS', label: 'Bưu tá đang phát hoàn', targetStatus: '' };
                 }
                 if (['DELIVERED', 'DELIVERY_FAILED', 'CANCELLED', 'RETURNED'].includes(status)) {
                     return { key: 'DONE', label: 'Đã hoàn tất', targetStatus: '' };
@@ -867,7 +870,7 @@
                                     ? getInboundBucket(s)
                                     : getInventoryBucket(s);
                             if (sf === 'RETURNING') {
-                                return ['RETURNING', 'RETURNED'].includes(bucket) || ['RETURNING', 'RETURNED'].includes(getShipmentStatusText(s));
+                                return ['RETURNING', 'RETURNED'].includes(bucket) || ['RETURNING', 'OUT_FOR_RETURN', 'RETURNED'].includes(getShipmentStatusText(s));
                             }
                             if (sf === 'COUNTER_PICKUP') {
                                 return bucket === 'COUNTER_PICKUP';
@@ -1145,7 +1148,7 @@
                         const publicStatuses = new Set([
                             'CREATED', 'PENDING_ROUTING', 'ROUTE_ASSIGNED', 'PICKED_UP', 'IN_TRANSIT',
                             'ARRIVED_DEST_HUB', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DELIVERY_FAILED',
-                            'CANCELLED', 'RETURNING', 'RETURNED'
+                            'CANCELLED', 'RETURNING', 'OUT_FOR_RETURN', 'RETURNED'
                         ]);
                         const currentStatus = normalizeCode(targetShipment?.currentStatus).toUpperCase();
                         const operationExtra = { ...extra, note };
@@ -2553,8 +2556,16 @@
                                                     Xác Nhận Đã Hoàn Người Gửi
                                                 </button>
                                             </template>
+                                            <template v-else-if="(item.currentStatus || item.status) === 'OUT_FOR_RETURN'">
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10.5px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                                    Bưu tá đang phát hoàn
+                                                </span>
+                                            </template>
                                             <template v-else-if="(item.currentStatus || item.status) === 'RETURNING'">
                                                 <span class="text-orange-700 text-[11px] font-bold">Chưa về bưu cục gửi</span>
+                                            </template>
+                                            <template v-else-if="(item.currentStatus || item.status) === 'RETURNED'">
+                                                <span class="text-slate-500 text-[11px] font-bold">Đã hoàn người gửi</span>
                                             </template>
                                             <template v-else>
                                                 <span class="text-slate-400 font-mono text-[11px]">—</span>
@@ -2581,6 +2592,11 @@
                                                 >
                                                     Tái Bàn Giao Phát
                                                 </button>
+                                            </template>
+                                            <template v-else-if="(item.currentStatus || item.status) === 'OUT_FOR_RETURN'">
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10.5px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                                    Bưu tá đang phát hoàn
+                                                </span>
                                             </template>
                                             <template v-else-if="(item.currentStatus || item.status) === 'RETURNING'">
                                                 <span class="text-orange-700 text-[11px] font-bold">Chờ chuyển hoàn về bưu cục gửi</span>
