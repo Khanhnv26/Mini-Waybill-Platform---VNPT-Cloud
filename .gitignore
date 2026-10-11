@@ -55,3 +55,7 @@ application-secret.properties
 *.pem
 *.key
 *.crt
+
+# Node
+node_modules/
+npm-debug.log*

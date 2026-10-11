@@ -3,6 +3,9 @@
 
     const TrackingView = {
         name: 'TrackingView',
+        components: {
+            TrackingRecentSearches: window.TrackingRecentSearches
+        },
         props: {
             trackingCode: {
                 type: String,
@@ -1165,6 +1168,14 @@
                 isNotFound.value = false;
                 notFoundCode.value = '';
 
+                try {
+                    const rawRecents = localStorage.getItem('vnpt_waybill_recent_searches');
+                    let list = rawRecents ? JSON.parse(rawRecents) : [];
+                    list = list.filter(c => c !== code);
+                    list.unshift(code);
+                    localStorage.setItem('vnpt_waybill_recent_searches', JSON.stringify(list.slice(0, 6)));
+                } catch {}
+
                 if (code === 'VNPT-HN-SG-9821' || code.startsWith('VNPT-')) {
                     setTimeout(async () => {
                         currentShipment.value = {
@@ -1946,6 +1957,8 @@
                                             </span>
                                             <span class="hidden sm:inline text-slate-400 whitespace-nowrap">Tự động định vị chặng trung chuyển</span>
                                         </div>
+
+                                        <tracking-recent-searches @select-code="fetchTrackingData($event)"></tracking-recent-searches>
                                     </div>
                                     <div v-else-if="publicHeroTab === 'quote'" key="hero-tab-quote" class="p-3 sm:p-4">
                                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">

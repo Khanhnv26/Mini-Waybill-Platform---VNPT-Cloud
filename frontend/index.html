@@ -9,34 +9,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
     
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/tailwind.prod.css?v=1.0.0" />
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['"Inter"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
-                        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
-                    },
-                    colors: {
-                        vnpt: {
-                            50: '#eef6ff',
-                            100: '#d9ecff',
-                            200: '#bcdfff',
-                            500: '#0066cc',
-                            600: '#0055bb',
-                            700: '#004488',
-                            800: '#003366',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -52,7 +28,14 @@
         })();
     </script>
 
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "vue": "./js/libs/vue.esm-browser.js"
+        }
+    }
+    </script>
+    <script src="js/libs/vue.global.js"></script>
 </head>
 <body class="bg-[#f8fafc] text-slate-900 antialiased min-h-full flex flex-col selection:bg-blue-600 selection:text-white font-sans">
 
@@ -286,6 +269,10 @@
     <script src="js/components/common/UserProfileModal.js"></script>
     <script src="js/layouts/InternalLayout.js"></script>
     <script src="js/layouts/PublicLayout.js"></script>
+    <script src="js/views/tracking/TrackingRecentSearches.js"></script>
+    <script src="js/views/shipment/ShipmentSmartPasteCard.js"></script>
+    <script src="js/views/shipment/ShipmentPrintModal.js"></script>
+    <script src="js/views/trips/TripManifestModal.js"></script>
 
     <script src="js/views/LoginView.js"></script>
     <script src="js/views/TrackingView.js"></script>

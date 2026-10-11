@@ -4,11 +4,31 @@
 
     const ShipmentView = {
         name: 'ShipmentView',
+        components: {
+            ShipmentSmartPasteCard: window.ShipmentSmartPasteCard,
+            ShipmentPrintModal: window.ShipmentPrintModal
+        },
         props: ['customerPrefill', 'tariffPrefill'],
         emits: ['created-shipment'],
         setup(props, { emit }) {
             const currentSubtab = ref('create');
             const isDockCollapsed = ref(false);
+
+            const showThermalPrintModal = ref(false);
+            const selectedShipmentForPrint = ref(null);
+
+            const openThermalPrint = (shipment) => {
+                selectedShipmentForPrint.value = shipment;
+                showThermalPrintModal.value = true;
+            };
+
+            const handleSmartPasteParsed = (data) => {
+                if (!data) return;
+                if (data.name) form.receiverName = data.name;
+                if (data.phone) form.receiverPhone = data.phone;
+                if (data.province) form.receiverProvince = data.province;
+                if (data.detail) form.receiverDetail = data.detail;
+            };
 
             const isSubmitting = ref(false);
             const hubsList = ref([]);
@@ -1442,6 +1462,10 @@
                 openReturnCheckout,
                 loadPendingDecisions,
                 loadReturnRequests,
+                showThermalPrintModal,
+                selectedShipmentForPrint,
+                openThermalPrint,
+                handleSmartPasteParsed,
                 Utils
             };
         },
@@ -1598,6 +1622,8 @@
                             Cập Nhật Hồ Sơ Shop
                         </button>
                     </div>
+
+                    <shipment-smart-paste-card @parsed="handleSmartPasteParsed"></shipment-smart-paste-card>
 
                     <form @submit.prevent="handleSubmit" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                         <div class="lg:col-span-2 space-y-4">
@@ -3666,7 +3692,11 @@
                     </div>
                 </div>
                 </Transition>
-                </teleport>
+                <shipment-print-modal 
+                    :show="showThermalPrintModal" 
+                    :shipment="selectedShipmentForPrint" 
+                    @close="showThermalPrintModal = false"
+                ></shipment-print-modal>
             </div>
         `
     };

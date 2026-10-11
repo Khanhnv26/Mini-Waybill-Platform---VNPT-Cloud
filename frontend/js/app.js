@@ -1343,6 +1343,22 @@
         app.component('ChatbotWidget', window.ChatbotWidget);
         app.component('chatbot-widget', window.ChatbotWidget);
     }
+    if (window.ShipmentSmartPasteCard) {
+        app.component('ShipmentSmartPasteCard', window.ShipmentSmartPasteCard);
+        app.component('shipment-smart-paste-card', window.ShipmentSmartPasteCard);
+    }
+    if (window.ShipmentPrintModal) {
+        app.component('ShipmentPrintModal', window.ShipmentPrintModal);
+        app.component('shipment-print-modal', window.ShipmentPrintModal);
+    }
+    if (window.TripManifestModal) {
+        app.component('TripManifestModal', window.TripManifestModal);
+        app.component('trip-manifest-modal', window.TripManifestModal);
+    }
+    if (window.TrackingRecentSearches) {
+        app.component('TrackingRecentSearches', window.TrackingRecentSearches);
+        app.component('tracking-recent-searches', window.TrackingRecentSearches);
+    }
 
     app.config.errorHandler = (err, vm, info) => {
         console.error('VUE_APP_ERROR:', err, err ? err.stack : '', info);

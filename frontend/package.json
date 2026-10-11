@@ -1,0 +1,16 @@
+{
+  "name": "vnpt-waybill-frontend",
+  "version": "1.0.0",
+  "description": "VNPT Waybill Platform Frontend",
+  "scripts": {
+    "start": "node server.js 3000",
+    "build:css": "tailwindcss -i ./css/tailwind.input.css -o ./css/tailwind.prod.css --minify",
+    "watch:css": "tailwindcss -i ./css/tailwind.input.css -o ./css/tailwind.prod.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  },
+  "dependencies": {
+    "vue": "^3.5.43"
+  }
+}
