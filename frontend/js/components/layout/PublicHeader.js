@@ -2,7 +2,7 @@
     const { ref } = Vue;
 
     const template = `
-    <header class="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 shadow-xs flex-shrink-0">
+    <header class="bg-white/95 dark:bg-[#0f1a38]/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 shadow-xs flex-shrink-0 transition-colors duration-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
             <div class="flex items-center">
                 <div @click="$emit('switch-tab', 'tracking')" class="flex items-center space-x-3 cursor-pointer group select-none flex-shrink-0">
@@ -14,7 +14,7 @@
                         </svg>
                     </div>
                     <div class="leading-tight">
-                        <div class="font-black text-base sm:text-lg text-slate-900 tracking-tight transition-colors duration-200 group-hover:text-blue-600 whitespace-nowrap">
+                        <div class="font-black text-base sm:text-lg text-slate-900 dark:text-white tracking-tight transition-colors duration-200 group-hover:text-blue-600 whitespace-nowrap">
                             Waybill Post
                         </div>
                         <p class="text-[10.5px] text-slate-400 font-medium tracking-tight whitespace-nowrap">Hệ Thống Vận Đơn Bưu Chính</p>
@@ -23,7 +23,7 @@
 
                 <nav class="hidden md:flex items-center ml-8 lg:ml-12 space-x-1 lg:space-x-1.5 text-xs text-slate-600">
                     <button 
-                        v-for="tab in publicGuestTabs"
+                        v-for="tab in publicGuestTabs" 
                         :key="tab.id"
                         type="button"
                         @click="$emit('guest-tab-click', tab)"
@@ -50,22 +50,42 @@
                     <span class="font-semibold text-slate-600 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">1900 54 54 81</span>
                 </a>
 
-                <!-- Theme Toggle Sun/Moon -->
+                <!-- Day/Night Sliding Capsule Switch -->
                 <button 
                     type="button"
+                    role="switch"
+                    :aria-checked="isDarkMode"
                     @click="$emit('toggle-dark-mode')"
-                    :title="isDarkMode ? 'Chuyển sang giao diện Sáng' : 'Chuyển sang chế độ Đêm (Night Mode)'"
-                    class="theme-toggle-btn w-9 h-9 rounded-xl border transition-all duration-200 cursor-pointer select-none focus:outline-none flex items-center justify-center flex-shrink-0"
+                    :title="isDarkMode ? 'Đang bật chế độ Đêm. Bấm để chuyển sang chế độ Sáng' : 'Đang bật chế độ Sáng. Bấm để chuyển sang chế độ Đêm'"
+                    class="theme-toggle-btn relative inline-flex items-center w-[54px] h-7 rounded-full p-0.5 transition-all duration-300 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-blue-500/40 shadow-2xs flex-shrink-0 group"
                     :class="isDarkMode 
-                        ? 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700/80 text-amber-400 hover:text-amber-300 hover:border-amber-400/40 shadow-sm' 
-                        : 'bg-slate-100/90 hover:bg-slate-200 border-slate-200 text-slate-700 hover:text-blue-600 shadow-xs'"
+                        ? 'bg-slate-900 border border-slate-700/80 shadow-inner' 
+                        : 'bg-slate-200/90 hover:bg-slate-300/80 border border-slate-300/80 shadow-inner'"
                 >
-                    <svg v-if="isDarkMode" class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                    <svg v-else class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                    </svg>
+                    <!-- Track Ambient Icons -->
+                    <span class="absolute inset-0 flex items-center justify-between px-1.5 pointer-events-none select-none">
+                        <svg class="w-3.5 h-3.5 transition-opacity duration-300" :class="isDarkMode ? 'opacity-40 text-amber-400' : 'opacity-0'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                        <svg class="w-3.5 h-3.5 transition-opacity duration-300" :class="isDarkMode ? 'opacity-0' : 'opacity-40 text-slate-500'" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                        </svg>
+                    </span>
+
+                    <!-- Sliding Thumb / Knob -->
+                    <span 
+                        class="relative w-6 h-6 rounded-full flex items-center justify-center transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-md"
+                        :class="isDarkMode 
+                            ? 'translate-x-[26px] bg-gradient-to-tr from-blue-600 to-indigo-600 text-amber-300 border border-blue-400/30' 
+                            : 'translate-x-0.5 bg-white text-amber-500 border border-slate-200/80'"
+                    >
+                        <svg v-if="!isDarkMode" class="w-3.5 h-3.5 transition-transform duration-300 group-hover:rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                        <svg v-else class="w-3.5 h-3.5 transition-transform duration-300 group-hover:-rotate-12" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                        </svg>
+                    </span>
                 </button>
 
                 <a 

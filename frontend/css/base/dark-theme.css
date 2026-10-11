@@ -56,8 +56,8 @@ html.dark .bg-gradient-to-b {
 }
 
 /* 3. Layout: Topbar, Sidebar, Header, Footer */
+html.dark header,
 html.dark header.bg-white,
-html.dark header.bg-white\/95,
 html.dark aside.app-sidebar,
 html.dark aside.bg-white,
 html.dark footer.bg-white {
@@ -408,9 +408,9 @@ html.dark ::-webkit-scrollbar-thumb:hover {
     background: #324a85;
 }
 
-/* 13. Sun/Moon Toggle Button Animation */
+/* 13. Day/Night Sliding Capsule Switch */
 .theme-toggle-btn {
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     transform: none !important;
 }
 
@@ -419,15 +419,7 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 }
 
 .theme-toggle-btn:active {
-    transform: scale(0.94) !important;
-}
-
-.theme-toggle-btn svg {
-    transition: transform 0.3s ease;
-}
-
-.theme-toggle-btn:hover svg {
-    transform: rotate(20deg);
+    transform: scale(0.96) !important;
 }
 
 /* 14. CRITICAL EXCEPTION: Thermal Label & Printing Isolation */
