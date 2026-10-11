@@ -167,3 +167,32 @@ html.dark .auth-custom-bg {
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
     border-color: rgba(255, 255, 255, 0.4);
 }
+
+/* Google Identity Services Dark Mode iframe Canvas Isolation */
+#spaGoogleBtnLogin,
+#spaGoogleBtnRegister,
+#googleBtn,
+#googleBtnRegister {
+    color-scheme: light !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+#spaGoogleBtnLogin > div,
+#spaGoogleBtnRegister > div,
+#googleBtn > div,
+#googleBtnRegister > div {
+    color-scheme: light !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+#spaGoogleBtnLogin iframe,
+#spaGoogleBtnRegister iframe,
+#googleBtn iframe,
+#googleBtnRegister iframe {
+    color-scheme: light !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border-radius: 9999px !important;
+}

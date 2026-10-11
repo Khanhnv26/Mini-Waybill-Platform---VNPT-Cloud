@@ -610,3 +610,32 @@ html.dark .print-paper * {
         filter: none !important;
     }
 }
+
+/* 15. Google Identity Services Sign-In Isolation in Dark Mode */
+html.dark #spaGoogleBtnLogin,
+html.dark #spaGoogleBtnRegister,
+html.dark #googleBtn,
+html.dark #googleBtnRegister {
+    color-scheme: light !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+html.dark #spaGoogleBtnLogin > div,
+html.dark #spaGoogleBtnRegister > div,
+html.dark #googleBtn > div,
+html.dark #googleBtnRegister > div {
+    color-scheme: light !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+html.dark #spaGoogleBtnLogin iframe,
+html.dark #spaGoogleBtnRegister iframe,
+html.dark #googleBtn iframe,
+html.dark #googleBtnRegister iframe {
+    color-scheme: light !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border-radius: 9999px !important;
+}

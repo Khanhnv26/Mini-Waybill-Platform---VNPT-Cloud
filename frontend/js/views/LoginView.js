@@ -232,7 +232,7 @@
                                     </div>
 
                                     <div class="flex flex-col items-center justify-center w-full space-y-2 stagger-5">
-                                        <div id="spaGoogleBtnLogin" class="flex justify-center w-full min-h-[44px]"></div>
+                                        <div id="spaGoogleBtnLogin" class="flex justify-center w-full min-h-[44px]" style="color-scheme: light;"></div>
                                         <div v-if="googleLoading" class="text-xs font-semibold text-vnpt-500 animate-pulse">
                                             Đang xác thực tài khoản Google...
                                         </div>
@@ -307,7 +307,7 @@
                                     </div>
 
                                     <div class="flex flex-col items-center justify-center w-full space-y-2">
-                                        <div id="spaGoogleBtnRegister" class="flex justify-center w-full min-h-[44px]"></div>
+                                        <div id="spaGoogleBtnRegister" class="flex justify-center w-full min-h-[44px]" style="color-scheme: light;"></div>
                                         <div v-if="googleLoading" class="text-xs font-semibold text-vnpt-500 animate-pulse">
                                             Đang xử lý tài khoản Google...
                                         </div>
