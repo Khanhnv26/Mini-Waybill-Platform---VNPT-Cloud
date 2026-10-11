@@ -478,6 +478,22 @@ html.theme-transitioning *::after {
     transform: none !important;
 }
 
+.theme-toggle-btn {
+    -webkit-user-drag: none;
+    user-drag: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+}
+
+.theme-toggle-btn * {
+    -webkit-user-drag: none;
+    user-drag: none;
+    -webkit-user-select: none;
+    user-select: none;
+    pointer-events: none;
+}
+
 .theme-toggle-btn:hover {
     transform: none !important;
 }
@@ -539,9 +555,9 @@ html.theme-transitioning *::after {
     transition: none !important;
 }
 
-html.dark .theme-toggle-knob,
-.theme-toggle-btn[aria-checked="true"] .theme-toggle-knob,
-.theme-toggle-knob.is-dark {
+html.dark .theme-toggle-knob:not(.is-dragging),
+.theme-toggle-btn[aria-checked="true"] .theme-toggle-knob:not(.is-dragging),
+.theme-toggle-knob.is-dark:not(.is-dragging) {
     transform: translateX(26px);
 }
 

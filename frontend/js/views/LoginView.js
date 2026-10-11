@@ -19,10 +19,9 @@
                         type="button"
                         role="switch"
                         :aria-checked="isKnobDark"
+                        draggable="false"
+                        @dragstart.prevent
                         @pointerdown="onPointerDown"
-                        @pointermove="onPointerMove"
-                        @pointerup="onPointerUp"
-                        @pointercancel="onPointerCancel"
                         @click="onClick"
                         @keydown="onKeyDown"
                         :title="isDarkMode ? 'Đang bật chế độ Đêm. Bấm hoặc gạt để chuyển sang chế độ Sáng' : 'Đang bật chế độ Sáng. Bấm hoặc gạt để chuyển sang chế độ Đêm'"
@@ -773,6 +772,7 @@
             let dragStartX = 2;
             let dragPointerX = null;
             let justSwiped = false;
+            let cleanupDrag = null;
 
             const isKnobDark = computed(() => {
                 if (isDragging.value && dragX.value !== null) {
@@ -814,63 +814,87 @@
 
             const onPointerDown = (e) => {
                 if (e.pointerType === 'mouse' && e.button !== 0) return;
+                if (cleanupDrag) {
+                    cleanupDrag();
+                }
+
                 dragPointerX = e.clientX;
                 dragStartX = isDarkMode.value ? 26 : 2;
                 isDragging.value = false;
                 dragX.value = dragStartX;
                 justSwiped = false;
-                try {
-                    e.currentTarget.setPointerCapture(e.pointerId);
-                } catch (_) {}
-            };
 
-            const onPointerMove = (e) => {
-                if (dragPointerX === null) return;
-                const dx = e.clientX - dragPointerX;
-                if (Math.abs(dx) >= 3) {
-                    isDragging.value = true;
-                    const targetX = dragStartX + dx;
-                    dragX.value = Math.max(2, Math.min(26, targetX));
-                }
-            };
-
-            const onPointerUp = (e) => {
-                if (dragPointerX === null) return;
+                const pointerId = e.pointerId;
+                const targetEl = e.currentTarget;
                 try {
-                    e.currentTarget.releasePointerCapture(e.pointerId);
+                    targetEl.setPointerCapture(pointerId);
                 } catch (_) {}
 
-                const dx = e.clientX - dragPointerX;
-                const wasDrag = isDragging.value;
-
-                if (wasDrag) {
-                    const finalX = dragX.value ?? (isDarkMode.value ? 26 : 2);
-                    let targetMode;
-                    if (dx >= 8) {
-                        targetMode = true;
-                    } else if (dx <= -8) {
-                        targetMode = false;
-                    } else {
-                        targetMode = finalX > 14;
+                const onMove = (ev) => {
+                    if (dragPointerX === null) return;
+                    const dx = ev.clientX - dragPointerX;
+                    if (Math.abs(dx) >= 3 || isDragging.value) {
+                        isDragging.value = true;
+                        const targetX = dragStartX + dx;
+                        dragX.value = Math.max(2, Math.min(26, targetX));
                     }
-                    const origin = { x: e.clientX, y: e.clientY };
-                    handleToggle(targetMode, origin);
-                    justSwiped = true;
-                    setTimeout(() => {
-                        justSwiped = false;
-                    }, 300);
-                }
+                };
 
-                dragPointerX = null;
-                isDragging.value = false;
-                dragX.value = null;
-            };
+                const onEnd = (ev) => {
+                    if (cleanupDrag) {
+                        cleanupDrag();
+                    }
+                    if (dragPointerX === null) return;
 
-            const onPointerCancel = () => {
-                dragPointerX = null;
-                isDragging.value = false;
-                dragX.value = null;
-                justSwiped = false;
+                    const dx = ev.clientX - dragPointerX;
+                    const wasDrag = isDragging.value || Math.abs(dx) >= 6;
+
+                    if (wasDrag) {
+                        const finalX = dragX.value ?? (isDarkMode.value ? 26 : 2);
+                        let targetMode;
+                        if (dx >= 6) {
+                            targetMode = true; // Dragged right -> Dark
+                        } else if (dx <= -6) {
+                            targetMode = false; // Dragged left -> Light
+                        } else {
+                            targetMode = finalX > 14;
+                        }
+                        const origin = { x: ev.clientX, y: ev.clientY };
+                        handleToggle(targetMode, origin);
+                        justSwiped = true;
+                        setTimeout(() => {
+                            justSwiped = false;
+                        }, 350);
+                    }
+
+                    dragPointerX = null;
+                    isDragging.value = false;
+                    dragX.value = null;
+                };
+
+                const onCancel = () => {
+                    if (cleanupDrag) {
+                        cleanupDrag();
+                    }
+                    dragPointerX = null;
+                    isDragging.value = false;
+                    dragX.value = null;
+                    justSwiped = false;
+                };
+
+                cleanupDrag = () => {
+                    cleanupDrag = null;
+                    try {
+                        targetEl.releasePointerCapture(pointerId);
+                    } catch (_) {}
+                    window.removeEventListener('pointermove', onMove);
+                    window.removeEventListener('pointerup', onEnd);
+                    window.removeEventListener('pointercancel', onCancel);
+                };
+
+                window.addEventListener('pointermove', onMove, { passive: true });
+                window.addEventListener('pointerup', onEnd);
+                window.addEventListener('pointercancel', onCancel);
             };
 
             const onClick = (e) => {
@@ -896,15 +920,18 @@
                 }
             };
 
+            onUnmounted(() => {
+                if (cleanupDrag) {
+                    cleanupDrag();
+                }
+            });
+
             return {
                 isDarkMode,
                 isKnobDark,
                 isDragging,
                 knobStyle,
                 onPointerDown,
-                onPointerMove,
-                onPointerUp,
-                onPointerCancel,
                 onClick,
                 onKeyDown,
                 handleToggle,
