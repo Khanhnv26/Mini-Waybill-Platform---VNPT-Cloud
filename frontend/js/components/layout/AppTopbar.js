@@ -1,4 +1,5 @@
 (function () {
+    const { ref, computed } = Vue;
     const template = `
     <header class="h-16 bg-white dark:bg-[#0f1a38] border-b border-slate-200 dark:border-slate-800 pl-8 pr-6 flex items-center justify-between flex-shrink-0 relative z-20 transition-colors duration-200">
         <div class="flex items-center space-x-2 text-xs min-w-0 mr-3">
@@ -25,7 +26,7 @@
             <button 
                 type="button"
                 role="switch"
-                :aria-checked="isDarkMode"
+                :aria-checked="isKnobDark"
                 @pointerdown="onPointerDown"
                 @pointermove="onPointerMove"
                 @pointerup="onPointerUp"
@@ -33,30 +34,33 @@
                 @click="onClick"
                 @keydown="onKeyDown"
                 :title="isDarkMode ? 'Đang bật chế độ Đêm. Bấm hoặc gạt để chuyển sang chế độ Sáng' : 'Đang bật chế độ Sáng. Bấm hoặc gạt để chuyển sang chế độ Đêm'"
-                class="theme-toggle-btn relative inline-flex items-center w-[54px] h-7 rounded-full p-0.5 transition-all duration-300 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-blue-500/40 shadow-2xs flex-shrink-0 group touch-none"
-                :class="isDarkMode 
+                class="theme-toggle-btn relative inline-flex items-center w-[54px] h-7 rounded-full p-0.5 transition-colors duration-300 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-blue-500/40 shadow-2xs flex-shrink-0 group touch-none"
+                :class="isKnobDark 
                     ? 'bg-slate-900 border border-slate-700/80 shadow-inner' 
                     : 'bg-slate-200/90 hover:bg-slate-300/80 border border-slate-300/80 shadow-inner'"
             >
                 <!-- Track Ambient Icons -->
                 <span class="absolute inset-0 flex items-center justify-between px-1.5 pointer-events-none select-none">
-                    <svg class="w-3.5 h-3.5 transition-opacity duration-300" :class="isDarkMode ? 'opacity-40 text-amber-400' : 'opacity-0'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-3.5 h-3.5 transition-opacity duration-300" :class="isKnobDark ? 'opacity-40 text-amber-400' : 'opacity-0'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                     </svg>
-                    <svg class="w-3.5 h-3.5 transition-opacity duration-300" :class="isDarkMode ? 'opacity-0' : 'opacity-40 text-slate-500'" fill="currentColor" viewBox="0 0 20 20">
+                    <svg class="w-3.5 h-3.5 transition-opacity duration-300" :class="isKnobDark ? 'opacity-0' : 'opacity-40 text-slate-500'" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
                     </svg>
                 </span>
 
                 <!-- Sliding Thumb / Knob -->
                 <span 
-                    class="theme-toggle-knob relative w-6 h-6 rounded-full flex items-center justify-center transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-md pointer-events-none"
-                    :class="isDarkMode 
-                        ? 'is-dark translate-x-[26px] bg-gradient-to-tr from-blue-600 to-indigo-600 text-amber-300 border border-blue-400/30' 
-                        : 'translate-x-0.5 bg-white text-amber-500 border border-slate-200/80'"
-                    :style="{ transform: isDarkMode ? 'translateX(26px)' : 'translateX(2px)' }"
+                    class="theme-toggle-knob relative w-6 h-6 rounded-full flex items-center justify-center shadow-md pointer-events-none"
+                    :class="[
+                        isDragging ? 'is-dragging' : '',
+                        isKnobDark 
+                            ? 'is-dark bg-gradient-to-tr from-blue-600 to-indigo-600 text-amber-300 border border-blue-400/30' 
+                            : 'bg-white text-amber-500 border border-slate-200/80'
+                    ]"
+                    :style="knobStyle"
                 >
-                    <svg v-if="!isDarkMode" class="w-3.5 h-3.5 transition-transform duration-300 group-hover:rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg v-if="!isKnobDark" class="w-3.5 h-3.5 transition-transform duration-300 group-hover:rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                     </svg>
                     <svg v-else class="w-3.5 h-3.5 transition-transform duration-300 group-hover:-rotate-12" fill="currentColor" viewBox="0 0 20 20">
@@ -165,7 +169,7 @@
         },
         emits: ['toggle-notifications', 'mark-all-read', 'notification-click', 'toggle-dark-mode'],
         setup(props, { emit }) {
-            const isDarkMode = Vue.computed(() => {
+            const isDarkMode = computed(() => {
                 if (window.appStore && typeof window.appStore.isDarkMode === 'boolean') {
                     return window.appStore.isDarkMode;
                 }
@@ -174,10 +178,30 @@
                     : (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
             });
 
-            let pointerDownX = null;
-            let isSwiping = false;
-            let swipedDirection = null;
+            const isDragging = ref(false);
+            const dragX = ref(null);
+            let dragStartX = 2;
+            let dragPointerX = null;
             let justSwiped = false;
+
+            const isKnobDark = computed(() => {
+                if (isDragging.value && dragX.value !== null) {
+                    return dragX.value > 14;
+                }
+                return isDarkMode.value;
+            });
+
+            const currentKnobX = computed(() => {
+                if (isDragging.value && dragX.value !== null) {
+                    return dragX.value;
+                }
+                return isDarkMode.value ? 26 : 2;
+            });
+
+            const knobStyle = computed(() => ({
+                transform: `translateX(${currentKnobX.value}px)`,
+                transition: isDragging.value ? 'none' : 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+            }));
 
             const handleToggle = (targetMode) => {
                 const currentIsDark = window.appStore?.isDarkMode ?? isDarkMode.value;
@@ -200,9 +224,10 @@
 
             const onPointerDown = (e) => {
                 if (e.pointerType === 'mouse' && e.button !== 0) return;
-                pointerDownX = e.clientX;
-                isSwiping = false;
-                swipedDirection = null;
+                dragPointerX = e.clientX;
+                dragStartX = isDarkMode.value ? 26 : 2;
+                isDragging.value = false;
+                dragX.value = dragStartX;
                 justSwiped = false;
                 try {
                     e.currentTarget.setPointerCapture(e.pointerId);
@@ -210,38 +235,44 @@
             };
 
             const onPointerMove = (e) => {
-                if (pointerDownX === null) return;
-                const dx = e.clientX - pointerDownX;
-                if (Math.abs(dx) >= 10) {
-                    isSwiping = true;
-                    swipedDirection = dx > 0 ? 'right' : 'left';
+                if (dragPointerX === null) return;
+                const dx = e.clientX - dragPointerX;
+                if (Math.abs(dx) >= 3) {
+                    isDragging.value = true;
+                    const targetX = dragStartX + dx;
+                    dragX.value = Math.max(2, Math.min(26, targetX));
                 }
             };
 
             const onPointerUp = (e) => {
-                if (pointerDownX === null) return;
+                if (dragPointerX === null) return;
                 try {
                     e.currentTarget.releasePointerCapture(e.pointerId);
                 } catch (_) {}
 
-                if (isSwiping && swipedDirection) {
-                    // Swiped/dragged horizontally ("gạt")
-                    if (swipedDirection === 'right') {
-                        handleToggle(true);
-                    } else if (swipedDirection === 'left') {
-                        handleToggle(false);
+                const dx = e.clientX - dragPointerX;
+                const wasDrag = isDragging.value;
+
+                if (wasDrag) {
+                    let targetMode;
+                    if (Math.abs(dx) >= 8) {
+                        targetMode = dx > 0;
+                    } else {
+                        targetMode = (dragX.value ?? (isDarkMode.value ? 26 : 2)) > 14;
                     }
+                    handleToggle(targetMode);
                     justSwiped = true;
                 }
-                pointerDownX = null;
-                isSwiping = false;
-                swipedDirection = null;
+
+                dragPointerX = null;
+                isDragging.value = false;
+                dragX.value = null;
             };
 
             const onPointerCancel = () => {
-                pointerDownX = null;
-                isSwiping = false;
-                swipedDirection = null;
+                dragPointerX = null;
+                isDragging.value = false;
+                dragX.value = null;
             };
 
             const onClick = () => {
@@ -261,6 +292,9 @@
 
             return {
                 isDarkMode,
+                isKnobDark,
+                isDragging,
+                knobStyle,
                 onPointerDown,
                 onPointerMove,
                 onPointerUp,
