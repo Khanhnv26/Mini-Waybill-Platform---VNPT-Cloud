@@ -15,6 +15,15 @@
     width: 100%;
 }
 
+html.dark .auth-custom-bg {
+    background-color: #060b19 !important;
+    background-image: url('/images/login-dark-bg.jpg') !important;
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+    background-attachment: fixed !important;
+}
+
 @keyframes floatSlow1 {
     0%, 100% {
         transform: translate(0px, 0px) scale(1);

@@ -28,11 +28,20 @@ html.dark,
 html.dark body,
 html.dark main,
 html.dark #app,
-html.dark .min-h-screen,
+html.dark .min-h-screen:not(.auth-custom-bg),
 html.dark .h-screen {
     background-color: #0b1329 !important;
     background-image: none !important;
     color: #e2e8f0 !important;
+}
+
+html.dark .auth-custom-bg {
+    background-color: #060b19 !important;
+    background-image: url('/images/login-dark-bg.jpg') !important;
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+    background-attachment: fixed !important;
 }
 
 html.dark .bg-\[\#f8fafc\],
@@ -215,6 +224,7 @@ html.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
 
 /* 8. Form Controls: Inputs, Selects, Textareas */
 html.dark input[type="text"],
+html.dark input[type="email"],
 html.dark input[type="number"],
 html.dark input[type="password"],
 html.dark input[type="search"],
