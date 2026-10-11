@@ -296,15 +296,24 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 
 /* 13. Sun/Moon Toggle Button Animation */
 .theme-toggle-btn {
-    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: none !important;
 }
 
 .theme-toggle-btn:hover {
-    transform: rotate(20deg) scale(1.08);
+    transform: none !important;
 }
 
 .theme-toggle-btn:active {
-    transform: rotate(45deg) scale(0.95);
+    transform: scale(0.94) !important;
+}
+
+.theme-toggle-btn svg {
+    transition: transform 0.3s ease;
+}
+
+.theme-toggle-btn:hover svg {
+    transform: rotate(20deg);
 }
 
 /* 14. CRITICAL EXCEPTION: Thermal Label & Printing Isolation */

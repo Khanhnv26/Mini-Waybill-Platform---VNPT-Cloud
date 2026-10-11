@@ -26,7 +26,7 @@
                 type="button"
                 @click="$emit('toggle-dark-mode')"
                 :title="isDarkMode ? 'Chuyển sang giao diện Sáng' : 'Chuyển sang chế độ Đêm (Night Mode)'"
-                class="theme-toggle-btn p-2 rounded-xl border transition-all duration-200 cursor-pointer select-none focus:outline-none flex items-center justify-center flex-shrink-0"
+                class="theme-toggle-btn w-9 h-9 rounded-xl border transition-all duration-200 cursor-pointer select-none focus:outline-none flex items-center justify-center flex-shrink-0"
                 :class="isDarkMode 
                     ? 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700/80 text-amber-400 hover:text-amber-300 hover:border-amber-400/40 shadow-sm' 
                     : 'bg-slate-100/90 hover:bg-slate-200 border-slate-200 text-slate-700 hover:text-blue-600 shadow-xs'"
