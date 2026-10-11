@@ -21,7 +21,7 @@
                 :show-notification-dropdown="showNotificationDropdown"
                 :notifications="notifications"
                 :unread-notifications-count="unreadNotificationsCount"
-                @toggle-dark-mode="$emit('toggle-dark-mode')"
+                @toggle-dark-mode="(mode, origin) => $emit('toggle-dark-mode', mode, origin)"
                 @toggle-notifications="$emit('toggle-notifications', $event)"
                 @mark-all-read="$emit('mark-all-read')"
                 @notification-click="$emit('notification-click', $event)"

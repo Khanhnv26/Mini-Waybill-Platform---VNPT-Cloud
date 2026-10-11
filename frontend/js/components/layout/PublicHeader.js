@@ -260,15 +260,21 @@
                 const wasDrag = isDragging.value;
 
                 if (wasDrag) {
+                    const finalX = dragX.value ?? (isDarkMode.value ? 26 : 2);
                     let targetMode;
-                    if (Math.abs(dx) >= 8) {
-                        targetMode = dx > 0;
+                    if (dx >= 8) {
+                        targetMode = true;
+                    } else if (dx <= -8) {
+                        targetMode = false;
                     } else {
-                        targetMode = (dragX.value ?? (isDarkMode.value ? 26 : 2)) > 14;
+                        targetMode = finalX > 14;
                     }
                     const origin = { x: e.clientX, y: e.clientY };
                     handleToggle(targetMode, origin);
                     justSwiped = true;
+                    setTimeout(() => {
+                        justSwiped = false;
+                    }, 300);
                 }
 
                 dragPointerX = null;
@@ -280,6 +286,7 @@
                 dragPointerX = null;
                 isDragging.value = false;
                 dragX.value = null;
+                justSwiped = false;
             };
 
             const onClick = (e) => {
