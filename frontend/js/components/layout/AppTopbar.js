@@ -1,5 +1,5 @@
 (function () {
-    const { ref, computed, onBeforeUnmount } = Vue;
+    const { ref, computed, watch, onBeforeUnmount } = Vue;
     const template = `
     <header class="h-16 bg-white dark:bg-[#0f1a38] border-b border-slate-200 dark:border-slate-800 pl-8 pr-6 flex items-center justify-between flex-shrink-0 relative z-20 transition-colors duration-200">
         <div class="flex items-center space-x-2 text-xs min-w-0 mr-3">
@@ -195,18 +195,44 @@
         },
         emits: ['toggle-notifications', 'mark-all-read', 'notification-click', 'toggle-dark-mode'],
         setup(props, { emit }) {
-            const isDarkMode = computed(() => {
+            // Reactive local theme state
+            const detectInitialDark = () => {
+                if (typeof document !== 'undefined' && document.documentElement.classList.contains('dark')) {
+                    return true;
+                }
+                if (typeof props.isDarkMode === 'boolean') {
+                    return props.isDarkMode;
+                }
                 if (window.appStore && typeof window.appStore.isDarkMode === 'boolean') {
                     return window.appStore.isDarkMode;
                 }
-                return typeof props.isDarkMode === 'boolean'
-                    ? props.isDarkMode
-                    : (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
-            });
+                return false;
+            };
+
+            const isDarkMode = ref(detectInitialDark());
+
+            const onThemeChanged = (e) => {
+                if (e && e.detail && typeof e.detail.isDark === 'boolean') {
+                    isDarkMode.value = e.detail.isDark;
+                } else if (typeof document !== 'undefined') {
+                    isDarkMode.value = document.documentElement.classList.contains('dark');
+                }
+            };
+            if (typeof window !== 'undefined') {
+                window.addEventListener('theme-changed', onThemeChanged);
+            }
+
+            if (typeof watch === 'function') {
+                watch(() => props.isDarkMode, (newVal) => {
+                    if (typeof newVal === 'boolean') {
+                        isDarkMode.value = newVal;
+                    }
+                });
+            }
 
             const isDragging = ref(false);
             const dragX = ref(null);
-            let dragStartX = 2;
+            let dragStartX = isDarkMode.value ? 26 : 2;
             let dragPointerX = null;
             let justSwiped = false;
             let cleanupDrag = null;
@@ -231,13 +257,13 @@
             }));
 
             const handleToggle = (targetMode, origin) => {
-                const currentIsDark = window.appStore?.isDarkMode ?? isDarkMode.value;
                 const nextMode = typeof targetMode === 'boolean'
                     ? targetMode
-                    : !currentIsDark;
-                if (currentIsDark === nextMode) {
+                    : !isDarkMode.value;
+                if (isDarkMode.value === nextMode && document.documentElement.classList.contains('dark') === nextMode) {
                     return;
                 }
+                isDarkMode.value = nextMode;
                 if (window.appStore?.setDarkMode) {
                     window.appStore.setDarkMode(nextMode, origin);
                 } else if (typeof document !== 'undefined') {
@@ -248,12 +274,16 @@
                         document.documentElement.classList.remove('dark');
                         localStorage.setItem('theme', 'light');
                     }
+                    window.dispatchEvent(new CustomEvent('theme-changed', {
+                        detail: { isDark: nextMode }
+                    }));
                 }
                 emit('toggle-dark-mode', nextMode, origin);
             };
 
             const onPointerDown = (e) => {
                 if (e.pointerType === 'mouse' && e.button !== 0) return;
+                try { e.preventDefault(); } catch (_) {}
                 if (cleanupDrag) {
                     cleanupDrag();
                 }
@@ -280,15 +310,27 @@
                     if (dragPointerX === null) return;
                     const clientX = (typeof finalClientX === 'number' && finalClientX > 0) ? finalClientX : lastPointerX;
                     const dx = clientX - dragPointerX;
-                    const wasDrag = isDragging.value || Math.abs(dx) >= 4;
+                    const wasDrag = isDragging.value || Math.abs(dx) >= 3;
 
                     if (wasDrag) {
                         const finalX = dragX.value ?? (isDarkMode.value ? 26 : 2);
-                        let targetMode = isDarkMode.value;
-                        if (dx >= 4 || finalX > 14) {
-                            targetMode = true; // Dragged or swiped right -> Dark mode
-                        } else if (dx <= -4 || finalX <= 14) {
-                            targetMode = false; // Dragged or swiped left -> Light mode
+                        const startDark = isDarkMode.value;
+                        let targetMode = startDark;
+
+                        if (startDark) {
+                            // Currently Dark: dragging left switches to Light
+                            if (dx <= -4 || finalX < 14) {
+                                targetMode = false;
+                            } else {
+                                targetMode = true;
+                            }
+                        } else {
+                            // Currently Light: dragging right switches to Dark
+                            if (dx >= 4 || finalX > 14) {
+                                targetMode = true;
+                            } else {
+                                targetMode = false;
+                            }
                         }
 
                         const origin = { 
@@ -301,15 +343,18 @@
                         isDragging.value = false;
                         justSwiped = true;
 
-                        if (targetMode !== isDarkMode.value) {
+                        // Immediately update local isDarkMode ref so knob NEVER reverts
+                        isDarkMode.value = targetMode;
+
+                        if (targetMode !== startDark) {
                             handleToggle(targetMode, origin);
                         }
                         setTimeout(() => {
                             justSwiped = false;
                             dragX.value = null;
-                        }, 400);
+                        }, 350);
                     } else {
-                        // Not a drag gesture (user just clicked without moving): return to current state
+                        // Not a drag gesture (user tapped statically without moving): return to current state
                         isDragging.value = false;
                         dragX.value = null;
                     }
@@ -369,6 +414,9 @@
             onBeforeUnmount(() => {
                 if (cleanupDrag) {
                     cleanupDrag();
+                }
+                if (typeof window !== 'undefined') {
+                    window.removeEventListener('theme-changed', onThemeChanged);
                 }
             });
 
