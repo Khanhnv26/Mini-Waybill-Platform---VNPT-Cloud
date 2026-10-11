@@ -676,7 +676,15 @@
                     });
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok) {
-                        throw new Error(data.message || data.error || `Xác thực Google thất bại (Mã lỗi ${res.status})!`);
+                        let errMsg = data.message;
+                        if (!errMsg && res.status === 404) {
+                            errMsg = 'Không tìm thấy dịch vụ xác thực (Lỗi 404). Vui lòng kiểm tra API Gateway (:8080) và Auth Service (:8087)!';
+                        } else if (!errMsg && (res.status === 502 || res.status === 503)) {
+                            errMsg = `Không kết nối được Backend Gateway (Lỗi ${res.status}). Vui lòng khởi động các microservice!`;
+                        } else if (!errMsg) {
+                            errMsg = data.error || `Xác thực Google thất bại (Mã lỗi ${res.status})!`;
+                        }
+                        throw new Error(errMsg);
                     }
                     finishLoginSuccess(data);
                 } catch (err) {
@@ -695,13 +703,15 @@
                             auto_select: false
                         });
 
+                        const googleTheme = isDarkMode.value ? 'filled_black' : 'outline';
+
                         const loginContainer = document.getElementById('spaGoogleBtnLogin');
                         if (loginContainer && (force || !loginContainer.hasChildNodes())) {
                             loginContainer.innerHTML = '';
                             google.accounts.id.renderButton(
                                 loginContainer,
                                 {
-                                    theme: 'outline',
+                                    theme: googleTheme,
                                     size: 'large',
                                     text: 'signin_with',
                                     shape: 'pill',
@@ -717,7 +727,7 @@
                             google.accounts.id.renderButton(
                                 registerContainer,
                                 {
-                                    theme: 'outline',
+                                    theme: googleTheme,
                                     size: 'large',
                                     text: 'signup_with',
                                     shape: 'pill',
@@ -792,6 +802,10 @@
                         isDarkMode.value = newVal;
                     }
                 }, { immediate: true });
+
+                watch(isDarkMode, () => {
+                    renderGoogleButton(true);
+                });
             }
 
             const isDragging = ref(false);
