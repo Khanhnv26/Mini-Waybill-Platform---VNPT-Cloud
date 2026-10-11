@@ -545,6 +545,16 @@ html.theme-transitioning *::after {
 .theme-toggle-knob {
     transform: translateX(2px);
     transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    background-color: #ffffff;
+}
+
+.theme-toggle-knob.is-dark {
+    background: linear-gradient(135deg, #2563eb, #4f46e5) !important;
+}
+
+html.dark .theme-toggle-knob:not(.is-dark) {
+    background-color: #ffffff !important;
+    border-color: #fef3c7 !important;
 }
 
 .theme-toggle-knob.is-dragging {
@@ -555,9 +565,9 @@ html.theme-transitioning *::after {
     transition: none !important;
 }
 
-html.dark .theme-toggle-knob:not(.is-dragging),
-.theme-toggle-btn[aria-checked="true"] .theme-toggle-knob:not(.is-dragging),
-.theme-toggle-knob.is-dark:not(.is-dragging) {
+html.dark .theme-toggle-knob:not(.is-dragging):not([style*="translateX"]),
+.theme-toggle-btn[aria-checked="true"] .theme-toggle-knob:not(.is-dragging):not([style*="translateX"]),
+.theme-toggle-knob.is-dark:not(.is-dragging):not([style*="translateX"]) {
     transform: translateX(26px);
 }
 

@@ -54,10 +54,6 @@ export const appStore = {
             return state.isDarkMode;
         }
 
-        if (isThemeTransitioning) {
-            return state.isDarkMode;
-        }
-
         const applyTheme = () => {
             state.isDarkMode = nextState;
             if (typeof window !== 'undefined') {
@@ -73,6 +69,11 @@ export const appStore = {
                 }));
             }
         };
+
+        if (isThemeTransitioning) {
+            applyTheme();
+            return state.isDarkMode;
+        }
 
         // Haptic feedback (subtle vibration on mobile devices)
         if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
