@@ -57,6 +57,21 @@ html.dark footer.bg-white {
     color: #f1f5f9 !important;
 }
 
+html.dark header nav button {
+    color: #cbd5e1 !important;
+}
+
+html.dark header nav button:hover {
+    color: #ffffff !important;
+}
+
+html.dark header .bg-\[\#eff6ff\],
+html.dark [class*="bg-[#eff6ff]"] {
+    background-color: #1e3a8a !important;
+    border: 1px solid rgba(59, 130, 246, 0.4) !important;
+    color: #bfdbfe !important;
+}
+
 /* 4. Page Header Banner (TariffCalculator, Guide, Network, Support, Tracking) */
 html.dark .page-header-banner {
     background: linear-gradient(135deg, #131e3a 0%, #162447 60%, #1c2b57 100%) !important;

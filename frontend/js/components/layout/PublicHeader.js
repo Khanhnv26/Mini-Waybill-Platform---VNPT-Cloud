@@ -30,11 +30,11 @@
                         :class="[
                             'flex items-center space-x-1.5 px-3.5 py-2 rounded-xl transition-colors duration-150 cursor-pointer whitespace-nowrap flex-shrink-0',
                             currentTab === tab.id
-                                ? 'text-blue-700 bg-[#eff6ff] font-bold'
-                                : 'text-slate-600 hover:text-blue-600 hover:bg-slate-50 font-medium'
+                                ? 'text-blue-700 dark:text-blue-200 bg-[#eff6ff] dark:bg-blue-900/60 dark:border dark:border-blue-500/30 font-bold shadow-xs'
+                                : 'text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-800/60 font-medium'
                         ]"
                     >
-                        <svg class="w-4 h-4 flex-shrink-0" :class="currentTab === tab.id ? 'text-blue-600' : 'text-slate-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-4 h-4 flex-shrink-0" :class="currentTab === tab.id ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tab.icon" />
                         </svg>
                         <span class="whitespace-nowrap">{{ tab.name }}</span>
@@ -43,11 +43,11 @@
             </div>
 
             <div class="flex items-center space-x-3 sm:space-x-4 lg:space-x-5 flex-shrink-0">
-                <a href="tel:1900545481" class="hidden xl:flex items-center space-x-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors whitespace-nowrap group">
-                    <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <a href="tel:1900545481" class="hidden xl:flex items-center space-x-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap group">
+                    <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
                     </svg>
-                    <span class="font-semibold text-slate-600 group-hover:text-blue-600">1900 54 54 81</span>
+                    <span class="font-semibold text-slate-600 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">1900 54 54 81</span>
                 </a>
 
                 <!-- Theme Toggle Sun/Moon -->
@@ -55,7 +55,10 @@
                     type="button"
                     @click="$emit('toggle-dark-mode')"
                     :title="isDarkMode ? 'Chuyển sang giao diện Sáng' : 'Chuyển sang chế độ Đêm (Night Mode)'"
-                    class="theme-toggle-btn p-2 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-slate-100 transition cursor-pointer select-none focus:outline-none flex items-center justify-center flex-shrink-0"
+                    class="theme-toggle-btn p-2 rounded-xl border transition-all duration-200 cursor-pointer select-none focus:outline-none flex items-center justify-center flex-shrink-0"
+                    :class="isDarkMode 
+                        ? 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700/80 text-amber-400 hover:text-amber-300 hover:border-amber-400/40 shadow-sm' 
+                        : 'bg-slate-100/90 hover:bg-slate-200 border-slate-200 text-slate-700 hover:text-blue-600 shadow-xs'"
                 >
                     <svg v-if="isDarkMode" class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
@@ -114,9 +117,12 @@
             publicGuestTabs: { type: Array, default: () => [] }
         },
         emits: ['switch-tab', 'guest-tab-click', 'toggle-dark-mode'],
-        setup() {
+        setup(props) {
             const showMobileMenu = ref(false);
-            return { showMobileMenu };
+            const isDarkMode = Vue.computed(() => {
+                return typeof props.isDarkMode === 'boolean' ? props.isDarkMode : (window.appStore?.isDarkMode ?? document.documentElement.classList.contains('dark'));
+            });
+            return { showMobileMenu, isDarkMode };
         }
     };
 
