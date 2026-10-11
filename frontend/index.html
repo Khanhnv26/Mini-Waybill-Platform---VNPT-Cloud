@@ -241,61 +241,7 @@
         <chatbot-widget v-if="!isStaffUser && currentTab !== 'login'"></chatbot-widget>
     </div>
 
-    <script src="js/auth.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/map.js"></script>
-
-    <script src="js/services/routingService.js"></script>
-    <script src="js/services/shipmentService.js"></script>
-    <script src="js/services/trackingService.js"></script>
-    <script src="js/services/customerService.js"></script>
-    <script src="js/services/notificationService.js"></script>
-    <script src="js/services/auditService.js"></script>
-    <script src="js/services/adminService.js"></script>
-    <script src="js/services/reportService.js"></script>
-    <script src="js/services/pricingService.js"></script>
-    <script src="js/services/supportService.js"></script>
-    <script src="js/services/shipperService.js"></script>
-    <script src="js/services/ratingService.js"></script>
-    <script src="js/services/paymentService.js"></script>
-
-    <script src="js/components/layout/AppSidebar.js"></script>
-    <script src="js/components/layout/AppTopbar.js"></script>
-    <script src="js/components/layout/InternalFooter.js"></script>
-    <script src="js/components/layout/PublicHeader.js"></script>
-    <script src="js/components/layout/PublicFooter.js"></script>
-    <script src="js/components/common/ToastContainer.js"></script>
-    <script src="js/components/common/UserProfileModal.js"></script>
-    <script src="js/layouts/InternalLayout.js"></script>
-    <script src="js/layouts/PublicLayout.js"></script>
-    <script src="js/views/tracking/TrackingRecentSearches.js"></script>
-    <script src="js/views/shipment/ShipmentSmartPasteCard.js"></script>
-    <script src="js/views/shipment/ShipmentPrintModal.js"></script>
-    <script src="js/views/trips/TripManifestModal.js"></script>
-
-    <script src="js/views/LoginView.js"></script>
-    <script src="js/views/TrackingView.js"></script>
-    <script src="js/views/ShipmentView.js?v=2.7.1"></script>
-    <script src="js/views/DashboardView.js?v=2.7.2"></script>
-    <script src="js/views/PostOfficeOpsView.js?v=2.7.1"></script>
-    <script src="js/views/TripsView.js?v=2.7.4"></script>
-    <script src="js/views/FleetView.js"></script>
-    <script src="js/views/HubOpsView.js?v=2.7.1"></script>
-    <script src="js/views/ShipperView.js?v=2.7.1"></script>
-    <script src="js/views/ShipperDirectoryView.js"></script>
-    <script src="js/views/CustomerView.js"></script>
-    <script src="js/views/AdminRbacView.js?v=2.7.1"></script>
-    <script src="js/views/ReportView.js?v=2.7.1"></script>
-    <script src="js/views/TariffCalculatorView.js"></script>
-    <script src="js/views/NetworkView.js"></script>
-    <script src="js/views/GuideView.js"></script>
-    <script src="js/views/SupportView.js"></script>
-    <script src="js/views/UnderDevelopmentView.js"></script>
-    <script src="js/views/ErrorView.js?v=2.6.0"></script>
-    <script src="js/views/ProfileView.js?v=2.6.0"></script>
-    <script src="js/components/ChatbotWidget.js?v=2.6.1"></script>
-
-    <script src="js/app.js?v=2.6.0"></script>
+    <!-- Single ES Module Entry Point: Tự động nạp toàn bộ services, layouts, views và store -->
+    <script type="module" src="js/app.js?v=3.0.0"></script>
 </body>
 </html>

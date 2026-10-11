@@ -1,5 +1,83 @@
-(function () {
-    const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
+// ==========================================
+// 1. Core Utilities & Auth
+// ==========================================
+import './auth.js';
+import './utils.js';
+import './api.js';
+import './map.js';
+
+// ==========================================
+// 2. Microservice API Services
+// ==========================================
+import './services/routingService.js';
+import './services/shipmentService.js';
+import './services/trackingService.js';
+import './services/customerService.js';
+import './services/notificationService.js';
+import './services/auditService.js';
+import './services/adminService.js';
+import './services/reportService.js';
+import './services/pricingService.js';
+import './services/supportService.js';
+import './services/shipperService.js';
+import './services/ratingService.js';
+import './services/paymentService.js';
+
+// ==========================================
+// 3. Layout Components
+// ==========================================
+import './components/layout/AppSidebar.js';
+import './components/layout/AppTopbar.js';
+import './components/layout/InternalFooter.js';
+import './components/layout/PublicHeader.js';
+import './components/layout/PublicFooter.js';
+import './components/common/ToastContainer.js';
+import './components/common/UserProfileModal.js';
+import './layouts/InternalLayout.js';
+import './layouts/PublicLayout.js';
+
+// ==========================================
+// 4. Feature Subcomponents
+// ==========================================
+import './views/tracking/TrackingRecentSearches.js';
+import './views/shipment/ShipmentSmartPasteCard.js';
+import './views/shipment/ShipmentPrintModal.js';
+import './views/trips/TripManifestModal.js';
+
+// ==========================================
+// 5. Business Views
+// ==========================================
+import './views/LoginView.js';
+import './views/TrackingView.js';
+import './views/ShipmentView.js';
+import './views/DashboardView.js';
+import './views/PostOfficeOpsView.js';
+import './views/TripsView.js';
+import './views/FleetView.js';
+import './views/HubOpsView.js';
+import './views/ShipperView.js';
+import './views/ShipperDirectoryView.js';
+import './views/CustomerView.js';
+import './views/AdminRbacView.js';
+import './views/ReportView.js';
+import './views/TariffCalculatorView.js';
+import './views/NetworkView.js';
+import './views/GuideView.js';
+import './views/SupportView.js';
+import './views/UnderDevelopmentView.js';
+import './views/ErrorView.js';
+import './views/ProfileView.js';
+import './components/ChatbotWidget.js';
+
+// ==========================================
+// 6. Reactive State Stores
+// ==========================================
+import { authStore, appStore, notificationStore } from './store/index.js';
+window.authStore = authStore;
+window.appStore = appStore;
+window.notificationStore = notificationStore;
+
+const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
 
     const ROUTE_TAB_MAP = {
         '/': 'tracking',
@@ -1365,4 +1443,3 @@
     };
 
     app.mount('#app');
-})();
