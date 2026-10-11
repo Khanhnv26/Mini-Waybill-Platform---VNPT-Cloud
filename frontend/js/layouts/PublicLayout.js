@@ -4,6 +4,8 @@
         <public-header
             :current-tab="currentTab"
             :public-guest-tabs="publicGuestTabs"
+            :is-dark-mode="isDarkMode"
+            @toggle-dark-mode="$emit('toggle-dark-mode')"
             @switch-tab="$emit('switch-tab', $event)"
             @guest-tab-click="$emit('guest-tab-click', $event)"
         ></public-header>
@@ -29,9 +31,10 @@
         template,
         props: {
             currentTab: { type: String, default: 'tracking' },
+            isDarkMode: { type: Boolean, default: false },
             publicGuestTabs: { type: Array, default: () => [] }
         },
-        emits: ['switch-tab', 'guest-tab-click']
+        emits: ['switch-tab', 'guest-tab-click', 'toggle-dark-mode']
     };
 
     window.PublicLayout = PublicLayout;

@@ -7,6 +7,7 @@ module.exports = {
     "./error.html",
     "./js/**/*.{js,html}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       fontFamily: {

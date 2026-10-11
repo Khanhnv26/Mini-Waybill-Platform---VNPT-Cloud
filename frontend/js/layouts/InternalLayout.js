@@ -17,9 +17,11 @@
             <app-topbar
                 :current-tab-title="currentTabTitle"
                 :current-tracking-code="currentTrackingCode"
+                :is-dark-mode="isDarkMode"
                 :show-notification-dropdown="showNotificationDropdown"
                 :notifications="notifications"
                 :unread-notifications-count="unreadNotificationsCount"
+                @toggle-dark-mode="$emit('toggle-dark-mode')"
                 @toggle-notifications="$emit('toggle-notifications', $event)"
                 @mark-all-read="$emit('mark-all-read')"
                 @notification-click="$emit('notification-click', $event)"
@@ -50,6 +52,7 @@
             currentTabTitle: { type: String, default: '' },
             currentTrackingCode: { type: String, default: '' },
             isSidebarCollapsed: { type: Boolean, default: false },
+            isDarkMode: { type: Boolean, default: false },
             navigationTabs: { type: Array, default: () => [] },
             showNotificationDropdown: { type: Boolean, default: false },
             notifications: { type: Array, default: () => [] },
@@ -57,6 +60,7 @@
         },
         emits: [
             'toggle-sidebar',
+            'toggle-dark-mode',
             'switch-tab',
             'logo-click',
             'open-profile',

@@ -183,12 +183,10 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                     }
                 });
             }
-            try {
-                localStorage.removeItem('theme');
-                document.documentElement.classList.remove('dark');
-            } catch (e) {}
-            const isDarkMode = ref(false);
-            const toggleDarkMode = () => {};
+            const isDarkMode = computed(() => appStore.isDarkMode);
+            const toggleDarkMode = () => {
+                appStore.toggleDarkMode();
+            };
 
             const showError = (code = 404, title = '', message = '') => {
                 currentErrorCode.value = code;

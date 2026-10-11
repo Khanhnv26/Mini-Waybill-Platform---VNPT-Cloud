@@ -1,10 +1,16 @@
 import { reactive } from 'vue';
 
+const isInitialDark = typeof window !== 'undefined' && (
+    localStorage.getItem('theme') === 'dark' || 
+    (!localStorage.getItem('theme') && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+);
+
 const state = reactive({
     currentTab: 'tracking',
     previousTab: null,
     currentTrackingCode: '',
     isSidebarCollapsed: typeof window !== 'undefined' ? window.innerWidth < 1024 : false,
+    isDarkMode: isInitialDark,
     toast: {
         show: false,
         title: '',
@@ -29,8 +35,26 @@ export const appStore = {
     get previousTab() { return state.previousTab; },
     get currentTrackingCode() { return state.currentTrackingCode; },
     get isSidebarCollapsed() { return state.isSidebarCollapsed; },
+    get isDarkMode() { return state.isDarkMode; },
     get toast() { return state.toast; },
     get error() { return state.error; },
+
+    toggleDarkMode() {
+        state.isDarkMode = !state.isDarkMode;
+        if (typeof window !== 'undefined') {
+            if (state.isDarkMode) {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            }
+            window.dispatchEvent(new CustomEvent('theme-changed', {
+                detail: { isDark: state.isDarkMode }
+            }));
+        }
+        return state.isDarkMode;
+    },
 
     switchTab(tabId) {
         if (tabId === state.currentTab) return;

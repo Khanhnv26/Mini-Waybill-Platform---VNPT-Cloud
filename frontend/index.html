@@ -22,8 +22,13 @@
     <script>
         (function () {
             try {
-                localStorage.removeItem('theme');
-                document.documentElement.classList.remove('dark');
+                var savedTheme = localStorage.getItem('theme');
+                var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (savedTheme === 'dark' || (!savedTheme && systemDark)) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
             } catch (e) {}
         })();
     </script>
@@ -96,12 +101,14 @@
             :current-tab-title="currentTabTitle"
             :current-tracking-code="currentTrackingCode"
             :is-sidebar-collapsed="isSidebarCollapsed"
+            :is-dark-mode="isDarkMode"
             :navigation-tabs="navigationTabs"
             :public-guest-tabs="publicGuestTabs"
             :show-notification-dropdown="showNotificationDropdown"
             :notifications="notifications"
             :unread-notifications-count="unreadNotificationsCount"
             @toggle-sidebar="toggleSidebarCollapse"
+            @toggle-dark-mode="toggleDarkMode"
             @switch-tab="switchTab"
             @logo-click="handleLogoClick"
             @open-profile="openUserProfileModal"
