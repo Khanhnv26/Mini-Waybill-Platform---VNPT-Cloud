@@ -423,8 +423,8 @@
 
                 <div class="flex flex-col sm:flex-row items-center justify-between bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm gap-3">
                     <div class="flex items-center space-x-3">
-                        <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
-                            VNPT
+                        <div class="w-10 h-10 rounded-xl vnpt-gradient text-white flex items-center justify-center shadow-md shadow-blue-600/25 border border-white/20 flex-shrink-0 select-none">
+                            <span class="text-xs font-black tracking-wider leading-none">VNPT</span>
                         </div>
                         <div>
                             <h4 class="font-bold text-xs text-slate-800">Bạn Cần Dự Toán Cước Phí Hoặc Tìm Bưu Cục?</h4>
