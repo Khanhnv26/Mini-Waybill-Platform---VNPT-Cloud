@@ -186,7 +186,9 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
             const isDarkMode = computed(() => appStore.isDarkMode);
             const toggleDarkMode = (targetMode, origin) => {
                 if (typeof targetMode === 'boolean') {
-                    appStore.setDarkMode(targetMode, origin);
+                    if (appStore.isDarkMode !== targetMode) {
+                        appStore.setDarkMode(targetMode, origin);
+                    }
                 } else {
                     appStore.toggleDarkMode(undefined, origin);
                 }

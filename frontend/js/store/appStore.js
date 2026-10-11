@@ -28,6 +28,8 @@ const state = reactive({
 
 let toastTimer = null;
 
+let isThemeTransitioning = false;
+
 export const appStore = {
     state,
 
@@ -49,6 +51,10 @@ export const appStore = {
                     document.documentElement.classList.remove('dark');
                 }
             }
+            return state.isDarkMode;
+        }
+
+        if (isThemeTransitioning) {
             return state.isDarkMode;
         }
 
@@ -81,6 +87,7 @@ export const appStore = {
         // Circular Ripple View Transitions API (Chrome 111+, Edge 111+, Safari 18+)
         if (typeof document !== 'undefined' && document.startViewTransition && !isReducedMotion) {
             try {
+                isThemeTransitioning = true;
                 const x = (origin && typeof origin.x === 'number') ? origin.x : (window.innerWidth - 60);
                 const y = (origin && typeof origin.y === 'number') ? origin.y : 32;
                 const endRadius = Math.hypot(
@@ -91,6 +98,14 @@ export const appStore = {
                 const transition = document.startViewTransition(() => {
                     applyTheme();
                 });
+
+                if (transition.finished && typeof transition.finished.finally === 'function') {
+                    transition.finished.finally(() => {
+                        isThemeTransitioning = false;
+                    });
+                } else {
+                    setTimeout(() => { isThemeTransitioning = false; }, 450);
+                }
 
                 transition.ready.then(() => {
                     document.documentElement.animate(
@@ -106,10 +121,13 @@ export const appStore = {
                             pseudoElement: '::view-transition-new(root)'
                         }
                     );
-                }).catch(() => {});
+                }).catch(() => {
+                    isThemeTransitioning = false;
+                });
 
                 return nextState;
             } catch (_) {
+                isThemeTransitioning = false;
                 applyTheme();
                 return nextState;
             }
@@ -117,10 +135,12 @@ export const appStore = {
 
         // Fallback for browsers without View Transitions: Smooth CSS Cross-fade
         if (typeof document !== 'undefined' && !isReducedMotion) {
+            isThemeTransitioning = true;
             document.documentElement.classList.add('theme-transitioning');
             applyTheme();
             setTimeout(() => {
                 document.documentElement.classList.remove('theme-transitioning');
+                isThemeTransitioning = false;
             }, 350);
         } else {
             applyTheme();

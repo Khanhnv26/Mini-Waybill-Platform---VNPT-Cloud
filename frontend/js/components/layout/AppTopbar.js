@@ -212,14 +212,14 @@
             let cleanupDrag = null;
 
             const isKnobDark = computed(() => {
-                if (isDragging.value && dragX.value !== null) {
+                if (dragX.value !== null) {
                     return dragX.value > 14;
                 }
                 return isDarkMode.value;
             });
 
             const currentKnobX = computed(() => {
-                if (isDragging.value && dragX.value !== null) {
+                if (dragX.value !== null) {
                     return dragX.value;
                 }
                 return isDarkMode.value ? 26 : 2;
@@ -235,6 +235,9 @@
                 const nextMode = typeof targetMode === 'boolean'
                     ? targetMode
                     : !currentIsDark;
+                if (currentIsDark === nextMode) {
+                    return;
+                }
                 if (window.appStore?.setDarkMode) {
                     window.appStore.setDarkMode(nextMode, origin);
                 } else if (typeof document !== 'undefined') {
@@ -284,29 +287,37 @@
                     if (dragPointerX === null) return;
 
                     const dx = ev.clientX - dragPointerX;
-                    const wasDrag = isDragging.value || Math.abs(dx) >= 6;
+                    const wasDrag = isDragging.value || Math.abs(dx) >= 4;
 
                     if (wasDrag) {
                         const finalX = dragX.value ?? (isDarkMode.value ? 26 : 2);
                         let targetMode;
-                        if (dx >= 6) {
-                            targetMode = true; // Dragged right -> Dark
-                        } else if (dx <= -6) {
-                            targetMode = false; // Dragged left -> Light
+                        if (dx >= 10) {
+                            targetMode = true; // Dragged / flicked right -> Dark
+                        } else if (dx <= -10) {
+                            targetMode = false; // Dragged / flicked left -> Light
                         } else {
                             targetMode = finalX > 14;
                         }
                         const origin = { x: ev.clientX, y: ev.clientY };
+
+                        // Lock knob position to target mode immediately
+                        const targetKnobX = targetMode ? 26 : 2;
+                        dragX.value = targetKnobX;
+                        isDragging.value = false;
+
                         handleToggle(targetMode, origin);
                         justSwiped = true;
                         setTimeout(() => {
                             justSwiped = false;
-                        }, 350);
+                            dragX.value = null;
+                        }, 400);
+                    } else {
+                        isDragging.value = false;
+                        dragX.value = null;
                     }
 
                     dragPointerX = null;
-                    isDragging.value = false;
-                    dragX.value = null;
                 };
 
                 const onCancel = () => {
