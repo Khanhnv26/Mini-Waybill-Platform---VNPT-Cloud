@@ -23,11 +23,27 @@ html.dark {
     color-scheme: dark;
 }
 
-/* 2. Base Page Background & Text */
+/* 2. Base Page Canvas & Root Backgrounds */
 html.dark,
-html.dark body {
+html.dark body,
+html.dark main,
+html.dark #app,
+html.dark .min-h-screen,
+html.dark .h-screen {
     background-color: #0b1329 !important;
+    background-image: none !important;
     color: #e2e8f0 !important;
+}
+
+html.dark .bg-\[\#f8fafc\],
+html.dark [class*="bg-[#f8fafc]"] {
+    background-color: #0b1329 !important;
+}
+
+html.dark main.bg-gradient-to-b,
+html.dark .bg-gradient-to-b {
+    background-image: none !important;
+    background-color: #0b1329 !important;
 }
 
 /* 3. Layout: Topbar, Sidebar, Header, Footer */
@@ -41,7 +57,24 @@ html.dark footer.bg-white {
     color: #f1f5f9 !important;
 }
 
-/* 4. Cards, Panels, Modals & Dropdowns */
+/* 4. Page Header Banner (TariffCalculator, Guide, Network, Support, Tracking) */
+html.dark .page-header-banner {
+    background: linear-gradient(135deg, #131e3a 0%, #162447 60%, #1c2b57 100%) !important;
+    border: 1px solid #23345e !important;
+    color: #f8fafc !important;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4) !important;
+}
+
+html.dark .page-header-banner h1,
+html.dark .page-header-banner h2 {
+    color: #f8fafc !important;
+}
+
+html.dark .page-header-banner p {
+    color: #94a3b8 !important;
+}
+
+/* 5. Cards, Panels, Modals & Dropdowns */
 html.dark .bg-white:not(.keep-white):not([data-keep-white]) {
     background-color: #131e3a !important;
     color: #e2e8f0 !important;
@@ -50,24 +83,29 @@ html.dark .bg-white:not(.keep-white):not([data-keep-white]) {
 
 html.dark .bg-slate-50,
 html.dark .bg-slate-50\/80,
-html.dark .bg-slate-100 {
+html.dark .bg-slate-100,
+html.dark .bg-slate-100\/80 {
     background-color: #19264c !important;
     border-color: #263866 !important;
     color: #cbd5e1 !important;
 }
 
 html.dark .bg-blue-50,
-html.dark .bg-blue-50\/80 {
+html.dark .bg-blue-50\/80,
+html.dark .bg-blue-50\/70,
+html.dark .bg-blue-50\/90 {
     background-color: #132752 !important;
     border-color: #1d3e80 !important;
 }
 
-html.dark .bg-emerald-50 {
+html.dark .bg-emerald-50,
+html.dark .bg-emerald-50\/70 {
     background-color: #0b2f29 !important;
     border-color: #114c40 !important;
 }
 
-html.dark .bg-amber-50 {
+html.dark .bg-amber-50,
+html.dark .bg-orange-50 {
     background-color: #38280b !important;
     border-color: #5c4112 !important;
 }
@@ -77,7 +115,21 @@ html.dark .bg-rose-50 {
     border-color: #591b2c !important;
 }
 
-/* 5. Typography */
+/* Light gradient cards flattened to tech dark navy */
+html.dark .from-blue-50\/80,
+html.dark .from-blue-50\/70,
+html.dark .from-blue-50\/90,
+html.dark .from-blue-50,
+html.dark .from-emerald-50,
+html.dark .from-rose-50,
+html.dark .from-amber-50,
+html.dark .from-orange-50 {
+    background-image: none !important;
+    background-color: #131e3a !important;
+    border-color: #23345e !important;
+}
+
+/* 6. High Contrast Typography on Dark Surfaces */
 html.dark .text-slate-900,
 html.dark .text-slate-800 {
     color: #f8fafc !important;
@@ -93,12 +145,52 @@ html.dark .text-slate-400 {
     color: #94a3b8 !important;
 }
 
-/* 6. Borders & Dividers */
+html.dark .text-blue-600,
+html.dark .text-blue-700,
+html.dark .text-blue-800,
+html.dark .text-blue-900 {
+    color: #93c5fd !important;
+}
+
+html.dark .text-indigo-600,
+html.dark .text-indigo-700,
+html.dark .text-indigo-800 {
+    color: #a5b4fc !important;
+}
+
+html.dark .text-emerald-600,
+html.dark .text-emerald-700,
+html.dark .text-emerald-800 {
+    color: #6ee7b7 !important;
+}
+
+html.dark .text-rose-600,
+html.dark .text-rose-700,
+html.dark .text-rose-800 {
+    color: #fda4af !important;
+}
+
+html.dark .text-amber-500,
+html.dark .text-amber-600,
+html.dark .text-amber-700 {
+    color: #fcd34d !important;
+}
+
+/* 7. Borders, Rings & Dividers */
 html.dark .border-slate-100,
 html.dark .border-slate-200,
 html.dark .border-slate-200\/80,
-html.dark .border-slate-300 {
+html.dark .border-slate-200\/90,
+html.dark .border-slate-300,
+html.dark .border-blue-100,
+html.dark .border-blue-200,
+html.dark .border-blue-200\/80,
+html.dark .border-blue-200\/90 {
     border-color: #23345e !important;
+}
+
+html.dark .ring-blue-100 {
+    --tw-ring-color: #1e3a8a !important;
 }
 
 html.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
@@ -106,7 +198,7 @@ html.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
     border-color: #23345e !important;
 }
 
-/* 7. Form Controls: Inputs, Selects, Textareas */
+/* 8. Form Controls: Inputs, Selects, Textareas */
 html.dark input[type="text"],
 html.dark input[type="number"],
 html.dark input[type="password"],
@@ -130,7 +222,7 @@ html.dark select option {
     color: #f8fafc !important;
 }
 
-/* 8. Tables & Data Grids */
+/* 9. Tables & Data Grids */
 html.dark table thead th {
     background-color: #162447 !important;
     color: #cbd5e1 !important;
@@ -146,7 +238,7 @@ html.dark table tbody tr:hover {
     background-color: #19274e !important;
 }
 
-/* 9. Interactive Buttons & Hover states */
+/* 10. Interactive Buttons & Hover states */
 html.dark .hover\:bg-slate-50:hover,
 html.dark .hover\:bg-slate-100:hover {
     background-color: #1e2c56 !important;
@@ -156,7 +248,7 @@ html.dark .hover\:bg-slate-200:hover {
     background-color: #26386b !important;
 }
 
-/* 10. Leaflet Map Night Vision (Tech Navy Filter) */
+/* 11. Leaflet Map Night Vision (Tech Navy Filter) */
 html.dark .leaflet-tile-pane {
     filter: brightness(0.65) invert(1) contrast(3) hue-rotate(200deg) saturate(0.35) !important;
 }
@@ -173,7 +265,7 @@ html.dark .leaflet-popup-tip {
     border: 1px solid #23345e !important;
 }
 
-/* 11. Scrollbar Night Styling */
+/* 12. Scrollbar Night Styling */
 html.dark ::-webkit-scrollbar-track {
     background: #0b1329;
 }
@@ -187,7 +279,7 @@ html.dark ::-webkit-scrollbar-thumb:hover {
     background: #324a85;
 }
 
-/* 12. Sun/Moon Toggle Button Animation */
+/* 13. Sun/Moon Toggle Button Animation */
 .theme-toggle-btn {
     transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s ease;
 }
@@ -200,7 +292,7 @@ html.dark ::-webkit-scrollbar-thumb:hover {
     transform: rotate(45deg) scale(0.95);
 }
 
-/* 13. CRITICAL EXCEPTION: Thermal Label & Printing Isolation */
+/* 14. CRITICAL EXCEPTION: Thermal Label & Printing Isolation */
 /* Tem A6 (100x150mm) và Bảng kê chuyến xe luôn giữ nền trắng giấy in mực đen */
 html.dark .keep-white,
 html.dark [data-keep-white],
