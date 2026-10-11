@@ -341,22 +341,24 @@
                                 @click="focusOffice(item.code)"
                                 :class="[
                                     'bg-white border p-3 rounded-xl shadow-2xs transition hover:shadow-md cursor-pointer space-y-1.5',
-                                    activeOfficeCode === item.code ? 'border-blue-500 ring-2 ring-blue-100 bg-blue-50/20' : 'border-slate-200 hover:border-blue-300'
+                                    activeOfficeCode === item.code ? 'border-blue-500 ring-2 ring-blue-100 dark:ring-blue-900/50 bg-blue-50/20 dark:bg-blue-900/30' : 'border-slate-200 hover:border-blue-300'
                                 ]"
                             >
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center space-x-1.5">
                                         <span 
                                             :class="[
-                                                'px-1.5 py-0.5 rounded text-[9.5px] font-bold uppercase',
-                                                item.type === 'SUPER_HUB' ? 'bg-blue-100 text-blue-800' : 'bg-teal-50 text-teal-700 border border-teal-200/60'
+                                                'px-1.5 py-0.5 rounded text-[9.5px] font-bold uppercase transition-colors',
+                                                item.type === 'SUPER_HUB' 
+                                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 dark:border dark:border-blue-500/30' 
+                                                    : 'bg-teal-50 text-teal-700 border border-teal-200/60 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-500/30'
                                             ]"
                                         >
                                             {{ item.type === 'SUPER_HUB' ? 'KHO TỔNG' : 'BƯU CỤC' }}
                                         </span>
                                         <span class="font-mono text-[11px] font-bold text-slate-500">{{ item.code }}</span>
                                     </div>
-                                    <span class="text-[9.5px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                    <span class="text-[9.5px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-500/30 px-2 py-0.5 rounded-full border border-emerald-200">
                                         {{ item.hours }}
                                     </span>
                                 </div>
@@ -373,7 +375,7 @@
                                     <button 
                                         type="button"
                                         @click.stop="focusOffice(item.code)"
-                                        class="px-2 py-0.5 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 font-bold rounded-md text-[10.5px] transition cursor-pointer"
+                                        class="px-2 py-0.5 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-600 dark:hover:text-white font-bold rounded-md text-[10.5px] transition cursor-pointer"
                                     >
                                         Định vị
                                     </button>

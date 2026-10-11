@@ -139,6 +139,72 @@ html.dark .bg-rose-50 {
     border-color: #591b2c !important;
 }
 
+/* Status Badges, Pills & Highlight Tags */
+html.dark .bg-blue-100,
+html.dark .bg-blue-100\/80,
+html.dark .bg-blue-200 {
+    background-color: #172a5a !important;
+    border-color: #2b4c9e !important;
+    color: #93c5fd !important;
+}
+
+html.dark .bg-emerald-100,
+html.dark .bg-emerald-200,
+html.dark .bg-green-100,
+html.dark .bg-green-200 {
+    background-color: #0b3d32 !important;
+    border-color: #156956 !important;
+    color: #6ee7b7 !important;
+}
+
+html.dark .bg-teal-50,
+html.dark .bg-teal-100,
+html.dark .bg-teal-200,
+html.dark .bg-cyan-50,
+html.dark .bg-cyan-100,
+html.dark .bg-cyan-200 {
+    background-color: #0b3838 !important;
+    border-color: #125e5e !important;
+    color: #5eead4 !important;
+}
+
+html.dark .bg-amber-100,
+html.dark .bg-amber-200,
+html.dark .bg-yellow-100,
+html.dark .bg-yellow-200,
+html.dark .bg-orange-100,
+html.dark .bg-orange-200 {
+    background-color: #452408 !important;
+    border-color: #783e0c !important;
+    color: #fcd34d !important;
+}
+
+html.dark .bg-rose-100,
+html.dark .bg-rose-200,
+html.dark .bg-red-100,
+html.dark .bg-red-200 {
+    background-color: #4a1322 !important;
+    border-color: #7d2038 !important;
+    color: #fda4af !important;
+}
+
+html.dark .bg-purple-100,
+html.dark .bg-purple-200,
+html.dark .bg-indigo-100,
+html.dark .bg-indigo-200 {
+    background-color: #311854 !important;
+    border-color: #582b94 !important;
+    color: #c4b5fd !important;
+}
+
+html.dark .bg-slate-200,
+html.dark .bg-gray-100,
+html.dark .bg-gray-200 {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+    color: #cbd5e1 !important;
+}
+
 /* Light gradient cards flattened to tech dark navy */
 html.dark .from-blue-50\/80,
 html.dark .from-blue-50\/70,
@@ -190,14 +256,41 @@ html.dark .text-emerald-800 {
 
 html.dark .text-rose-600,
 html.dark .text-rose-700,
-html.dark .text-rose-800 {
+html.dark .text-rose-800,
+html.dark .text-rose-900,
+html.dark .text-red-600,
+html.dark .text-red-700,
+html.dark .text-red-800,
+html.dark .text-red-900 {
     color: #fda4af !important;
 }
 
 html.dark .text-amber-500,
 html.dark .text-amber-600,
-html.dark .text-amber-700 {
+html.dark .text-amber-700,
+html.dark .text-amber-800,
+html.dark .text-amber-900,
+html.dark .text-orange-600,
+html.dark .text-orange-700,
+html.dark .text-orange-800,
+html.dark .text-orange-900 {
     color: #fcd34d !important;
+}
+
+html.dark .text-teal-600,
+html.dark .text-teal-700,
+html.dark .text-teal-800,
+html.dark .text-cyan-600,
+html.dark .text-cyan-700,
+html.dark .text-cyan-800 {
+    color: #5eead4 !important;
+}
+
+html.dark .text-purple-600,
+html.dark .text-purple-700,
+html.dark .text-purple-800,
+html.dark .text-purple-900 {
+    color: #c4b5fd !important;
 }
 
 /* 7. Borders, Rings & Dividers */
@@ -209,7 +302,18 @@ html.dark .border-slate-300,
 html.dark .border-blue-100,
 html.dark .border-blue-200,
 html.dark .border-blue-200\/80,
-html.dark .border-blue-200\/90 {
+html.dark .border-blue-200\/90,
+html.dark .border-teal-200,
+html.dark .border-teal-200\/60,
+html.dark .border-teal-200\/80,
+html.dark .border-emerald-200,
+html.dark .border-emerald-300,
+html.dark .border-amber-200,
+html.dark .border-amber-300,
+html.dark .border-rose-200,
+html.dark .border-rose-300,
+html.dark .border-purple-200,
+html.dark .border-indigo-200 {
     border-color: #23345e !important;
 }
 
