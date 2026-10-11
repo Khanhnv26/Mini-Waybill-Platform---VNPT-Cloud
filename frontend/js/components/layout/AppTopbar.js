@@ -27,6 +27,7 @@
                 role="switch"
                 :aria-checked="isDarkMode"
                 @pointerdown="onPointerDown"
+                @pointermove="onPointerMove"
                 @pointerup="onPointerUp"
                 @pointercancel="onPointerCancel"
                 @click="onClick"
@@ -173,15 +174,16 @@
                     : (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
             });
 
-            let pointerStartX = 0;
-            let pointerStartTime = 0;
-            let isPointerActive = false;
-            let wasHandledByPointer = false;
+            let pointerDownX = null;
+            let isSwiping = false;
+            let swipedDirection = null;
+            let justSwiped = false;
 
             const handleToggle = (targetMode) => {
+                const currentIsDark = window.appStore?.isDarkMode ?? isDarkMode.value;
                 const nextMode = typeof targetMode === 'boolean'
                     ? targetMode
-                    : !isDarkMode.value;
+                    : !currentIsDark;
                 if (window.appStore?.setDarkMode) {
                     window.appStore.setDarkMode(nextMode);
                 } else if (typeof document !== 'undefined') {
@@ -197,38 +199,56 @@
             };
 
             const onPointerDown = (e) => {
-                pointerStartX = e.clientX;
-                pointerStartTime = Date.now();
-                isPointerActive = true;
-                wasHandledByPointer = false;
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                pointerDownX = e.clientX;
+                isSwiping = false;
+                swipedDirection = null;
+                justSwiped = false;
+                try {
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                } catch (_) {}
+            };
+
+            const onPointerMove = (e) => {
+                if (pointerDownX === null) return;
+                const dx = e.clientX - pointerDownX;
+                if (Math.abs(dx) >= 10) {
+                    isSwiping = true;
+                    swipedDirection = dx > 0 ? 'right' : 'left';
+                }
             };
 
             const onPointerUp = (e) => {
-                if (!isPointerActive) return;
-                isPointerActive = false;
-                wasHandledByPointer = true;
-                const deltaX = e.clientX - pointerStartX;
+                if (pointerDownX === null) return;
+                try {
+                    e.currentTarget.releasePointerCapture(e.pointerId);
+                } catch (_) {}
 
-                if (Math.abs(deltaX) > 6) {
+                if (isSwiping && swipedDirection) {
                     // Swiped/dragged horizontally ("gạt")
-                    if (deltaX > 0) {
+                    if (swipedDirection === 'right') {
                         handleToggle(true);
-                    } else {
+                    } else if (swipedDirection === 'left') {
                         handleToggle(false);
                     }
-                } else {
-                    // Click/tap
-                    handleToggle();
+                    justSwiped = true;
                 }
-                setTimeout(() => { wasHandledByPointer = false; }, 120);
+                pointerDownX = null;
+                isSwiping = false;
+                swipedDirection = null;
             };
 
             const onPointerCancel = () => {
-                isPointerActive = false;
+                pointerDownX = null;
+                isSwiping = false;
+                swipedDirection = null;
             };
 
-            const onClick = (e) => {
-                if (wasHandledByPointer) return;
+            const onClick = () => {
+                if (justSwiped) {
+                    justSwiped = false;
+                    return;
+                }
                 handleToggle();
             };
 
@@ -242,6 +262,7 @@
             return {
                 isDarkMode,
                 onPointerDown,
+                onPointerMove,
                 onPointerUp,
                 onPointerCancel,
                 onClick,

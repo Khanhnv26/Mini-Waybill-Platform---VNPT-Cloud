@@ -470,7 +470,7 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 html.dark .theme-toggle-knob,
 .theme-toggle-btn[aria-checked="true"] .theme-toggle-knob,
 .theme-toggle-knob.is-dark {
-    transform: translateX(26px) !important;
+    transform: translateX(26px);
 }
 
 /* 14. CRITICAL EXCEPTION: Thermal Label & Printing Isolation */
