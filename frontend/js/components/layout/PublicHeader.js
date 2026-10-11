@@ -60,8 +60,8 @@
                     @pointerdown="onPointerDown"
                     @click="onClick"
                     @keydown="onKeyDown"
-                    :title="isDarkMode ? 'Đang bật chế độ Đêm. Bấm hoặc gạt để chuyển sang chế độ Sáng' : 'Đang bật chế độ Sáng. Bấm hoặc gạt để chuyển sang chế độ Đêm'"
-                    class="theme-toggle-btn relative inline-flex items-center w-[54px] h-7 rounded-full p-0.5 transition-colors duration-300 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-blue-500/40 shadow-inner flex-shrink-0 group touch-none"
+                    :title="isDarkMode ? 'Kéo gạt sang trái để chuyển sang chế độ Sáng' : 'Kéo gạt sang phải để chuyển sang chế độ Đêm'"
+                    class="theme-toggle-btn relative inline-flex items-center w-[54px] h-7 rounded-full p-0.5 transition-colors duration-300 cursor-grab active:cursor-grabbing select-none focus:outline-none focus:ring-2 focus:ring-blue-500/40 shadow-inner flex-shrink-0 group touch-none"
                     :class="isKnobDark 
                         ? 'bg-slate-900 border border-slate-700/80' 
                         : 'bg-slate-200/90 hover:bg-slate-300/80 border border-slate-300/80'"
@@ -263,17 +263,17 @@
                     if (dragPointerX === null) return;
                     const clientX = typeof finalClientX === 'number' ? finalClientX : dragPointerX;
                     const dx = clientX - dragPointerX;
-                    const wasDrag = isDragging.value || Math.abs(dx) >= 4;
+                    const wasDrag = isDragging.value || Math.abs(dx) >= 6;
 
                     if (wasDrag) {
                         const finalX = dragX.value ?? (isDarkMode.value ? 26 : 2);
                         let targetMode;
-                        if (dx >= 8) {
-                            targetMode = true; // Dragged right -> Dark
-                        } else if (dx <= -8) {
-                            targetMode = false; // Dragged left -> Light
+                        if (dragStartX === 26) {
+                            // Started at Dark (knob on right): dragged left to switch to Light
+                            targetMode = !(dx <= -6 || finalX <= 14);
                         } else {
-                            targetMode = finalX > 14;
+                            // Started at Light (knob on left): dragged right to switch to Dark
+                            targetMode = (dx >= 6 || finalX > 14);
                         }
                         const origin = { 
                             x: clientX, 
@@ -285,12 +285,15 @@
                         isDragging.value = false;
                         justSwiped = true;
 
-                        handleToggle(targetMode, origin);
+                        if (targetMode !== isDarkMode.value) {
+                            handleToggle(targetMode, origin);
+                        }
                         setTimeout(() => {
                             justSwiped = false;
                             dragX.value = null;
                         }, 400);
                     } else {
+                        // Not a drag gesture (user just clicked/tapped without moving): DO NOT TOGGLE!
                         isDragging.value = false;
                         dragX.value = null;
                     }
@@ -338,25 +341,23 @@
             };
 
             const onClick = (e) => {
-                if (justSwiped) {
-                    justSwiped = false;
-                    return;
+                if (e && typeof e.preventDefault === 'function') {
+                    e.preventDefault();
                 }
-                const origin = (e && typeof e.clientX === 'number') 
-                    ? { x: e.clientX, y: e.clientY } 
-                    : null;
-                handleToggle(undefined, origin);
+                // Drag-only toggle: ignore simple click!
             };
 
             const onKeyDown = (e) => {
-                if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+                if (e.key === 'ArrowLeft') {
                     e.preventDefault();
-                    let origin = null;
-                    if (e.currentTarget && typeof e.currentTarget.getBoundingClientRect === 'function') {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        origin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+                    if (isDarkMode.value) {
+                        handleToggle(false, null);
                     }
-                    handleToggle(undefined, origin);
+                } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    if (!isDarkMode.value) {
+                        handleToggle(true, null);
+                    }
                 }
             };
 

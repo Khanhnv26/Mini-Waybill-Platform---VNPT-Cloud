@@ -476,6 +476,7 @@ html.theme-transitioning *::after {
 .theme-toggle-btn {
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     transform: none !important;
+    cursor: grab !important;
 }
 
 .theme-toggle-btn {
@@ -484,6 +485,11 @@ html.theme-transitioning *::after {
     -webkit-user-select: none;
     user-select: none;
     touch-action: none;
+}
+
+.theme-toggle-btn:active,
+.theme-toggle-btn.is-dragging {
+    cursor: grabbing !important;
 }
 
 .theme-toggle-btn * {
