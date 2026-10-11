@@ -39,7 +39,7 @@ export const appStore = {
     get toast() { return state.toast; },
     get error() { return state.error; },
 
-    setDarkMode(targetMode) {
+    setDarkMode(targetMode, origin) {
         const nextState = typeof targetMode === 'boolean' ? targetMode : !state.isDarkMode;
         if (state.isDarkMode === nextState) {
             if (typeof window !== 'undefined') {
@@ -51,27 +51,89 @@ export const appStore = {
             }
             return state.isDarkMode;
         }
-        state.isDarkMode = nextState;
-        if (typeof window !== 'undefined') {
-            if (state.isDarkMode) {
-                document.documentElement.classList.add('dark');
-                localStorage.setItem('theme', 'dark');
-            } else {
-                document.documentElement.classList.remove('dark');
-                localStorage.setItem('theme', 'light');
+
+        const applyTheme = () => {
+            state.isDarkMode = nextState;
+            if (typeof window !== 'undefined') {
+                if (state.isDarkMode) {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                }
+                window.dispatchEvent(new CustomEvent('theme-changed', {
+                    detail: { isDark: state.isDarkMode }
+                }));
             }
-            window.dispatchEvent(new CustomEvent('theme-changed', {
-                detail: { isDark: state.isDarkMode }
-            }));
+        };
+
+        // Haptic feedback (subtle vibration on mobile devices)
+        if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+            try { navigator.vibrate(20); } catch (_) {}
         }
+
+        // Check for reduced motion preference
+        const isReducedMotion = typeof window !== 'undefined' &&
+            window.matchMedia &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        // Circular Ripple View Transitions API (Chrome 111+, Edge 111+, Safari 18+)
+        if (typeof document !== 'undefined' && document.startViewTransition && !isReducedMotion) {
+            try {
+                const x = (origin && typeof origin.x === 'number') ? origin.x : (window.innerWidth - 60);
+                const y = (origin && typeof origin.y === 'number') ? origin.y : 32;
+                const endRadius = Math.hypot(
+                    Math.max(x, window.innerWidth - x),
+                    Math.max(y, window.innerHeight - y)
+                );
+
+                const transition = document.startViewTransition(() => {
+                    applyTheme();
+                });
+
+                transition.ready.then(() => {
+                    document.documentElement.animate(
+                        {
+                            clipPath: [
+                                `circle(0px at ${x}px ${y}px)`,
+                                `circle(${endRadius}px at ${x}px ${y}px)`
+                            ]
+                        },
+                        {
+                            duration: 400,
+                            easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                            pseudoElement: '::view-transition-new(root)'
+                        }
+                    );
+                }).catch(() => {});
+
+                return nextState;
+            } catch (_) {
+                applyTheme();
+                return nextState;
+            }
+        }
+
+        // Fallback for browsers without View Transitions: Smooth CSS Cross-fade
+        if (typeof document !== 'undefined' && !isReducedMotion) {
+            document.documentElement.classList.add('theme-transitioning');
+            applyTheme();
+            setTimeout(() => {
+                document.documentElement.classList.remove('theme-transitioning');
+            }, 350);
+        } else {
+            applyTheme();
+        }
+
         return state.isDarkMode;
     },
 
-    toggleDarkMode(targetMode) {
+    toggleDarkMode(targetMode, origin) {
         if (typeof targetMode === 'boolean') {
-            return this.setDarkMode(targetMode);
+            return this.setDarkMode(targetMode, origin);
         }
-        return this.setDarkMode(!state.isDarkMode);
+        return this.setDarkMode(!state.isDarkMode, origin);
     },
 
     switchTab(tabId) {

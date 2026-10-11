@@ -184,11 +184,11 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                 });
             }
             const isDarkMode = computed(() => appStore.isDarkMode);
-            const toggleDarkMode = (targetMode) => {
+            const toggleDarkMode = (targetMode, origin) => {
                 if (typeof targetMode === 'boolean') {
-                    appStore.setDarkMode(targetMode);
+                    appStore.setDarkMode(targetMode, origin);
                 } else {
-                    appStore.toggleDarkMode();
+                    appStore.toggleDarkMode(undefined, origin);
                 }
             };
 
