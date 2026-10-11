@@ -26,9 +26,13 @@
                 type="button"
                 role="switch"
                 :aria-checked="isDarkMode"
-                @click="$emit('toggle-dark-mode')"
-                :title="isDarkMode ? 'Đang bật chế độ Đêm. Bấm để chuyển sang chế độ Sáng' : 'Đang bật chế độ Sáng. Bấm để chuyển sang chế độ Đêm'"
-                class="theme-toggle-btn relative inline-flex items-center w-[54px] h-7 rounded-full p-0.5 transition-all duration-300 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-blue-500/40 shadow-2xs flex-shrink-0 group"
+                @pointerdown="onPointerDown"
+                @pointerup="onPointerUp"
+                @pointercancel="onPointerCancel"
+                @click="onClick"
+                @keydown="onKeyDown"
+                :title="isDarkMode ? 'Đang bật chế độ Đêm. Bấm hoặc gạt để chuyển sang chế độ Sáng' : 'Đang bật chế độ Sáng. Bấm hoặc gạt để chuyển sang chế độ Đêm'"
+                class="theme-toggle-btn relative inline-flex items-center w-[54px] h-7 rounded-full p-0.5 transition-all duration-300 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-blue-500/40 shadow-2xs flex-shrink-0 group touch-none"
                 :class="isDarkMode 
                     ? 'bg-slate-900 border border-slate-700/80 shadow-inner' 
                     : 'bg-slate-200/90 hover:bg-slate-300/80 border border-slate-300/80 shadow-inner'"
@@ -45,7 +49,7 @@
 
                 <!-- Sliding Thumb / Knob -->
                 <span 
-                    class="relative w-6 h-6 rounded-full flex items-center justify-center transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-md"
+                    class="relative w-6 h-6 rounded-full flex items-center justify-center transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-md pointer-events-none"
                     :class="isDarkMode 
                         ? 'translate-x-[26px] bg-gradient-to-tr from-blue-600 to-indigo-600 text-amber-300 border border-blue-400/30' 
                         : 'translate-x-0.5 bg-white text-amber-500 border border-slate-200/80'"
@@ -157,7 +161,102 @@
             notifications: { type: Array, default: () => [] },
             unreadNotificationsCount: { type: Number, default: 0 }
         },
-        emits: ['toggle-notifications', 'mark-all-read', 'notification-click', 'toggle-dark-mode']
+        emits: ['toggle-notifications', 'mark-all-read', 'notification-click', 'toggle-dark-mode'],
+        setup(props, { emit }) {
+            const isDarkMode = Vue.computed(() => {
+                if (window.appStore && typeof window.appStore.isDarkMode === 'boolean') {
+                    return window.appStore.isDarkMode;
+                }
+                return typeof props.isDarkMode === 'boolean'
+                    ? props.isDarkMode
+                    : (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
+            });
+
+            let pointerStartX = 0;
+            let pointerStartTime = 0;
+            let isPointerActive = false;
+            let wasHandledByPointer = false;
+
+            const handleToggle = (targetMode) => {
+                let newMode;
+                if (typeof targetMode === 'boolean') {
+                    newMode = targetMode;
+                    if (window.appStore && window.appStore.isDarkMode !== newMode) {
+                        window.appStore.toggleDarkMode();
+                    } else if (typeof document !== 'undefined') {
+                        if (newMode) {
+                            document.documentElement.classList.add('dark');
+                            localStorage.setItem('theme', 'dark');
+                        } else {
+                            document.documentElement.classList.remove('dark');
+                            localStorage.setItem('theme', 'light');
+                        }
+                    }
+                } else {
+                    if (window.appStore?.toggleDarkMode) {
+                        newMode = window.appStore.toggleDarkMode();
+                    } else if (typeof document !== 'undefined') {
+                        const isDarkNow = document.documentElement.classList.toggle('dark');
+                        localStorage.setItem('theme', isDarkNow ? 'dark' : 'light');
+                        newMode = isDarkNow;
+                    }
+                }
+                emit('toggle-dark-mode', newMode);
+            };
+
+            const onPointerDown = (e) => {
+                pointerStartX = e.clientX;
+                pointerStartTime = Date.now();
+                isPointerActive = true;
+                wasHandledByPointer = false;
+            };
+
+            const onPointerUp = (e) => {
+                if (!isPointerActive) return;
+                isPointerActive = false;
+                wasHandledByPointer = true;
+                const deltaX = e.clientX - pointerStartX;
+
+                if (Math.abs(deltaX) > 6) {
+                    // Swiped/dragged horizontally ("gạt")
+                    if (deltaX > 0) {
+                        handleToggle(true);
+                    } else {
+                        handleToggle(false);
+                    }
+                } else {
+                    // Click/tap
+                    handleToggle();
+                }
+                setTimeout(() => { wasHandledByPointer = false; }, 120);
+            };
+
+            const onPointerCancel = () => {
+                isPointerActive = false;
+            };
+
+            const onClick = (e) => {
+                if (wasHandledByPointer) return;
+                handleToggle();
+            };
+
+            const onKeyDown = (e) => {
+                if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+                    e.preventDefault();
+                    handleToggle();
+                }
+            };
+
+            return {
+                isDarkMode,
+                onPointerDown,
+                onPointerUp,
+                onPointerCancel,
+                onClick,
+                onKeyDown,
+                handleToggle
+            };
+        }
     };
 
     window.AppTopbar = AppTopbar;

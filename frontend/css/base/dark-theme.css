@@ -99,10 +99,50 @@ html.dark .page-header-banner p {
 }
 
 /* 5. Cards, Panels, Modals & Dropdowns */
+html.dark .b2b-card,
+html.dark [class*="b2b-card"],
+html.dark .modal-box-enter,
 html.dark .bg-white:not(.keep-white):not([data-keep-white]) {
     background-color: #131e3a !important;
     color: #e2e8f0 !important;
     border-color: #23345e !important;
+}
+
+html.dark .b2b-card {
+    background: #131e3a !important;
+    border-color: #23345e !important;
+    box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.45) !important;
+}
+
+html.dark .b2b-card:hover {
+    box-shadow: 0 6px 18px -2px rgba(0, 0, 0, 0.55) !important;
+}
+
+/* Tables inside cards and b2b tables */
+html.dark .table-b2b th,
+html.dark .b2b-card table th,
+html.dark table thead th {
+    background-color: #19264c !important;
+    color: #94a3b8 !important;
+    border-bottom-color: #23345e !important;
+}
+
+html.dark .table-b2b td,
+html.dark .b2b-card table td {
+    background-color: #131e3a !important;
+    color: #f8fafc !important;
+    border-bottom-color: #1e2e56 !important;
+}
+
+html.dark .table-b2b tr:hover td,
+html.dark .b2b-card table tr:hover td,
+html.dark .b2b-card table tbody tr:hover {
+    background-color: #19264c !important;
+}
+
+/* Chat feed in SupportView */
+html.dark #chatMessagesFeed {
+    background-color: #0b1329 !important;
 }
 
 html.dark .bg-slate-50,

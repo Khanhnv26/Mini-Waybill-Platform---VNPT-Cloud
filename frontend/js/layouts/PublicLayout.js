@@ -5,7 +5,7 @@
             :current-tab="currentTab"
             :public-guest-tabs="publicGuestTabs"
             :is-dark-mode="isDarkMode"
-            @toggle-dark-mode="$emit('toggle-dark-mode')"
+            @toggle-dark-mode="$emit('toggle-dark-mode', $event)"
             @switch-tab="$emit('switch-tab', $event)"
             @guest-tab-click="$emit('guest-tab-click', $event)"
         ></public-header>
