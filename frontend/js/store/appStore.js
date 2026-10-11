@@ -39,8 +39,19 @@ export const appStore = {
     get toast() { return state.toast; },
     get error() { return state.error; },
 
-    toggleDarkMode() {
-        state.isDarkMode = !state.isDarkMode;
+    setDarkMode(targetMode) {
+        const nextState = typeof targetMode === 'boolean' ? targetMode : !state.isDarkMode;
+        if (state.isDarkMode === nextState) {
+            if (typeof window !== 'undefined') {
+                if (nextState && !document.documentElement.classList.contains('dark')) {
+                    document.documentElement.classList.add('dark');
+                } else if (!nextState && document.documentElement.classList.contains('dark')) {
+                    document.documentElement.classList.remove('dark');
+                }
+            }
+            return state.isDarkMode;
+        }
+        state.isDarkMode = nextState;
         if (typeof window !== 'undefined') {
             if (state.isDarkMode) {
                 document.documentElement.classList.add('dark');
@@ -54,6 +65,13 @@ export const appStore = {
             }));
         }
         return state.isDarkMode;
+    },
+
+    toggleDarkMode(targetMode) {
+        if (typeof targetMode === 'boolean') {
+            return this.setDarkMode(targetMode);
+        }
+        return this.setDarkMode(!state.isDarkMode);
     },
 
     switchTab(tabId) {

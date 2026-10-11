@@ -42,10 +42,11 @@
 
                         <!-- Sliding Thumb / Knob -->
                         <span 
-                            class="relative w-6 h-6 rounded-full flex items-center justify-center transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-md pointer-events-none"
+                            class="theme-toggle-knob relative w-6 h-6 rounded-full flex items-center justify-center transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] shadow-md pointer-events-none"
                             :class="isDarkMode 
-                                ? 'translate-x-[26px] bg-gradient-to-tr from-blue-600 to-indigo-600 text-amber-300 border border-blue-400/30' 
+                                ? 'is-dark translate-x-[26px] bg-gradient-to-tr from-blue-600 to-indigo-600 text-amber-300 border border-blue-400/30' 
                                 : 'translate-x-0.5 bg-white text-amber-500 border border-slate-200/80'"
+                            :style="{ transform: isDarkMode ? 'translateX(26px)' : 'translateX(2px)' }"
                         >
                             <svg v-if="!isDarkMode" class="w-3.5 h-3.5 transition-transform duration-300 group-hover:rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
@@ -742,30 +743,21 @@
             let wasHandledByPointer = false;
 
             const handleToggle = (targetMode) => {
-                let newMode;
-                if (typeof targetMode === 'boolean') {
-                    newMode = targetMode;
-                    if (window.appStore && window.appStore.isDarkMode !== newMode) {
-                        window.appStore.toggleDarkMode();
-                    } else if (typeof document !== 'undefined') {
-                        if (newMode) {
-                            document.documentElement.classList.add('dark');
-                            localStorage.setItem('theme', 'dark');
-                        } else {
-                            document.documentElement.classList.remove('dark');
-                            localStorage.setItem('theme', 'light');
-                        }
-                    }
-                } else {
-                    if (window.appStore?.toggleDarkMode) {
-                        newMode = window.appStore.toggleDarkMode();
-                    } else if (typeof document !== 'undefined') {
-                        const isDarkNow = document.documentElement.classList.toggle('dark');
-                        localStorage.setItem('theme', isDarkNow ? 'dark' : 'light');
-                        newMode = isDarkNow;
+                const nextMode = typeof targetMode === 'boolean'
+                    ? targetMode
+                    : !isDarkMode.value;
+                if (window.appStore?.setDarkMode) {
+                    window.appStore.setDarkMode(nextMode);
+                } else if (typeof document !== 'undefined') {
+                    if (nextMode) {
+                        document.documentElement.classList.add('dark');
+                        localStorage.setItem('theme', 'dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                        localStorage.setItem('theme', 'light');
                     }
                 }
-                emit('toggle-dark-mode', newMode);
+                emit('toggle-dark-mode', nextMode);
             };
 
             const onPointerDown = (e) => {

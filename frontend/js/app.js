@@ -184,8 +184,12 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                 });
             }
             const isDarkMode = computed(() => appStore.isDarkMode);
-            const toggleDarkMode = () => {
-                appStore.toggleDarkMode();
+            const toggleDarkMode = (targetMode) => {
+                if (typeof targetMode === 'boolean') {
+                    appStore.setDarkMode(targetMode);
+                } else {
+                    appStore.toggleDarkMode();
+                }
             };
 
             const showError = (code = 404, title = '', message = '') => {
