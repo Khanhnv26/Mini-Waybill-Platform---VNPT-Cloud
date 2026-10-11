@@ -183,14 +183,44 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                     }
                 });
             }
-            const isDarkMode = computed(() => appStore.isDarkMode);
+            const isDarkMode = ref(
+                (typeof document !== 'undefined' && (
+                    document.documentElement.classList.contains('dark') ||
+                    localStorage.getItem('theme') === 'dark'
+                )) ||
+                (window.appStore && window.appStore.isDarkMode === true) ||
+                false
+            );
+
+            const onThemeChanged = (e) => {
+                if (e && e.detail && typeof e.detail.isDark === 'boolean') {
+                    isDarkMode.value = e.detail.isDark;
+                } else if (typeof document !== 'undefined') {
+                    isDarkMode.value = document.documentElement.classList.contains('dark');
+                }
+            };
+            if (typeof window !== 'undefined') {
+                window.addEventListener('theme-changed', onThemeChanged);
+            }
+
             const toggleDarkMode = (targetMode, origin) => {
-                if (typeof targetMode === 'boolean') {
-                    if (appStore.isDarkMode !== targetMode) {
-                        appStore.setDarkMode(targetMode, origin);
+                const nextMode = typeof targetMode === 'boolean' ? targetMode : !isDarkMode.value;
+                isDarkMode.value = nextMode;
+                if (appStore?.setDarkMode) {
+                    appStore.setDarkMode(nextMode, origin);
+                } else if (typeof document !== 'undefined') {
+                    if (nextMode) {
+                        document.documentElement.classList.add('dark');
+                        localStorage.setItem('theme', 'dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                        localStorage.setItem('theme', 'light');
                     }
-                } else {
-                    appStore.toggleDarkMode(undefined, origin);
+                }
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('theme-changed', {
+                        detail: { isDark: nextMode }
+                    }));
                 }
             };
 

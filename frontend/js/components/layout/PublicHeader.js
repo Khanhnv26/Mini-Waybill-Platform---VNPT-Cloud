@@ -177,11 +177,12 @@
 
             // Reactive local theme state
             const detectInitialDark = () => {
-                if (typeof document !== 'undefined' && document.documentElement.classList.contains('dark')) {
-                    return true;
-                }
                 if (typeof props.isDarkMode === 'boolean') {
                     return props.isDarkMode;
+                }
+                if (typeof document !== 'undefined') {
+                    if (document.documentElement.classList.contains('dark')) return true;
+                    if (localStorage.getItem('theme') === 'dark') return true;
                 }
                 if (window.appStore && typeof window.appStore.isDarkMode === 'boolean') {
                     return window.appStore.isDarkMode;
@@ -207,7 +208,7 @@
                     if (typeof newVal === 'boolean') {
                         isDarkMode.value = newVal;
                     }
-                });
+                }, { immediate: true });
             }
 
             const isDragging = ref(false);
@@ -240,9 +241,6 @@
                 const nextMode = typeof targetMode === 'boolean'
                     ? targetMode
                     : !isDarkMode.value;
-                if (isDarkMode.value === nextMode && document.documentElement.classList.contains('dark') === nextMode) {
-                    return;
-                }
                 isDarkMode.value = nextMode;
                 if (window.appStore?.setDarkMode) {
                     window.appStore.setDarkMode(nextMode, origin);
@@ -254,6 +252,8 @@
                         document.documentElement.classList.remove('dark');
                         localStorage.setItem('theme', 'light');
                     }
+                }
+                if (typeof window !== 'undefined') {
                     window.dispatchEvent(new CustomEvent('theme-changed', {
                         detail: { isDark: nextMode }
                     }));
