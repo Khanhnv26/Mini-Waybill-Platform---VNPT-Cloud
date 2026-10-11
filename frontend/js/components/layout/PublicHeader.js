@@ -205,7 +205,7 @@
             });
 
             const knobStyle = computed(() => ({
-                transform: `translateX(${currentKnobX.value}px) !important`,
+                transform: `translateX(${currentKnobX.value}px)`,
                 transition: isDragging.value ? 'none' : 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
             }));
 
@@ -238,21 +238,17 @@
                 }
 
                 dragPointerX = e.clientX;
+                let lastPointerX = e.clientX;
                 dragStartX = isDarkMode.value ? 26 : 2;
                 isDragging.value = false;
                 dragX.value = dragStartX;
                 justSwiped = false;
 
-                const pointerId = e.pointerId;
-                const targetEl = e.currentTarget;
-                try {
-                    targetEl.setPointerCapture(pointerId);
-                } catch (_) {}
-
                 const onMove = (ev) => {
                     if (dragPointerX === null) return;
+                    lastPointerX = ev.clientX;
                     const dx = ev.clientX - dragPointerX;
-                    if (Math.abs(dx) >= 3 || isDragging.value) {
+                    if (Math.abs(dx) >= 2 || isDragging.value) {
                         isDragging.value = true;
                         const targetX = dragStartX + dx;
                         dragX.value = Math.max(2, Math.min(26, targetX));
@@ -261,23 +257,22 @@
 
                 const commitDrag = (finalClientX, originY) => {
                     if (dragPointerX === null) return;
-                    const clientX = typeof finalClientX === 'number' ? finalClientX : dragPointerX;
+                    const clientX = (typeof finalClientX === 'number' && finalClientX > 0) ? finalClientX : lastPointerX;
                     const dx = clientX - dragPointerX;
-                    const wasDrag = isDragging.value || Math.abs(dx) >= 6;
+                    const wasDrag = isDragging.value || Math.abs(dx) >= 4;
 
                     if (wasDrag) {
                         const finalX = dragX.value ?? (isDarkMode.value ? 26 : 2);
-                        let targetMode;
-                        if (dragStartX === 26) {
-                            // Started at Dark (knob on right): dragged left to switch to Light
-                            targetMode = !(dx <= -6 || finalX <= 14);
-                        } else {
-                            // Started at Light (knob on left): dragged right to switch to Dark
-                            targetMode = (dx >= 6 || finalX > 14);
+                        let targetMode = isDarkMode.value;
+                        if (dx >= 4 || finalX > 14) {
+                            targetMode = true; // Dragged or swiped right -> Dark mode
+                        } else if (dx <= -4 || finalX <= 14) {
+                            targetMode = false; // Dragged or swiped left -> Light mode
                         }
+
                         const origin = { 
                             x: clientX, 
-                            y: typeof originY === 'number' ? originY : 32 
+                            y: (typeof originY === 'number' && originY > 0) ? originY : 32 
                         };
 
                         const targetKnobX = targetMode ? 26 : 2;
@@ -293,7 +288,7 @@
                             dragX.value = null;
                         }, 400);
                     } else {
-                        // Not a drag gesture (user just clicked/tapped without moving): DO NOT TOGGLE!
+                        // Not a drag gesture (user just clicked without moving): return to current state
                         isDragging.value = false;
                         dragX.value = null;
                     }
@@ -304,32 +299,21 @@
                 const onEnd = (ev) => {
                     const clientX = ev.clientX;
                     const clientY = ev.clientY;
-                    const shouldPrevent = ev.cancelable && (isDragging.value || Math.abs((ev.clientX || 0) - (dragPointerX || 0)) >= 4);
                     if (cleanupDrag) {
                         cleanupDrag();
-                    }
-                    if (shouldPrevent) {
-                        try { ev.preventDefault(); } catch (_) {}
                     }
                     commitDrag(clientX, clientY);
                 };
 
-                const onCancel = (ev) => {
-                    const clientX = ev?.clientX ?? dragPointerX;
-                    const clientY = ev?.clientY ?? 32;
+                const onCancel = () => {
                     if (cleanupDrag) {
                         cleanupDrag();
                     }
-                    commitDrag(clientX, clientY);
+                    commitDrag(lastPointerX, 32);
                 };
 
                 cleanupDrag = () => {
                     cleanupDrag = null;
-                    try {
-                        if (targetEl && targetEl.hasPointerCapture && targetEl.hasPointerCapture(pointerId)) {
-                            targetEl.releasePointerCapture(pointerId);
-                        }
-                    } catch (_) {}
                     window.removeEventListener('pointermove', onMove);
                     window.removeEventListener('pointerup', onEnd);
                     window.removeEventListener('pointercancel', onCancel);
