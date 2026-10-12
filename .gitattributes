@@ -1,6 +1,6 @@
 # ==============================================================================
 # GITHUB LINGUIST OVERRIDES
-# Loại trừ các công cụ phụ trợ, thư viện bên thứ ba và bundle khỏi thống kê mã nguồn
+# Cân bằng thống kê ngôn ngữ: Phản ánh đúng bản chất Java Spring Boot Microservices
 # ==============================================================================
 
 # AI Agent Tools & Skills
@@ -16,3 +16,7 @@ frontend/js/libs/** linguist-vendored=true
 
 # File CSS build/bundle tự động
 frontend/css/tailwind.prod.css linguist-generated=true
+
+# Loại trừ các file View frontend nặng HTML template string & SVG icon inline
+# để giữ tỷ lệ Java chiếm chủ đạo (~70%) và JavaScript (~28%) phản ánh logic lõi
+frontend/js/views/** linguist-detectable=false
