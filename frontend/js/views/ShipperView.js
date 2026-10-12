@@ -204,10 +204,15 @@
                 if (physicalLocation === 'DELIVERY_OFFICE') {
                     return !hasAuthoritativeRoutingProjection(projection); // legacy sentinel only
                 }
-                if (!isPostOfficeLocation(physicalLocation)) return false;
-
-                const destination = getDestinationPostOfficeInfo(shipment, projection?.operations, false);
-                return !destination.code || destination.code === physicalLocation;
+                const destination = getDestinationPostOfficeInfo(shipment, projection?.operations, true);
+                if (isPostOfficeLocation(physicalLocation)) {
+                    return !destination.code || destination.code === physicalLocation;
+                }
+                // Nếu physicalLocation chưa có nhưng destination xác định được mã bưu cục phát hợp lệ
+                if (destination.code && isPostOfficeLocation(destination.code)) {
+                    return true;
+                }
+                return !hasAuthoritativeRoutingProjection(projection);
             };
 
             const isLegacyDeliveryProjection = (shipment) => {
@@ -219,16 +224,17 @@
             };
 
             const canShowDeliveryActions = (shipment) => {
-                return getShipmentStatus(shipment) === 'OUT_FOR_DELIVERY' && (
-                    isAtDestinationPostOffice(shipment) || isLegacyDeliveryProjection(shipment)
-                );
+                const status = getShipmentStatus(shipment);
+                if (status !== 'OUT_FOR_DELIVERY') return false;
+                // Khi đơn đã có trạng thái OUT_FOR_DELIVERY, bưu tá đang cầm hàng đi phát nên luôn hiển thị nút xử lý giao.
+                // Không chặn nút giao bằng kiểm tra vị trí để tránh deadlock cho đơn hàng.
+                return true;
             };
 
             const isReadyForCourierHandoff = (shipment) => {
                 if (getShipmentStatus(shipment) !== 'ARRIVED_DEST_HUB') return false;
                 const projection = getProjection(shipment);
-                const physicalLocation = getPhysicalLocationCode(shipment, projection);
-                if (!isPostOfficeLocation(physicalLocation) || !isAtDestinationPostOffice(shipment)) return false;
+                if (!isAtDestinationPostOffice(shipment)) return false;
 
                 const inventory = projection?.inventory;
                 if (projection?.inventoryEndpointAvailable && !inventory) return false;
@@ -244,20 +250,15 @@
 
             const canRetryDelivery = (shipment) => {
                 if (getShipmentStatus(shipment) !== 'DELIVERY_FAILED') return false;
-                const projection = getProjection(shipment);
-                const physicalLocation = getPhysicalLocationCode(shipment, projection);
-                if (physicalLocation && physicalLocation !== 'DELIVERY_OFFICE' && !isAtDestinationPostOffice(shipment)) {
-                    return false;
-                }
-                return isAtDestinationPostOffice(shipment) || isLegacyDeliveryProjection(shipment);
+                return true;
             };
 
             const getLastMileLocation = (shipment) => {
                 const projection = getProjection(shipment);
                 const physicalLocation = getPhysicalLocationCode(shipment, projection);
                 if (isPostOfficeLocation(physicalLocation)) return physicalLocation;
-                const destination = getDestinationPostOfficeInfo(shipment, projection?.operations, false);
-                return destination.code || (physicalLocation === 'DELIVERY_OFFICE' ? 'DELIVERY_OFFICE' : null);
+                const destination = getDestinationPostOfficeInfo(shipment, projection?.operations, true);
+                return destination.code || (physicalLocation === 'DELIVERY_OFFICE' ? 'DELIVERY_OFFICE' : 'DELIVERY_OFFICE');
             };
 
             const getCourierIdentifier = () => {

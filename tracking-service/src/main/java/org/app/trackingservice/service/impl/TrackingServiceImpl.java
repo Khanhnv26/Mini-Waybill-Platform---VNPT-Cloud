@@ -223,10 +223,20 @@ public class TrackingServiceImpl implements TrackingService {
             }
         }
 
+        String resolvedLocationCode = request.getLocationCode();
+        if (resolvedLocationCode == null || resolvedLocationCode.trim().isEmpty()) {
+            String cachedLoc = redisTemplate.opsForValue().get("shipment-location:" + trackingCode);
+            if (cachedLoc != null && !cachedLoc.trim().isEmpty()) {
+                resolvedLocationCode = cachedLoc;
+            } else {
+                resolvedLocationCode = "TRANSIT_HUB";
+            }
+        }
+
         TrackingHistory history = TrackingHistory.builder()
                 .trackingCode(trackingCode)
                 .status(newStatus.name())
-                .locationCode(request.getLocationCode() != null ? request.getLocationCode() : "TRANSIT_HUB")
+                .locationCode(resolvedLocationCode)
                 .node(request.getNote() != null ? request.getNote() : "Cập nhật trạng thái: " + newStatus.name())
                 .occurredAt(LocalDateTime.now())
                 .build();
