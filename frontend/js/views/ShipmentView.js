@@ -1723,16 +1723,16 @@
                                             :class="[
                                                 'px-3 py-2 rounded-lg border cursor-pointer transition-all flex items-center justify-between select-none',
                                                 form.serviceType === 'ECO' 
-                                                    ? 'border-blue-600 bg-blue-50/50 text-blue-900 font-bold shadow-xs' 
-                                                    : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
+                                                    ? 'border-blue-600 dark:border-blue-500 bg-blue-50/50 dark:bg-blue-950/60 text-blue-900 dark:text-blue-200 font-bold shadow-xs' 
+                                                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300'
                                             ]"
                                         >
                                             <div>
                                                 <div class="text-xs">VNPT Tiết Kiệm (Eco)</div>
-                                                <div class="text-[10.5px] font-normal text-slate-500 mt-0.5">Tiết kiệm 3 - 5 ngày</div>
+                                                <div class="text-[10.5px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">Tiết kiệm 3 - 5 ngày</div>
                                             </div>
                                             <span 
-                                                :class="form.serviceType === 'ECO' ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white'"
+                                                :class="form.serviceType === 'ECO' ? 'border-blue-600 bg-blue-600' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'"
                                                 class="w-3.5 h-3.5 rounded-full border flex items-center justify-center p-0.5"
                                             >
                                                 <span v-if="form.serviceType === 'ECO'" class="w-1.5 h-1.5 rounded-full bg-white"></span>
@@ -1744,16 +1744,16 @@
                                             :class="[
                                                 'px-3 py-2 rounded-lg border cursor-pointer transition-all flex items-center justify-between select-none',
                                                 form.serviceType === 'STANDARD' 
-                                                    ? 'border-blue-600 bg-blue-50/50 text-blue-900 font-bold shadow-xs' 
-                                                    : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
+                                                    ? 'border-blue-600 dark:border-blue-500 bg-blue-50/50 dark:bg-blue-950/60 text-blue-900 dark:text-blue-200 font-bold shadow-xs' 
+                                                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300'
                                             ]"
                                         >
                                             <div>
                                                 <div class="text-xs">VNPT Tiêu Chuẩn (Standard)</div>
-                                                <div class="text-[10.5px] font-normal text-slate-500 mt-0.5">Liên tỉnh 1 - 2 ngày</div>
+                                                <div class="text-[10.5px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">Liên tỉnh 1 - 2 ngày</div>
                                             </div>
                                             <span 
-                                                :class="form.serviceType === 'STANDARD' ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white'"
+                                                :class="form.serviceType === 'STANDARD' ? 'border-blue-600 bg-blue-600' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'"
                                                 class="w-3.5 h-3.5 rounded-full border flex items-center justify-center p-0.5"
                                             >
                                                 <span v-if="form.serviceType === 'STANDARD'" class="w-1.5 h-1.5 rounded-full bg-white"></span>
@@ -1765,16 +1765,16 @@
                                             :class="[
                                                 'px-3 py-2 rounded-lg border cursor-pointer transition-all flex items-center justify-between select-none',
                                                 form.serviceType === 'EXPRESS' 
-                                                    ? 'border-blue-600 bg-blue-50/50 text-blue-900 font-bold shadow-xs' 
-                                                    : 'border-slate-200 bg-white hover:border-slate-300 text-slate-700'
+                                                    ? 'border-blue-600 dark:border-blue-500 bg-blue-50/50 dark:bg-blue-950/60 text-blue-900 dark:text-blue-200 font-bold shadow-xs' 
+                                                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300'
                                             ]"
                                         >
                                             <div>
                                                 <div class="text-xs">VNPT Hỏa Tốc (Express)</div>
-                                                <div class="text-[10.5px] font-normal text-slate-500 mt-0.5">Toàn quốc trong 24h</div>
+                                                <div class="text-[10.5px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">Toàn quốc trong 24h</div>
                                             </div>
                                             <span 
-                                                :class="form.serviceType === 'EXPRESS' ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white'"
+                                                :class="form.serviceType === 'EXPRESS' ? 'border-blue-600 bg-blue-600' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'"
                                                 class="w-3.5 h-3.5 rounded-full border flex items-center justify-center p-0.5"
                                             >
                                                 <span v-if="form.serviceType === 'EXPRESS'" class="w-1.5 h-1.5 rounded-full bg-white"></span>
@@ -2199,11 +2199,11 @@
                                 </div>
                             </div>
 
-                            <div class="p-3.5 rounded-xl bg-blue-50/60 border border-blue-200/80 text-[11px] text-blue-900 leading-relaxed space-y-1">
-                                <div class="font-bold">
+                            <div class="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 text-[11px] text-blue-900 dark:text-blue-300 leading-relaxed space-y-1">
+                                <div class="font-bold text-blue-900 dark:text-blue-300">
                                     Chính Sách Bưu Gửi VNPT
                                 </div>
-                                <p class="text-slate-600 text-[10.5px]">
+                                <p class="text-slate-600 dark:text-slate-400 text-[10.5px]">
                                     Vận đơn sau khi khởi tạo sẽ tự động sinh mã vạch Code128, kích hoạt điều phối OSRM trên toàn quốc và thông báo tin nhắn xác nhận cho khách hàng.
                                 </p>
                             </div>
