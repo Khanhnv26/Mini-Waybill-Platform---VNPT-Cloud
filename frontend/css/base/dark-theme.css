@@ -153,8 +153,27 @@ html.dark #chatMessagesFeed {
     background-color: #0b1329 !important;
 }
 
+/* Subnav / Role Selector Bar */
+html.dark .bg-white\/95,
+html.dark .bg-white\/90,
+html.dark .bg-white\/80 {
+    background-color: #131e3a !important;
+    border-color: #23345e !important;
+    color: #f1f5f9 !important;
+}
+
+html.dark .bg-slate-100\/90,
+html.dark .bg-slate-100\/80,
+html.dark .bg-slate-100\/70 {
+    background-color: #0b1329 !important;
+    border-color: #1e2e56 !important;
+}
+
 html.dark .bg-slate-50,
+html.dark .bg-slate-50\/90,
 html.dark .bg-slate-50\/80,
+html.dark .bg-slate-50\/70,
+html.dark .bg-slate-50\/60,
 html.dark .bg-slate-100,
 html.dark .bg-slate-100\/80 {
     background-color: #19264c !important;
@@ -171,18 +190,37 @@ html.dark .bg-blue-50\/90 {
 }
 
 html.dark .bg-emerald-50,
-html.dark .bg-emerald-50\/70 {
+html.dark .bg-emerald-50\/70,
+html.dark .bg-emerald-50\/80,
+html.dark .bg-emerald-50\/90 {
     background-color: #0b2f29 !important;
     border-color: #114c40 !important;
 }
 
+html.dark .bg-purple-50,
+html.dark .bg-purple-50\/70,
+html.dark .bg-purple-50\/80,
+html.dark .bg-purple-50\/90 {
+    background-color: #2b134a !important;
+    border-color: #4c2182 !important;
+}
+
+html.dark .border-purple-100,
+html.dark .border-purple-200 {
+    border-color: #4c2182 !important;
+}
+
 html.dark .bg-amber-50,
+html.dark .bg-amber-50\/70,
+html.dark .bg-amber-50\/80,
 html.dark .bg-orange-50 {
     background-color: #38280b !important;
     border-color: #5c4112 !important;
 }
 
-html.dark .bg-rose-50 {
+html.dark .bg-rose-50,
+html.dark .bg-rose-50\/70,
+html.dark .bg-rose-50\/80 {
     background-color: #38121d !important;
     border-color: #591b2c !important;
 }
