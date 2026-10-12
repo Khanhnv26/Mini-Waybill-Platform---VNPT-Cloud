@@ -2006,16 +2006,16 @@
 
             <div
                 v-if="isAdmin && selectedPostOffice === 'ALL'"
-                class="rounded-xl border border-amber-300 bg-amber-50/90 p-3 text-xs text-amber-900 flex items-start justify-between gap-3 shadow-xs"
+                class="rounded-xl border border-amber-300 dark:border-amber-800/60 bg-amber-50/90 dark:bg-amber-950/40 p-3 text-xs text-amber-900 dark:text-amber-200 flex items-start justify-between gap-3 shadow-xs"
             >
                 <div class="flex items-start gap-2.5">
-                    <span class="px-2 py-0.5 rounded bg-amber-200 text-amber-900 font-bold uppercase text-[10px] shrink-0">Chế độ tổng hợp</span>
+                    <span class="px-2 py-0.5 rounded bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-300 font-bold uppercase text-[10px] shrink-0 dark:border dark:border-amber-700/50">Chế độ tổng hợp</span>
                     <div>
                         <strong class="font-bold">Đang xem dữ liệu toàn bộ mạng lưới bưu cục.</strong>
-                        <p class="text-amber-800 text-[11px] mt-0.5">Để thực hiện tác nghiệp tiếp nhận tại quầy, lưu kho hoặc bàn giao bưu tá, vui lòng chọn một bưu cục cụ thể từ danh sách.</p>
+                        <p class="text-amber-800 dark:text-amber-300/90 text-[11px] mt-0.5">Để thực hiện tác nghiệp tiếp nhận tại quầy, lưu kho hoặc bàn giao bưu tá, vui lòng chọn một bưu cục cụ thể từ danh sách.</p>
                     </div>
                 </div>
-                <span class="font-mono font-bold text-amber-900 shrink-0 bg-amber-200/60 px-2.5 py-1 rounded-md">{{ filteredShipments.length }} bưu gửi</span>
+                <span class="font-mono font-bold text-amber-900 dark:text-amber-200 shrink-0 bg-amber-200/60 dark:bg-amber-900/60 dark:border dark:border-amber-700/60 px-2.5 py-1 rounded-md">{{ filteredShipments.length }} bưu gửi</span>
             </div>
             <div class="b2b-card p-3 flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs shadow-xs">
                 <div class="flex flex-wrap items-center gap-2.5 flex-1">
@@ -2288,13 +2288,13 @@
                                 :checked="isAllCodSettlementSelected" 
                                 @change="toggleSelectAllCodSettlement"
                                 :disabled="codSettlementPendingShipments.length === 0"
-                                class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40 w-4 h-4"
+                                class="rounded border-slate-300 dark:border-slate-700 dark:bg-slate-900 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40 w-4 h-4"
                             />
-                            <label for="po-select-all-cod" class="font-semibold text-slate-700 cursor-pointer select-none">
+                            <label for="po-select-all-cod" class="font-semibold text-slate-700 dark:text-slate-200 cursor-pointer select-none">
                                 Chọn tất cả chờ duyệt ({{ codSettlementPendingCount }})
                             </label>
-                            <span v-if="selectedCodSettlementCodes.length > 0" class="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-medium text-[11px]">
-                                Đã chọn: <strong class="font-mono font-bold">{{ selectedCodSettlementCodes.length }}</strong> đơn — <strong class="font-mono font-bold text-emerald-700">{{ Utils.formatCurrency(selectedCodSettlementTotalAmount) }}</strong>
+                            <span v-if="selectedCodSettlementCodes.length > 0" class="ml-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 rounded font-medium text-[11px] border border-transparent dark:border-blue-900/50">
+                                Đã chọn: <strong class="font-mono font-bold">{{ selectedCodSettlementCodes.length }}</strong> đơn — <strong class="font-mono font-bold text-emerald-700 dark:text-emerald-400">{{ Utils.formatCurrency(selectedCodSettlementTotalAmount) }}</strong>
                             </span>
                         </div>
 
@@ -2337,7 +2337,7 @@
                                                 :checked="isAllCodSettlementSelected" 
                                                 @change="toggleSelectAllCodSettlement"
                                                 :disabled="codSettlementPendingShipments.length === 0"
-                                                class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40"
+                                                class="rounded border-slate-300 dark:border-slate-700 dark:bg-slate-900 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40"
                                             />
                                         </th>
                                         <th class="py-3 px-3.5">Mã Vận Đơn</th>
@@ -2356,9 +2356,9 @@
                                                 type="checkbox" 
                                                 :checked="selectedCodSettlementCodes.includes(item.trackingCode)" 
                                                 @change="toggleSelectCodSettlement(item.trackingCode)"
-                                                class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                class="rounded border-slate-300 dark:border-slate-700 dark:bg-slate-900 text-blue-600 focus:ring-blue-500 cursor-pointer"
                                             />
-                                            <span v-else class="text-slate-300 text-xs">—</span>
+                                            <span v-else class="text-slate-300 dark:text-slate-600 text-xs">—</span>
                                         </td>
                                         <td class="py-3 px-3.5">
                                             <button 
@@ -2450,17 +2450,17 @@
                     </div>
                 </div>
                 <div v-else :key="currentSubtab" class="space-y-3">
-                    <div v-if="selectedPostOfficeItems.length" class="selection-summary-bar px-3 py-2 rounded-lg bg-slate-100 border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div v-if="selectedPostOfficeItems.length" class="selection-summary-bar px-3 py-2 rounded-lg bg-slate-100 dark:bg-[#131e3a] border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
                     <div>
-                        <strong>{{ selectedPostOfficeItems.length }} kiện đã chọn</strong>
-                        <span class="text-slate-500 ml-1">({{ selectedPostOfficeWeight.toFixed(1) }} kg)</span>
-                        <span v-if="!selectedPostOfficeAction" class="text-amber-700 ml-2">Chỉ chọn các kiện cùng thao tác.</span>
+                        <strong class="text-slate-800 dark:text-slate-200">{{ selectedPostOfficeItems.length }} kiện đã chọn</strong>
+                        <span class="text-slate-500 dark:text-slate-400 ml-1">({{ selectedPostOfficeWeight.toFixed(1) }} kg)</span>
+                        <span v-if="!selectedPostOfficeAction" class="text-amber-700 dark:text-amber-400 ml-2">Chỉ chọn các kiện cùng thao tác.</span>
                     </div>
                     <div class="flex items-center gap-1.5">
                         <button v-if="selectedPostOfficeAction === 'handoff'" type="button" @click="openBulkHandoffModal()" :disabled="isActionRunning || (isAdmin && selectedPostOffice === 'ALL')" class="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition disabled:opacity-50 shadow-xs">Bàn giao bưu tá ({{ handoffBulkTotals.count }})</button>
                         <button type="button" @click="handleBulkPostOfficeOperation('receive')" :disabled="isActionRunning || selectedPostOfficeAction !== 'receive' || (isAdmin && selectedPostOffice === 'ALL')" class="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white font-semibold transition disabled:opacity-50 shadow-xs">Tiếp nhận</button>
-                        <button type="button" @click="handleBulkPostOfficeOperation('store')" :disabled="isActionRunning || selectedPostOfficeAction !== 'store' || (isAdmin && selectedPostOffice === 'ALL')" class="px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-semibold transition disabled:opacity-50 shadow-xs">Lưu kho</button>
-                        <button type="button" @click="clearPostOfficeSelection" class="px-2.5 py-1 rounded border border-slate-200 bg-white text-slate-600 font-medium">Bỏ chọn</button>
+                        <button type="button" @click="handleBulkPostOfficeOperation('store')" :disabled="isActionRunning || selectedPostOfficeAction !== 'store' || (isAdmin && selectedPostOffice === 'ALL')" class="px-2.5 py-1 rounded bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 font-semibold transition disabled:opacity-50 shadow-xs">Lưu kho</button>
+                        <button type="button" @click="clearPostOfficeSelection" class="px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-700">Bỏ chọn</button>
                     </div>
                 </div>
 
@@ -2479,7 +2479,7 @@
                             <thead>
                                 <tr class="bg-slate-50/80 text-slate-600 font-bold border-b border-slate-200 text-[11px] uppercase tracking-wider">
                                     <th class="py-3 px-3.5 w-10">
-                                        <input type="checkbox" :checked="selectablePostOfficeItems.length > 0 && selectablePostOfficeItems.every(item => selectedTrackingCodes.has(String(item.trackingCode || '').trim().toUpperCase()))" @change="toggleAllPostOfficeSelection" :disabled="isActionRunning || (isAdmin && selectedPostOffice === 'ALL')" aria-label="Chọn tất cả kiện có thể tác nghiệp" class="rounded text-blue-600" />
+                                        <input type="checkbox" :checked="selectablePostOfficeItems.length > 0 && selectablePostOfficeItems.every(item => selectedTrackingCodes.has(String(item.trackingCode || '').trim().toUpperCase()))" @change="toggleAllPostOfficeSelection" :disabled="isActionRunning || (isAdmin && selectedPostOffice === 'ALL')" aria-label="Chọn tất cả kiện có thể tác nghiệp" class="rounded border-slate-300 dark:border-slate-700 dark:bg-slate-900 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40" />
                                     </th>
                                     <th class="py-3 px-3.5">Mã Vận Đơn</th>
                                     <th class="py-3 px-3.5">Bưu Cục Gửi</th>
@@ -2493,7 +2493,7 @@
                             <tbody class="divide-y divide-slate-100 font-medium">
                                 <tr v-for="item in paginatedShipments" :key="item.id" class="hover:bg-slate-50/60 transition">
                                     <td class="py-3 px-3.5 align-top">
-                                        <input type="checkbox" :checked="selectedTrackingCodes.has(String(item.trackingCode || '').trim().toUpperCase())" @change="togglePostOfficeSelection(item)" :disabled="isActionRunning || (isAdmin && selectedPostOffice === 'ALL') || !isBulkPostOfficeAction(item) || !isShipmentInSelectedPostOfficeScope(item)" :aria-label="'Chọn ' + item.trackingCode" class="rounded text-blue-600" />
+                                        <input type="checkbox" :checked="selectedTrackingCodes.has(String(item.trackingCode || '').trim().toUpperCase())" @change="togglePostOfficeSelection(item)" :disabled="isActionRunning || (isAdmin && selectedPostOffice === 'ALL') || !isBulkPostOfficeAction(item) || !isShipmentInSelectedPostOfficeScope(item)" :aria-label="'Chọn ' + item.trackingCode" class="rounded border-slate-300 dark:border-slate-700 dark:bg-slate-900 text-blue-600 focus:ring-blue-500 cursor-pointer" />
                                     </td>
                                     <td class="py-3 px-3.5">
                                         <button 

@@ -1936,13 +1936,13 @@
                             :checked="isAllCodSelected" 
                             @change="toggleSelectAllCod"
                             :disabled="unsettledCodShipments.length === 0"
-                            class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40 w-4 h-4"
+                            class="rounded border-slate-300 dark:border-slate-700 dark:bg-slate-900 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40 w-4 h-4"
                         />
-                        <label for="shipper-select-all-cod" class="font-semibold text-slate-700 cursor-pointer select-none">
+                        <label for="shipper-select-all-cod" class="font-semibold text-slate-700 dark:text-slate-200 cursor-pointer select-none">
                             Chọn tất cả chưa nộp ({{ unsettledCodShipments.length }})
                         </label>
-                        <span v-if="selectedCodCodes.length > 0" class="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-medium text-[11px]">
-                            Đã chọn: <strong class="font-mono font-bold">{{ selectedCodCodes.length }}</strong> đơn — <strong class="font-mono font-bold text-emerald-700">{{ Utils.formatCurrency(selectedCodTotalAmount) }}</strong>
+                        <span v-if="selectedCodCodes.length > 0" class="ml-2 px-2 py-0.5 bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 rounded font-medium text-[11px] border border-transparent dark:border-blue-900/50">
+                            Đã chọn: <strong class="font-mono font-bold">{{ selectedCodCodes.length }}</strong> đơn — <strong class="font-mono font-bold text-emerald-700 dark:text-emerald-400">{{ Utils.formatCurrency(selectedCodTotalAmount) }}</strong>
                         </span>
                     </div>
 
@@ -1976,7 +1976,7 @@
                                         :checked="isAllCodSelected" 
                                         @change="toggleSelectAllCod"
                                         :disabled="unsettledCodShipments.length === 0"
-                                        class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40"
+                                        class="rounded border-slate-300 dark:border-slate-700 dark:bg-slate-900 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40"
                                     />
                                 </th>
                                 <th class="py-2.5 px-3">Mã Vận Đơn</th>
@@ -1993,11 +1993,11 @@
                                     <input 
                                         v-if="!item.codSettlementStatus || item.codSettlementStatus === 'UNSETTLED'"
                                         type="checkbox" 
-                                        :checked="selectedCodCodes.includes(item.trackingCode)"
+                                        :checked="selectedCodCodes.includes(item.trackingCode)" 
                                         @change="toggleSelectCod(item.trackingCode)"
-                                        class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                        class="rounded border-slate-300 dark:border-slate-700 dark:bg-slate-900 text-blue-600 focus:ring-blue-500 cursor-pointer"
                                     />
-                                    <span v-else class="text-slate-300 text-xs">—</span>
+                                    <span v-else class="text-slate-300 dark:text-slate-600 text-xs">—</span>
                                 </td>
                                 <td class="py-2.5 px-3">
                                     <button 

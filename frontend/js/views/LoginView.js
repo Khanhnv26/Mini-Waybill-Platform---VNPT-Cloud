@@ -1,12 +1,93 @@
 (function () {
-    const { ref, reactive, onMounted, onUnmounted, nextTick } = Vue;
+    const { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
 
     const LoginView = {
         name: 'LoginView',
-        emits: ['login-success', 'navigate'],
+        props: {
+            isDarkMode: {
+                type: Boolean,
+                default: false
+            }
+        },
+        emits: ['login-success', 'navigate', 'toggle-dark-mode'],
         template: `
             <div class="min-h-screen flex items-center justify-center p-3 sm:p-6 auth-custom-bg text-slate-800 selection:bg-vnpt-500 selection:text-white font-sans relative">
                 
+                <!-- Floating Theme Toggle Capsule Switch -->
+                <div class="fixed top-4 right-4 z-50">
+                    <button 
+                        type="button"
+                        role="switch"
+                        :aria-checked="isKnobDark"
+                        draggable="false"
+                        @dragstart.prevent
+                        @pointerdown="onPointerDown"
+                        @click="onClick"
+                        @keydown="onKeyDown"
+                        :title="isDarkMode ? 'Kéo gạt sang trái để chuyển sang chế độ Sáng' : 'Kéo gạt sang phải để chuyển sang chế độ Đêm'"
+                        class="theme-toggle-btn relative inline-flex items-center w-[54px] h-7 rounded-full p-0.5 transition-colors duration-300 cursor-grab active:cursor-grabbing select-none focus:outline-none focus:ring-2 focus:ring-blue-500/40 shadow-inner flex-shrink-0 group backdrop-blur-md touch-none"
+                        :class="isKnobDark 
+                            ? 'bg-slate-900/90 border border-slate-700/80 shadow-slate-950/50' 
+                            : 'bg-slate-200/90 hover:bg-slate-300/80 border border-slate-300/80 shadow-blue-900/10'"
+                    >
+                        <!-- Track Ambient: Day Sky Dots / Night Twinkling Stars -->
+                        <span class="absolute inset-0 flex items-center pointer-events-none select-none overflow-hidden rounded-full">
+                            <!-- Night Twinkling Stars (Visible when Dark on left side) -->
+                            <span 
+                                class="absolute left-1.5 top-1.5 flex items-center space-x-1 transition-all duration-300"
+                                :class="isKnobDark ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'"
+                            >
+                                <svg class="w-2 h-2 text-amber-300 animate-twinkle" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 0L14.2 9.8L24 12L14.2 14.2L12 24L9.8 14.2L0 12L9.8 9.8L12 0Z"/>
+                                </svg>
+                                <svg class="w-1.5 h-1.5 text-blue-200 animate-twinkle-delayed" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 0L14.2 9.8L24 12L14.2 14.2L12 24L9.8 14.2L0 12L9.8 9.8L12 0Z"/>
+                                </svg>
+                            </span>
+
+                            <!-- Day Warm Sky Dots (Visible when Light on right side) -->
+                            <span 
+                                class="absolute right-2 top-2 flex items-center space-x-1 transition-all duration-300"
+                                :class="!isKnobDark ? 'opacity-80 scale-100' : 'opacity-0 scale-50 pointer-events-none'"
+                            >
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-400/50"></span>
+                                <span class="w-2 h-2 rounded-full bg-amber-400/80"></span>
+                            </span>
+                        </span>
+
+                        <!-- Sliding Thumb / Knob with 3D Flip -->
+                        <span 
+                            class="theme-toggle-knob keep-white relative w-6 h-6 rounded-full flex items-center justify-center shadow-md pointer-events-none [perspective:400px]"
+                            :class="[
+                                isDragging ? 'is-dragging' : '',
+                                isKnobDark 
+                                    ? 'is-dark bg-gradient-to-tr from-blue-600 to-indigo-600 text-amber-300 border border-blue-400/40 shadow-blue-900/40' 
+                                    : 'bg-white keep-white text-amber-500 border border-amber-100 shadow-amber-500/10'
+                            ]"
+                            :style="knobStyle"
+                        >
+                            <!-- 3D Card Flipper Container -->
+                            <span 
+                                class="theme-knob-flipper relative w-full h-full flex items-center justify-center"
+                                :class="{ 'rotate-y-180': isKnobDark }"
+                            >
+                                <!-- Sun Face (Front) -->
+                                <span class="absolute inset-0 flex items-center justify-center [backface-visibility:hidden]">
+                                    <svg class="w-3.5 h-3.5 text-amber-500 transition-transform duration-300 group-hover:rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                                    </svg>
+                                </span>
+                                <!-- Moon Face (Back) -->
+                                <span class="absolute inset-0 flex items-center justify-center [backface-visibility:hidden] [transform:rotateY(180deg)]">
+                                    <svg class="w-3.5 h-3.5 text-amber-300 transition-transform duration-300 group-hover:-rotate-12" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                                    </svg>
+                                </span>
+                            </span>
+                        </span>
+                    </button>
+                </div>
+
                 <!-- Background ambient lights -->
                 <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
                     <div class="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-blue-600/25 blur-[120px] animate-float-1"></div>
@@ -151,7 +232,7 @@
                                     </div>
 
                                     <div class="flex flex-col items-center justify-center w-full space-y-2 stagger-5">
-                                        <div id="spaGoogleBtnLogin" class="flex justify-center w-full min-h-[44px]"></div>
+                                        <div id="spaGoogleBtnLogin" class="flex justify-center w-full min-h-[44px]" style="color-scheme: light;"></div>
                                         <div v-if="googleLoading" class="text-xs font-semibold text-vnpt-500 animate-pulse">
                                             Đang xác thực tài khoản Google...
                                         </div>
@@ -226,7 +307,7 @@
                                     </div>
 
                                     <div class="flex flex-col items-center justify-center w-full space-y-2">
-                                        <div id="spaGoogleBtnRegister" class="flex justify-center w-full min-h-[44px]"></div>
+                                        <div id="spaGoogleBtnRegister" class="flex justify-center w-full min-h-[44px]" style="color-scheme: light;"></div>
                                         <div v-if="googleLoading" class="text-xs font-semibold text-vnpt-500 animate-pulse">
                                             Đang xử lý tài khoản Google...
                                         </div>
@@ -595,7 +676,15 @@
                     });
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok) {
-                        throw new Error(data.message || data.error || `Xác thực Google thất bại (Mã lỗi ${res.status})!`);
+                        let errMsg = data.message;
+                        if (!errMsg && res.status === 404) {
+                            errMsg = 'Không tìm thấy dịch vụ xác thực (Lỗi 404). Vui lòng kiểm tra API Gateway (:8080) và Auth Service (:8087)!';
+                        } else if (!errMsg && (res.status === 502 || res.status === 503)) {
+                            errMsg = `Không kết nối được Backend Gateway (Lỗi ${res.status}). Vui lòng khởi động các microservice!`;
+                        } else if (!errMsg) {
+                            errMsg = data.error || `Xác thực Google thất bại (Mã lỗi ${res.status})!`;
+                        }
+                        throw new Error(errMsg);
                     }
                     finishLoginSuccess(data);
                 } catch (err) {
@@ -614,13 +703,15 @@
                             auto_select: false
                         });
 
+                        const googleTheme = isDarkMode.value ? 'filled_black' : 'outline';
+
                         const loginContainer = document.getElementById('spaGoogleBtnLogin');
                         if (loginContainer && (force || !loginContainer.hasChildNodes())) {
                             loginContainer.innerHTML = '';
                             google.accounts.id.renderButton(
                                 loginContainer,
                                 {
-                                    theme: 'outline',
+                                    theme: googleTheme,
                                     size: 'large',
                                     text: 'signin_with',
                                     shape: 'pill',
@@ -636,7 +727,7 @@
                             google.accounts.id.renderButton(
                                 registerContainer,
                                 {
-                                    theme: 'outline',
+                                    theme: googleTheme,
                                     size: 'large',
                                     text: 'signup_with',
                                     shape: 'pill',
@@ -677,7 +768,244 @@
                 if (timerInterval) clearInterval(timerInterval);
             });
 
+            // Reactive local theme state
+            const detectInitialDark = () => {
+                if (typeof props.isDarkMode === 'boolean') {
+                    return props.isDarkMode;
+                }
+                if (typeof document !== 'undefined') {
+                    if (document.documentElement.classList.contains('dark')) return true;
+                    if (localStorage.getItem('theme') === 'dark') return true;
+                }
+                if (window.appStore && typeof window.appStore.isDarkMode === 'boolean') {
+                    return window.appStore.isDarkMode;
+                }
+                return false;
+            };
+
+            const isDarkMode = ref(detectInitialDark());
+
+            const onThemeChanged = (e) => {
+                if (e && e.detail && typeof e.detail.isDark === 'boolean') {
+                    isDarkMode.value = e.detail.isDark;
+                } else if (typeof document !== 'undefined') {
+                    isDarkMode.value = document.documentElement.classList.contains('dark');
+                }
+            };
+            if (typeof window !== 'undefined') {
+                window.addEventListener('theme-changed', onThemeChanged);
+            }
+
+            if (typeof watch === 'function') {
+                watch(() => props.isDarkMode, (newVal) => {
+                    if (typeof newVal === 'boolean') {
+                        isDarkMode.value = newVal;
+                    }
+                }, { immediate: true });
+
+                watch(isDarkMode, () => {
+                    renderGoogleButton(true);
+                });
+            }
+
+            const isDragging = ref(false);
+            const dragX = ref(null);
+            let dragStartX = isDarkMode.value ? 26 : 2;
+            let dragPointerX = null;
+            let justSwiped = false;
+            let cleanupDrag = null;
+
+            const isKnobDark = computed(() => {
+                if (dragX.value !== null) {
+                    return dragX.value > 14;
+                }
+                return isDarkMode.value;
+            });
+
+            const currentKnobX = computed(() => {
+                if (dragX.value !== null) {
+                    return dragX.value;
+                }
+                return isDarkMode.value ? 26 : 2;
+            });
+
+            const knobStyle = computed(() => ({
+                transform: `translateX(${currentKnobX.value}px)`,
+                transition: isDragging.value ? 'none' : 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
+            }));
+
+            const handleToggle = (targetMode, origin) => {
+                const nextMode = typeof targetMode === 'boolean'
+                    ? targetMode
+                    : !isDarkMode.value;
+                isDarkMode.value = nextMode;
+                if (window.appStore?.setDarkMode) {
+                    window.appStore.setDarkMode(nextMode, origin);
+                } else if (typeof document !== 'undefined') {
+                    if (nextMode) {
+                        document.documentElement.classList.add('dark');
+                        localStorage.setItem('theme', 'dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                        localStorage.setItem('theme', 'light');
+                    }
+                }
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('theme-changed', {
+                        detail: { isDark: nextMode }
+                    }));
+                }
+                emit('toggle-dark-mode', nextMode, origin);
+            };
+
+            const onPointerDown = (e) => {
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                try { e.preventDefault(); } catch (_) {}
+                if (cleanupDrag) {
+                    cleanupDrag();
+                }
+
+                dragPointerX = e.clientX;
+                let lastPointerX = e.clientX;
+                dragStartX = isDarkMode.value ? 26 : 2;
+                isDragging.value = false;
+                dragX.value = dragStartX;
+                justSwiped = false;
+
+                const onMove = (ev) => {
+                    if (dragPointerX === null) return;
+                    lastPointerX = ev.clientX;
+                    const dx = ev.clientX - dragPointerX;
+                    if (Math.abs(dx) >= 2 || isDragging.value) {
+                        isDragging.value = true;
+                        const targetX = dragStartX + dx;
+                        dragX.value = Math.max(2, Math.min(26, targetX));
+                    }
+                };
+
+                const commitDrag = (finalClientX, originY) => {
+                    if (dragPointerX === null) return;
+                    const clientX = (typeof finalClientX === 'number' && finalClientX > 0) ? finalClientX : lastPointerX;
+                    const dx = clientX - dragPointerX;
+                    const wasDrag = isDragging.value || Math.abs(dx) >= 3;
+
+                    if (wasDrag) {
+                        const finalX = dragX.value ?? (isDarkMode.value ? 26 : 2);
+                        const startDark = isDarkMode.value;
+                        let targetMode = startDark;
+
+                        if (startDark) {
+                            // Currently Dark: dragging left switches to Light
+                            if (dx <= -4 || finalX < 14) {
+                                targetMode = false;
+                            } else {
+                                targetMode = true;
+                            }
+                        } else {
+                            // Currently Light: dragging right switches to Dark
+                            if (dx >= 4 || finalX > 14) {
+                                targetMode = true;
+                            } else {
+                                targetMode = false;
+                            }
+                        }
+
+                        const origin = { 
+                            x: clientX, 
+                            y: (typeof originY === 'number' && originY > 0) ? originY : 32 
+                        };
+
+                        const targetKnobX = targetMode ? 26 : 2;
+                        dragX.value = targetKnobX;
+                        isDragging.value = false;
+                        justSwiped = true;
+
+                        // Immediately update local isDarkMode ref so knob NEVER reverts
+                        isDarkMode.value = targetMode;
+
+                        if (targetMode !== startDark) {
+                            handleToggle(targetMode, origin);
+                        }
+                        setTimeout(() => {
+                            justSwiped = false;
+                            dragX.value = null;
+                        }, 350);
+                    } else {
+                        // Not a drag gesture (user tapped statically without moving): return to current state
+                        isDragging.value = false;
+                        dragX.value = null;
+                    }
+
+                    dragPointerX = null;
+                };
+
+                const onEnd = (ev) => {
+                    const clientX = ev.clientX;
+                    const clientY = ev.clientY;
+                    if (cleanupDrag) {
+                        cleanupDrag();
+                    }
+                    commitDrag(clientX, clientY);
+                };
+
+                const onCancel = () => {
+                    if (cleanupDrag) {
+                        cleanupDrag();
+                    }
+                    commitDrag(lastPointerX, 32);
+                };
+
+                cleanupDrag = () => {
+                    cleanupDrag = null;
+                    window.removeEventListener('pointermove', onMove);
+                    window.removeEventListener('pointerup', onEnd);
+                    window.removeEventListener('pointercancel', onCancel);
+                };
+
+                window.addEventListener('pointermove', onMove, { passive: true });
+                window.addEventListener('pointerup', onEnd);
+                window.addEventListener('pointercancel', onCancel);
+            };
+
+            const onClick = (e) => {
+                if (e && typeof e.preventDefault === 'function') {
+                    e.preventDefault();
+                }
+                // Drag-only toggle: ignore simple click!
+            };
+
+            const onKeyDown = (e) => {
+                if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    if (isDarkMode.value) {
+                        handleToggle(false, null);
+                    }
+                } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    if (!isDarkMode.value) {
+                        handleToggle(true, null);
+                    }
+                }
+            };
+
+            onUnmounted(() => {
+                if (cleanupDrag) {
+                    cleanupDrag();
+                }
+                if (typeof window !== 'undefined') {
+                    window.removeEventListener('theme-changed', onThemeChanged);
+                }
+            });
+
             return {
+                isDarkMode,
+                isKnobDark,
+                isDragging,
+                knobStyle,
+                onPointerDown,
+                onClick,
+                onKeyDown,
+                handleToggle,
                 authMode,
                 loading,
                 googleLoading,

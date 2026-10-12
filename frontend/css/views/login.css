@@ -15,6 +15,15 @@
     width: 100%;
 }
 
+html.dark .auth-custom-bg {
+    background-color: #060b19 !important;
+    background-image: url('/images/login-dark-bg.jpg?v=2') !important;
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+    background-attachment: fixed !important;
+}
+
 @keyframes floatSlow1 {
     0%, 100% {
         transform: translate(0px, 0px) scale(1);
@@ -157,4 +166,33 @@
     transform: translateY(-3px);
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25);
     border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Google Identity Services Dark Mode iframe Canvas Isolation */
+#spaGoogleBtnLogin,
+#spaGoogleBtnRegister,
+#googleBtn,
+#googleBtnRegister {
+    color-scheme: light !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+#spaGoogleBtnLogin > div,
+#spaGoogleBtnRegister > div,
+#googleBtn > div,
+#googleBtnRegister > div {
+    color-scheme: light !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+#spaGoogleBtnLogin iframe,
+#spaGoogleBtnRegister iframe,
+#googleBtn iframe,
+#googleBtnRegister iframe {
+    color-scheme: light !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border-radius: 9999px !important;
 }

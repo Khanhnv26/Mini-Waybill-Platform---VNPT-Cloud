@@ -464,16 +464,50 @@
                 errorTileUrl: BLANK_TILE
             });
 
+            const darkLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {
+                attribution: '&copy; Google Bản đồ (Chế độ Đêm) | Bưu chính VNPT',
+                subdomains: ['0', '1', '2', '3'],
+                maxZoom: 20,
+                keepBuffer: 4,
+                updateWhenIdle: false,
+                className: 'map-tiles-night',
+                errorTileUrl: BLANK_TILE
+            });
+
             this.roadLayer = roadLayer;
             this.hybridLayer = hybridLayer;
-            this.darkLayer = null;
+            this.darkLayer = darkLayer;
 
-            roadLayer.addTo(this.map);
+            const isDarkInit = document.documentElement.classList.contains('dark');
+            if (isDarkInit) {
+                darkLayer.addTo(this.map);
+            } else {
+                roadLayer.addTo(this.map);
+            }
 
             this.baseLayers = {
                 'Google Maps': roadLayer,
-                'Google Vệ tinh': hybridLayer
+                'Google Vệ tinh': hybridLayer,
+                'Bản Đồ Đêm': darkLayer
             };
+
+            if (!this._themeListenerBound) {
+                this._themeListenerBound = true;
+                window.addEventListener('theme-changed', (e) => {
+                    if (!this.map) return;
+                    const willBeDark = e.detail && e.detail.isDark;
+                    if (willBeDark) {
+                        if (this.map.hasLayer(this.roadLayer)) this.map.removeLayer(this.roadLayer);
+                        if (this.map.hasLayer(this.hybridLayer)) this.map.removeLayer(this.hybridLayer);
+                        if (!this.map.hasLayer(this.darkLayer)) this.darkLayer.addTo(this.map);
+                    } else {
+                        if (this.map.hasLayer(this.darkLayer)) this.map.removeLayer(this.darkLayer);
+                        if (!this.map.hasLayer(this.roadLayer) && !this.map.hasLayer(this.hybridLayer)) {
+                            this.roadLayer.addTo(this.map);
+                        }
+                    }
+                });
+            }
 
             this.markersGroup = L.layerGroup().addTo(this.map);
 

@@ -1203,20 +1203,20 @@
                 </div>
             </div>
 
-            <div v-if="isAdmin && selectedHub === 'ALL'" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 flex items-center justify-between gap-2">
+            <div v-if="isAdmin && selectedHub === 'ALL'" class="rounded-lg border border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-xs text-amber-800 dark:text-amber-200 flex items-center justify-between gap-2">
                 <span><strong>Chỉ xem tổng hợp:</strong> chọn một hub cụ thể trước khi tiếp nhận hoặc lưu kho.</span>
-                <span class="font-mono font-bold">{{ filteredShipments.length }} kiện</span>
+                <span class="font-mono font-bold text-amber-900 dark:text-amber-200 bg-amber-200/60 dark:bg-amber-900/60 dark:border dark:border-amber-700/60 px-2.5 py-0.5 rounded-md">{{ filteredShipments.length }} kiện</span>
             </div>
 
             <transition name="subtab">
-            <div v-if="currentSubtab === 'scan'" class="b2b-card operation-action-bar bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div v-if="currentSubtab === 'scan'" class="b2b-card operation-action-bar bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div>
                     <div class="flex items-center space-x-2">
                         <span class="w-2 h-2 rounded-full bg-blue-600"></span>
-                        <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">Đầu Đọc Mã Vạch / Tác Nghiệp Tồn Kho</span>
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Đầu Đọc Mã Vạch / Tác Nghiệp Tồn Kho</span>
                     </div>
-                    <p class="text-[11px] text-slate-500 mt-1">
-                        Trạm tác nghiệp: <strong class="font-mono text-blue-700">{{ currentActionLocation || 'Chưa xác định' }}</strong>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                        Trạm tác nghiệp: <strong class="font-mono text-blue-700 dark:text-blue-400">{{ currentActionLocation || 'Chưa xác định' }}</strong>
                     </p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
@@ -1226,9 +1226,9 @@
                         type="text"
                         maxlength="35"
                         placeholder="Quét mã để nhận hành động kế tiếp..."
-                        class="pl-3 pr-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono font-bold text-blue-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none w-56 transition"
+                        class="pl-3 pr-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold text-blue-700 dark:text-blue-400 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none w-56 transition"
                     />
-                    <span v-if="scanInputCode" class="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-600">
+                    <span v-if="scanInputCode" class="px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-300">
                         {{ scannedItem ? 'Đề xuất: ' + scannedAction.label : 'Đang tra cứu mã...' }}
                     </span>
                     <button
@@ -1306,15 +1306,15 @@
                     <span>Không tìm thấy bưu gửi nào phù hợp với bộ lọc.</span>
                 </div>
                 <div v-else>
-                    <div v-if="selectedHubItems.length" class="selection-summary-bar mx-3 mt-3 px-3 py-2 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div v-if="selectedHubItems.length" class="selection-summary-bar mx-3 mt-3 px-3 py-2 rounded-lg bg-slate-100 dark:bg-[#131e3a] border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
                         <div>
-                            <strong>{{ selectedHubItems.length }} kiện</strong>
-                            <span class="text-slate-500 ml-1">({{ selectedHubWeight.toFixed(1) }} kg)</span>
-                            <span v-if="!selectedHubAction" class="text-amber-700 ml-2">Chỉ chọn các kiện cùng thao tác.</span>
+                            <strong class="text-slate-800 dark:text-slate-200">{{ selectedHubItems.length }} kiện</strong>
+                            <span class="text-slate-500 dark:text-slate-400 ml-1">({{ selectedHubWeight.toFixed(1) }} kg)</span>
+                            <span v-if="!selectedHubAction" class="text-amber-700 dark:text-amber-400 ml-2">Chỉ chọn các kiện cùng thao tác.</span>
                         </div>
                         <div class="flex items-center gap-1.5">
-                            <button type="button" @click="handleBulkInventoryOperation('store')" :disabled="isActionRunning || selectedHubAction !== 'store' || (isAdmin && selectedHub === 'ALL')" class="px-2.5 py-1 rounded-md bg-blue-100 text-blue-800 border border-blue-200 font-bold disabled:opacity-50">Nhập Kho Hub</button>
-                            <button type="button" @click="clearHubSelection" class="px-2.5 py-1 rounded-md border border-slate-200 bg-white text-slate-600 font-semibold">Bỏ chọn</button>
+                            <button type="button" @click="handleBulkInventoryOperation('store')" :disabled="isActionRunning || selectedHubAction !== 'store' || (isAdmin && selectedHub === 'ALL')" class="px-2.5 py-1 rounded-md bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold disabled:opacity-50">Nhập Kho Hub</button>
+                            <button type="button" @click="clearHubSelection" class="px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-50 dark:hover:bg-slate-700">Bỏ chọn</button>
                         </div>
                     </div>
                     <div class="overflow-x-auto">
@@ -1322,7 +1322,7 @@
                         <thead>
                             <tr class="bg-slate-50/70 text-slate-600 font-bold border-b border-slate-200 text-[11px] uppercase tracking-wider">
                                 <th class="py-2.5 px-3 w-10">
-                                    <input type="checkbox" :checked="selectableHubItems.length > 0 && selectableHubItems.every(item => selectedTrackingCodes.has(String(item.trackingCode || '').trim().toUpperCase()))" @change="toggleAllHubSelection" :disabled="isActionRunning || (isAdmin && selectedHub === 'ALL')" aria-label="Chọn tất cả kiện có thể tác nghiệp" />
+                                    <input type="checkbox" :checked="selectableHubItems.length > 0 && selectableHubItems.every(item => selectedTrackingCodes.has(String(item.trackingCode || '').trim().toUpperCase()))" @change="toggleAllHubSelection" :disabled="isActionRunning || (isAdmin && selectedHub === 'ALL')" aria-label="Chọn tất cả kiện có thể tác nghiệp" class="rounded border-slate-300 dark:border-slate-700 dark:bg-slate-900 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:opacity-40" />
                                 </th>
                                 <th class="py-2.5 px-3">Mã Vận Đơn</th>
                                 <th class="py-2.5 px-3">Người Nhận</th>
@@ -1336,7 +1336,7 @@
                         <tbody class="divide-y divide-slate-100 font-medium">
                             <tr v-for="item in paginatedShipments" :key="item.id || item.trackingCode" class="hover:bg-blue-50/30 transition">
                                 <td class="py-2.5 px-3 align-top">
-                                    <input type="checkbox" :checked="selectedTrackingCodes.has(String(item.trackingCode || '').trim().toUpperCase())" @change="toggleHubSelection(item)" :disabled="isActionRunning || (isAdmin && selectedHub === 'ALL') || !canReceive(item) && !canStore(item) || !isShipmentInSelectedHubScope(item)" :aria-label="'Chọn ' + item.trackingCode" />
+                                    <input type="checkbox" :checked="selectedTrackingCodes.has(String(item.trackingCode || '').trim().toUpperCase())" @change="toggleHubSelection(item)" :disabled="isActionRunning || (isAdmin && selectedHub === 'ALL') || !canReceive(item) && !canStore(item) || !isShipmentInSelectedHubScope(item)" :aria-label="'Chọn ' + item.trackingCode" class="rounded border-slate-300 dark:border-slate-700 dark:bg-slate-900 text-blue-600 focus:ring-blue-500 cursor-pointer" />
                                 </td>
                                 <td class="py-2.5 px-3 align-top">
                                     <button 

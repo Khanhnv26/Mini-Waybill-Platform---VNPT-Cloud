@@ -278,12 +278,9 @@
                 </div>
 
                 <div class="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-4 hover:border-blue-200 transition-colors duration-300">
-                    <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <div class="flex items-center pb-2 border-b border-slate-100">
                         <span class="text-xs font-extrabold uppercase tracking-wider text-slate-500">
                             1. Thông Tin Tuyến Vận Chuyển &amp; Kiện Hàng
-                        </span>
-                        <span class="text-[10px] text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full font-bold border border-emerald-200/60">
-                            Form Chuẩn Bưu Điện
                         </span>
                     </div>
 

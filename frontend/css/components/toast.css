@@ -12,3 +12,22 @@
     opacity: 0;
     transform: translateY(-8px) scale(0.98);
 }
+
+html.dark .toast-container-card {
+    box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.65), 0 8px 16px -6px rgba(0, 0, 0, 0.5) !important;
+}
+
+html.dark .toast-container-card.toast-success {
+    background-color: #092218 !important;
+    border-color: #14532d !important;
+}
+
+html.dark .toast-container-card.toast-error {
+    background-color: #251014 !important;
+    border-color: #7f1d1d !important;
+}
+
+html.dark .toast-container-card.toast-warning {
+    background-color: #241708 !important;
+    border-color: #78350f !important;
+}

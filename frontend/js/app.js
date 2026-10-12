@@ -1,5 +1,83 @@
-(function () {
-    const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
+// ==========================================
+// 1. Core Utilities & Auth
+// ==========================================
+import './auth.js';
+import './utils.js';
+import './api.js';
+import './map.js';
+
+// ==========================================
+// 2. Microservice API Services
+// ==========================================
+import './services/routingService.js';
+import './services/shipmentService.js';
+import './services/trackingService.js';
+import './services/customerService.js';
+import './services/notificationService.js';
+import './services/auditService.js';
+import './services/adminService.js';
+import './services/reportService.js';
+import './services/pricingService.js';
+import './services/supportService.js';
+import './services/shipperService.js';
+import './services/ratingService.js';
+import './services/paymentService.js';
+
+// ==========================================
+// 3. Layout Components
+// ==========================================
+import './components/layout/AppSidebar.js';
+import './components/layout/AppTopbar.js';
+import './components/layout/InternalFooter.js';
+import './components/layout/PublicHeader.js';
+import './components/layout/PublicFooter.js';
+import './components/common/ToastContainer.js';
+import './components/common/UserProfileModal.js';
+import './layouts/InternalLayout.js';
+import './layouts/PublicLayout.js';
+
+// ==========================================
+// 4. Feature Subcomponents
+// ==========================================
+import './views/tracking/TrackingRecentSearches.js';
+import './views/shipment/ShipmentSmartPasteCard.js';
+import './views/shipment/ShipmentPrintModal.js';
+import './views/trips/TripManifestModal.js';
+
+// ==========================================
+// 5. Business Views
+// ==========================================
+import './views/LoginView.js';
+import './views/TrackingView.js';
+import './views/ShipmentView.js';
+import './views/DashboardView.js';
+import './views/PostOfficeOpsView.js';
+import './views/TripsView.js';
+import './views/FleetView.js';
+import './views/HubOpsView.js';
+import './views/ShipperView.js';
+import './views/ShipperDirectoryView.js';
+import './views/CustomerView.js';
+import './views/AdminRbacView.js';
+import './views/ReportView.js';
+import './views/TariffCalculatorView.js';
+import './views/NetworkView.js';
+import './views/GuideView.js';
+import './views/SupportView.js';
+import './views/UnderDevelopmentView.js';
+import './views/ErrorView.js';
+import './views/ProfileView.js';
+import './components/ChatbotWidget.js';
+
+// ==========================================
+// 6. Reactive State Stores
+// ==========================================
+import { authStore, appStore, notificationStore } from './store/index.js';
+window.authStore = authStore;
+window.appStore = appStore;
+window.notificationStore = notificationStore;
+
+const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
 
     const ROUTE_TAB_MAP = {
         '/': 'tracking',
@@ -68,16 +146,41 @@
         if (ROUTE_TAB_MAP.hasOwnProperty(pathname)) {
             return { tab: ROUTE_TAB_MAP[pathname], path: pathname, notFound: false };
         }
+
+        // Subpath tracking: /tracking/324325 or /tra-cuu/324325
+        const trackingSubMatch = pathname.match(/^\/(?:tracking|tra-cuu)\/([^/?#]+)$/i);
+        if (trackingSubMatch) {
+            const code = decodeURIComponent(trackingSubMatch[1]).trim();
+            if (code) {
+                return { tab: 'tracking', path: '/tracking', code, notFound: false };
+            }
+        }
+
+        // Direct waybill code in path: /324325, /WB123456, etc.
+        const directCodeMatch = pathname.match(/^\/([a-zA-Z0-9_-]{3,40})$/);
+        if (directCodeMatch) {
+            const potentialCode = directCodeMatch[1].trim();
+            if (!potentialCode.includes('.') && !['api', 'css', 'js', 'libs', 'images', 'assets', 'favicon', 'fonts'].includes(potentialCode.toLowerCase())) {
+                return { tab: 'tracking', path: '/tracking', code: potentialCode.toUpperCase(), notFound: false };
+            }
+        }
+
         return { tab: 'error', path: pathname, notFound: true };
     };
 
     const app = createApp({
         setup() {
             const urlParams = new URLSearchParams(window.location.search);
-            const initialCodeParam = parseInt(urlParams.get('code'), 10);
-            const trackingQuery = urlParams.get('code') || urlParams.get('tracking');
             const initialRoute = resolveRoute(window.location.pathname);
-            const hasInitialError = !isNaN(initialCodeParam) || initialRoute.notFound;
+            
+            // Fix bug: `code` query param is only an HTTP status error code (400, 403, 404, 500, etc.)
+            // when navigating explicitly to /error or /error.html, not when tracking a waybill with numeric code.
+            const rawErrorCodeParam = parseInt(urlParams.get('code'), 10);
+            const isHttpErrorCode = !isNaN(rawErrorCodeParam) && [400, 401, 403, 404, 429, 500, 502, 503].includes(rawErrorCodeParam);
+            const isExplicitErrorRoute = initialRoute.tab === 'error' && (window.location.pathname.startsWith('/error') || initialRoute.notFound);
+            const hasInitialError = isExplicitErrorRoute || (isHttpErrorCode && initialRoute.tab === 'error');
+
+            const trackingQuery = initialRoute.code || urlParams.get('code') || urlParams.get('tracking');
 
             const currentUser = ref(typeof Auth !== 'undefined' ? Auth.getUser() : null);
             // Bumped whenever the auth session changes (login/logout/profile sync)
@@ -91,7 +194,7 @@
             }
             const currentTab = ref(hasInitialError ? 'error' : initialRoute.tab);
             const currentTrackingCode = ref(trackingQuery && !hasInitialError && initialRoute.tab !== 'error' ? trackingQuery.trim() : '');
-            const currentErrorCode = ref(!isNaN(initialCodeParam) ? initialCodeParam : (initialRoute.notFound ? 404 : 200));
+            const currentErrorCode = ref(isHttpErrorCode ? rawErrorCodeParam : (initialRoute.notFound ? 404 : 200));
             const currentErrorTitle = ref(urlParams.get('title') || (initialRoute.notFound ? 'Không Tìm Thấy Trang Yêu Cầu' : ''));
             const currentErrorMessage = ref(urlParams.get('message') || (initialRoute.notFound ? `Đường dẫn "${window.location.pathname}" không tồn tại trên hệ thống máy chủ bưu chính VNPT.` : ''));
             const previousTab = ref(null);
@@ -105,12 +208,46 @@
                     }
                 });
             }
-            try {
-                localStorage.removeItem('theme');
-                document.documentElement.classList.remove('dark');
-            } catch (e) {}
-            const isDarkMode = ref(false);
-            const toggleDarkMode = () => {};
+            const isDarkMode = ref(
+                (typeof document !== 'undefined' && (
+                    document.documentElement.classList.contains('dark') ||
+                    localStorage.getItem('theme') === 'dark'
+                )) ||
+                (window.appStore && window.appStore.isDarkMode === true) ||
+                false
+            );
+
+            const onThemeChanged = (e) => {
+                if (e && e.detail && typeof e.detail.isDark === 'boolean') {
+                    isDarkMode.value = e.detail.isDark;
+                } else if (typeof document !== 'undefined') {
+                    isDarkMode.value = document.documentElement.classList.contains('dark');
+                }
+            };
+            if (typeof window !== 'undefined') {
+                window.addEventListener('theme-changed', onThemeChanged);
+            }
+
+            const toggleDarkMode = (targetMode, origin) => {
+                const nextMode = typeof targetMode === 'boolean' ? targetMode : !isDarkMode.value;
+                isDarkMode.value = nextMode;
+                if (appStore?.setDarkMode) {
+                    appStore.setDarkMode(nextMode, origin);
+                } else if (typeof document !== 'undefined') {
+                    if (nextMode) {
+                        document.documentElement.classList.add('dark');
+                        localStorage.setItem('theme', 'dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                        localStorage.setItem('theme', 'light');
+                    }
+                }
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('theme-changed', {
+                        detail: { isDark: nextMode }
+                    }));
+                }
+            };
 
             const showError = (code = 404, title = '', message = '') => {
                 currentErrorCode.value = code;
@@ -738,13 +875,16 @@
                 }
 
                 const params = new URLSearchParams(urlObj.search);
-                const code = params.get('code') || params.get('tracking');
+                const code = params.get('code') || params.get('tracking') || resolved.code;
                 if (code) {
                     currentTrackingCode.value = code.trim();
                 }
 
                 const canonicalPath = TAB_ROUTE_MAP[resolved.tab] || urlObj.pathname;
-                const finalUrl = canonicalPath + (urlObj.search || '');
+                let finalUrl = canonicalPath + (urlObj.search || '');
+                if (resolved.tab === 'tracking' && code && !params.get('code')) {
+                    finalUrl = '/tracking?code=' + encodeURIComponent(code.trim());
+                }
                 if (window.location.pathname + window.location.search !== finalUrl) {
                     if (replace) {
                         window.history.replaceState({ tab: resolved.tab }, '', finalUrl);
@@ -1343,10 +1483,25 @@
         app.component('ChatbotWidget', window.ChatbotWidget);
         app.component('chatbot-widget', window.ChatbotWidget);
     }
+    if (window.ShipmentSmartPasteCard) {
+        app.component('ShipmentSmartPasteCard', window.ShipmentSmartPasteCard);
+        app.component('shipment-smart-paste-card', window.ShipmentSmartPasteCard);
+    }
+    if (window.ShipmentPrintModal) {
+        app.component('ShipmentPrintModal', window.ShipmentPrintModal);
+        app.component('shipment-print-modal', window.ShipmentPrintModal);
+    }
+    if (window.TripManifestModal) {
+        app.component('TripManifestModal', window.TripManifestModal);
+        app.component('trip-manifest-modal', window.TripManifestModal);
+    }
+    if (window.TrackingRecentSearches) {
+        app.component('TrackingRecentSearches', window.TrackingRecentSearches);
+        app.component('tracking-recent-searches', window.TrackingRecentSearches);
+    }
 
     app.config.errorHandler = (err, vm, info) => {
         console.error('VUE_APP_ERROR:', err, err ? err.stack : '', info);
     };
 
     app.mount('#app');
-})();

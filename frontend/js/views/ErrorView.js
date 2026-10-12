@@ -128,7 +128,15 @@
             const handleAction = (actionKey) => {
                 if (actionKey === 'home' || actionKey === 'tracking') {
                     cancelCountdown();
-                    if (window.navigateTo) {
+                    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+                    const candidate = pathSegments.length === 1 ? pathSegments[0] : '';
+                    if (actionKey === 'tracking' && candidate && /^[a-zA-Z0-9_-]{3,40}$/.test(candidate)) {
+                        if (window.navigateTo) {
+                            window.navigateTo('/tracking?code=' + encodeURIComponent(candidate));
+                        } else {
+                            window.location.href = '/tracking?code=' + encodeURIComponent(candidate);
+                        }
+                    } else if (window.navigateTo) {
                         window.navigateTo('/tracking');
                     } else {
                         emit('back-home');
@@ -288,7 +296,7 @@
                                 'error-btn-interactive px-5 py-2.5 font-bold text-xs rounded-xl flex items-center justify-center cursor-pointer select-none',
                                 act.primary 
                                     ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/20' 
-                                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
+                                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700'
                             ]"
                         >
                             <span>{{ act.text }}</span>

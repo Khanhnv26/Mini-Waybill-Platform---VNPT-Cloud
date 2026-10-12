@@ -514,8 +514,8 @@
                 const s = adminSummary.value || {};
                 const shipments = filteredByRegionShipments.value;
                 const totalOrdersFromShipments = shipments.length;
-                const totalOrders = Number(s.totalOrders || totalOrdersFromShipments || 0);
-                const delivered = Number(s.deliveredCount || s.deliveredOrders || shipments.filter(x => x && x.currentStatus === 'DELIVERED').length || 0);
+                const totalOrders = Number(s.totalOrders != null ? s.totalOrders : (totalOrdersFromShipments || 0));
+                const delivered = Number(s.deliveredCount != null ? s.deliveredCount : (s.deliveredOrders != null ? s.deliveredOrders : (shipments.filter(x => x && x.currentStatus === 'DELIVERED').length || 0)));
                 const rate = totalOrders > 0 ? Math.round((delivered / totalOrders) * 1000) / 10 : 0;
 
                 let calcFee = 0;
@@ -543,13 +543,13 @@
                 const roundedSuccessRate = Math.round(rawSuccessRate * 10) / 10;
 
                 return {
-                    totalShippingFee: Number(s.totalShippingFee || calcFee || 0),
+                    totalShippingFee: Number(s.totalShippingFee != null ? s.totalShippingFee : (calcFee || 0)),
                     totalOrders,
                     deliveredOrders: delivered,
-                    totalCod: Number(s.totalCodAmount || s.totalCod || calcCod || 0),
-                    settledCod: Number(s.settledCodAmount || s.settledCod || calcSettledCod || 0),
-                    inTransitOrders: Number(s.inTransitCount || s.inTransitOrders || calcInTransit || 0),
-                    returningOrders: Number(s.returningCount || s.returningOrders || calcReturning || 0),
+                    totalCod: Number(s.totalCodAmount != null ? s.totalCodAmount : (s.totalCod != null ? s.totalCod : (calcCod || 0))),
+                    settledCod: Number(s.settledCodAmount != null ? s.settledCodAmount : (s.settledCod != null ? s.settledCod : (calcSettledCod || 0))),
+                    inTransitOrders: Number(s.inTransitCount != null ? s.inTransitCount : (s.inTransitOrders != null ? s.inTransitOrders : (calcInTransit || 0))),
+                    returningOrders: Number(s.returningCount != null ? s.returningCount : (s.returningOrders != null ? s.returningOrders : (calcReturning || 0))),
                     successRate: roundedSuccessRate
                 };
             });
@@ -570,8 +570,8 @@
                             count: Number(d.count || 0),
                             fee,
                             cod,
-                            feeHeight: `${Math.max(10, Math.round((fee / maxFee) * 100))}%`,
-                            codHeight: `${Math.max(10, Math.round((cod / maxCod) * 100))}%`
+                            feeHeight: fee > 0 ? `${Math.max(10, Math.round((fee / maxFee) * 100))}%` : '0%',
+                            codHeight: cod > 0 ? `${Math.max(10, Math.round((cod / maxCod) * 100))}%` : '0%'
                         };
                     });
                 }
@@ -614,8 +614,8 @@
                     count: d.count,
                     fee: d.fee,
                     cod: d.cod,
-                    feeHeight: `${Math.max(12, Math.round((d.fee / maxFee) * 90))}%`,
-                    codHeight: `${Math.max(12, Math.round((d.cod / maxCod) * 90))}%`
+                    feeHeight: d.fee > 0 ? `${Math.max(12, Math.round((d.fee / maxFee) * 90))}%` : '0%',
+                    codHeight: d.cod > 0 ? `${Math.max(12, Math.round((d.cod / maxCod) * 90))}%` : '0%'
                 }));
             });
 
@@ -1059,8 +1059,8 @@
                     </div>
                 </div>
 
-                <div class="bg-white/95 backdrop-blur-md text-slate-700 rounded-2xl shadow-xs border border-slate-200/90 p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
-                    <div class="bg-slate-100/90 p-1 rounded-xl border border-slate-200/70 inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
+                <div class="bg-white/95 dark:bg-[#131e3a]/90 backdrop-blur-md text-slate-700 dark:text-slate-200 rounded-2xl shadow-xs border border-slate-200/90 dark:border-[#23345e] p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
+                    <div class="bg-slate-100/90 dark:bg-[#0b1329]/90 p-1 rounded-xl border border-slate-200/70 dark:border-[#1e2e56] inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
                         <button
                             v-for="r in rolesList"
                             :key="r.key"
@@ -1069,11 +1069,11 @@
                             :class="[
                                 'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                                 activeRole === r.key
-                                    ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
-                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
+                                    ? 'bg-white dark:bg-[#19274e] text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-slate-200/80 dark:ring-blue-500/40 font-bold'
+                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-800/50 font-semibold'
                             ]"
                         >
-                            <svg class="w-4 h-4 transition-colors shrink-0" :class="activeRole === r.key ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 transition-colors shrink-0" :class="activeRole === r.key ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" :d="r.icon" />
                             </svg>
                             <span class="truncate">{{ r.label }}</span>
@@ -1081,7 +1081,7 @@
                     </div>
 
                     <div class="flex items-center space-x-2 shrink-0 px-1 py-0.5">
-                        <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/70">
+                        <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-[#0b1329] px-2.5 py-1 rounded-lg border border-slate-200/70 dark:border-[#1e2e56]">
                             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                             <span>Thời gian thực</span>
                         </span>
@@ -1089,10 +1089,10 @@
                             type="button"
                             @click="refreshCurrentDashboard"
                             :disabled="isRefreshing"
-                            class="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 border border-slate-200/80 transition-all duration-200 active:scale-90 disabled:opacity-50 cursor-pointer shadow-2xs"
+                            class="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-50 dark:bg-[#0b1329] hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 border border-slate-200/80 dark:border-[#1e2e56] transition-all duration-200 active:scale-90 disabled:opacity-50 cursor-pointer shadow-2xs"
                             title="Làm mới dữ liệu thời gian thực"
                         >
-                            <svg class="w-3.5 h-3.5 transition-transform duration-300" :class="{ 'animate-spin text-emerald-600': isRefreshing }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <svg class="w-3.5 h-3.5 transition-transform duration-300" :class="{ 'animate-spin text-emerald-600 dark:text-emerald-400': isRefreshing }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                         </button>
@@ -1107,7 +1107,7 @@
                                 <button 
                                     type="button"
                                     @click="adminDateRange = 'today'"
-                                    :class="adminDateRange === 'today' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold'"
+                                    :class="adminDateRange === 'today' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold'"
                                     class="px-2.5 py-1 rounded-md text-xs transition-all duration-150 cursor-pointer active:scale-95"
                                 >
                                     Hôm Nay
@@ -1115,7 +1115,7 @@
                                 <button 
                                     type="button"
                                     @click="adminDateRange = '7days'"
-                                    :class="adminDateRange === '7days' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold'"
+                                    :class="adminDateRange === '7days' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold'"
                                     class="px-2.5 py-1 rounded-md text-xs transition-all duration-150 cursor-pointer active:scale-95"
                                 >
                                     7 Ngày Qua
@@ -1123,15 +1123,15 @@
                                 <button 
                                     type="button"
                                     @click="adminDateRange = '30days'"
-                                    :class="adminDateRange === '30days' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold'"
+                                    :class="adminDateRange === '30days' ? 'bg-blue-600 text-white font-bold shadow-xs' : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold'"
                                     class="px-2.5 py-1 rounded-md text-xs transition-all duration-150 cursor-pointer active:scale-95"
                                 >
                                     30 Ngày Qua
                                 </button>
 
-                                <div class="h-4 w-px bg-slate-200 hidden sm:block"></div>
+                                <div class="h-4 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block"></div>
 
-                                <select v-model="adminRegionFilter" class="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-md text-xs font-bold text-slate-700 outline-none cursor-pointer">
+                                <select v-model="adminRegionFilter" class="px-2.5 py-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer">
                                     <option value="ALL">Toàn Quốc</option>
                                     <option value="NORTH">Miền Bắc</option>
                                     <option value="CENTRAL">Miền Trung</option>
@@ -1255,29 +1255,29 @@
                                             </h3>
                                         </div>
 
-                                        <div class="inline-flex p-0.5 bg-slate-200/70 rounded-lg text-xs font-bold">
+                                        <div class="inline-flex p-0.5 bg-slate-200/70 dark:bg-[#0b1329] rounded-lg text-xs font-bold border border-transparent dark:border-slate-800">
                                             <button
                                                 type="button"
                                                 @click="adminNetworkTab = 'hubs'"
-                                                :class="adminNetworkTab === 'hubs' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                                :class="adminNetworkTab === 'hubs' ? 'bg-white dark:bg-[#19274e] text-blue-700 dark:text-blue-300 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
                                                 class="px-2.5 py-1 rounded-md transition-all duration-150 cursor-pointer flex items-center space-x-1.5"
                                             >
                                                 <span>Kho Tổng Hub</span>
-                                                <span class="px-1.5 py-0.2 rounded text-[10px] bg-blue-100 text-blue-800 font-mono">{{ adminHubMatrix.length }}</span>
+                                                <span class="px-1.5 py-0.2 rounded text-[10px] bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 font-mono">{{ adminHubMatrix.length }}</span>
                                             </button>
                                             <button
                                                 type="button"
                                                 @click="adminNetworkTab = 'stations'"
-                                                :class="adminNetworkTab === 'stations' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                                :class="adminNetworkTab === 'stations' ? 'bg-white dark:bg-[#19274e] text-blue-700 dark:text-blue-300 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
                                                 class="px-2.5 py-1 rounded-md transition-all duration-150 cursor-pointer flex items-center space-x-1.5"
                                             >
                                                 <span>Top Bưu Cục Đầu Tuyến</span>
-                                                <span class="px-1.5 py-0.2 rounded text-[10px] bg-blue-100 text-blue-800 font-mono">{{ adminTopStations.length }}</span>
+                                                <span class="px-1.5 py-0.2 rounded text-[10px] bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 font-mono">{{ adminTopStations.length }}</span>
                                             </button>
                                             <button
                                                 type="button"
                                                 @click="adminNetworkTab = 'both'"
-                                                :class="adminNetworkTab === 'both' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                                :class="adminNetworkTab === 'both' ? 'bg-white dark:bg-[#19274e] text-blue-700 dark:text-blue-300 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
                                                 class="px-2 py-1 rounded-md transition-all duration-150 cursor-pointer text-[11px]"
                                                 title="Hiển thị cả 2 bảng đồng thời"
                                             >
@@ -1460,8 +1460,8 @@
                     <div v-else-if="activeRole === 'POST_STAFF'" key="role-post-staff" class="space-y-3.5">
                         <div class="b2b-card p-2.5 px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs">
                             <div class="flex flex-wrap items-center gap-2">
-                                <span class="text-xs font-bold text-slate-500">Bưu Cục:</span>
-                                <select v-model="selectedStation" class="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-md text-xs font-bold text-slate-700 outline-none cursor-pointer">
+                                <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Bưu Cục:</span>
+                                <select v-model="selectedStation" class="px-2.5 py-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer">
                                     <option v-for="st in STATIONS" :key="st.code" :value="st.code">{{ st.code }} - {{ st.name }}</option>
                                 </select>
                             </div>
@@ -1479,7 +1479,7 @@
                                 <button
                                     type="button"
                                     @click="$emit('switch-tab', 'post-office')"
-                                    class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-blue-700 text-xs font-bold transition border border-slate-200 shadow-xs flex items-center space-x-1 cursor-pointer active:scale-95"
+                                    class="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-blue-700 dark:text-blue-400 text-xs font-bold transition border border-slate-200 dark:border-slate-700 shadow-xs flex items-center space-x-1 cursor-pointer active:scale-95"
                                 >
                                     <span>Khai Thác</span>
                                 </button>
@@ -1489,43 +1489,43 @@
                         <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
                             <div class="lg:col-span-8 space-y-3.5">
                                 <div class="b2b-card p-4 transition-all duration-200 hover:shadow-xs">
-                                    <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                                        <h3 class="text-xs font-bold text-slate-900 uppercase tracking-tight">Nguồn Hàng Ca Mai</h3>
-                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 font-mono">{{ forecastSummary.totalForecastOrders }} kiện</span>
+                                    <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                                        <h3 class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight">Nguồn Hàng Ca Mai</h3>
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 font-mono">{{ forecastSummary.totalForecastOrders }} kiện</span>
                                     </div>
                                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-3 text-xs">
-                                        <div class="bg-blue-50/70 border border-blue-100 rounded-xl p-3 transition-transform duration-200 hover:scale-[1.02]">
-                                            <div class="flex items-center justify-between text-blue-900 font-bold">
+                                        <div class="bg-blue-50/70 dark:bg-blue-950/50 border border-blue-100 dark:border-blue-900/60 rounded-xl p-3 transition-transform duration-200 hover:scale-[1.02]">
+                                            <div class="flex items-center justify-between text-blue-900 dark:text-blue-300 font-bold">
                                                 <span>Xe Đêm Đến</span>
                                                 <span class="text-[10px] font-mono">In-Transit</span>
                                             </div>
-                                            <div class="font-mono text-xl font-bold text-blue-700 mt-1">{{ forecastSummary.inTransitCount }} kiện</div>
+                                            <div class="font-mono text-xl font-bold text-blue-700 dark:text-blue-400 mt-1">{{ forecastSummary.inTransitCount }} kiện</div>
                                         </div>
-                                        <div class="bg-purple-50/70 border border-purple-100 rounded-xl p-3 transition-transform duration-200 hover:scale-[1.02]">
-                                            <div class="flex items-center justify-between text-purple-900 font-bold">
+                                        <div class="bg-purple-50/70 dark:bg-purple-950/50 border border-purple-100 dark:border-purple-900/60 rounded-xl p-3 transition-transform duration-200 hover:scale-[1.02]">
+                                            <div class="flex items-center justify-between text-purple-900 dark:text-purple-300 font-bold">
                                                 <span>Tồn Trạm Hẹn Giao</span>
                                                 <span class="text-[10px] font-mono">Held</span>
                                             </div>
-                                            <div class="font-mono text-xl font-bold text-purple-700 mt-1">{{ forecastSummary.inventoryHeldCount }} kiện</div>
+                                            <div class="font-mono text-xl font-bold text-purple-700 dark:text-purple-400 mt-1">{{ forecastSummary.inventoryHeldCount }} kiện</div>
                                         </div>
-                                        <div class="bg-emerald-50/70 border border-emerald-100 rounded-xl p-3 transition-transform duration-200 hover:scale-[1.02]">
-                                            <div class="flex items-center justify-between text-emerald-900 font-bold">
+                                        <div class="bg-emerald-50/70 dark:bg-emerald-950/50 border border-emerald-100 dark:border-emerald-900/60 rounded-xl p-3 transition-transform duration-200 hover:scale-[1.02]">
+                                            <div class="flex items-center justify-between text-emerald-900 dark:text-emerald-300 font-bold">
                                                 <span>Đơn SLA Cam Kết</span>
                                                 <span class="text-[10px] font-mono">SLA</span>
                                             </div>
-                                            <div class="font-mono text-xl font-bold text-emerald-700 mt-1">{{ forecastSummary.committedEtaCount }} kiện</div>
+                                            <div class="font-mono text-xl font-bold text-emerald-700 dark:text-emerald-400 mt-1">{{ forecastSummary.committedEtaCount }} kiện</div>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div class="b2b-card overflow-hidden transition-all duration-200 hover:shadow-xs">
-                                    <div class="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
-                                        <h3 class="text-xs font-bold text-slate-900 uppercase tracking-tight">Phân Bổ Tuyến Bưu Tá</h3>
-                                        <span class="text-[11px] font-mono font-bold text-slate-600">{{ forecastShippers.length }} bưu tá</span>
+                                    <div class="p-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/60 dark:bg-slate-900/60">
+                                        <h3 class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight">Phân Bổ Tuyến Bưu Tá</h3>
+                                        <span class="text-[11px] font-mono font-bold text-slate-600 dark:text-slate-400">{{ forecastShippers.length }} bưu tá</span>
                                     </div>
                                     <div class="overflow-x-auto">
                                         <table class="w-full text-left text-xs">
-                                            <thead class="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold text-[11px] uppercase tracking-wider">
+                                            <thead class="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-bold text-[11px] uppercase tracking-wider">
                                                 <tr>
                                                     <th class="py-2 px-3.5">Bưu Tá</th>
                                                     <th class="py-2 px-3">Tuyến</th>
@@ -1536,27 +1536,27 @@
                                                     <th class="py-2 px-3.5 text-center">Telegram</th>
                                                 </tr>
                                             </thead>
-                                            <tbody class="divide-y divide-slate-100 text-slate-700 font-medium">
-                                                <tr v-for="shipper in forecastShippers" :key="shipper.courierCode" class="hover:bg-slate-50/80 transition-colors">
+                                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300 font-medium">
+                                                <tr v-for="shipper in forecastShippers" :key="shipper.courierCode" class="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
                                                     <td class="py-2 px-3.5">
-                                                        <div class="font-bold text-slate-900">{{ shipper.fullName }}</div>
-                                                        <div class="font-mono text-[10.5px] text-slate-400">{{ shipper.courierCode }}</div>
+                                                        <div class="font-bold text-slate-900 dark:text-white">{{ shipper.fullName }}</div>
+                                                        <div class="font-mono text-[10.5px] text-slate-400 dark:text-slate-500">{{ shipper.courierCode }}</div>
                                                     </td>
                                                     <td class="py-2 px-3">
-                                                        <span class="px-2 py-0.5 rounded text-[11px] bg-blue-50 text-blue-700 border border-blue-200 font-semibold">{{ shipper.assignedZone }}</span>
+                                                        <span class="px-2 py-0.5 rounded text-[11px] bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-semibold">{{ shipper.assignedZone }}</span>
                                                     </td>
                                                     <td class="py-2 px-3 text-center">
-                                                        <span :class="shipper.shiftStatus === 'ON_DUTY' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'" class="px-1.5 py-0.5 rounded text-[10px] font-bold">
+                                                        <span :class="shipper.shiftStatus === 'ON_DUTY' ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'" class="px-1.5 py-0.5 rounded text-[10px] font-bold">
                                                             {{ shipper.shiftStatus }}
                                                         </span>
                                                     </td>
-                                                    <td class="py-2 px-3 text-right font-mono font-bold">{{ shipper.estimatedOrdersCount }} đơn</td>
+                                                    <td class="py-2 px-3 text-right font-mono font-bold text-slate-800 dark:text-slate-200">{{ shipper.estimatedOrdersCount }} đơn</td>
                                                     <td class="py-2 px-3 text-center">
-                                                        <div class="font-mono font-bold text-[11px] text-blue-700">{{ shipper.utilizationRate }}%</div>
+                                                        <div class="font-mono font-bold text-[11px] text-blue-700 dark:text-blue-400">{{ shipper.utilizationRate }}%</div>
                                                     </td>
-                                                    <td class="py-2 px-3 text-right font-mono font-bold text-emerald-700">{{ formatCurrency(shipper.estimatedCodAmount) }}</td>
+                                                    <td class="py-2 px-3 text-right font-mono font-bold text-emerald-700 dark:text-emerald-400">{{ formatCurrency(shipper.estimatedCodAmount) }}</td>
                                                     <td class="py-2 px-3.5 text-center">
-                                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">@NovaWay_Bill_Bot</span>
+                                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">@NovaWay_Bill_Bot</span>
                                                     </td>
                                                 </tr>
                                             </tbody>
@@ -1567,25 +1567,25 @@
 
                             <div class="lg:col-span-4 space-y-3.5">
                                 <div class="b2b-card p-3.5 transition-all duration-200 hover:shadow-xs">
-                                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-tight pb-2 border-b border-slate-100 mb-3">Công Suất Ca Trực</h4>
+                                    <h4 class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight pb-2 border-b border-slate-100 dark:border-slate-800 mb-3">Công Suất Ca Trực</h4>
                                     <div class="space-y-2 text-xs">
-                                        <div class="flex justify-between text-slate-600">
+                                        <div class="flex justify-between text-slate-600 dark:text-slate-400">
                                             <span>Tải ca trực:</span>
-                                            <strong class="font-mono text-blue-700">{{ forecastCapacity.utilizationRate }}%</strong>
+                                            <strong class="font-mono text-blue-700 dark:text-blue-400">{{ forecastCapacity.utilizationRate }}%</strong>
                                         </div>
-                                        <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                                        <div class="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
                                             <div :style="{ width: forecastCapacity.utilizationRate + '%' }" class="h-full bg-blue-600 rounded-full transition-all duration-300"></div>
                                         </div>
-                                        <p class="text-[11px] text-slate-500 mt-2">{{ forecastCapacity.alertMessage }}</p>
+                                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-2">{{ forecastCapacity.alertMessage }}</p>
                                     </div>
                                 </div>
 
                                 <div class="b2b-card p-3.5 transition-all duration-200 hover:shadow-xs">
-                                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-tight pb-2 border-b border-slate-100 mb-3">Kiểm Soát Quỹ COD</h4>
+                                    <h4 class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight pb-2 border-b border-slate-100 dark:border-slate-800 mb-3">Kiểm Soát Quỹ COD</h4>
                                     <div class="space-y-2 text-xs">
-                                        <div class="p-2.5 rounded-lg bg-amber-50 border border-amber-200 flex justify-between items-center">
-                                            <span class="text-slate-600">Bưu tá chưa nộp:</span>
-                                            <strong class="font-mono font-bold text-amber-700 text-sm">{{ formatCurrency(stationCodSummary.pendingAmount) }}</strong>
+                                        <div class="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 flex justify-between items-center">
+                                            <span class="text-slate-600 dark:text-slate-400">Bưu tá chưa nộp:</span>
+                                            <strong class="font-mono font-bold text-amber-700 dark:text-amber-400 text-sm">{{ formatCurrency(stationCodSummary.pendingAmount) }}</strong>
                                         </div>
                                         <button @click="$emit('switch-tab', 'post-office')" class="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all duration-150 text-xs cursor-pointer active:scale-95">
                                             Mở Bàn Đối Soát
@@ -1599,8 +1599,8 @@
                     <div v-else-if="activeRole === 'HUB_STAFF'" key="role-hub-staff" class="space-y-3.5">
                         <div class="b2b-card p-2.5 px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs">
                             <div class="flex flex-wrap items-center gap-2">
-                                <span class="text-xs font-bold text-slate-500">Kho Hub:</span>
-                                <select v-model="selectedHub" class="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-md text-xs font-bold text-slate-700 outline-none cursor-pointer">
+                                <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Kho Hub:</span>
+                                <select v-model="selectedHub" class="px-2.5 py-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer">
                                     <option v-for="h in HUBS" :key="h.code" :value="h.code">{{ h.code }} - {{ h.name }}</option>
                                 </select>
                             </div>
@@ -1612,13 +1612,13 @@
                         <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
                             <div class="lg:col-span-8 space-y-3.5">
                                 <div class="b2b-card overflow-hidden transition-all duration-200 hover:shadow-xs">
-                                    <div class="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
-                                        <h3 class="text-xs font-bold text-slate-900 uppercase tracking-tight">Lịch Trình Chuyến Xe Trục</h3>
-                                        <span class="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">{{ filteredHubTrips.length }} Chuyến</span>
+                                    <div class="p-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/60 dark:bg-slate-900/60">
+                                        <h3 class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight">Lịch Trình Chuyến Xe Trục</h3>
+                                        <span class="text-[11px] font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">{{ filteredHubTrips.length }} Chuyến</span>
                                     </div>
                                     <div class="overflow-x-auto">
                                         <table class="w-full text-left text-xs">
-                                            <thead class="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold text-[11px] uppercase tracking-wider">
+                                            <thead class="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-bold text-[11px] uppercase tracking-wider">
                                                 <tr>
                                                     <th class="py-2 px-3.5">Mã Chuyến</th>
                                                     <th class="py-2 px-3">Tuyến Trục</th>
@@ -1626,19 +1626,19 @@
                                                     <th class="py-2 px-3.5 text-center">Trạng Thái</th>
                                                 </tr>
                                             </thead>
-                                            <tbody class="divide-y divide-slate-100 text-slate-700 font-medium">
-                                                <tr v-for="trip in filteredHubTrips" :key="trip.id" class="hover:bg-slate-50/80 transition-colors">
-                                                    <td class="py-2 px-3.5 font-mono font-bold text-blue-600">{{ trip.tripCode || ('TRIP-' + trip.id) }}</td>
-                                                    <td class="py-2 px-3 font-semibold text-slate-800">{{ trip.route || (trip.originHub + ' → ' + trip.destinationHub) }}</td>
-                                                    <td class="py-2 px-3 font-mono text-[11.5px]">{{ trip.vehiclePlate || 'Xe Container' }} • {{ trip.driverName || 'Tài xế' }}</td>
+                                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300 font-medium">
+                                                <tr v-for="trip in filteredHubTrips" :key="trip.id" class="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
+                                                    <td class="py-2 px-3.5 font-mono font-bold text-blue-600 dark:text-blue-400">{{ trip.tripCode || ('TRIP-' + trip.id) }}</td>
+                                                    <td class="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200">{{ trip.route || (trip.originHub + ' → ' + trip.destinationHub) }}</td>
+                                                    <td class="py-2 px-3 font-mono text-[11.5px] text-slate-600 dark:text-slate-400">{{ trip.vehiclePlate || 'Xe Container' }} • {{ trip.driverName || 'Tài xế' }}</td>
                                                     <td class="py-2 px-3.5 text-center">
-                                                        <span :class="trip.status === 'IN_TRANSIT' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border">
+                                                        <span :class="trip.status === 'IN_TRANSIT' ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800' : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border">
                                                             {{ trip.status }}
                                                         </span>
                                                     </td>
                                                 </tr>
                                                 <tr v-if="filteredHubTrips.length === 0">
-                                                    <td colspan="4" class="py-8 text-center text-slate-400">
+                                                    <td colspan="4" class="py-8 text-center text-slate-400 dark:text-slate-500">
                                                         Hiện chưa có chuyến xe nào khởi hành tại kho hub này.
                                                     </td>
                                                 </tr>
@@ -1650,18 +1650,18 @@
 
                             <div class="lg:col-span-4 space-y-3.5">
                                 <div class="b2b-card p-3.5 transition-all duration-200 hover:shadow-xs">
-                                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-tight pb-2 border-b border-slate-100 mb-3">Đội Xe Trung Chuyển</h4>
+                                    <h4 class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight pb-2 border-b border-slate-100 dark:border-slate-800 mb-3">Đội Xe Trung Chuyển</h4>
                                     <div class="space-y-2 text-xs">
-                                        <div v-for="v in hubVehicles.slice(0, 4)" :key="v.id" class="p-2 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between transition-colors hover:bg-white hover:border-blue-200">
+                                        <div v-for="v in hubVehicles.slice(0, 4)" :key="v.id" class="p-2 rounded-lg bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between transition-colors hover:bg-white dark:hover:bg-slate-800 hover:border-blue-200 dark:hover:border-blue-700">
                                             <div>
-                                                <div class="font-bold text-slate-800">{{ v.plateNumber || v.plate }}</div>
-                                                <div class="text-[11px] text-slate-500">{{ v.vehicleType || 'Container' }} • {{ v.driverName || '' }}</div>
+                                                <div class="font-bold text-slate-800 dark:text-slate-200">{{ v.plateNumber || v.plate }}</div>
+                                                <div class="text-[11px] text-slate-500 dark:text-slate-400">{{ v.vehicleType || 'Container' }} • {{ v.driverName || '' }}</div>
                                             </div>
-                                            <span :class="v.status === 'AVAILABLE' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-blue-50 text-blue-700 border-blue-200'" class="px-2 py-0.5 rounded text-[10px] font-bold border">
+                                            <span :class="v.status === 'AVAILABLE' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'" class="px-2 py-0.5 rounded text-[10px] font-bold border">
                                                 {{ v.status }}
                                             </span>
                                         </div>
-                                        <div v-if="hubVehicles.length === 0" class="text-center py-4 text-slate-400 text-xs">
+                                        <div v-if="hubVehicles.length === 0" class="text-center py-4 text-slate-400 dark:text-slate-500 text-xs">
                                             Không có thông tin xe tại kho này.
                                         </div>
                                     </div>
@@ -1673,14 +1673,14 @@
                     <div v-else-if="activeRole === 'SHIPPER'" key="role-shipper" class="space-y-3.5">
                         <div class="b2b-card p-2.5 px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs">
                             <div class="flex items-center space-x-2">
-                                <span class="text-xs font-bold text-slate-500">Mã Bưu Tá:</span>
-                                <span class="font-mono font-bold text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">{{ currentCourierCode }}</span>
-                                <span class="text-slate-300">•</span>
-                                <span class="text-xs font-semibold text-slate-600">Trạng Thái:</span>
+                                <span class="text-xs font-bold text-slate-500 dark:text-slate-400">Mã Bưu Tá:</span>
+                                <span class="font-mono font-bold text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">{{ currentCourierCode }}</span>
+                                <span class="text-slate-300 dark:text-slate-700">•</span>
+                                <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">Trạng Thái:</span>
                                 <button
                                     type="button"
                                     @click="toggleShipperShift"
-                                    :class="shipperShiftStatus === 'ON_DUTY' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'"
+                                    :class="shipperShiftStatus === 'ON_DUTY' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'"
                                     class="px-2 py-0.5 rounded text-[11px] font-bold border transition cursor-pointer active:scale-95 flex items-center space-x-1"
                                 >
                                     <span :class="shipperShiftStatus === 'ON_DUTY' ? 'bg-emerald-500' : 'bg-slate-400'" class="w-1.5 h-1.5 rounded-full animate-pulse"></span>
@@ -1699,13 +1699,13 @@
                         <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
                             <div class="lg:col-span-8 space-y-3.5">
                                 <div class="b2b-card overflow-hidden transition-all duration-200 hover:shadow-xs">
-                                    <div class="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
-                                        <h3 class="text-xs font-bold text-slate-900 uppercase tracking-tight">Bưu Gửi Phụ Trách Giao</h3>
-                                        <span class="font-mono text-[11px] font-bold text-slate-600 bg-slate-200 px-2 py-0.5 rounded">{{ myAssignedShipments.length }} kiện</span>
+                                    <div class="p-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/60 dark:bg-slate-900/60">
+                                        <h3 class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight">Bưu Gửi Phụ Trách Giao</h3>
+                                        <span class="font-mono text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded">{{ myAssignedShipments.length }} kiện</span>
                                     </div>
                                     <div class="overflow-x-auto">
                                         <table class="w-full text-left text-xs">
-                                            <thead class="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold text-[11px] uppercase tracking-wider">
+                                            <thead class="bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-bold text-[11px] uppercase tracking-wider">
                                                 <tr>
                                                     <th class="py-2 px-3.5">Mã Vận Đơn</th>
                                                     <th class="py-2 px-3">Người Nhận &amp; Địa Chỉ</th>
@@ -1714,29 +1714,29 @@
                                                     <th class="py-2 px-3.5 text-center">Thao Tác</th>
                                                 </tr>
                                             </thead>
-                                            <tbody class="divide-y divide-slate-100 text-slate-700 font-medium">
-                                                <tr v-for="item in myAssignedShipments" :key="item.trackingCode" class="hover:bg-slate-50/80 transition-colors">
+                                            <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300 font-medium">
+                                                <tr v-for="item in myAssignedShipments" :key="item.trackingCode" class="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
                                                     <td class="py-2 px-3.5">
-                                                        <button type="button" @click="$emit('view-tracking', item.trackingCode)" class="font-mono font-bold text-blue-600 hover:underline cursor-pointer">
+                                                        <button type="button" @click="$emit('view-tracking', item.trackingCode)" class="font-mono font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer">
                                                             {{ item.trackingCode }}
                                                         </button>
                                                     </td>
                                                     <td class="py-2 px-3">
-                                                        <div class="font-bold text-slate-800">{{ item.receiverName || 'Khách nhận' }} • {{ item.receiverPhone || '' }}</div>
-                                                        <div class="text-[11px] text-slate-500 truncate max-w-sm">{{ item.receiverAddress || 'Chưa có địa chỉ' }}</div>
+                                                        <div class="font-bold text-slate-800 dark:text-slate-200">{{ item.receiverName || 'Khách nhận' }} • {{ item.receiverPhone || '' }}</div>
+                                                        <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-sm">{{ item.receiverAddress || 'Chưa có địa chỉ' }}</div>
                                                     </td>
-                                                    <td class="py-2 px-3 text-right font-mono font-bold text-emerald-700">{{ formatCurrency(item.codAmount || 0) }}</td>
+                                                    <td class="py-2 px-3 text-right font-mono font-bold text-emerald-700 dark:text-emerald-400">{{ formatCurrency(item.codAmount || 0) }}</td>
                                                     <td class="py-2 px-3 text-center">
-                                                        <span :class="item.currentStatus === 'DELIVERED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-blue-50 text-blue-700 border-blue-200'" class="px-2 py-0.5 rounded text-[10.5px] font-bold border">
+                                                        <span :class="item.currentStatus === 'DELIVERED' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'" class="px-2 py-0.5 rounded text-[10.5px] font-bold border">
                                                             {{ item.currentStatus || 'WAITING' }}
                                                         </span>
                                                     </td>
                                                     <td class="py-2 px-3.5 text-center">
-                                                        <button @click="$emit('switch-tab', 'shipper')" class="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] cursor-pointer active:scale-95 transition-all">Cập Nhật</button>
+                                                        <button @click="$emit('switch-tab', 'shipper')" class="px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[11px] cursor-pointer active:scale-95 transition-all">Cập Nhật</button>
                                                     </td>
                                                 </tr>
                                                 <tr v-if="myAssignedShipments.length === 0">
-                                                    <td colspan="5" class="py-8 text-center text-slate-400">
+                                                    <td colspan="5" class="py-8 text-center text-slate-400 dark:text-slate-500">
                                                         Hiện chưa có bưu gửi nào được bàn giao cho mã bưu tá này.
                                                     </td>
                                                 </tr>
@@ -1748,9 +1748,9 @@
 
                             <div class="lg:col-span-4 space-y-3.5">
                                 <div class="b2b-card p-3.5 transition-all duration-200 hover:shadow-xs">
-                                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-tight mb-2.5">Ví Tiền Thu Hộ COD</h4>
-                                    <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 leading-relaxed mb-3">
-                                        Bạn đang giữ <strong class="font-mono font-bold text-amber-700">{{ formatCurrency(shipperStats.pocketCod) }}</strong>. Vui lòng nộp về bưu cục đối soát khi kết thúc ca.
+                                    <h4 class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight mb-2.5">Ví Tiền Thu Hộ COD</h4>
+                                    <div class="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900/60 text-xs text-amber-900 dark:text-amber-300 leading-relaxed mb-3">
+                                        Bạn đang giữ <strong class="font-mono font-bold text-amber-700 dark:text-amber-400">{{ formatCurrency(shipperStats.pocketCod) }}</strong>. Vui lòng nộp về bưu cục đối soát khi kết thúc ca.
                                     </div>
                                     <button @click="$emit('switch-tab', 'shipper')" class="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs transition-all duration-150 cursor-pointer active:scale-95 shadow-xs">
                                         Nộp Quỹ COD Bưu Cục

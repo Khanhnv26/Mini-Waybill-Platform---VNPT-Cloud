@@ -3,12 +3,12 @@
     <aside 
         id="app-sidebar" 
         :style="{ width: isSidebarCollapsed ? '72px' : '260px' }"
-        class="h-full bg-white border-r border-slate-200 flex flex-col justify-between smooth-transition relative z-40 shadow-sm flex-shrink-0 !overflow-visible"
+        class="h-full bg-white dark:bg-[#0f1a38] border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between smooth-transition relative z-40 shadow-sm flex-shrink-0 !overflow-visible"
     >
         <button 
             @click="$emit('toggle-sidebar')" 
             :title="isSidebarCollapsed ? 'Mở rộng thanh bên' : 'Thu gọn thanh bên'" 
-            class="absolute -right-3.5 top-5 w-7 h-7 rounded-full bg-white border border-slate-200 shadow-md flex items-center justify-center text-slate-500 hover:text-blue-600 hover:border-blue-300 hover:scale-110 transition smooth-transition z-50 cursor-pointer ring-2 ring-slate-100/80 hover:ring-blue-100"
+            class="absolute -right-3.5 top-5 w-7 h-7 rounded-full bg-white dark:bg-[#0f1a38] border border-slate-200 dark:border-slate-700 shadow-md flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-500 hover:scale-110 transition smooth-transition z-50 cursor-pointer ring-2 ring-slate-100/80 dark:ring-slate-800 hover:ring-blue-100 dark:hover:ring-blue-900/50"
             aria-label="Thu mở thanh điều hướng bên"
         >
             <svg class="w-3.5 h-3.5 transition-transform duration-200" :class="{ 'rotate-180': isSidebarCollapsed }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -20,7 +20,7 @@
             <div 
                 @click="$emit('logo-click')"
                 :title="isSidebarCollapsed ? 'Bấm để mở rộng thanh bên' : 'Về trang Tra cứu bưu gửi'"
-                class="h-16 flex items-center px-4 border-b border-slate-100 cursor-pointer hover:bg-slate-50/80 transition"
+                class="h-16 flex items-center px-4 border-b border-slate-100 dark:border-slate-800 cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition"
                 :class="{ 'justify-center !px-0': isSidebarCollapsed }"
             >
                 <div class="flex items-center space-x-3 overflow-hidden">
@@ -28,16 +28,16 @@
                         <span class="text-[10px] font-black tracking-tight leading-none">VNPT</span>
                     </div>
                     <div v-show="!isSidebarCollapsed" class="leading-tight overflow-hidden">
-                        <div class="font-extrabold text-sm text-slate-900 tracking-tight whitespace-nowrap">
+                        <div class="font-extrabold text-sm text-slate-900 dark:text-white tracking-tight whitespace-nowrap">
                             Waybill Post
                         </div>
-                        <p class="text-[10.5px] text-slate-400 font-medium whitespace-nowrap">Quản trị &amp; Điều phối</p>
+                        <p class="text-[10.5px] text-slate-400 dark:text-slate-400 font-medium whitespace-nowrap">Quản trị &amp; Điều phối</p>
                     </div>
                 </div>
             </div>
 
             <div class="p-3 space-y-1">
-                <div v-show="!isSidebarCollapsed" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <div v-show="!isSidebarCollapsed" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                     Phân Hệ Nghiệp Vụ
                 </div>
 
@@ -50,11 +50,11 @@
                         'w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs transition smooth-transition cursor-pointer text-left',
                         isSidebarCollapsed ? 'justify-center !px-0 !space-x-0' : '',
                         currentTab === tab.id 
-                            ? 'bg-blue-50 text-blue-700 border border-blue-100 shadow-sm shadow-blue-500/10 font-bold' 
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 font-medium'
+                            ? 'bg-blue-50 dark:bg-blue-600/25 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-500/40 shadow-sm shadow-blue-500/10 font-bold' 
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800/50 font-medium'
                     ]"
                 >
-                    <svg class="w-4 h-4 flex-shrink-0" :class="currentTab === tab.id ? 'text-blue-600' : 'text-slate-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-4 h-4 flex-shrink-0" :class="currentTab === tab.id ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tab.icon || 'M4 6h16M4 12h16M4 18h16'" />
                     </svg>
                     <span v-show="!isSidebarCollapsed" class="truncate">{{ tab.name }}</span>
@@ -62,13 +62,13 @@
             </div>
         </div>
 
-        <div class="p-3 border-t border-slate-100 bg-slate-50/50">
-            <div class="flex items-center justify-between p-1.5 rounded-xl bg-white border border-slate-200 shadow-sm" :class="{ 'justify-center !p-1': isSidebarCollapsed }">
+        <div class="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
+            <div class="flex items-center justify-between p-1.5 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 shadow-sm" :class="{ 'justify-center !p-1': isSidebarCollapsed }">
                 <button 
                     type="button"
                     @click="$emit('open-profile')"
                     :title="isSidebarCollapsed ? 'Xem & sửa hồ sơ: ' + (currentUser?.fullName || currentUser?.email) : 'Bấm để xem và sửa thông tin cá nhân / Shop'"
-                    class="flex items-center space-x-2.5 overflow-hidden text-left hover:bg-slate-50 p-1 rounded-lg transition group flex-1 cursor-pointer"
+                    class="flex items-center space-x-2.5 overflow-hidden text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 p-1 rounded-lg transition group flex-1 cursor-pointer"
                 >
                     <div class="w-8 h-8 rounded-lg overflow-hidden bg-blue-600 group-hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 shadow-sm transition">
                         <img 
@@ -85,12 +85,12 @@
                     </div>
                     <div v-show="!isSidebarCollapsed" class="leading-tight truncate flex-1">
                         <div class="flex items-center space-x-1">
-                            <span class="text-xs font-bold text-slate-800 truncate group-hover:text-blue-600 transition">{{ currentUser?.fullName || currentUser?.email }}</span>
+                            <span class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">{{ currentUser?.fullName || currentUser?.email }}</span>
                             <svg class="w-3 h-3 text-slate-400 group-hover:text-blue-500 flex-shrink-0 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                             </svg>
                         </div>
-                        <div class="text-[10px] text-blue-600 font-semibold truncate">{{ currentUser?.email }}</div>
+                        <div class="text-[10px] text-blue-600 dark:text-blue-400 font-semibold truncate">{{ currentUser?.email }}</div>
                     </div>
                 </button>
 
@@ -98,7 +98,7 @@
                     v-show="!isSidebarCollapsed"
                     @click="$emit('logout')"
                     title="Đăng xuất khỏi hệ thống" 
-                    class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition cursor-pointer flex-shrink-0 ml-1"
+                    class="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer flex-shrink-0 ml-1"
                 >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

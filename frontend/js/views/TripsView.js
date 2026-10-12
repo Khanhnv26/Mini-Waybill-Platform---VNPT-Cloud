@@ -344,6 +344,9 @@
 
     const TripsView = {
         name: 'TripsView',
+        components: {
+            TripManifestModal: window.TripManifestModal
+        },
         props: {
             embedded: {
                 type: Boolean,

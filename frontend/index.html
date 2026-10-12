@@ -9,50 +9,38 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
     
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/tailwind.prod.css?v=3.5.5" />
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['"Inter"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
-                        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
-                    },
-                    colors: {
-                        vnpt: {
-                            50: '#eef6ff',
-                            100: '#d9ecff',
-                            200: '#bcdfff',
-                            500: '#0066cc',
-                            600: '#0055bb',
-                            700: '#004488',
-                            800: '#003366',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <link rel="stylesheet" href="css/style.css?v=2.6.2" />
-    <link rel="stylesheet" href="css/views/login.css?v=2.6.2" />
+    <link rel="stylesheet" href="css/style.css?v=3.5.7" />
+    <link rel="stylesheet" href="css/views/login.css?v=3.5.7" />
 
     <script>
         (function () {
             try {
-                localStorage.removeItem('theme');
-                document.documentElement.classList.remove('dark');
+                var savedTheme = localStorage.getItem('theme');
+                var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (savedTheme === 'dark' || (!savedTheme && systemDark)) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
             } catch (e) {}
         })();
     </script>
 
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "vue": "./js/libs/vue.esm-browser.js"
+        }
+    }
+    </script>
+    <script src="js/libs/vue.global.js"></script>
 </head>
 <body class="bg-[#f8fafc] text-slate-900 antialiased min-h-full flex flex-col selection:bg-blue-600 selection:text-white font-sans">
 
@@ -100,6 +88,8 @@
         <!-- Full-Page Login View when currentTab === 'login' -->
         <login-view 
             v-if="currentTab === 'login'" 
+            :is-dark-mode="isDarkMode"
+            @toggle-dark-mode="toggleDarkMode"
             @login-success="handleLoginSuccess" 
             @navigate="navigateTo"
         ></login-view>
@@ -113,12 +103,14 @@
             :current-tab-title="currentTabTitle"
             :current-tracking-code="currentTrackingCode"
             :is-sidebar-collapsed="isSidebarCollapsed"
+            :is-dark-mode="isDarkMode"
             :navigation-tabs="navigationTabs"
             :public-guest-tabs="publicGuestTabs"
             :show-notification-dropdown="showNotificationDropdown"
             :notifications="notifications"
             :unread-notifications-count="unreadNotificationsCount"
             @toggle-sidebar="toggleSidebarCollapse"
+            @toggle-dark-mode="toggleDarkMode"
             @switch-tab="switchTab"
             @logo-click="handleLogoClick"
             @open-profile="openUserProfileModal"
@@ -258,57 +250,7 @@
         <chatbot-widget v-if="!isStaffUser && currentTab !== 'login'"></chatbot-widget>
     </div>
 
-    <script src="js/auth.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/map.js"></script>
-
-    <script src="js/services/routingService.js"></script>
-    <script src="js/services/shipmentService.js"></script>
-    <script src="js/services/trackingService.js"></script>
-    <script src="js/services/customerService.js"></script>
-    <script src="js/services/notificationService.js"></script>
-    <script src="js/services/auditService.js"></script>
-    <script src="js/services/adminService.js"></script>
-    <script src="js/services/reportService.js"></script>
-    <script src="js/services/pricingService.js"></script>
-    <script src="js/services/supportService.js"></script>
-    <script src="js/services/shipperService.js"></script>
-    <script src="js/services/ratingService.js"></script>
-    <script src="js/services/paymentService.js"></script>
-
-    <script src="js/components/layout/AppSidebar.js"></script>
-    <script src="js/components/layout/AppTopbar.js"></script>
-    <script src="js/components/layout/InternalFooter.js"></script>
-    <script src="js/components/layout/PublicHeader.js"></script>
-    <script src="js/components/layout/PublicFooter.js"></script>
-    <script src="js/components/common/ToastContainer.js"></script>
-    <script src="js/components/common/UserProfileModal.js"></script>
-    <script src="js/layouts/InternalLayout.js"></script>
-    <script src="js/layouts/PublicLayout.js"></script>
-
-    <script src="js/views/LoginView.js"></script>
-    <script src="js/views/TrackingView.js"></script>
-    <script src="js/views/ShipmentView.js?v=2.7.1"></script>
-    <script src="js/views/DashboardView.js?v=2.7.2"></script>
-    <script src="js/views/PostOfficeOpsView.js?v=2.7.1"></script>
-    <script src="js/views/TripsView.js?v=2.7.4"></script>
-    <script src="js/views/FleetView.js"></script>
-    <script src="js/views/HubOpsView.js?v=2.7.1"></script>
-    <script src="js/views/ShipperView.js?v=2.7.1"></script>
-    <script src="js/views/ShipperDirectoryView.js"></script>
-    <script src="js/views/CustomerView.js"></script>
-    <script src="js/views/AdminRbacView.js?v=2.7.1"></script>
-    <script src="js/views/ReportView.js?v=2.7.1"></script>
-    <script src="js/views/TariffCalculatorView.js"></script>
-    <script src="js/views/NetworkView.js"></script>
-    <script src="js/views/GuideView.js"></script>
-    <script src="js/views/SupportView.js"></script>
-    <script src="js/views/UnderDevelopmentView.js"></script>
-    <script src="js/views/ErrorView.js?v=2.6.0"></script>
-    <script src="js/views/ProfileView.js?v=2.6.0"></script>
-    <script src="js/components/ChatbotWidget.js?v=2.6.1"></script>
-
-    <script src="js/app.js?v=2.6.0"></script>
+    <!-- Single ES Module Entry Point: Tự động nạp toàn bộ services, layouts, views và store -->
+    <script type="module" src="js/app.js?v=3.5.5"></script>
 </body>
 </html>
