@@ -1178,10 +1178,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                     return;
                 }
                 try {
-                    google.accounts.id.initialize({
-                        client_id: GOOGLE_CLIENT_ID,
-                        callback: handleGoogleLinkCallback
-                    });
+                    window.initGoogleIdentity(GOOGLE_CLIENT_ID, handleGoogleLinkCallback);
                     google.accounts.id.prompt((notification) => {
                         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
                             const container = document.getElementById('googleLinkModalBtn');

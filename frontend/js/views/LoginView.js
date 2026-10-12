@@ -694,18 +694,10 @@
                 }
             }
 
-            let isGoogleInitialized = false;
             function renderGoogleButton(force = false) {
                 if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
                     try {
-                        if (!isGoogleInitialized) {
-                            google.accounts.id.initialize({
-                                client_id: GOOGLE_CLIENT_ID,
-                                callback: handleGoogleLoginResponse,
-                                auto_select: false
-                            });
-                            isGoogleInitialized = true;
-                        }
+                        window.initGoogleIdentity(GOOGLE_CLIENT_ID, handleGoogleLoginResponse);
 
                         const googleTheme = isDarkMode.value ? 'filled_black' : 'outline';
 

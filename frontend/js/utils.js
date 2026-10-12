@@ -399,6 +399,24 @@
         return clean.slice(0, 4) + '***' + clean.slice(-3);
     };
 
+    // Google Identity Services chi cho phep initialize() mot lan/trang. Cac man hinh (Login, lien ket Google)
+    // dung chung ham nay: initialize 1 lan, con callback duoc doi qua handler hien tai.
+    window.initGoogleIdentity = function (clientId, callback) {
+        if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) return false;
+        window.__gsiHandler = callback;
+        if (!window.__gsiInitialized) {
+            google.accounts.id.initialize({
+                client_id: clientId,
+                callback: function (response) {
+                    if (typeof window.__gsiHandler === 'function') window.__gsiHandler(response);
+                },
+                auto_select: false
+            });
+            window.__gsiInitialized = true;
+        }
+        return true;
+    };
+
     window.Utils = {
         toastState,
         showToast,
