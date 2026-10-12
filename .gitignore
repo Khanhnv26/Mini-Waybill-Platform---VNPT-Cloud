@@ -64,3 +64,5 @@ npm-debug.log*
 .agents/
 agent/
 
+# Interview Handbook (Personal notes - DO NOT COMMIT)
+FRESHER_INTERVIEW_HANDBOOK.md
