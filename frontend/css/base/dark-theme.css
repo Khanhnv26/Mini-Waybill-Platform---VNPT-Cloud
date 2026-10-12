@@ -528,14 +528,95 @@ html.dark .hover\:bg-white\/60:hover {
 }
 
 /* 11. Leaflet Map Night Vision (Tech Navy Filter) */
-html.dark .leaflet-tile-pane,
 .map-tiles-night,
-.leaflet-tile-pane .map-tiles-night {
-    filter: brightness(0.65) invert(1) contrast(3) hue-rotate(200deg) saturate(0.35) !important;
+.map-tiles-night img,
+.leaflet-layer.map-tiles-night,
+.leaflet-layer.map-tiles-night img,
+.leaflet-layer.map-tiles-night .leaflet-tile {
+    filter: invert(100%) hue-rotate(190deg) brightness(80%) contrast(110%) saturate(80%) !important;
+}
+
+/* Ensure satellite and standard layers are NEVER inverted */
+.leaflet-layer:not(.map-tiles-night),
+.leaflet-layer:not(.map-tiles-night) img,
+.leaflet-layer:not(.map-tiles-night) .leaflet-tile {
+    filter: none !important;
 }
 
 html.dark .leaflet-container {
     background-color: #0b1329 !important;
+}
+
+html.dark .map-quick-nav {
+    background: #131e3a !important;
+    border: 1px solid #23345e !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+}
+
+html.dark .quick-nav-btn {
+    background: #131e3a !important;
+    border-bottom: 1px solid #23345e !important;
+    color: #e2e8f0 !important;
+}
+
+html.dark .quick-nav-btn:hover {
+    background: #1e2c56 !important;
+    color: #38bdf8 !important;
+}
+
+html.dark .quick-nav-btn:active {
+    background: #23345e !important;
+}
+
+html.dark .leaflet-control-layers {
+    background: rgba(19, 30, 58, 0.95) !important;
+    border: 1px solid #23345e !important;
+    color: #f1f5f9 !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+}
+
+html.dark .leaflet-control-layers-base label,
+html.dark .leaflet-control-layers-overlays label {
+    color: #e2e8f0 !important;
+}
+
+html.dark .leaflet-control-layers-separator {
+    border-top: 1px solid #23345e !important;
+}
+
+html.dark .leaflet-bar a {
+    background-color: #131e3a !important;
+    color: #cbd5e1 !important;
+    border-bottom: 1px solid #23345e !important;
+}
+
+html.dark .leaflet-bar a:hover {
+    background-color: #1e2c56 !important;
+    color: #ffffff !important;
+}
+
+html.dark .radar-tooltip {
+    background: rgba(19, 30, 58, 0.96) !important;
+    border: 1px solid #23345e !important;
+    color: #f8fafc !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+html.dark .radar-tooltip div:first-child {
+    color: #f8fafc !important;
+}
+
+html.dark .radar-tooltip div:nth-child(2) {
+    color: #38bdf8 !important;
+}
+
+html.dark .leaflet-control-attribution {
+    background-color: rgba(11, 19, 41, 0.85) !important;
+    color: #94a3b8 !important;
+}
+
+html.dark .leaflet-control-attribution a {
+    color: #60a5fa !important;
 }
 
 html.dark .leaflet-popup-content-wrapper,
