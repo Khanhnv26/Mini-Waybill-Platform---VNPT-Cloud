@@ -1,0 +1,7 @@
+# ==============================================================================
+# GITHUB LINGUIST OVERRIDES
+# Loại trừ các công cụ phụ trợ AI Agent (.agents) để không tính vào thống kê mã nguồn dự án
+# ==============================================================================
+
+.agents/** linguist-detectable=false
+node_modules/** linguist-vendored=true
