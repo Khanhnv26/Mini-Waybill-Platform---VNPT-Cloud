@@ -40,6 +40,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,"/api/shipments/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/ratings/*/status").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/ratings").permitAll()
+                        // SockJS/STOMP handshake (/ws/info, /ws/{server}/{session}/xhr_*, /websocket) khong gui header
+                        // Authorization va co >1 segment nen khong khop "/api/notifications/*" -> truoc day bi 403.
+                        .requestMatchers("/api/notifications/ws", "/api/notifications/ws/**").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/notifications/*").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/routing/hubs").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/routing/shipments/**").permitAll()
