@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: routing-service
-          image: khanhnv26/routing-service:0d91eb22e9c84afe69a00eb4c4de37fa7d00855c
+          image: khanhnv26/routing-service:48147868828258fbe189a06e86089cc01b3e6109
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
