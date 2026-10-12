@@ -1255,29 +1255,29 @@
                                             </h3>
                                         </div>
 
-                                        <div class="inline-flex p-0.5 bg-slate-200/70 rounded-lg text-xs font-bold">
+                                        <div class="inline-flex p-0.5 bg-slate-200/70 dark:bg-[#0b1329] rounded-lg text-xs font-bold border border-transparent dark:border-slate-800">
                                             <button
                                                 type="button"
                                                 @click="adminNetworkTab = 'hubs'"
-                                                :class="adminNetworkTab === 'hubs' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                                :class="adminNetworkTab === 'hubs' ? 'bg-white dark:bg-[#19274e] text-blue-700 dark:text-blue-300 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
                                                 class="px-2.5 py-1 rounded-md transition-all duration-150 cursor-pointer flex items-center space-x-1.5"
                                             >
                                                 <span>Kho Tổng Hub</span>
-                                                <span class="px-1.5 py-0.2 rounded text-[10px] bg-blue-100 text-blue-800 font-mono">{{ adminHubMatrix.length }}</span>
+                                                <span class="px-1.5 py-0.2 rounded text-[10px] bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 font-mono">{{ adminHubMatrix.length }}</span>
                                             </button>
                                             <button
                                                 type="button"
                                                 @click="adminNetworkTab = 'stations'"
-                                                :class="adminNetworkTab === 'stations' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                                :class="adminNetworkTab === 'stations' ? 'bg-white dark:bg-[#19274e] text-blue-700 dark:text-blue-300 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
                                                 class="px-2.5 py-1 rounded-md transition-all duration-150 cursor-pointer flex items-center space-x-1.5"
                                             >
                                                 <span>Top Bưu Cục Đầu Tuyến</span>
-                                                <span class="px-1.5 py-0.2 rounded text-[10px] bg-blue-100 text-blue-800 font-mono">{{ adminTopStations.length }}</span>
+                                                <span class="px-1.5 py-0.2 rounded text-[10px] bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 font-mono">{{ adminTopStations.length }}</span>
                                             </button>
                                             <button
                                                 type="button"
                                                 @click="adminNetworkTab = 'both'"
-                                                :class="adminNetworkTab === 'both' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                                :class="adminNetworkTab === 'both' ? 'bg-white dark:bg-[#19274e] text-blue-700 dark:text-blue-300 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
                                                 class="px-2 py-1 rounded-md transition-all duration-150 cursor-pointer text-[11px]"
                                                 title="Hiển thị cả 2 bảng đồng thời"
                                             >

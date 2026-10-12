@@ -1645,20 +1645,20 @@
                                             <span v-else>Hồ Sơ Người Gửi</span>
                                         </span>
 
-                                        <div v-if="canCreateForOthers" class="flex items-center bg-slate-200/80 p-0.5 rounded-lg text-xs font-semibold">
+                                        <div v-if="canCreateForOthers" class="flex items-center bg-slate-200/80 dark:bg-[#0b1329] p-0.5 rounded-lg text-xs font-semibold border border-transparent dark:border-slate-800">
                                             <button 
                                                 type="button" 
                                                 @click="setSenderMode('RETAIL')" 
-                                                :class="senderMode === 'RETAIL' ? 'bg-blue-600 font-bold text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                                                class="px-2.5 py-1 rounded-md transition text-[11px]"
+                                                :class="senderMode === 'RETAIL' ? 'bg-blue-600 font-bold text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
+                                                class="px-2.5 py-1 rounded-md transition text-[11px] cursor-pointer"
                                             >
                                                 Khách Vãng Lai
                                             </button>
                                             <button 
                                                 type="button" 
                                                 @click="setSenderMode('B2B')" 
-                                                :class="senderMode === 'B2B' ? 'bg-blue-600 font-bold text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'"
-                                                class="px-2.5 py-1 rounded-md transition text-[11px]"
+                                                :class="senderMode === 'B2B' ? 'bg-blue-600 font-bold text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
+                                                class="px-2.5 py-1 rounded-md transition text-[11px] cursor-pointer"
                                             >
                                                 Shop Đối Tác
                                             </button>

@@ -50,8 +50,8 @@
                         'w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs transition smooth-transition cursor-pointer text-left',
                         isSidebarCollapsed ? 'justify-center !px-0 !space-x-0' : '',
                         currentTab === tab.id 
-                            ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800/60 shadow-sm shadow-blue-500/10 font-bold' 
-                            : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800/60 font-medium'
+                            ? 'bg-blue-50 dark:bg-blue-600/25 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-500/40 shadow-sm shadow-blue-500/10 font-bold' 
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800/50 font-medium'
                     ]"
                 >
                     <svg class="w-4 h-4 flex-shrink-0" :class="currentTab === tab.id ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
