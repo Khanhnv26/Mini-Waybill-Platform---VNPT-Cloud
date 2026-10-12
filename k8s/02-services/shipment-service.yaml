@@ -26,7 +26,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: shipment-service
-          image: khanhnv26/shipment-service:9cac3390fb36f75fef2782467b2dd72311077db1
+          image: khanhnv26/shipment-service:6081c5f078bbc5c85ccceb03fe397639ed6f63bd
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
