@@ -514,8 +514,8 @@
                 const s = adminSummary.value || {};
                 const shipments = filteredByRegionShipments.value;
                 const totalOrdersFromShipments = shipments.length;
-                const totalOrders = Number(s.totalOrders || totalOrdersFromShipments || 0);
-                const delivered = Number(s.deliveredCount || s.deliveredOrders || shipments.filter(x => x && x.currentStatus === 'DELIVERED').length || 0);
+                const totalOrders = Number(s.totalOrders != null ? s.totalOrders : (totalOrdersFromShipments || 0));
+                const delivered = Number(s.deliveredCount != null ? s.deliveredCount : (s.deliveredOrders != null ? s.deliveredOrders : (shipments.filter(x => x && x.currentStatus === 'DELIVERED').length || 0)));
                 const rate = totalOrders > 0 ? Math.round((delivered / totalOrders) * 1000) / 10 : 0;
 
                 let calcFee = 0;
@@ -543,13 +543,13 @@
                 const roundedSuccessRate = Math.round(rawSuccessRate * 10) / 10;
 
                 return {
-                    totalShippingFee: Number(s.totalShippingFee || calcFee || 0),
+                    totalShippingFee: Number(s.totalShippingFee != null ? s.totalShippingFee : (calcFee || 0)),
                     totalOrders,
                     deliveredOrders: delivered,
-                    totalCod: Number(s.totalCodAmount || s.totalCod || calcCod || 0),
-                    settledCod: Number(s.settledCodAmount || s.settledCod || calcSettledCod || 0),
-                    inTransitOrders: Number(s.inTransitCount || s.inTransitOrders || calcInTransit || 0),
-                    returningOrders: Number(s.returningCount || s.returningOrders || calcReturning || 0),
+                    totalCod: Number(s.totalCodAmount != null ? s.totalCodAmount : (s.totalCod != null ? s.totalCod : (calcCod || 0))),
+                    settledCod: Number(s.settledCodAmount != null ? s.settledCodAmount : (s.settledCod != null ? s.settledCod : (calcSettledCod || 0))),
+                    inTransitOrders: Number(s.inTransitCount != null ? s.inTransitCount : (s.inTransitOrders != null ? s.inTransitOrders : (calcInTransit || 0))),
+                    returningOrders: Number(s.returningCount != null ? s.returningCount : (s.returningOrders != null ? s.returningOrders : (calcReturning || 0))),
                     successRate: roundedSuccessRate
                 };
             });
@@ -570,8 +570,8 @@
                             count: Number(d.count || 0),
                             fee,
                             cod,
-                            feeHeight: `${Math.max(10, Math.round((fee / maxFee) * 100))}%`,
-                            codHeight: `${Math.max(10, Math.round((cod / maxCod) * 100))}%`
+                            feeHeight: fee > 0 ? `${Math.max(10, Math.round((fee / maxFee) * 100))}%` : '0%',
+                            codHeight: cod > 0 ? `${Math.max(10, Math.round((cod / maxCod) * 100))}%` : '0%'
                         };
                     });
                 }
@@ -614,8 +614,8 @@
                     count: d.count,
                     fee: d.fee,
                     cod: d.cod,
-                    feeHeight: `${Math.max(12, Math.round((d.fee / maxFee) * 90))}%`,
-                    codHeight: `${Math.max(12, Math.round((d.cod / maxCod) * 90))}%`
+                    feeHeight: d.fee > 0 ? `${Math.max(12, Math.round((d.fee / maxFee) * 90))}%` : '0%',
+                    codHeight: d.cod > 0 ? `${Math.max(12, Math.round((d.cod / maxCod) * 90))}%` : '0%'
                 }));
             });
 

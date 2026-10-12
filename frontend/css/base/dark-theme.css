@@ -58,12 +58,20 @@ html.dark .bg-gradient-to-b {
 /* 3. Layout: Topbar, Sidebar, Header, Footer */
 html.dark header,
 html.dark header.bg-white,
+html.dark aside#app-sidebar,
+html.dark #app-sidebar,
 html.dark aside.app-sidebar,
 html.dark aside.bg-white,
 html.dark footer.bg-white {
     background-color: #0f1a38 !important;
     border-color: #1e2e56 !important;
     color: #f1f5f9 !important;
+}
+
+html.dark #app-sidebar .hover\:bg-slate-50\/80:hover,
+html.dark #app-sidebar .hover\:bg-slate-50:hover,
+html.dark #app-sidebar .hover\:bg-slate-100\/80:hover {
+    background-color: #19274e !important;
 }
 
 html.dark header nav button {
