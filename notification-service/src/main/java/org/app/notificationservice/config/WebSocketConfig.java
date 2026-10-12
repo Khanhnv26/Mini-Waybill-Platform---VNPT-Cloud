@@ -18,7 +18,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws", "/api/notifications/ws").setAllowedOriginPatterns("*").withSockJS();
+        // CORS do api-gateway (CorsFilter) xu ly duy nhat. Neu SockJS cung them header Access-Control-Allow-Origin,
+        // gateway se forward ca 2 -> header bi lap "origin, origin" va trinh duyet chan.
+        registry.addEndpoint("/ws", "/api/notifications/ws")
+                .setAllowedOriginPatterns("*")
+                .withSockJS()
+                .setSuppressCors(true);
     }
 
 
