@@ -2006,16 +2006,16 @@
 
             <div
                 v-if="isAdmin && selectedPostOffice === 'ALL'"
-                class="rounded-xl border border-amber-300 bg-amber-50/90 p-3 text-xs text-amber-900 flex items-start justify-between gap-3 shadow-xs"
+                class="rounded-xl border border-amber-300 dark:border-amber-800/60 bg-amber-50/90 dark:bg-amber-950/40 p-3 text-xs text-amber-900 dark:text-amber-200 flex items-start justify-between gap-3 shadow-xs"
             >
                 <div class="flex items-start gap-2.5">
-                    <span class="px-2 py-0.5 rounded bg-amber-200 text-amber-900 font-bold uppercase text-[10px] shrink-0">Chế độ tổng hợp</span>
+                    <span class="px-2 py-0.5 rounded bg-amber-200 dark:bg-amber-900/60 text-amber-900 dark:text-amber-300 font-bold uppercase text-[10px] shrink-0 dark:border dark:border-amber-700/50">Chế độ tổng hợp</span>
                     <div>
                         <strong class="font-bold">Đang xem dữ liệu toàn bộ mạng lưới bưu cục.</strong>
-                        <p class="text-amber-800 text-[11px] mt-0.5">Để thực hiện tác nghiệp tiếp nhận tại quầy, lưu kho hoặc bàn giao bưu tá, vui lòng chọn một bưu cục cụ thể từ danh sách.</p>
+                        <p class="text-amber-800 dark:text-amber-300/90 text-[11px] mt-0.5">Để thực hiện tác nghiệp tiếp nhận tại quầy, lưu kho hoặc bàn giao bưu tá, vui lòng chọn một bưu cục cụ thể từ danh sách.</p>
                     </div>
                 </div>
-                <span class="font-mono font-bold text-amber-900 shrink-0 bg-amber-200/60 px-2.5 py-1 rounded-md">{{ filteredShipments.length }} bưu gửi</span>
+                <span class="font-mono font-bold text-amber-900 dark:text-amber-200 shrink-0 bg-amber-200/60 dark:bg-amber-900/60 dark:border dark:border-amber-700/60 px-2.5 py-1 rounded-md">{{ filteredShipments.length }} bưu gửi</span>
             </div>
             <div class="b2b-card p-3 flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs shadow-xs">
                 <div class="flex flex-wrap items-center gap-2.5 flex-1">

@@ -1203,9 +1203,9 @@
                 </div>
             </div>
 
-            <div v-if="isAdmin && selectedHub === 'ALL'" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 flex items-center justify-between gap-2">
+            <div v-if="isAdmin && selectedHub === 'ALL'" class="rounded-lg border border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-xs text-amber-800 dark:text-amber-200 flex items-center justify-between gap-2">
                 <span><strong>Chỉ xem tổng hợp:</strong> chọn một hub cụ thể trước khi tiếp nhận hoặc lưu kho.</span>
-                <span class="font-mono font-bold">{{ filteredShipments.length }} kiện</span>
+                <span class="font-mono font-bold text-amber-900 dark:text-amber-200 bg-amber-200/60 dark:bg-amber-900/60 dark:border dark:border-amber-700/60 px-2.5 py-0.5 rounded-md">{{ filteredShipments.length }} kiện</span>
             </div>
 
             <transition name="subtab">

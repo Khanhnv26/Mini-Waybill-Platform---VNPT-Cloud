@@ -213,6 +213,7 @@ html.dark .bg-blue-50\/20 {
 }
 
 html.dark .bg-emerald-50,
+html.dark .bg-emerald-50\/95,
 html.dark .bg-emerald-50\/90,
 html.dark .bg-emerald-50\/80,
 html.dark .bg-emerald-50\/70,
@@ -259,6 +260,7 @@ html.dark .border-indigo-300 {
 }
 
 html.dark .bg-amber-50,
+html.dark .bg-amber-50\/95,
 html.dark .bg-amber-50\/90,
 html.dark .bg-amber-50\/80,
 html.dark .bg-amber-50\/70,
@@ -273,6 +275,7 @@ html.dark .bg-orange-50\/50 {
 }
 
 html.dark .bg-rose-50,
+html.dark .bg-rose-50\/95,
 html.dark .bg-rose-50\/90,
 html.dark .bg-rose-50\/80,
 html.dark .bg-rose-50\/70,
@@ -312,14 +315,22 @@ html.dark .bg-cyan-200 {
 }
 
 html.dark .bg-amber-100,
+html.dark .bg-amber-100\/90,
+html.dark .bg-amber-100\/80,
+html.dark .bg-amber-100\/70,
+html.dark .bg-amber-100\/60,
 html.dark .bg-amber-200,
+html.dark .bg-amber-200\/90,
+html.dark .bg-amber-200\/80,
+html.dark .bg-amber-200\/70,
+html.dark .bg-amber-200\/60,
 html.dark .bg-yellow-100,
 html.dark .bg-yellow-200,
 html.dark .bg-orange-100,
 html.dark .bg-orange-200 {
     background-color: #452408 !important;
     border-color: #783e0c !important;
-    color: #fcd34d !important;
+    color: #fde68a !important;
 }
 
 html.dark .bg-rose-100,
