@@ -647,7 +647,9 @@
                 const code = selectedShipmentForReturn.value.trackingCode;
                 try {
                     const payload = {
+                        reasonCode: returnForm.reason,
                         reason: returnForm.reason + (returnForm.notes ? `: ${returnForm.notes}` : ''),
+                        reasonNote: returnForm.notes,
                         notes: returnForm.notes,
                         returnMode: returnForm.returnMode,
                         feePaymentStatus: returnForm.feePaymentStatus
@@ -1133,7 +1135,8 @@
                 if (checkoutPollTimer) clearInterval(checkoutPollTimer);
                 isCheckoutPaidSuccess.value = true;
                 const trackingCode = payment?.trackingCode || checkoutTargetShipment.value?.trackingCode;
-                if (trackingCode) {
+                const isReturn = Boolean(checkoutTargetShipment.value?._isReturnFee);
+                if (trackingCode && !isReturn) {
                     markShipmentAsPaid(trackingCode);
                 }
                 const resolvedAmount = payment?.amount || checkoutTargetShipment.value?.totalFee || checkoutTargetShipment.value?.shippingFee || 35000;
@@ -1145,16 +1148,23 @@
                         amount: resolvedAmount,
                         paidAt: payment.paidAt || new Date().toISOString()
                     };
+                    const titleText = isReturn ? 'Thanh toán cước hoàn đơn thành công' : 'Thanh toán cước vận đơn thành công';
+                    const msgText = isReturn
+                        ? `Vận đơn ${trackingCode || ''} đã thanh toán cước chuyển hoàn thành công qua VietQR với số tiền ${Utils.formatCurrency(resolvedAmount)}. Mã GD: ${payment.paymentCode || ''}`
+                        : `Vận đơn ${trackingCode || ''} đã thanh toán cước phí thành công qua VietQR với số tiền ${Utils.formatCurrency(resolvedAmount)}. Mã GD: ${payment.paymentCode || ''}`;
                     window.dispatchEvent(new CustomEvent('system-notification-created', {
                         detail: {
-                            title: 'Thanh toán cước vận đơn thành công',
-                            message: `Vận đơn ${trackingCode || ''} đã thanh toán cước phí thành công qua VietQR với số tiền ${Utils.formatCurrency(resolvedAmount)}. Mã GD: ${payment.paymentCode || ''}`,
+                            title: titleText,
+                            message: msgText,
                             trackingCode: trackingCode || null
                         }
                     }));
                 }
-                Utils.showToast('Thanh Toán Cước Thành Công', `Đã nhận ${Utils.formatCurrency(resolvedAmount)} qua VietQR!`, 'success');
+                Utils.showToast('Thanh Toán Thành Công', `Đã nhận ${Utils.formatCurrency(resolvedAmount)} qua VietQR!`, 'success');
                 loadShipments();
+                if (isReturn) {
+                    loadReturnRequests();
+                }
             };
 
             const openCheckoutModal = async (shipment) => {
@@ -1170,11 +1180,12 @@
                 activeCheckoutTab.value = 'vietqr';
                 checkoutCountdown.value = 600;
                 showCheckoutModal.value = true;
+                const isReturn = Boolean(shipment._isReturnFee);
 
-                if (isShipmentPaid(shipment)) {
+                if (!isReturn && isShipmentPaid(shipment)) {
                     try {
                         const existing = await PaymentService.getPaymentByTracking(shipment.trackingCode);
-                        if (existing && existing.status === 'SUCCESS') {
+                        if (existing && existing.status === 'SUCCESS' && existing.paymentType === 'SHIPPING_FEE') {
                             checkoutPaymentData.value = existing;
                             isCheckoutPaidSuccess.value = true;
                             isCheckoutLoading.value = false;
@@ -1189,15 +1200,17 @@
                     const res = await PaymentService.createQrPayment({
                         trackingCode: shipment.trackingCode,
                         amount: feeToPay,
-                        paymentType: 'SHIPPING_FEE',
-                        note: `CUOC ${shipment.trackingCode}`
+                        paymentType: isReturn ? 'RETURN_FEE' : 'SHIPPING_FEE',
+                        note: isReturn ? `HOAN ${shipment.trackingCode}` : `CUOC ${shipment.trackingCode}`
                     });
                     checkoutPaymentData.value = res;
                     isCheckoutLoading.value = false;
 
                     if (res && res.status === 'SUCCESS') {
                         isCheckoutPaidSuccess.value = true;
-                        markShipmentAsPaid(shipment.trackingCode);
+                        if (!isReturn) {
+                            markShipmentAsPaid(shipment.trackingCode);
+                        }
                         return;
                     }
 
