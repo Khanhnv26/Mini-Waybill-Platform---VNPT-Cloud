@@ -27,4 +27,8 @@ public class CreateQrRequest {
     private PaymentType paymentType;
 
     private String note;
+
+    private String customerCode;
+
+    private String createdBy;
 }

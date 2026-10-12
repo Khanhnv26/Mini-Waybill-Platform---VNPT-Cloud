@@ -15,6 +15,7 @@ import org.app.notificationservice.service.EmailService;
 import org.app.notificationservice.service.ShipperOrderIndexService;
 import org.app.notificationservice.service.TelegramService;
 import org.app.notificationservice.util.EmailTemplateHelper;
+import org.app.sharedevents.entity.TicketChatMessageEvent;
 import org.app.sharedevents.entity.TripConsolidatedEvent;
 import org.app.sharedevents.entity.TripProgressEvent;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -365,6 +366,23 @@ public class NotificationConsumer {
             messagingTemplate.convertAndSend("/topic/notifications/broadcast", "refresh");
         } catch (Exception ex) {
             log.warn("[NOTIFICATION] Không đẩy được tín hiệu chuông: {}", ex.getMessage());
+        }
+    }
+
+    @KafkaListener(topics = "support-chat-events", groupId = "notification-group")
+    public void handleSupportChatMessage(TicketChatMessageEvent event) {
+        if (event == null) return;
+        log.info("[NOTIFICATION] Nhận sự kiện chat thời gian thực cho phiếu {}: senderRole={}, content={}",
+                event.getTicketCode(), event.getSenderRole(), event.getContent());
+        try {
+            if (event.getTicketId() != null) {
+                messagingTemplate.convertAndSend("/topic/tickets/" + event.getTicketId(), event);
+            }
+            if (event.getTicketCode() != null && !event.getTicketCode().isBlank()) {
+                messagingTemplate.convertAndSend("/topic/tickets/code/" + event.getTicketCode(), event);
+            }
+        } catch (Exception ex) {
+            log.warn("[NOTIFICATION] Không thể đẩy WebSocket cho tin nhắn phiếu {}: {}", event.getTicketCode(), ex.getMessage());
         }
     }
 

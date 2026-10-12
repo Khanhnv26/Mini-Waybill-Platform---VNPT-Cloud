@@ -4,13 +4,14 @@ import org.app.paymentservice.entity.PaymentStatus;
 import org.app.paymentservice.entity.PaymentTransaction;
 import org.app.paymentservice.entity.PaymentType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface PaymentTransactionRepository extends JpaRepository<PaymentTransaction, Long> {
+public interface PaymentTransactionRepository extends JpaRepository<PaymentTransaction, Long>, JpaSpecificationExecutor<PaymentTransaction> {
 
     Optional<PaymentTransaction> findByPaymentCode(String paymentCode);
 

@@ -9,7 +9,7 @@
             ShipmentPrintModal: window.ShipmentPrintModal
         },
         props: ['customerPrefill', 'tariffPrefill'],
-        emits: ['created-shipment'],
+        emits: ['created-shipment', 'switch-tab', 'view-tracking'],
         setup(props, { emit }) {
             const currentSubtab = ref('create');
             const isDockCollapsed = ref(false);
@@ -1339,7 +1339,17 @@
                 if (decisionCountdownTimer) clearInterval(decisionCountdownTimer);
             });
 
+            const navigateToPayment = (trackingCode) => {
+                if (!trackingCode) return;
+                if (window.app && typeof window.app.switchTab === 'function') {
+                    window.app.switchTab('payments', trackingCode);
+                } else {
+                    emit('switch-tab', 'payments', trackingCode);
+                }
+            };
+
             return {
+                navigateToPayment,
                 currentSubtab,
                 switchSubtab,
                 form,
@@ -2461,6 +2471,14 @@
                                                     title="Xem chi tiết hành trình &amp; lộ trình vận chuyển"
                                                 >
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+                                                </button>
+                                                <button 
+                                                    type="button"
+                                                    @click="navigateToPayment(s.trackingCode)"
+                                                    class="p-1 bg-amber-50 hover:bg-amber-600 text-amber-700 hover:text-white rounded-lg border border-amber-200 hover:border-amber-600 transition shadow-xs cursor-pointer"
+                                                    title="Xem chi tiết giao dịch thanh toán &amp; đối soát COD"
+                                                >
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                                 </button>
                                                 <button 
                                                     v-if="canCancelShipment(s)"

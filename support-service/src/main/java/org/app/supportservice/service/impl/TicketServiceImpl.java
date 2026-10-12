@@ -17,6 +17,7 @@ import org.app.supportservice.exception.ResourceNotFoundException;
 import org.app.supportservice.repository.SupportTicketRepository;
 import org.app.supportservice.repository.TicketMessageRepository;
 import org.app.supportservice.service.TicketService;
+import org.app.sharedevents.entity.TicketChatMessageEvent;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -214,6 +215,25 @@ public class TicketServiceImpl implements TicketService {
                 .build();
 
         TicketMessage saved = messageRepository.save(msg);
+
+        try {
+            TicketChatMessageEvent chatEvent = TicketChatMessageEvent.builder()
+                    .ticketId(ticket.getId())
+                    .ticketCode(ticket.getTicketCode())
+                    .messageId(saved.getId())
+                    .senderId(saved.getSenderId())
+                    .senderName(saved.getSenderName())
+                    .senderRole(saved.getSenderRole())
+                    .content(saved.getContent())
+                    .attachmentUrls(saved.getAttachmentUrls())
+                    .createdAt(saved.getCreatedAt())
+                    .build();
+            kafkaTemplate.send("support-chat-events", ticket.getTicketCode(), chatEvent);
+            log.info(">>> Đã phát sự kiện realtime chat Kafka cho vé {}: messageId={}", ticket.getTicketCode(), saved.getId());
+        } catch (Exception ex) {
+            log.warn("Không thể phát sự kiện realtime chat qua Kafka: {}", ex.getMessage());
+        }
+
         return MessageResponse.fromEntity(saved);
     }
 

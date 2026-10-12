@@ -57,6 +57,12 @@ public class PaymentTransaction {
     @Column(name = "payer_note", length = 255)
     private String payerNote;
 
+    @Column(name = "customer_code", length = 50)
+    private String customerCode;
+
+    @Column(name = "created_by", length = 100)
+    private String createdBy;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 

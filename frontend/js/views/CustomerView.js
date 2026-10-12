@@ -16,6 +16,7 @@
             const pageSize = ref(5);
 
             const newCustomer = reactive({
+                id: null,
                 customerCode: '',
                 fullName: '',
                 phoneNumber: '',
@@ -39,13 +40,15 @@
                 return customers.value.filter(c => c.status === 'ACTIVE').length;
             });
 
+            const corpKeywords = ['công ty', 'tnhh', 'cp', 'tập đoàn', 'chi nhánh', 'doanh nghiệp', 'vnpt', 'bưu điện'];
+            const isCorporate = (c) => {
+                if (!c || c.customerCode === 'CUS_RETAIL') return false;
+                const name = (c.fullName || '').toLowerCase();
+                return corpKeywords.some(kw => name.includes(kw));
+            };
+
             const corporateCount = computed(() => {
-                const corpKeywords = ['công ty', 'tnhh', 'cp', 'tập đoàn', 'chi nhánh', 'doanh nghiệp', 'vnpt', 'bưu điện'];
-                return customers.value.filter(c => {
-                    if (c.customerCode === 'CUS_RETAIL') return false;
-                    const name = (c.fullName || '').toLowerCase();
-                    return corpKeywords.some(kw => name.includes(kw));
-                }).length;
+                return customers.value.filter(c => isCorporate(c)).length;
             });
 
             const filteredCustomers = computed(() => {
@@ -110,11 +113,23 @@
             };
 
             const openCreateModal = () => {
+                newCustomer.id = null;
                 newCustomer.customerCode = 'CUST-' + Math.floor(100000 + Math.random() * 900000);
                 newCustomer.fullName = '';
                 newCustomer.phoneNumber = '';
                 newCustomer.email = '';
                 newCustomer.address = '';
+                showModal.value = true;
+            };
+
+            const openEditModal = (c) => {
+                if (!c) return;
+                newCustomer.id = c.id;
+                newCustomer.customerCode = c.customerCode || '';
+                newCustomer.fullName = c.fullName || '';
+                newCustomer.phoneNumber = c.phoneNumber || '';
+                newCustomer.email = c.email || '';
+                newCustomer.address = c.address || '';
                 showModal.value = true;
             };
 
@@ -150,7 +165,7 @@
                     return;
                 }
 
-                const samePhone = customers.value.find(c => normalizePhone(c.phoneNumber) === phoneNumber);
+                const samePhone = customers.value.find(c => normalizePhone(c.phoneNumber) === phoneNumber && c.id !== newCustomer.id);
                 if (samePhone) {
                     Utils.showToast('Thất Bại', `Số điện thoại này đã thuộc về khách hàng ${samePhone.fullName}`, 'error');
                     return;
@@ -167,7 +182,7 @@
                     return;
                 }
 
-                const sameEmail = customers.value.find(c => (c.email || '').trim().toLowerCase() === email.toLowerCase());
+                const sameEmail = customers.value.find(c => (c.email || '').trim().toLowerCase() === email.toLowerCase() && c.id !== newCustomer.id);
                 if (sameEmail) {
                     Utils.showToast('Thất Bại', `Email này đã thuộc về khách hàng ${sameEmail.fullName}`, 'error');
                     return;
@@ -175,19 +190,29 @@
 
                 isSaving.value = true;
                 try {
-                    await CustomerService.createCustomer({
-                        customerCode: newCustomer.customerCode,
-                        fullName,
-                        phoneNumber,
-                        email,
-                        address: address || 'Chưa cập nhật địa chỉ'
-                    });
-                    Utils.showToast('Thành Công', 'Đã lưu thông tin khách hàng bưu chính');
+                    if (newCustomer.id) {
+                        await CustomerService.updateCustomer(newCustomer.id, {
+                            fullName,
+                            phoneNumber,
+                            email,
+                            address: address || 'Chưa cập nhật địa chỉ'
+                        });
+                        Utils.showToast('Thành Công', `Đã cập nhật thông tin đối tác ${fullName}`);
+                    } else {
+                        await CustomerService.createCustomer({
+                            customerCode: newCustomer.customerCode,
+                            fullName,
+                            phoneNumber,
+                            email,
+                            address: address || 'Chưa cập nhật địa chỉ'
+                        });
+                        Utils.showToast('Thành Công', 'Đã lưu thông tin khách hàng bưu chính');
+                        searchQuery.value = '';
+                        selectedStatusFilter.value = 'ALL';
+                        currentPage.value = 1;
+                    }
                     showModal.value = false;
-                    searchQuery.value = '';
-                    selectedStatusFilter.value = 'ALL';
-                    currentPage.value = 1;
-                    loadCustomers();
+                    await loadCustomers();
                 } catch (err) {
                     Utils.showToast('Thất Bại', err.message, 'error');
                 } finally {
@@ -241,10 +266,12 @@
                 goToPage,
                 resetFilters,
                 openCreateModal,
+                openEditModal,
                 handleCreateCustomer,
                 toggleCustomerStatus,
                 handleCreateShipmentFor,
                 loadCustomers,
+                isCorporate,
                 Utils
             };
         },
@@ -344,85 +371,85 @@
                     </div>
                 </div>
 
-                <div class="b2b-card bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                <div class="b2b-card bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse table-b2b">
                             <thead>
-                                <tr>
-                                    <th class="w-14 text-center">ID</th>
-                                    <th class="w-32">MÃ ĐỐI TÁC</th>
-                                    <th>THÔNG TIN KHÁCH HÀNG / DOANH NGHIỆP</th>
-                                    <th class="w-44">LIÊN HỆ TRỰC TIẾP</th>
-                                    <th>ĐỊA CHỈ TRỤ SỞ / KHO HÀNG</th>
-                                    <th class="w-32 text-center">TRẠNG THÁI</th>
-                                    <th class="w-48 text-right">TÁC NGHIỆP</th>
+                                <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                                    <th class="py-2.5 px-3.5 w-72">MÃ &amp; HỌ TÊN KHÁCH HÀNG</th>
+                                    <th class="py-2.5 px-3.5 w-52">LIÊN HỆ (EMAIL)</th>
+                                    <th class="py-2.5 px-3.5">ĐỊA CHỈ TRỤ SỞ / KHO HÀNG</th>
+                                    <th class="py-2.5 px-3.5 text-center w-36">TRẠNG THÁI</th>
+                                    <th class="py-2.5 px-3.5 text-right w-44">TÁC NGHIỆP</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-100">
+                            <tbody class="divide-y divide-slate-100 text-xs">
                                 <tr v-for="c in paginatedCustomers" :key="c.id" class="hover:bg-slate-50/80 transition">
-                                    <td class="font-mono text-xs font-bold text-slate-400 text-center">#{{ c.id }}</td>
-                                    
-                                    <td>
-                                        <span class="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-xs inline-block">
-                                            {{ c.customerCode }}
-                                        </span>
-                                    </td>
-
-                                    <td>
-                                        <div class="flex items-center space-x-2.5">
-                                            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-black text-xs flex items-center justify-center shadow-xs flex-shrink-0">
+                                    <!-- MÃ & HỌ TÊN -->
+                                    <td class="py-2.5 px-3.5">
+                                        <div class="flex items-center gap-2.5">
+                                            <div class="w-8 h-8 rounded-lg font-black text-xs flex items-center justify-center shadow-xs shrink-0 bg-gradient-to-br from-blue-600 to-indigo-700 text-white">
                                                 {{ (c.fullName || 'K').charAt(0).toUpperCase() }}
                                             </div>
-                                            <div class="min-w-0 max-w-[240px]">
-                                                <div class="font-bold text-slate-800 text-xs leading-tight truncate" :title="c.fullName">
-                                                    {{ c.fullName }}
+                                            <div class="min-w-0 max-w-[220px]">
+                                                <div class="flex items-center gap-1.5 flex-wrap">
+                                                    <span class="font-bold text-slate-900 leading-tight truncate" :title="c.fullName">
+                                                        {{ c.fullName }}
+                                                    </span>
+                                                    <span v-if="c.customerCode === 'CUS_RETAIL'" class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                                                        Vãng Lai
+                                                    </span>
+                                                    <span v-else-if="isCorporate(c)" class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                                                        Doanh Nghiệp
+                                                    </span>
+                                                    <span v-else class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                                                        Thành Viên
+                                                    </span>
                                                 </div>
-                                                <div class="text-[10px] mt-0.5 font-medium">
-                                                    <span v-if="c.customerCode === 'CUS_RETAIL'" class="text-amber-600 font-bold">Hệ Thống - Khách Vãng Lai Tại Quầy</span>
-                                                    <span v-else class="text-slate-400">Khách hàng thành viên bưu chính</span>
+                                                <div class="text-[10px] text-blue-700 font-mono font-bold mt-0.5 truncate">
+                                                    {{ c.customerCode }} • {{ c.phoneNumber || 'Chưa SĐT' }}
                                                 </div>
                                             </div>
                                         </div>
                                     </td>
 
-                                    <td>
-                                        <div class="space-y-0.5">
-                                            <div class="font-mono font-bold text-slate-700 text-xs">
-                                                {{ c.phoneNumber }}
-                                            </div>
-                                            <div class="text-[11px] text-slate-500 truncate max-w-[160px]" :title="c.email || ''">
-                                                {{ c.email || 'Chưa cập nhật email' }}
-                                            </div>
+                                    <!-- LIÊN HỆ EMAIL -->
+                                    <td class="py-2.5 px-3.5">
+                                        <div class="text-xs text-slate-700 font-medium truncate max-w-[190px]" :title="c.email || ''">
+                                            {{ c.email || 'Chưa cập nhật email' }}
                                         </div>
                                     </td>
 
-                                    <td>
+                                    <!-- ĐỊA CHỈ TRỤ SỞ / KHO HÀNG -->
+                                    <td class="py-2.5 px-3.5">
                                         <div class="text-xs text-slate-600 max-w-xs line-clamp-2" :title="c.address || ''">
                                             {{ c.address || 'Chưa có địa chỉ chi tiết' }}
                                         </div>
                                     </td>
 
-                                    <td class="text-center">
+                                    <!-- TRẠNG THÁI -->
+                                    <td class="py-2.5 px-3.5 text-center">
                                         <span 
                                             :class="[
-                                                'px-2.5 py-0.5 rounded-full text-[10.5px] font-bold inline-flex items-center space-x-1 border',
+                                                'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-bold border shadow-xs',
                                                 c.status === 'ACTIVE' 
                                                     ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                                                    : 'bg-rose-50 text-rose-700 border-rose-200'
+                                                    : 'bg-slate-100 text-slate-500 border-slate-200'
                                             ]"
                                         >
-                                            <span class="w-1.5 h-1.5 rounded-full" :class="c.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-rose-500'"></span>
+                                            <span class="w-1.5 h-1.5 rounded-full" :class="c.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-slate-400'"></span>
                                             <span>{{ c.status === 'ACTIVE' ? 'Hoạt Động' : 'Tạm Dừng' }}</span>
                                         </span>
                                     </td>
 
-                                    <td class="text-right py-2.5 px-3 whitespace-nowrap">
+                                    <!-- TÁC NGHIỆP -->
+                                    <td class="py-2.5 px-3.5 text-right whitespace-nowrap">
                                         <div class="flex items-center justify-end space-x-1.5">
                                             <button 
                                                 v-if="c.status === 'ACTIVE'"
                                                 @click="handleCreateShipmentFor(c)"
                                                 type="button"
-                                                class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition flex items-center space-x-1 shadow-xs"
+                                                class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-semibold transition flex items-center space-x-1 shadow-xs cursor-pointer"
                                                 title="Tạo vận đơn bưu chính điền sẵn thông tin khách hàng này"
                                             >
                                                 <span>Tạo Đơn</span>
@@ -430,24 +457,34 @@
 
                                             <button 
                                                 v-if="c.customerCode !== 'CUS_RETAIL'"
+                                                @click="openEditModal(c)" 
+                                                type="button"
+                                                class="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer"
+                                                title="Chỉnh sửa thông tin đối tác"
+                                            >
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                            </button>
+
+                                            <button 
+                                                v-if="c.customerCode !== 'CUS_RETAIL'"
                                                 @click="toggleCustomerStatus(c)"
                                                 type="button"
                                                 :class="[
-                                                    'px-2 py-1 rounded-lg text-xs font-bold transition border shadow-xs',
+                                                    'px-2 py-1 rounded-lg text-xs font-semibold transition border shadow-xs cursor-pointer',
                                                     c.status === 'ACTIVE' 
                                                         ? 'bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-700 border-slate-200 hover:border-rose-200' 
                                                         : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
                                                 ]"
                                                 :title="c.status === 'ACTIVE' ? 'Tạm dừng đối tác này' : 'Kích hoạt lại đối tác'"
                                             >
-                                                {{ c.status === 'ACTIVE' ? 'Tạm Dừng' : 'Kích Hoạt' }}
+                                                <span>{{ c.status === 'ACTIVE' ? 'Tạm Dừng' : 'Kích Hoạt' }}</span>
                                             </button>
                                         </div>
                                     </td>
                                 </tr>
 
                                 <tr v-if="filteredCustomers.length === 0">
-                                    <td colspan="7" class="text-center py-10 text-slate-400 text-xs">
+                                    <td colspan="5" class="text-center py-10 text-slate-400 text-xs">
                                         <div class="flex flex-col items-center justify-center space-y-1.5">
                                             <span class="font-bold text-slate-600">Không tìm thấy khách hàng nào phù hợp với bộ lọc.</span>
                                             <button v-if="hasActiveFilter" @click="resetFilters" class="text-blue-600 hover:underline font-bold text-xs">
@@ -515,14 +552,16 @@
                         <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                             <div class="flex items-center space-x-2">
                                 <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
-                                <h3 class="font-extrabold text-xs uppercase tracking-wider text-slate-800">Thêm Mới Đối Tác Bưu Chính</h3>
+                                <h3 class="font-extrabold text-xs uppercase tracking-wider text-slate-800">
+                                    {{ newCustomer.id ? 'Cập Nhật Hồ Sơ Đối Tác' : 'Thêm Mới Đối Tác Bưu Chính' }}
+                                </h3>
                             </div>
                             <button @click="showModal = false" class="text-slate-400 hover:text-slate-700 text-lg font-bold">×</button>
                         </div>
 
                         <form @submit.prevent="handleCreateCustomer" class="p-5 space-y-3">
                             <div>
-                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Mã Khách Hàng (Tự sinh)</label>
+                                <label class="block text-[11px] font-bold text-slate-700 mb-1">Mã Khách Hàng</label>
                                 <input 
                                     v-model="newCustomer.customerCode" 
                                     type="text" 
@@ -596,7 +635,7 @@
                                     class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition disabled:opacity-50 flex items-center space-x-1"
                                 >
                                     <span v-if="isSaving" class="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full mr-1"></span>
-                                    <span>{{ isSaving ? 'Đang Lưu...' : 'Xác Nhận Lưu' }}</span>
+                                    <span>{{ isSaving ? 'Đang Lưu...' : (newCustomer.id ? 'Cập Nhật' : 'Xác Nhận Lưu') }}</span>
                                 </button>
                             </div>
                         </form>
