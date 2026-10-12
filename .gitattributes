@@ -4,4 +4,7 @@
 # ==============================================================================
 
 .agents/** linguist-detectable=false
+.agents/skills/** linguist-detectable=false
+agent/** linguist-detectable=false
 node_modules/** linguist-vendored=true
+
