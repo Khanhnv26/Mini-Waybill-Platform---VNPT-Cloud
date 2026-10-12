@@ -1,10 +1,18 @@
 # ==============================================================================
 # GITHUB LINGUIST OVERRIDES
-# Loại trừ các công cụ phụ trợ AI Agent (.agents) để không tính vào thống kê mã nguồn dự án
+# Loại trừ các công cụ phụ trợ, thư viện bên thứ ba và bundle khỏi thống kê mã nguồn
 # ==============================================================================
 
+# AI Agent Tools & Skills
 .agents/** linguist-detectable=false
 .agents/skills/** linguist-detectable=false
 agent/** linguist-detectable=false
+
+# Node modules & dependencies
 node_modules/** linguist-vendored=true
 
+# Thư viện Frontend bên thứ ba (Vue CDN bundles tải sẵn)
+frontend/js/libs/** linguist-vendored=true
+
+# File CSS build/bundle tự động
+frontend/css/tailwind.prod.css linguist-generated=true
