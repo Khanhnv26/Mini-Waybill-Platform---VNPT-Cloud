@@ -239,6 +239,25 @@ html.dark .border-purple-200 {
     border-color: #4c2182 !important;
 }
 
+html.dark .bg-indigo-50,
+html.dark .bg-indigo-50\/90,
+html.dark .bg-indigo-50\/80,
+html.dark .bg-indigo-50\/70,
+html.dark .bg-indigo-50\/60,
+html.dark .bg-indigo-50\/50,
+html.dark .bg-indigo-50\/40,
+html.dark .bg-indigo-50\/30,
+html.dark .bg-indigo-50\/20 {
+    background-color: #1e1b4b !important;
+    border-color: #3730a3 !important;
+}
+
+html.dark .border-indigo-100,
+html.dark .border-indigo-200,
+html.dark .border-indigo-300 {
+    border-color: #3730a3 !important;
+}
+
 html.dark .bg-amber-50,
 html.dark .bg-amber-50\/90,
 html.dark .bg-amber-50\/80,
@@ -374,7 +393,9 @@ html.dark .text-indigo-800 {
 
 html.dark .text-emerald-600,
 html.dark .text-emerald-700,
-html.dark .text-emerald-800 {
+html.dark .text-emerald-800,
+html.dark .text-emerald-900,
+html.dark .text-emerald-950 {
     color: #6ee7b7 !important;
 }
 
@@ -501,8 +522,15 @@ html.dark .hover\:bg-slate-200:hover {
     background-color: #26386b !important;
 }
 
+html.dark .hover\:bg-white\/50:hover,
+html.dark .hover\:bg-white\/60:hover {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
 /* 11. Leaflet Map Night Vision (Tech Navy Filter) */
-html.dark .leaflet-tile-pane {
+html.dark .leaflet-tile-pane,
+.map-tiles-night,
+.leaflet-tile-pane .map-tiles-night {
     filter: brightness(0.65) invert(1) contrast(3) hue-rotate(200deg) saturate(0.35) !important;
 }
 

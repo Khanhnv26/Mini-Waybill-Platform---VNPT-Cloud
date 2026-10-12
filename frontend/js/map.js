@@ -464,12 +464,13 @@
                 errorTileUrl: BLANK_TILE
             });
 
-            const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; CartoDB Dark Matter | Bưu chính VNPT',
-                subdomains: 'abcd',
+            const darkLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {
+                attribution: '&copy; Google Bản đồ (Chế độ Đêm) | Bưu chính VNPT',
+                subdomains: ['0', '1', '2', '3'],
                 maxZoom: 20,
                 keepBuffer: 4,
                 updateWhenIdle: false,
+                className: 'map-tiles-night',
                 errorTileUrl: BLANK_TILE
             });
 

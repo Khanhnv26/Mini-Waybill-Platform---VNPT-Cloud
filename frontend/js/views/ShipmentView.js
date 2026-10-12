@@ -1508,8 +1508,8 @@
                 </div>
 
                 <!-- Sub-Banner Action Bar: Compact Segmented Pill Bar -->
-                <div class="bg-white/95 backdrop-blur-md text-slate-700 rounded-2xl shadow-xs border border-slate-200/90 p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
-                    <div class="bg-slate-100/90 p-1 rounded-xl border border-slate-200/70 inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
+                <div class="bg-white/95 dark:bg-[#131e3a]/95 backdrop-blur-md text-slate-700 dark:text-slate-300 rounded-2xl shadow-xs border border-slate-200/90 dark:border-slate-800 p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
+                    <div class="bg-slate-100/90 dark:bg-slate-900/80 p-1 rounded-xl border border-slate-200/70 dark:border-slate-800 inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
                         <!-- Tạo Bưu Gửi Tab Button -->
                         <button
                             type="button"
@@ -1517,11 +1517,11 @@
                             :class="[
                                 'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                                 currentSubtab === 'create'
-                                    ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
-                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
+                                    ? 'bg-white dark:bg-[#19264c] text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-slate-200/80 dark:ring-blue-500/30 font-bold'
+                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/80 font-semibold'
                             ]"
                         >
-                            <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'create' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'create' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
                             </svg>
                             <span class="truncate">Tạo Bưu Gửi</span>
@@ -1534,15 +1534,15 @@
                             :class="[
                                 'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                                 currentSubtab === 'list'
-                                    ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
-                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
+                                    ? 'bg-white dark:bg-[#19264c] text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-slate-200/80 dark:ring-blue-500/30 font-bold'
+                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/80 font-semibold'
                             ]"
                         >
-                            <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'list' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'list' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                             </svg>
                             <span class="truncate">Danh Sách</span>
-                            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'list' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'list' ? 'bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200' : 'bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400'">
                                 {{ shipmentsList.length }}
                             </span>
                         </button>
@@ -1554,17 +1554,17 @@
                             :class="[
                                 'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                                 currentSubtab === 'need_action'
-                                    ? 'bg-white text-rose-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
-                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
+                                    ? 'bg-white dark:bg-[#19264c] text-rose-700 dark:text-rose-400 shadow-sm ring-1 ring-slate-200/80 dark:ring-rose-500/30 font-bold'
+                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/80 font-semibold'
                             ]"
                         >
-                            <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'need_action' ? 'text-rose-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'need_action' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
                             <span class="truncate">Cần Xử Lý</span>
                             <span 
                                 class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" 
-                                :class="pendingDecisions.length > 0 ? (currentSubtab === 'need_action' ? 'bg-rose-100 text-rose-800 animate-pulse' : 'bg-rose-500 text-white animate-pulse') : (currentSubtab === 'need_action' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600')"
+                                :class="pendingDecisions.length > 0 ? (currentSubtab === 'need_action' ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 animate-pulse' : 'bg-rose-500 text-white animate-pulse') : (currentSubtab === 'need_action' ? 'bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200' : 'bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400')"
                             >
                                 {{ pendingDecisions.length }}
                             </span>
@@ -1577,15 +1577,15 @@
                             :class="[
                                 'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                                 currentSubtab === 'returns'
-                                    ? 'bg-white text-amber-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
-                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
+                                    ? 'bg-white dark:bg-[#19264c] text-amber-700 dark:text-amber-400 shadow-sm ring-1 ring-slate-200/80 dark:ring-amber-500/30 font-bold'
+                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/80 font-semibold'
                             ]"
                         >
-                            <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'returns' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'returns' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
                             </svg>
                             <span class="truncate">Đơn Hoàn</span>
-                            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'returns' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200/70 text-slate-600'">
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'returns' ? 'bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200' : 'bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400'">
                                 {{ returnRequestsList.length }}
                             </span>
                         </button>
@@ -1593,7 +1593,7 @@
 
                     <!-- Right Live Status & Mini Refresh Button -->
                     <div class="flex items-center space-x-2 shrink-0 px-1 py-0.5">
-                        <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/70">
+                        <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/70 px-2.5 py-1 rounded-lg border border-slate-200/70 dark:border-slate-800">
                             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                             <span>Thời gian thực</span>
                         </span>
@@ -1601,7 +1601,7 @@
                             type="button"
                             @click="loadShipments()"
                             :disabled="isLoadingShipments"
-                            class="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-50 hover:bg-emerald-50 text-slate-500 hover:text-emerald-600 border border-slate-200/80 transition-all duration-200 active:scale-90 disabled:opacity-50 cursor-pointer shadow-2xs"
+                            class="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-50 dark:bg-slate-900/70 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 border border-slate-200/80 dark:border-slate-800 transition-all duration-200 active:scale-90 disabled:opacity-50 cursor-pointer shadow-2xs"
                             title="Làm mới dữ liệu thời gian thực"
                         >
                             <svg class="w-3.5 h-3.5 transition-transform duration-300" :class="{ 'animate-spin text-emerald-600': isLoadingShipments }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
