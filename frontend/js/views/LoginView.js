@@ -694,14 +694,18 @@
                 }
             }
 
+            let isGoogleInitialized = false;
             function renderGoogleButton(force = false) {
                 if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
                     try {
-                        google.accounts.id.initialize({
-                            client_id: GOOGLE_CLIENT_ID,
-                            callback: handleGoogleLoginResponse,
-                            auto_select: false
-                        });
+                        if (!isGoogleInitialized) {
+                            google.accounts.id.initialize({
+                                client_id: GOOGLE_CLIENT_ID,
+                                callback: handleGoogleLoginResponse,
+                                auto_select: false
+                            });
+                            isGoogleInitialized = true;
+                        }
 
                         const googleTheme = isDarkMode.value ? 'filled_black' : 'outline';
 

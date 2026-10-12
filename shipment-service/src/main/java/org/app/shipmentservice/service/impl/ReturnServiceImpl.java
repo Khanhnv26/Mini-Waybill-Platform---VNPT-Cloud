@@ -260,8 +260,7 @@ public class ReturnServiceImpl implements ReturnService {
                     .build();
             return mapToReturnResponse(virtualReq, shipment);
         }
-
-        throw new RuntimeException("Không tìm thấy thông tin yêu cầu hoàn cho đơn: " + trackingCode);
+        return null;
     }
 
     @Override

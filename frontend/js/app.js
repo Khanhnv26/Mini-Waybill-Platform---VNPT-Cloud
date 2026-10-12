@@ -376,6 +376,11 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
             };
 
             const fetchNotifications = async () => {
+                const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+                if (!token) {
+                    notifications.value = [];
+                    return;
+                }
                 if (typeof NotificationService === 'undefined' || !NotificationService.getMyNotifications) return;
                 try {
                     const list = await NotificationService.getMyNotifications();

@@ -72,6 +72,11 @@ export const notificationStore = {
     },
 
     async fetchNotifications() {
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        if (!token) {
+            state.notifications = [];
+            return;
+        }
         if (typeof window.NotificationService === 'undefined' || !window.NotificationService.getMyNotifications) return;
         try {
             const list = await window.NotificationService.getMyNotifications();
