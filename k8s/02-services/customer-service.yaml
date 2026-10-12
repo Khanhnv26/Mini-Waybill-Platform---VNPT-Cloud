@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: customer-service
-          image: khanhnv26/customer-service:48147868828258fbe189a06e86089cc01b3e6109
+          image: khanhnv26/customer-service:cb9bd4f11ff393bada93ed75a9d0c7d088653886
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
