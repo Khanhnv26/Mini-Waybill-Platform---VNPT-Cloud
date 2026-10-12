@@ -59,3 +59,8 @@ application-secret.properties
 # Node
 node_modules/
 npm-debug.log*
+
+# AI Agent Tools & Skills
+.agents/
+agent/
+

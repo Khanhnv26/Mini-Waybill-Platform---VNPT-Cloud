@@ -6,6 +6,9 @@ import org.app.sharedevents.entity.PaymentSuccessEvent;
 import org.app.shipmentservice.entity.CodSettlementStatus;
 import org.app.shipmentservice.entity.Shipment;
 import org.app.shipmentservice.entity.ShipmentStatus;
+import org.app.shipmentservice.entity.FeePaymentStatus;
+import org.app.shipmentservice.entity.ReturnRequest;
+import org.app.shipmentservice.repository.ReturnRequestRepository;
 import org.app.shipmentservice.repository.ShipmentRepository;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
@@ -19,6 +22,7 @@ import java.util.Optional;
 public class PaymentSuccessConsumer {
 
     private final ShipmentRepository shipmentRepository;
+    private final ReturnRequestRepository returnRequestRepository;
 
     @KafkaListener(topics = "payment-success-events", groupId = "shipment-payment-group")
     public void handlePaymentSuccess(PaymentSuccessEvent event) {
@@ -54,6 +58,17 @@ public class PaymentSuccessConsumer {
         } else if ("SHIPPING_FEE".equalsIgnoreCase(event.getPaymentType())) {
             shipmentRepository.save(shipment);
             log.info("[SHIPMENT-SERVICE] Đã ghi nhận thanh toán cước phí vận chuyển thành công cho đơn {}", event.getTrackingCode());
+        } else if ("RETURN_FEE".equalsIgnoreCase(event.getPaymentType())) {
+            Optional<ReturnRequest> returnOpt = returnRequestRepository.findByTrackingCode(event.getTrackingCode());
+            if (returnOpt.isPresent()) {
+                ReturnRequest returnRequest = returnOpt.get();
+                returnRequest.setFeePaymentStatus(FeePaymentStatus.PREPAID);
+                returnRequest.setUpdatedAt(LocalDateTime.now());
+                returnRequestRepository.save(returnRequest);
+                log.info("[SHIPMENT-SERVICE] Đã cập nhật cước hoàn PREPAID cho đơn {}", event.getTrackingCode());
+            } else {
+                log.warn("[SHIPMENT-SERVICE] Nhận event RETURN_FEE nhưng chưa có ReturnRequest cho đơn: {}", event.getTrackingCode());
+            }
         }
     }
 }

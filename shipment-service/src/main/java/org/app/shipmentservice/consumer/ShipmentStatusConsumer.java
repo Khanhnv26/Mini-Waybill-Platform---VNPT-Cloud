@@ -163,8 +163,13 @@ public class ShipmentStatusConsumer {
     private void handleReturnedMilestone(Shipment shipment) {
         returnRequestRepository.findByTrackingCode(shipment.getTrackingCode()).ifPresent(req -> {
             req.setStatus(org.app.shipmentservice.entity.ReturnRequestStatus.COMPLETED);
+            if (req.getFeePaymentStatus() == org.app.shipmentservice.entity.FeePaymentStatus.UNPAID && !req.isPostalFault()) {
+                req.setFeePaymentStatus(org.app.shipmentservice.entity.FeePaymentStatus.PAID_ON_RETURN);
+            }
+            req.setUpdatedAt(java.time.LocalDateTime.now());
             returnRequestRepository.save(req);
-            log.info("[SHIPMENT] Đã cập nhật ReturnRequest đơn {} sang COMPLETED", shipment.getTrackingCode());
+            log.info("[SHIPMENT] Đã cập nhật ReturnRequest đơn {} sang COMPLETED với feePaymentStatus = {}",
+                    shipment.getTrackingCode(), req.getFeePaymentStatus());
         });
     }
 

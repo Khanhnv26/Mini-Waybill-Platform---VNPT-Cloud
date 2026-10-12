@@ -34,7 +34,7 @@ import java.util.regex.Pattern;
 public class PaymentServiceImpl implements PaymentService {
 
     private static final String PAYMENT_SUCCESS_TOPIC = "payment-success-events";
-    private static final Pattern TRACKING_PATTERN = Pattern.compile("(?i)(?:COD|CUOC)?\\s*([A-Z0-9_-]{5,30})");
+    private static final Pattern TRACKING_PATTERN = Pattern.compile("(?i)(?:COD|CUOC|HOAN)?\\s*([A-Z0-9_-]{5,30})");
 
     private final PaymentTransactionRepository paymentRepo;
     private final WebhookLogRepository webhookLogRepo;
@@ -111,19 +111,26 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public PaymentResponse getLatestByTrackingCode(String trackingCode) {
-        Optional<PaymentTransaction> successTx = paymentRepo.findByTrackingCodeOrderByCreatedAtDesc(trackingCode).stream()
+        List<PaymentTransaction> transactions = paymentRepo.findByTrackingCodeOrderByCreatedAtDesc(trackingCode);
+        if (transactions.isEmpty()) {
+            return null;
+        }
+
+        Optional<PaymentTransaction> pendingTx = transactions.stream()
+                .filter(tx -> tx.getStatus() == PaymentStatus.PENDING)
+                .findFirst();
+        if (pendingTx.isPresent()) {
+            return PaymentResponse.from(pendingTx.get());
+        }
+
+        Optional<PaymentTransaction> successTx = transactions.stream()
                 .filter(tx -> tx.getStatus() == PaymentStatus.SUCCESS)
                 .findFirst();
         if (successTx.isPresent()) {
             return PaymentResponse.from(successTx.get());
         }
 
-        return paymentRepo.findFirstByTrackingCodeAndStatusOrderByCreatedAtDesc(trackingCode, PaymentStatus.PENDING)
-                .map(PaymentResponse::from)
-                .orElseGet(() -> paymentRepo.findByTrackingCodeOrderByCreatedAtDesc(trackingCode).stream()
-                        .findFirst()
-                        .map(PaymentResponse::from)
-                        .orElse(null));
+        return PaymentResponse.from(transactions.get(0));
     }
 
     @Override
@@ -180,7 +187,16 @@ public class PaymentServiceImpl implements PaymentService {
         if (pendingTxOpt.isPresent()) {
             tx = pendingTxOpt.get();
         } else {
-            PaymentType detectedType = rawContent.toUpperCase().contains("CUOC") ? PaymentType.SHIPPING_FEE : PaymentType.COD;
+            String upper = rawContent.toUpperCase();
+            PaymentType detectedType;
+            if (upper.contains("HOAN")) {
+                detectedType = PaymentType.RETURN_FEE;
+            } else if (upper.contains("CUOC")) {
+                detectedType = PaymentType.SHIPPING_FEE;
+            } else {
+                detectedType = PaymentType.COD;
+            }
+
             tx = PaymentTransaction.builder()
                     .paymentCode("AUTO_PAY_" + trackingCode + "_" + System.currentTimeMillis())
                     .trackingCode(trackingCode)
@@ -232,7 +248,14 @@ public class PaymentServiceImpl implements PaymentService {
 
         PaymentResponse latest = getLatestByTrackingCode(trackingCode);
         BigDecimal amount = (latest != null && latest.getAmount() != null) ? latest.getAmount() : BigDecimal.valueOf(35000);
-        String prefix = (latest != null && latest.getPaymentType() == PaymentType.COD) ? "COD " : "CUOC ";
+        String prefix;
+        if (latest != null && latest.getPaymentType() == PaymentType.COD) {
+            prefix = "COD ";
+        } else if (latest != null && latest.getPaymentType() == PaymentType.RETURN_FEE) {
+            prefix = "HOAN ";
+        } else {
+            prefix = "CUOC ";
+        }
 
         WebhookPayloadDto mockDto = WebhookPayloadDto.builder()
                 .gatewayName("MOCK_SEPAY")

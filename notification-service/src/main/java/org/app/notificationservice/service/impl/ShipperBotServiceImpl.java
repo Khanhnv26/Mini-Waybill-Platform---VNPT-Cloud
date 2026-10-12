@@ -301,8 +301,8 @@ public class ShipperBotServiceImpl implements ShipperBotService {
         return paymentClient.createQr(Map.of(
                 "trackingCode", trackingCode,
                 "amount", returnFee,
-                "paymentType", "SHIPPING_FEE",
-                "note", "Cuoc hoan don " + trackingCode));
+                "paymentType", "RETURN_FEE",
+                "note", "HOAN " + trackingCode));
     }
 
     @Override

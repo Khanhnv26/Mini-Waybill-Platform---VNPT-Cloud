@@ -965,8 +965,8 @@
                     const res = await PaymentService.createQrPayment({
                         trackingCode: shipment.trackingCode,
                         amount: returnFee,
-                        paymentType: 'SHIPPING_FEE',
-                        note: `Cuoc hoan don ${shipment.trackingCode}`
+                        paymentType: 'RETURN_FEE',
+                        note: `HOAN ${shipment.trackingCode}`
                     });
                     returnQrPaymentData.value = res;
                     isReturnQrLoading.value = false;
