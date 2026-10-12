@@ -496,6 +496,26 @@ html.dark select option {
     color: #f8fafc !important;
 }
 
+html.dark input[type="checkbox"],
+html.dark input[type="radio"] {
+    background-color: #101935 !important;
+    border-color: #334155 !important;
+    color: #2563eb !important;
+}
+
+html.dark input[type="checkbox"]:checked,
+html.dark input[type="radio"]:checked {
+    background-color: #2563eb !important;
+    border-color: #2563eb !important;
+}
+
+html.dark input[type="checkbox"]:disabled,
+html.dark input[type="radio"]:disabled {
+    opacity: 0.4 !important;
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+}
+
 /* 9. Tables & Data Grids */
 html.dark table thead th {
     background-color: #162447 !important;
@@ -832,3 +852,31 @@ html.dark #googleBtnRegister iframe {
     background-color: transparent !important;
     border-radius: 9999px !important;
 }
+
+/* 16. Operational Action Bars & Selection Summary Bars */
+html.dark .operation-action-bar {
+    background: linear-gradient(120deg, #131e3a, #0d152a) !important;
+    background-color: #131e3a !important;
+    border-color: #23345e !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+    color: #f1f5f9 !important;
+}
+
+html.dark .operation-action-bar label {
+    color: #cbd5e1 !important;
+}
+
+html.dark .selection-summary-bar {
+    background: rgba(19, 30, 58, 0.96) !important;
+    background-color: #131e3a !important;
+    border-color: #23345e !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+    color: #f1f5f9 !important;
+}
+
+html.dark .status-next-action {
+    border-left-color: #3b82f6 !important;
+    background-color: #131e3a !important;
+    color: #f1f5f9 !important;
+}
+

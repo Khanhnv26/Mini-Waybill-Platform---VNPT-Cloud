@@ -19,6 +19,27 @@
     background: #eff6ff;
 }
 
+html.dark .operation-action-bar {
+    border: 1px solid #23345e;
+    background: linear-gradient(120deg, #131e3a, #0d152a);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    color: #f1f5f9;
+}
+
+html.dark .selection-summary-bar {
+    border: 1px solid #23345e;
+    background: rgba(19, 30, 58, 0.96);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(8px);
+    color: #f1f5f9;
+}
+
+html.dark .status-next-action {
+    border-left: 3px solid #3b82f6;
+    background: #131e3a;
+    color: #f1f5f9;
+}
+
 @media (max-width: 640px) {
     .operation-action-bar,
     .selection-summary-bar {
