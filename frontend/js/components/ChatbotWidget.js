@@ -546,7 +546,7 @@
                                 signal: AbortSignal.timeout(60000)
                             });
                         } else {
-                            const baseUrl = (['3000', '80', ''].includes(window.location.port) && window.location.protocol.startsWith('http')) ? '' : 'http://localhost:8080';
+                            const baseUrl = (['3000', '80', '443', ''].includes(window.location.port) && window.location.protocol.startsWith('http')) ? '' : 'http://localhost:8080';
                             response = await fetch(`${baseUrl}/api/support/ai/chat`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
