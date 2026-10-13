@@ -3,23 +3,7 @@ kind: Ingress
 metadata:
   name: waybill-ingress
   namespace: waybill
-  annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
-    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
-    nginx.ingress.kubernetes.io/enable-cors: "true"
-    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, PATCH, OPTIONS"
-    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
 spec:
-  ingressClassName: nginx
-  tls:
-    - hosts:
-        - waybill.vn
-        - api.waybill.vn
-        - storage.waybill.vn
-      secretName: waybill-tls
   rules:
     - http:
         paths:
@@ -57,7 +41,7 @@ spec:
     - host: api.waybill.vn
       http:
         paths:
-          - path: /
+          - path: /api
             pathType: Prefix
             backend:
               service:

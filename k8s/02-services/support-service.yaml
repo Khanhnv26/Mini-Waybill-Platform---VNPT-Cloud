@@ -6,7 +6,7 @@ metadata:
   labels:
     app: support-service
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: support-service
@@ -86,8 +86,8 @@ spec:
                   key: MINIO_PUBLIC_URL
           resources:
             requests:
-              memory: "256Mi"
-              cpu: "100m"
+              memory: "128Mi"
+              cpu: "20m"
             limits:
               memory: "512Mi"
               cpu: "500m"

@@ -35,6 +35,7 @@ echo "=== 4. TRIỂN KHAI 14 MICROSERVICES & FRONTEND ==="
 kubectl apply -f k8s/02-services/
 
 echo "=== 5. ÁP DỤNG QUY TẮC INGRESS CỔNG MẠNG ==="
+kubectl delete -A ValidatingWebhookConfiguration ingress-nginx-admission --ignore-not-found
 kubectl apply -f k8s/03-ingress/
 
 echo "=== HOÀN TẤT TRIỂN KHAI CỤM K8S! ==="

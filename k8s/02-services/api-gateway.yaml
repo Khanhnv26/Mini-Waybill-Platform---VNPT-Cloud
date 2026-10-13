@@ -6,7 +6,7 @@ metadata:
   labels:
     app: api-gateway
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: api-gateway
@@ -15,15 +15,6 @@ spec:
       labels:
         app: api-gateway
     spec:
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchLabels:
-                    app: api-gateway
-                topologyKey: kubernetes.io/hostname
       containers:
         - name: api-gateway
           image: khanhnv26/api-gateway:5fe43f057d329f66e0fe060af2806bee7501a365
@@ -51,8 +42,8 @@ spec:
                   key: jwt-secret
           resources:
             requests:
-              memory: "256Mi"
-              cpu: "100m"
+              memory: "128Mi"
+              cpu: "20m"
             limits:
               memory: "512Mi"
               cpu: "500m"

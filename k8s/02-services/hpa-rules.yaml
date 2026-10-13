@@ -8,7 +8,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: shipment-service
-  minReplicas: 2
+  minReplicas: 1
   maxReplicas: 3
   metrics:
     - type: Resource
@@ -28,7 +28,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: customer-service
-  minReplicas: 2
+  minReplicas: 1
   maxReplicas: 3
   metrics:
     - type: Resource
@@ -48,7 +48,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: api-gateway
-  minReplicas: 2
+  minReplicas: 1
   maxReplicas: 3
   metrics:
     - type: Resource
