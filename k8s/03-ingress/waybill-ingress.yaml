@@ -3,7 +3,11 @@ kind: Ingress
 metadata:
   name: waybill-ingress
   namespace: waybill
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+    traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
 spec:
+  ingressClassName: traefik
   rules:
     - http:
         paths:
