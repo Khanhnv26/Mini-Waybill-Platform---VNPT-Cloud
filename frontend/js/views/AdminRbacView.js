@@ -411,10 +411,8 @@
                 </div>
             </div>
 
-            <!-- Sub-Banner Action Bar: Compact Segmented Pill Bar -->
             <div class="bg-white/95 backdrop-blur-md text-slate-700 rounded-2xl shadow-xs border border-slate-200/90 p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
                 <div class="bg-slate-100/90 p-1 rounded-xl border border-slate-200/70 inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
-                    <!-- Ma Trận RBAC Tab Button -->
                     <button
                         type="button"
                         @click="currentSubtab = 'matrix'"
@@ -434,7 +432,6 @@
                         </span>
                     </button>
 
-                    <!-- Người Dùng Tab Button -->
                     <button
                         type="button"
                         @click="currentSubtab = 'users'"
@@ -455,7 +452,6 @@
                     </button>
                 </div>
 
-                <!-- Right Live Status & Mini Refresh Button -->
                 <div class="flex items-center space-x-2 shrink-0 px-1 py-0.5">
                     <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/70">
                         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -657,7 +653,7 @@
                         <table class="w-full text-left border-collapse table-b2b">
                             <thead>
                                 <tr>
-                                    <th class="w-12 py-2.5 px-3 text-xs font-bold tracking-wider text-slate-600">ID</th>
+                                    <th class="w-12 py-2.5 px-3 text-xs font-bold tracking-wider text-slate-600">STT</th>
                                     <th class="py-2.5 px-3 text-xs font-bold tracking-wider text-slate-600">THÔNG TIN TÀI KHOẢN</th>
                                     <th class="py-2.5 px-3 text-xs font-bold tracking-wider text-slate-600">TRẠNG THÁI</th>
                                     <th class="py-2.5 px-3 text-xs font-bold tracking-wider text-slate-600">TRẠM TÁC NGHIỆP</th>
@@ -666,8 +662,8 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
-                                <tr v-for="user in paginatedUsers" :key="user.id" class="hover:bg-slate-50/80 transition">
-                                    <td class="font-mono text-xs font-bold text-slate-400 py-2.5 px-3">#{{ user.id }}</td>
+                                <tr v-for="(user, idx) in paginatedUsers" :key="user.id" class="hover:bg-slate-50/80 transition">
+                                    <td class="font-mono text-xs font-bold text-slate-400 py-2.5 px-3" :title="'ID hệ thống: #' + user.id">#{{ (userCurrentPage - 1) * userPageSize + idx + 1 }}</td>
                                     
                                     <td class="py-2.5 px-3">
                                         <div class="flex items-center space-x-2.5">

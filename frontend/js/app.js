@@ -21,7 +21,7 @@ import './services/pricingService.js';
 import './services/supportService.js';
 import './services/shipperService.js';
 import './services/ratingService.js';
-import './services/paymentService.js';
+import './services/paymentService.js?v=3.6.6';
 
 // ==========================================
 // 3. Layout Components
@@ -53,14 +53,14 @@ import './views/ShipmentView.js';
 import './views/DashboardView.js';
 import './views/PostOfficeOpsView.js';
 import './views/TripsView.js';
-import './views/FleetView.js';
+import './views/FleetView.js?v=3.6.7';
 import './views/HubOpsView.js';
 import './views/ShipperView.js';
 import './views/ShipperDirectoryView.js';
 import './views/CustomerView.js';
-import './views/AdminRbacView.js';
-import './views/ReportView.js';
-import './views/PaymentView.js?v=3.6.2';
+import './views/AdminRbacView.js?v=3.6.7';
+import './views/ReportView.js?v=3.6.5';
+import './views/PaymentView.js?v=3.6.7';
 import './views/TariffCalculatorView.js';
 import './views/NetworkView.js';
 import './views/GuideView.js';

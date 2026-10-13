@@ -385,7 +385,6 @@
                             </thead>
                             <tbody class="divide-y divide-slate-100 text-xs">
                                 <tr v-for="c in paginatedCustomers" :key="c.id" class="hover:bg-slate-50/80 transition">
-                                    <!-- MÃ & HỌ TÊN -->
                                     <td class="py-2.5 px-3.5">
                                         <div class="flex items-center gap-2.5">
                                             <div class="w-8 h-8 rounded-lg font-black text-xs flex items-center justify-center shadow-xs shrink-0 bg-gradient-to-br from-blue-600 to-indigo-700 text-white">
@@ -413,21 +412,18 @@
                                         </div>
                                     </td>
 
-                                    <!-- LIÊN HỆ EMAIL -->
                                     <td class="py-2.5 px-3.5">
                                         <div class="text-xs text-slate-700 font-medium truncate max-w-[190px]" :title="c.email || ''">
                                             {{ c.email || 'Chưa cập nhật email' }}
                                         </div>
                                     </td>
 
-                                    <!-- ĐỊA CHỈ TRỤ SỞ / KHO HÀNG -->
                                     <td class="py-2.5 px-3.5">
                                         <div class="text-xs text-slate-600 max-w-xs line-clamp-2" :title="c.address || ''">
                                             {{ c.address || 'Chưa có địa chỉ chi tiết' }}
                                         </div>
                                     </td>
 
-                                    <!-- TRẠNG THÁI -->
                                     <td class="py-2.5 px-3.5 text-center">
                                         <span 
                                             :class="[
@@ -442,7 +438,6 @@
                                         </span>
                                     </td>
 
-                                    <!-- TÁC NGHIỆP -->
                                     <td class="py-2.5 px-3.5 text-right whitespace-nowrap">
                                         <div class="flex items-center justify-end space-x-1.5">
                                             <button 

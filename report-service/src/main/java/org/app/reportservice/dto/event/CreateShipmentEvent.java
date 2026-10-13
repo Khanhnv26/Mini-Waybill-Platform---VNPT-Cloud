@@ -30,5 +30,8 @@ public class CreateShipmentEvent {
     private BigDecimal shippingFee;
     private BigDecimal totalFee;
     private String currentStatus;
-
+    private Long shipperId;
+    private String shipperName;
+    private String hubOrigin;
+    private String hubDestination;
 }

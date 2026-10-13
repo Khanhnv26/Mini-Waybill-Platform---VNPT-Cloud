@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -38,6 +39,7 @@ public class ReportServiceImpl implements ReportService {
             "CREATED", "PENDING_ROUTING", "ROUTE_ASSIGNED", "PICKED_UP",
             "IN_TRANSIT", "ARRIVED_DEST_HUB", "OUT_FOR_DELIVERY");
     private static final long UNASSIGNED_CUSTOMER_ID = 0L;
+    private static final double STANDARD_SLA_HOURS = 24.0;
 
     private final ReportShipmentRepository reportShipmentRepository;
     private final ExcelExportService excelExportService;
@@ -71,12 +73,27 @@ public class ReportServiceImpl implements ReportService {
         } else if (summary.getCustomerId() == null) {
             summary.setCustomerId(UNASSIGNED_CUSTOMER_ID);
         }
+        if (event.getShipperId() != null) {
+            summary.setShipperId(event.getShipperId());
+        }
+        if (event.getShipperName() != null && !event.getShipperName().isBlank()) {
+            summary.setShipperName(event.getShipperName().trim());
+        }
+        if (event.getHubOrigin() != null && !event.getHubOrigin().isBlank()) {
+            summary.setHubOrigin(event.getHubOrigin().trim());
+        }
+        if (event.getHubDestination() != null && !event.getHubDestination().isBlank()) {
+            summary.setHubDestination(event.getHubDestination().trim());
+        }
         String existingStatus = summary.getCurrentStatus();
         if (existingStatus == null || existingStatus.isBlank() || EARLY_STATUSES.contains(existingStatus)) {
             summary.setCurrentStatus(event.getCurrentStatus() != null ? event.getCurrentStatus() : "PENDING_ROUTING");
         }
         if (summary.getCodSettlementStatus() == null) {
             summary.setCodSettlementStatus("UNSETTLED");
+        }
+        if (summary.getSlaStatus() == null) {
+            summary.setSlaStatus("ON_TIME");
         }
         summary.setUpdatedAt(LocalDateTime.now());
         reportShipmentRepository.save(summary);
@@ -111,12 +128,33 @@ public class ReportServiceImpl implements ReportService {
             summary.setCurrentStatus(event.getStatus().trim());
             if ("DELIVERED".equals(summary.getCurrentStatus()) || "RETURNED".equals(summary.getCurrentStatus())) {
                 summary.setCompletedAt(eventTime);
+                LocalDateTime startTime = summary.getCreatedAt() != null ? summary.getCreatedAt() : eventTime;
+                long minutes = Duration.between(startTime, eventTime).toMinutes();
+                double hours = Math.round((minutes / 60.0) * 10.0) / 10.0;
+                summary.setLeadTimeHours(hours);
+                summary.setSlaStatus(hours <= STANDARD_SLA_HOURS ? "ON_TIME" : "BREACHED");
             }
             summary.setUpdatedAt(eventTime);
         }
+
         if (event.getCodSettlementStatus() != null && !event.getCodSettlementStatus().isBlank()) {
             summary.setCodSettlementStatus(event.getCodSettlementStatus().trim());
         }
+
+        if (event.getShipperId() != null) {
+            summary.setShipperId(event.getShipperId());
+        }
+        if (event.getShipperName() != null && !event.getShipperName().isBlank()) {
+            summary.setShipperName(event.getShipperName().trim());
+        }
+
+        if (event.getFailureReason() != null && !event.getFailureReason().isBlank()) {
+            summary.setFailureReason(event.getFailureReason().trim());
+        } else if (event.getNote() != null && !event.getNote().isBlank()
+                && ("DELIVERY_FAILED".equals(summary.getCurrentStatus()) || "RETURNING".equals(summary.getCurrentStatus()))) {
+            summary.setFailureReason(event.getNote().trim());
+        }
+
         reportShipmentRepository.save(summary);
     }
 
@@ -180,10 +218,12 @@ public class ReportServiceImpl implements ReportService {
         LocalDateTime to = (toDate != null ? toDate : LocalDate.now()).atTime(LocalTime.MAX);
         Long targetCustId = resolveCustomerId(customerId, roles, userId);
         String statusFilter = normalizeStatus(status);
+
         BigDecimal sumFee = reportShipmentRepository.sumShippingFee(from, to, targetCustId, statusFilter);
         BigDecimal sumCod = reportShipmentRepository.sumCodAmount(from, to, targetCustId, statusFilter);
         BigDecimal settledCod = reportShipmentRepository.sumSettledCodAmount(from, to, targetCustId, statusFilter);
         BigDecimal pendingCod = reportShipmentRepository.sumPendingCodAmount(from, to, targetCustId, statusFilter);
+
         long totalOrders = reportShipmentRepository.countTotalOrders(from, to, targetCustId, statusFilter);
         long delivered = reportShipmentRepository.countByStatus(from, to, targetCustId, statusFilter, "DELIVERED");
         long returning = reportShipmentRepository.countByStatus(from, to, targetCustId, statusFilter, "RETURNING")
@@ -191,9 +231,16 @@ public class ReportServiceImpl implements ReportService {
         long failed = reportShipmentRepository.countByStatus(from, to, targetCustId, statusFilter, "DELIVERY_FAILED");
         long cancelled = reportShipmentRepository.countByStatus(from, to, targetCustId, statusFilter, "CANCELLED");
         long inTransit = reportShipmentRepository.countInStatuses(from, to, targetCustId, statusFilter, MOVING_STATUSES);
+
+        long onTimeCount = reportShipmentRepository.countBySlaStatus(from, to, targetCustId, statusFilter, "ON_TIME");
+        long breachedCount = reportShipmentRepository.countBySlaStatus(from, to, targetCustId, statusFilter, "BREACHED");
+        Double avgLeadTime = reportShipmentRepository.averageLeadTimeHours(from, to, targetCustId, statusFilter);
+        double onTimeRate = delivered > 0 ? Math.round((onTimeCount * 100.0 / delivered) * 10.0) / 10.0 : 0.0;
+
         Page<ReportShipmentSummary> pageData = reportShipmentRepository.findByFilters(
                 from, to, targetCustId, statusFilter, PageRequest.of(page, size)
         );
+
         Map<String, Object> res = new HashMap<>();
         res.put("totalOrders", totalOrders);
         res.put("tableTotalElements", pageData.getTotalElements());
@@ -206,6 +253,10 @@ public class ReportServiceImpl implements ReportService {
         res.put("failedCount", failed);
         res.put("cancelledCount", cancelled);
         res.put("inTransitCount", inTransit);
+        res.put("onTimeCount", onTimeCount);
+        res.put("breachedCount", breachedCount);
+        res.put("slaOnTimeRate", onTimeRate);
+        res.put("averageLeadTimeHours", avgLeadTime != null ? Math.round(avgLeadTime * 10.0) / 10.0 : 0.0);
         res.put("daily", buildDailySeries(from.toLocalDate(), to.toLocalDate(),
                 reportShipmentRepository.sumByDay(from, to, targetCustId, statusFilter)));
         res.put("successRate", totalOrders > 0 ? Math.round(Math.min(100.0, (delivered * 100.0 / totalOrders)) * 10.0) / 10.0 : 0.0);
@@ -223,6 +274,7 @@ public class ReportServiceImpl implements ReportService {
         LocalDateTime to = (toDate != null ? toDate : LocalDate.now()).atTime(LocalTime.MAX);
         Long targetCustId = resolveCustomerId(customerId, roles, userId);
         String statusFilter = normalizeStatus(status);
+
         List<ReportShipmentSummary> allData = reportShipmentRepository.findAllByFilters(from, to, targetCustId, statusFilter);
         BigDecimal sumFee = reportShipmentRepository.sumShippingFee(from, to, targetCustId, statusFilter);
         BigDecimal sumCod = reportShipmentRepository.sumCodAmount(from, to, targetCustId, statusFilter);
@@ -231,12 +283,14 @@ public class ReportServiceImpl implements ReportService {
         long delivered = reportShipmentRepository.countByStatus(from, to, targetCustId, statusFilter, "DELIVERED");
         long returning = reportShipmentRepository.countByStatus(from, to, targetCustId, statusFilter, "RETURNING")
                 + reportShipmentRepository.countByStatus(from, to, targetCustId, statusFilter, "RETURNED");
+
         String rangeText = from.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + " đến " +
                 to.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
         BigDecimal safeSumFee = sumFee != null ? sumFee : BigDecimal.ZERO;
         BigDecimal safeSumCod = sumCod != null ? sumCod : BigDecimal.ZERO;
         BigDecimal safeSettledCod = settledCod != null ? settledCod : BigDecimal.ZERO;
         BigDecimal safePendingCod = pendingCod != null ? pendingCod : BigDecimal.ZERO;
+
         return excelExportService.exportReportToExcel(allData, safeSumFee, safeSumCod, safeSettledCod, safePendingCod, delivered, returning, rangeText);
     }
 

@@ -60,7 +60,8 @@
             const response = await Api.get(endpoint);
             if (!response.ok) {
                 const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.error || errData.message || 'Không thể tải danh sách giao dịch');
+                const detailMsg = (errData.errors && Object.values(errData.errors).join(', ')) || errData.error || errData.message;
+                throw new Error(detailMsg || 'Không thể tải danh sách giao dịch');
             }
             return response.json();
         },

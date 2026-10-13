@@ -17,7 +17,6 @@ public interface ReportShipmentRepository extends JpaRepository<ReportShipmentSu
 
     Optional<ReportShipmentSummary> findByTrackingCode(String trackingCode);
 
-
     @Query("""
         SELECT r FROM ReportShipmentSummary r
         WHERE r.createdAt BETWEEN :from AND :to
@@ -25,14 +24,13 @@ public interface ReportShipmentRepository extends JpaRepository<ReportShipmentSu
           AND (:status IS NULL OR :status = 'ALL' OR r.currentStatus = :status)
         ORDER BY r.createdAt DESC
     """)
-    Page<ReportShipmentSummary> findByFilters (
+    Page<ReportShipmentSummary> findByFilters(
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to,
             @Param("customerId") Long customerId,
             @Param("status") String status,
             Pageable pageable
     );
-
 
     @Query("""
         SELECT r FROM ReportShipmentSummary r
@@ -61,7 +59,6 @@ public interface ReportShipmentRepository extends JpaRepository<ReportShipmentSu
             @Param("status") String status
     );
 
-
     @Query("""
         SELECT COALESCE(SUM(r.codAmount), 0) FROM ReportShipmentSummary r
         WHERE r.createdAt BETWEEN :from AND :to
@@ -74,7 +71,6 @@ public interface ReportShipmentRepository extends JpaRepository<ReportShipmentSu
             @Param("customerId") Long customerId,
             @Param("status") String status
     );
-
 
     @Query("""
         SELECT COUNT(r) FROM ReportShipmentSummary r
@@ -158,6 +154,36 @@ public interface ReportShipmentRepository extends JpaRepository<ReportShipmentSu
           AND r.codSettlementStatus = 'PENDING_SETTLEMENT'
     """)
     BigDecimal sumPendingCodAmount(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            @Param("customerId") Long customerId,
+            @Param("status") String status
+    );
+
+    @Query("""
+        SELECT COUNT(r) FROM ReportShipmentSummary r
+        WHERE r.createdAt BETWEEN :from AND :to
+          AND (:customerId IS NULL OR r.customerId = :customerId)
+          AND (:status IS NULL OR :status = 'ALL' OR r.currentStatus = :status)
+          AND r.slaStatus = :slaStatus
+    """)
+    long countBySlaStatus(
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            @Param("customerId") Long customerId,
+            @Param("status") String status,
+            @Param("slaStatus") String slaStatus
+    );
+
+    @Query("""
+        SELECT COALESCE(AVG(r.leadTimeHours), 0) FROM ReportShipmentSummary r
+        WHERE r.createdAt BETWEEN :from AND :to
+          AND (:customerId IS NULL OR r.customerId = :customerId)
+          AND (:status IS NULL OR :status = 'ALL' OR r.currentStatus = :status)
+          AND r.currentStatus = 'DELIVERED'
+          AND r.leadTimeHours IS NOT NULL
+    """)
+    Double averageLeadTimeHours(
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to,
             @Param("customerId") Long customerId,

@@ -82,22 +82,29 @@
                 }
             };
 
-            // Calculate date ranges
+            const pad = (n) => String(n).padStart(2, '0');
+            const formatLocalDateTime = (d) => {
+                return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+            };
+
+            // Calculate date ranges in local time (00:00:00 to 23:59:59)
             const getDateRange = (rangeType) => {
                 if (rangeType === 'all') return { from: null, to: null };
                 const now = new Date();
-                const to = now.toISOString();
+                const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+                const to = formatLocalDateTime(endOfDay);
+
                 if (rangeType === 'today') {
-                    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                    return { from: start.toISOString(), to };
+                    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+                    return { from: formatLocalDateTime(start), to };
                 }
                 if (rangeType === '7days') {
-                    const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                    return { from: start.toISOString(), to };
+                    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7, 0, 0, 0);
+                    return { from: formatLocalDateTime(start), to };
                 }
                 if (rangeType === 'thisMonth') {
-                    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-                    return { from: start.toISOString(), to };
+                    const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+                    return { from: formatLocalDateTime(start), to };
                 }
                 return { from: null, to: null };
             };
@@ -360,6 +367,17 @@
                 }
             });
 
+            const copyCode = (code, label = 'mã') => {
+                if (!code) return;
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(code).then(() => {
+                        if (window.Utils && window.Utils.showToast) {
+                            window.Utils.showToast('Đã Sao Chép', `Đã sao chép ${label} ${code} vào bộ nhớ tạm!`, 'success');
+                        }
+                    }).catch(() => {});
+                }
+            };
+
             return {
                 currentUser,
                 isStaff,
@@ -383,6 +401,7 @@
                 activeReceiptTx,
                 formatVnd,
                 formatDateTime,
+                copyCode,
                 reloadAll,
                 changePage,
                 openQrModal,
@@ -402,7 +421,6 @@
         template: `
         <div class="space-y-4 pb-12 text-slate-800 dark:text-slate-100">
 
-            <!-- 1. HEADER BANNER: vnpt-gradient -->
             <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-sm relative overflow-hidden">
                 <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
 
@@ -441,7 +459,6 @@
                 </div>
             </div>
 
-            <!-- 2. KPI STAT CARDS (Synchronized with ShipmentView system cards) -->
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div class="b2b-card bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-xl p-3.5 shadow-sm">
                     <div class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
@@ -474,10 +491,8 @@
                 </div>
             </div>
 
-            <!-- 3. SEARCH & FILTERS TOOLBAR (Synchronized with ShipmentView and ReportView) -->
             <div class="b2b-card bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-xl p-3 sm:p-3.5 shadow-sm space-y-3">
                 
-                <!-- Quick Date Filter Pills + Real-time Status Row -->
                 <div class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-slate-100 dark:border-[#1e2e56]">
                     <div class="flex items-center space-x-1.5">
                         <span class="text-xs font-bold text-slate-500 dark:text-slate-400 mr-1">Khoảng ngày:</span>
@@ -534,10 +549,8 @@
                     </div>
                 </div>
 
-                <!-- Main Search and Select Filters Bar -->
                 <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                     
-                    <!-- Search Input with Clear Button -->
                     <div class="relative flex-1 min-w-0">
                         <input 
                             v-model="searchKeyword"
@@ -555,7 +568,6 @@
                         </button>
                     </div>
 
-                    <!-- Dropdown Selects -->
                     <div class="flex flex-wrap items-center gap-2">
                         <select 
                             v-model="filterStatus"
@@ -599,7 +611,6 @@
                 </div>
             </div>
 
-            <!-- 4. TRANSACTIONS TABLE (Synchronized with ShipmentView and ReportView) -->
             <div class="b2b-card bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-xl shadow-sm overflow-hidden">
                 <div class="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-[#1e2e56]">
                     <div class="flex items-center space-x-2">
@@ -615,13 +626,11 @@
                     </div>
                 </div>
 
-                <!-- Loading State -->
                 <div v-if="isLoading" class="p-8 text-center space-y-2">
                     <div class="inline-block animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
                     <div class="text-xs font-medium text-slate-500 dark:text-slate-400">Đang đồng bộ danh sách giao dịch từ payment-service...</div>
                 </div>
 
-                <!-- Empty State -->
                 <div v-else-if="transactions.length === 0" class="p-10 text-center space-y-2">
                     <div class="text-xs font-bold text-slate-700 dark:text-slate-200">Không tìm thấy giao dịch nào phù hợp</div>
                     <p class="text-[11px] text-slate-400 dark:text-slate-500 max-w-sm mx-auto">
@@ -638,50 +647,64 @@
                     </div>
                 </div>
 
-                <!-- Table Content -->
-                <div v-else class="overflow-x-auto min-w-full">
-                    <table class="w-full text-left border-collapse table-fixed min-w-[768px]">
+                <div v-else class="overflow-x-auto w-full">
+                    <table class="w-full text-left border-collapse table-auto">
                         <thead>
-                            <tr class="bg-slate-50/80 dark:bg-[#19264c] border-b border-slate-200 dark:border-[#23345e] text-[11px] font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                                <th class="py-3 px-3 w-[17%]">Mã Giao Dịch &amp; Ngày Tạo</th>
-                                <th class="py-3 px-3 w-[13%]">Mã Bưu Gửi</th>
-                                <th class="py-3 px-3 w-[10%]">Phân Loại Cước</th>
-                                <th class="py-3 px-3 w-[11%]">Số Tiền (VND)</th>
-                                <th class="py-3 px-3 w-[10%]">Kênh Thu Tiền</th>
-                                <th class="py-3 px-3 w-[11%]">Trạng Thái Thu</th>
-                                <th class="py-3 px-3 w-[13%]">{{ isStaff ? 'Mã KH / Ghi Chú' : 'Ghi Chú Đơn' }}</th>
-                                <th class="py-3 px-3 w-[15%] text-right whitespace-nowrap">Thao Tác</th>
+                            <tr class="bg-slate-50/90 dark:bg-[#19264c] border-b border-slate-200 dark:border-[#23345e] text-[11px] font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                                <th class="py-2.5 px-3 whitespace-nowrap" style="min-width: 145px; max-width: 170px;">Mã Giao Dịch &amp; Ngày Tạo</th>
+                                <th class="py-2.5 px-3 whitespace-nowrap" style="min-width: 120px; max-width: 140px;">Mã Bưu Gửi</th>
+                                <th class="py-2.5 px-2.5 whitespace-nowrap" style="min-width: 85px;">Phân Loại Cước</th>
+                                <th class="py-2.5 px-2.5 whitespace-nowrap" style="min-width: 90px;">Số Tiền (VND)</th>
+                                <th class="py-2.5 px-2.5 whitespace-nowrap" style="min-width: 85px;">Kênh Thu Tiền</th>
+                                <th class="py-2.5 px-2.5 whitespace-nowrap" style="min-width: 105px;">Trạng Thái Thu</th>
+                                <th class="py-2.5 px-3 whitespace-nowrap" style="min-width: 110px; max-width: 140px;">{{ isStaff ? 'Mã KH / Ghi Chú' : 'Ghi Chú Đơn' }}</th>
+                                <th class="py-2.5 px-3 text-right whitespace-nowrap" style="min-width: 135px;">Thao Tác</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-[#1e2e56] text-xs">
                             <tr 
                                 v-for="tx in transactions" 
                                 :key="tx.paymentCode"
-                                class="hover:bg-blue-50/40 dark:hover:bg-[#19264c]/60 transition-colors"
+                                class="group hover:bg-blue-50/40 dark:hover:bg-[#19264c]/60 transition-colors"
                             >
-                                <td class="py-3 px-3.5">
-                                    <div class="font-mono font-bold text-slate-800 dark:text-slate-100 text-xs truncate max-w-[145px] xl:max-w-[165px]" :title="tx.paymentCode">
-                                        {{ tx.paymentCode }}
+                                <td class="py-2.5 px-3">
+                                    <div class="flex items-center space-x-1 group/code">
+                                        <span 
+                                            class="font-mono font-bold text-slate-800 dark:text-slate-100 text-xs truncate inline-block align-middle cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors" 
+                                            style="max-width: 135px;"
+                                            :title="'Click để sao chép mã GD: ' + tx.paymentCode"
+                                            @click="copyCode(tx.paymentCode, 'mã giao dịch')"
+                                        >
+                                            {{ tx.paymentCode }}
+                                        </span>
+                                        <button 
+                                            type="button" 
+                                            @click="copyCode(tx.paymentCode, 'mã giao dịch')"
+                                            class="opacity-0 group-hover/code:opacity-100 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 p-0.5 cursor-pointer transition-opacity"
+                                            title="Sao chép mã giao dịch"
+                                        >
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                        </button>
                                     </div>
-                                    <div class="text-[10px] font-mono text-slate-400 mt-1 flex items-center gap-1.5 whitespace-nowrap">
-                                        <svg class="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <div class="text-[10px] font-mono text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1 whitespace-nowrap">
+                                        <svg class="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                         <span>{{ formatDateTime(tx.createdAt) }}</span>
                                     </div>
                                 </td>
 
-                                <td class="py-3 px-3.5">
+                                <td class="py-2.5 px-3">
                                     <button 
                                         type="button"
                                         @click="navigateToTracking(tx.trackingCode)"
-                                        class="font-mono font-bold text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline inline-flex items-center space-x-1 cursor-pointer group text-left transition-colors tracking-tight whitespace-nowrap"
+                                        class="font-mono font-bold text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline inline-flex items-center space-x-1 cursor-pointer group/tracking text-left transition-colors tracking-tight whitespace-nowrap"
                                         :title="'Click để tra cứu hành trình: ' + tx.trackingCode"
                                     >
-                                        <span class="truncate max-w-[115px] xl:max-w-[130px] inline-block align-bottom">{{ tx.trackingCode }}</span>
-                                        <svg class="w-3 h-3 text-blue-500 opacity-60 group-hover:opacity-100 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                        <span class="truncate inline-block align-bottom" style="max-width: 110px;">{{ tx.trackingCode }}</span>
+                                        <svg class="w-3 h-3 text-blue-500 opacity-60 group-hover/tracking:opacity-100 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                                     </button>
                                 </td>
 
-                                <td class="py-3 px-3.5 whitespace-nowrap">
+                                <td class="py-2.5 px-2.5 whitespace-nowrap">
                                     <span 
                                         v-if="tx.paymentType === 'COD'" 
                                         class="px-2 py-0.5 rounded text-[10px] font-bold border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800"
@@ -702,13 +725,13 @@
                                     </span>
                                 </td>
 
-                                <td class="py-3 px-3.5 whitespace-nowrap">
+                                <td class="py-2.5 px-2.5 whitespace-nowrap">
                                     <div class="font-mono font-bold text-xs" :class="tx.paymentType === 'COD' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-800 dark:text-slate-100'">
                                         {{ formatVnd(tx.amount) }}
                                     </div>
                                 </td>
 
-                                <td class="py-3 px-3.5 whitespace-nowrap">
+                                <td class="py-2.5 px-2.5 whitespace-nowrap">
                                     <div v-if="tx.paymentMethod === 'VIETQR'" class="flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400">
                                         <svg class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
                                         <span>VietQR</span>
@@ -719,7 +742,7 @@
                                     </div>
                                 </td>
 
-                                <td class="py-3 px-3.5 whitespace-nowrap">
+                                <td class="py-2.5 px-2.5 whitespace-nowrap">
                                     <span 
                                         v-if="tx.status === 'SUCCESS'"
                                         class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800"
@@ -750,25 +773,25 @@
                                     </span>
                                 </td>
 
-                                <td class="py-3 px-3.5">
-                                    <div v-if="tx.customerCode" class="font-semibold text-slate-800 dark:text-slate-200 text-xs truncate max-w-[125px]">
-                                        <span class="text-slate-400">#KH:</span> {{ tx.customerCode }}
+                                <td class="py-2.5 px-3">
+                                    <div v-if="tx.customerCode" class="font-semibold text-slate-800 dark:text-slate-200 text-xs truncate" style="max-width: 110px;" :title="'Mã KH: ' + tx.customerCode">
+                                        <span class="text-slate-400 font-normal">#KH:</span> {{ tx.customerCode }}
                                     </div>
-                                    <div class="text-[10.5px] text-slate-500 dark:text-slate-400 truncate max-w-[125px] mt-0.5" :title="tx.payerNote || ''">
+                                    <div class="text-[10.5px] text-slate-500 dark:text-slate-400 truncate mt-0.5" style="max-width: 110px;" :title="tx.payerNote || 'Không có ghi chú'">
                                         {{ tx.payerNote || '—' }}
                                     </div>
                                 </td>
 
-                                <td class="py-3 px-3.5 text-right whitespace-nowrap">
+                                <td class="py-2.5 px-3 text-right whitespace-nowrap">
                                     <div class="inline-flex items-center justify-end gap-1.5">
                                         <template v-if="tx.status === 'PENDING'">
                                             <button 
                                                 type="button"
                                                 @click="openQrModal(tx)"
-                                                class="px-2 py-1 rounded-md bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-[10.5px] font-bold transition flex items-center space-x-1 shadow-sm shadow-blue-500/20 cursor-pointer"
+                                                class="px-2 py-1 rounded-md bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-[10.5px] font-bold transition inline-flex items-center gap-1 shadow-sm shadow-blue-500/20 cursor-pointer whitespace-nowrap"
                                                 title="Quét mã VietQR thanh toán 24/7"
                                             >
-                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+                                                <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
                                                 <span>Quét QR</span>
                                             </button>
 
@@ -776,10 +799,10 @@
                                                 v-if="isStaff"
                                                 type="button"
                                                 @click="openCashModal(tx)"
-                                                class="px-2 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-[10.5px] font-bold transition flex items-center space-x-1 shadow-sm shadow-emerald-500/20 cursor-pointer"
+                                                class="px-2 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-[10.5px] font-bold transition inline-flex items-center gap-1 shadow-sm shadow-emerald-500/20 cursor-pointer whitespace-nowrap"
                                                 title="Xác nhận đã thu tiền mặt tại quầy"
                                             >
-                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                                                <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                                                 <span>Thu Tiền</span>
                                             </button>
                                         </template>
@@ -788,10 +811,10 @@
                                             <button 
                                                 type="button"
                                                 @click="openReceiptModal(tx)"
-                                                class="px-2.5 py-1 rounded-md border border-slate-200 dark:border-[#23345e] bg-slate-50 hover:bg-slate-100 dark:bg-[#19264c] dark:hover:bg-[#23345e] text-slate-700 dark:text-slate-200 text-[10.5px] font-bold transition flex items-center space-x-1 cursor-pointer"
+                                                class="px-2.5 py-1 rounded-md border border-slate-200 dark:border-[#23345e] bg-slate-50 hover:bg-slate-100 dark:bg-[#19264c] dark:hover:bg-[#23345e] text-slate-700 dark:text-slate-200 text-[10.5px] font-bold transition inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
                                                 title="Xem chi tiết biên lai đối soát"
                                             >
-                                                <svg class="w-3 h-3 text-slate-500 dark:text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                <svg class="w-3 h-3 text-slate-500 dark:text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                                 <span>Biên Lai</span>
                                             </button>
                                         </template>
@@ -802,7 +825,6 @@
                     </table>
                 </div>
 
-                <!-- Footer Pagination (Synchronized with ShipmentView) -->
                 <div v-if="pagination.totalElements > 0" class="p-3 bg-slate-50 dark:bg-[#19264c] border-t border-slate-200 dark:border-[#23345e] flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
                     <div>
                         Hiển thị <span class="font-bold text-slate-700 dark:text-slate-200">{{ transactions.length > 0 ? (pagination.page * pagination.size + 1) : 0 }} - {{ Math.min((pagination.page + 1) * pagination.size, pagination.totalElements) }}</span> / <span class="font-bold text-slate-700 dark:text-slate-200">{{ pagination.totalElements }}</span> giao dịch (Trang {{ pagination.page + 1 }} / {{ Math.max(1, pagination.totalPages) }})
@@ -831,218 +853,217 @@
                 </div>
             </div>
 
-            <!-- MODAL 1: VIETQR (Pure SVG, Real Polling & Mock Pay) -->
-            <div v-if="showQrModal" class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
-                <div class="bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-2xl max-w-sm w-full shadow-xl overflow-hidden animate-in fade-in zoom-in duration-150">
-                    <div class="vnpt-gradient p-3.5 text-white flex items-center justify-between">
-                        <div class="flex items-center space-x-2">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
-                            <span class="font-bold text-xs uppercase tracking-wide">Thanh Toán VietQR Napas 24/7</span>
+            <teleport to="body">
+                <div v-if="showQrModal" class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+                    <div class="bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-2xl max-w-sm w-full shadow-xl overflow-hidden animate-in fade-in zoom-in duration-150">
+                        <div class="vnpt-gradient p-3.5 text-white flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+                                <span class="font-bold text-xs uppercase tracking-wide">Thanh Toán VietQR Napas 24/7</span>
+                            </div>
+                            <button type="button" @click="closeQrModal" class="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-xs cursor-pointer">✕</button>
                         </div>
-                        <button type="button" @click="closeQrModal" class="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-xs cursor-pointer">✕</button>
+
+                        <div class="p-4 text-center space-y-3">
+                            <div class="mx-auto w-52 h-52 p-2 bg-white border border-slate-200 rounded-xl shadow-inner flex flex-col items-center justify-center overflow-hidden">
+                                <img 
+                                    v-if="activeQrTx?.qrUrl" 
+                                    :src="activeQrTx.qrUrl" 
+                                    alt="Mã VietQR" 
+                                    class="w-full h-full object-contain"
+                                />
+                                <svg v-else class="w-40 h-40" viewBox="0 0 100 100" fill="#0f172a">
+                                    <rect x="5" y="5" width="28" height="28" rx="3" fill="#00376d"/>
+                                    <rect x="9" y="9" width="20" height="20" rx="1.5" fill="#ffffff"/>
+                                    <rect x="13" y="13" width="12" height="12" rx="1" fill="#0077dd"/>
+                                    <rect x="67" y="5" width="28" height="28" rx="3" fill="#00376d"/>
+                                    <rect x="71" y="9" width="20" height="20" rx="1.5" fill="#ffffff"/>
+                                    <rect x="75" y="13" width="12" height="12" rx="1" fill="#0077dd"/>
+                                    <rect x="5" y="67" width="28" height="28" rx="3" fill="#00376d"/>
+                                    <rect x="9" y="71" width="20" height="20" rx="1.5" fill="#ffffff"/>
+                                    <rect x="13" y="75" width="12" height="12" rx="1" fill="#0077dd"/>
+                                    <rect x="38" y="10" width="8" height="8" fill="#00376d"/>
+                                    <rect x="48" y="22" width="10" height="8" fill="#0077dd"/>
+                                    <rect x="38" y="38" width="24" height="24" rx="3" fill="#00376d"/>
+                                    <rect x="42" y="42" width="16" height="16" rx="1.5" fill="#ffffff"/>
+                                    <text x="50" y="53" font-size="7" font-weight="bold" text-anchor="middle" fill="#0055bb">VNPT</text>
+                                    <rect x="68" y="38" width="10" height="6" fill="#00376d"/>
+                                    <rect x="80" y="72" width="10" height="18" fill="#00376d"/>
+                                </svg>
+                            </div>
+
+                            <div class="bg-slate-50 dark:bg-[#0b1329] border border-slate-200/80 dark:border-[#23345e] rounded-lg p-2.5 text-left text-xs space-y-1.5">
+                                <div class="flex justify-between">
+                                    <span class="text-slate-500">Mã vận đơn:</span>
+                                    <span class="font-mono font-bold text-blue-600 dark:text-blue-400">{{ activeQrTx?.trackingCode }}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-500">Số tiền:</span>
+                                    <span class="font-bold text-rose-600 text-sm">{{ formatVnd(activeQrTx?.amount) }}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-500">Ngân hàng:</span>
+                                    <span class="font-semibold text-slate-800 dark:text-slate-200">{{ activeQrTx?.bankCode || 'MB Bank' }}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-500">Số tài khoản:</span>
+                                    <span class="font-mono font-bold text-slate-800 dark:text-slate-200">{{ activeQrTx?.accountNo || '0987654321' }}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-500">Cú pháp CK:</span>
+                                    <span class="font-mono font-bold text-slate-700 dark:text-slate-300">
+                                        {{ (activeQrTx?.paymentType === 'SHIPPING_FEE' ? 'CUOC ' : (activeQrTx?.paymentType === 'RETURN_FEE' ? 'HOAN ' : 'COD ')) + activeQrTx?.trackingCode }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="pt-1 space-y-1.5">
+                                <button 
+                                    type="button"
+                                    @click="handleMockPay"
+                                    :disabled="isSubmitting"
+                                    class="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition shadow-2xs flex items-center justify-center space-x-1 cursor-pointer disabled:opacity-50"
+                                >
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                    <span>{{ isSubmitting ? 'Đang xử lý...' : 'Giả lập khách quét trả thành công' }}</span>
+                                </button>
+                                <button 
+                                    type="button"
+                                    @click="closeQrModal"
+                                    class="w-full py-1.5 rounded-lg border border-slate-200 dark:border-[#23345e] text-slate-600 dark:text-slate-400 text-xs font-medium cursor-pointer"
+                                >
+                                    Đóng
+                                </button>
+                            </div>
+                        </div>
                     </div>
+                </div>
+            </teleport>
 
-                    <div class="p-4 text-center space-y-3">
-                        <!-- QR Image Container -->
-                        <div class="mx-auto w-52 h-52 p-2 bg-white border border-slate-200 rounded-xl shadow-inner flex flex-col items-center justify-center overflow-hidden">
-                            <img 
-                                v-if="activeQrTx?.qrUrl" 
-                                :src="activeQrTx.qrUrl" 
-                                alt="Mã VietQR" 
-                                class="w-full h-full object-contain"
-                            />
-                            <!-- Fallback Mockup SVG if no dynamic QR URL -->
-                            <svg v-else class="w-40 h-40" viewBox="0 0 100 100" fill="#0f172a">
-                                <rect x="5" y="5" width="28" height="28" rx="3" fill="#00376d"/>
-                                <rect x="9" y="9" width="20" height="20" rx="1.5" fill="#ffffff"/>
-                                <rect x="13" y="13" width="12" height="12" rx="1" fill="#0077dd"/>
-                                <rect x="67" y="5" width="28" height="28" rx="3" fill="#00376d"/>
-                                <rect x="71" y="9" width="20" height="20" rx="1.5" fill="#ffffff"/>
-                                <rect x="75" y="13" width="12" height="12" rx="1" fill="#0077dd"/>
-                                <rect x="5" y="67" width="28" height="28" rx="3" fill="#00376d"/>
-                                <rect x="9" y="71" width="20" height="20" rx="1.5" fill="#ffffff"/>
-                                <rect x="13" y="75" width="12" height="12" rx="1" fill="#0077dd"/>
-                                <rect x="38" y="10" width="8" height="8" fill="#00376d"/>
-                                <rect x="48" y="22" width="10" height="8" fill="#0077dd"/>
-                                <rect x="38" y="38" width="24" height="24" rx="3" fill="#00376d"/>
-                                <rect x="42" y="42" width="16" height="16" rx="1.5" fill="#ffffff"/>
-                                <text x="50" y="53" font-size="7" font-weight="bold" text-anchor="middle" fill="#0055bb">VNPT</text>
-                                <rect x="68" y="38" width="10" height="6" fill="#00376d"/>
-                                <rect x="80" y="72" width="10" height="18" fill="#00376d"/>
-                            </svg>
+            <teleport to="body">
+                <div v-if="showCashModal" class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+                    <div class="bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-2xl max-w-sm w-full shadow-xl overflow-hidden p-4 space-y-3 animate-in fade-in zoom-in duration-150">
+                        <div class="flex items-center space-x-2 text-slate-800 dark:text-slate-100">
+                            <div class="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-xs uppercase tracking-wide">Xác Nhận Thu Tiền Mặt</h3>
+                                <p class="text-[11px] text-slate-400">Giao dịch viên quầy / Bưu tá thu tiền trực tiếp</p>
+                            </div>
                         </div>
 
-                        <!-- Details card -->
-                        <div class="bg-slate-50 dark:bg-[#0b1329] border border-slate-200/80 dark:border-[#23345e] rounded-lg p-2.5 text-left text-xs space-y-1.5">
+                        <div class="bg-slate-50 dark:bg-[#0b1329] border border-slate-200/80 dark:border-[#23345e] rounded-lg p-2.5 text-xs space-y-1.5">
                             <div class="flex justify-between">
                                 <span class="text-slate-500">Mã vận đơn:</span>
-                                <span class="font-mono font-bold text-blue-600 dark:text-blue-400">{{ activeQrTx?.trackingCode }}</span>
+                                <span class="font-mono font-bold text-slate-800 dark:text-slate-200">{{ activeCashTx?.trackingCode }}</span>
                             </div>
                             <div class="flex justify-between">
-                                <span class="text-slate-500">Số tiền:</span>
-                                <span class="font-bold text-rose-600 text-sm">{{ formatVnd(activeQrTx?.amount) }}</span>
+                                <span class="text-slate-500">Số tiền thu:</span>
+                                <span class="font-bold text-rose-600 text-sm">{{ formatVnd(activeCashTx?.amount) }}</span>
                             </div>
                             <div class="flex justify-between">
-                                <span class="text-slate-500">Ngân hàng:</span>
-                                <span class="font-semibold text-slate-800 dark:text-slate-200">{{ activeQrTx?.bankCode || 'MB Bank' }}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-slate-500">Số tài khoản:</span>
-                                <span class="font-mono font-bold text-slate-800 dark:text-slate-200">{{ activeQrTx?.accountNo || '0987654321' }}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-slate-500">Cú pháp CK:</span>
-                                <span class="font-mono font-bold text-slate-700 dark:text-slate-300">
-                                    {{ (activeQrTx?.paymentType === 'SHIPPING_FEE' ? 'CUOC ' : (activeQrTx?.paymentType === 'RETURN_FEE' ? 'HOAN ' : 'COD ')) + activeQrTx?.trackingCode }}
+                                <span class="text-slate-500">Khoản thu:</span>
+                                <span class="font-medium text-slate-700 dark:text-slate-300">
+                                    {{ activeCashTx?.paymentType === 'COD' ? 'Thu hộ COD' : (activeCashTx?.paymentType === 'SHIPPING_FEE' ? 'Cước gửi' : 'Phí hoàn') }}
                                 </span>
                             </div>
                         </div>
 
-                        <!-- Buttons -->
-                        <div class="pt-1 space-y-1.5">
-                            <button 
-                                type="button"
-                                @click="handleMockPay"
-                                :disabled="isSubmitting"
-                                class="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition shadow-2xs flex items-center justify-center space-x-1 cursor-pointer disabled:opacity-50"
-                            >
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                <span>{{ isSubmitting ? 'Đang xử lý...' : 'Giả lập khách quét trả thành công' }}</span>
-                            </button>
-                            <button 
-                                type="button"
-                                @click="closeQrModal"
-                                class="w-full py-1.5 rounded-lg border border-slate-200 dark:border-[#23345e] text-slate-600 dark:text-slate-400 text-xs font-medium cursor-pointer"
-                            >
-                                Đóng
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- MODAL 2: XÁC NHẬN TIỀN MẶT (CASH RECEIPT CONFIRMATION) -->
-            <div v-if="showCashModal" class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
-                <div class="bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-2xl max-w-sm w-full shadow-xl overflow-hidden p-4 space-y-3 animate-in fade-in zoom-in duration-150">
-                    <div class="flex items-center space-x-2 text-slate-800 dark:text-slate-100">
-                        <div class="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                        </div>
                         <div>
-                            <h3 class="font-bold text-xs uppercase tracking-wide">Xác Nhận Thu Tiền Mặt</h3>
-                            <p class="text-[11px] text-slate-400">Giao dịch viên quầy / Bưu tá thu tiền trực tiếp</p>
+                            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Ghi chú xác nhận thu tiền:</label>
+                            <input 
+                                type="text" 
+                                v-model="cashNote" 
+                                class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-[#23345e] bg-white dark:bg-[#0b1329] text-xs focus:ring-1 focus:ring-blue-500" 
+                                placeholder="Thu tiền mặt tại quầy..."
+                            />
                         </div>
-                    </div>
 
-                    <div class="bg-slate-50 dark:bg-[#0b1329] border border-slate-200/80 dark:border-[#23345e] rounded-lg p-2.5 text-xs space-y-1.5">
-                        <div class="flex justify-between">
-                            <span class="text-slate-500">Mã vận đơn:</span>
-                            <span class="font-mono font-bold text-slate-800 dark:text-slate-200">{{ activeCashTx?.trackingCode }}</span>
+                        <div class="flex items-center space-x-2 pt-1">
+                            <button 
+                                type="button" 
+                                @click="closeCashModal" 
+                                class="flex-1 py-1.5 rounded-lg border border-slate-300 dark:border-[#23345e] text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer"
+                            >
+                                Hủy
+                            </button>
+                            <button 
+                                type="button" 
+                                @click="handleConfirmCash" 
+                                :disabled="isSubmitting"
+                                class="flex-1 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-2xs cursor-pointer disabled:opacity-50"
+                            >
+                                {{ isSubmitting ? 'Đang lưu...' : 'Xác nhận đã thu' }}
+                            </button>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-slate-500">Số tiền thu:</span>
-                            <span class="font-bold text-rose-600 text-sm">{{ formatVnd(activeCashTx?.amount) }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-slate-500">Khoản thu:</span>
-                            <span class="font-medium text-slate-700 dark:text-slate-300">
-                                {{ activeCashTx?.paymentType === 'COD' ? 'Thu hộ COD' : (activeCashTx?.paymentType === 'SHIPPING_FEE' ? 'Cước gửi' : 'Phí hoàn') }}
-                            </span>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-[11px] font-semibold text-slate-500 mb-1">Ghi chú xác nhận thu tiền:</label>
-                        <input 
-                            type="text" 
-                            v-model="cashNote" 
-                            class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-[#23345e] bg-white dark:bg-[#0b1329] text-xs focus:ring-1 focus:ring-blue-500" 
-                            placeholder="Thu tiền mặt tại quầy..."
-                        />
-                    </div>
-
-                    <div class="flex items-center space-x-2 pt-1">
-                        <button 
-                            type="button" 
-                            @click="closeCashModal" 
-                            class="flex-1 py-1.5 rounded-lg border border-slate-300 dark:border-[#23345e] text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer"
-                        >
-                            Hủy
-                        </button>
-                        <button 
-                            type="button" 
-                            @click="handleConfirmCash" 
-                            :disabled="isSubmitting"
-                            class="flex-1 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-2xs cursor-pointer disabled:opacity-50"
-                        >
-                            {{ isSubmitting ? 'Đang lưu...' : 'Xác nhận đã thu' }}
-                        </button>
                     </div>
                 </div>
-            </div>
+            </teleport>
 
-            <!-- MODAL 3: XEM BIÊN LAI THU TIỀN ĐIỆN TỬ -->
-            <div v-if="showReceiptModal" class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
-                <div class="bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-2xl max-w-md w-full shadow-xl overflow-hidden p-5 space-y-4 animate-in fade-in zoom-in duration-150">
-                    <div class="flex items-center justify-between border-b border-slate-100 dark:border-[#1e2e56] pb-3">
-                        <div class="flex items-center space-x-2">
-                            <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/40 text-blue-600 flex items-center justify-center font-bold text-xs">
-                                VNPT
+            <teleport to="body">
+                <div v-if="showReceiptModal" class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+                    <div class="bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-2xl max-w-md w-full shadow-xl overflow-hidden p-5 space-y-4 animate-in fade-in zoom-in duration-150">
+                        <div class="flex items-center justify-between border-b border-slate-100 dark:border-[#1e2e56] pb-3">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/40 text-blue-600 flex items-center justify-center font-bold text-xs">
+                                    VNPT
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-xs uppercase tracking-wide">Biên Lai Thu Tiền Điện Tử</h3>
+                                    <p class="text-[11px] text-slate-400">Hệ thống bưu chính VNPT Post Logistics</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 class="font-bold text-xs uppercase tracking-wide">Biên Lai Thu Tiền Điện Tử</h3>
-                                <p class="text-[11px] text-slate-400">Hệ thống bưu chính VNPT Post Logistics</p>
+                            <button type="button" @click="closeReceiptModal" class="text-slate-400 hover:text-slate-600 text-sm cursor-pointer">✕</button>
+                        </div>
+
+                        <div class="bg-slate-50 dark:bg-[#0b1329] border border-slate-200/80 dark:border-[#23345e] rounded-xl p-3.5 space-y-2 text-xs">
+                            <div class="flex justify-between">
+                                <span class="text-slate-500">Mã giao dịch:</span>
+                                <span class="font-mono font-bold text-blue-600">{{ activeReceiptTx?.paymentCode }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-500">Mã vận đơn:</span>
+                                <span class="font-mono font-bold">{{ activeReceiptTx?.trackingCode }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-500">Loại khoản thu:</span>
+                                <span class="font-semibold">{{ activeReceiptTx?.paymentType === 'COD' ? 'Thu hộ COD' : (activeReceiptTx?.paymentType === 'SHIPPING_FEE' ? 'Cước gửi hàng' : 'Phí hoàn') }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-500">Số tiền:</span>
+                                <span class="font-bold text-rose-600 text-base">{{ formatVnd(activeReceiptTx?.amount) }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-500">Hình thức thanh toán:</span>
+                                <span class="font-semibold">{{ activeReceiptTx?.paymentMethod === 'VIETQR' ? 'Chuyển khoản VietQR' : 'Tiền mặt tại quầy/bưu tá' }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-500">Thời gian tạo:</span>
+                                <span>{{ formatDateTime(activeReceiptTx?.createdAt) }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-500">Thời gian hoàn tất:</span>
+                                <span class="text-emerald-600 font-semibold">{{ formatDateTime(activeReceiptTx?.paidAt) }}</span>
+                            </div>
+                            <div v-if="activeReceiptTx?.referenceCode" class="flex justify-between">
+                                <span class="text-slate-500">Mã tham chiếu:</span>
+                                <span class="font-mono text-slate-600">{{ activeReceiptTx?.referenceCode }}</span>
                             </div>
                         </div>
-                        <button type="button" @click="closeReceiptModal" class="text-slate-400 hover:text-slate-600 text-sm cursor-pointer">✕</button>
-                    </div>
 
-                    <div class="bg-slate-50 dark:bg-[#0b1329] border border-slate-200/80 dark:border-[#23345e] rounded-xl p-3.5 space-y-2 text-xs">
-                        <div class="flex justify-between">
-                            <span class="text-slate-500">Mã giao dịch:</span>
-                            <span class="font-mono font-bold text-blue-600">{{ activeReceiptTx?.paymentCode }}</span>
+                        <div class="flex justify-end space-x-2 pt-1">
+                            <button 
+                                type="button" 
+                                @click="closeReceiptModal" 
+                                class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs cursor-pointer"
+                            >
+                                Đóng biên lai
+                            </button>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-slate-500">Mã vận đơn:</span>
-                            <span class="font-mono font-bold">{{ activeReceiptTx?.trackingCode }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-slate-500">Loại khoản thu:</span>
-                            <span class="font-semibold">{{ activeReceiptTx?.paymentType === 'COD' ? 'Thu hộ COD' : (activeReceiptTx?.paymentType === 'SHIPPING_FEE' ? 'Cước gửi hàng' : 'Phí hoàn') }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-slate-500">Số tiền:</span>
-                            <span class="font-bold text-rose-600 text-base">{{ formatVnd(activeReceiptTx?.amount) }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-slate-500">Hình thức thanh toán:</span>
-                            <span class="font-semibold">{{ activeReceiptTx?.paymentMethod === 'VIETQR' ? 'Chuyển khoản VietQR' : 'Tiền mặt tại quầy/bưu tá' }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-slate-500">Thời gian tạo:</span>
-                            <span>{{ formatDateTime(activeReceiptTx?.createdAt) }}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-slate-500">Thời gian hoàn tất:</span>
-                            <span class="text-emerald-600 font-semibold">{{ formatDateTime(activeReceiptTx?.paidAt) }}</span>
-                        </div>
-                        <div v-if="activeReceiptTx?.referenceCode" class="flex justify-between">
-                            <span class="text-slate-500">Mã tham chiếu:</span>
-                            <span class="font-mono text-slate-600">{{ activeReceiptTx?.referenceCode }}</span>
-                        </div>
-                    </div>
-
-                    <div class="flex justify-end space-x-2 pt-1">
-                        <button 
-                            type="button" 
-                            @click="closeReceiptModal" 
-                            class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs cursor-pointer"
-                        >
-                            Đóng biên lai
-                        </button>
                     </div>
                 </div>
-            </div>
+            </teleport>
 
         </div>
         `

@@ -8,11 +8,15 @@ import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.app.reportservice.entity.ReportShipmentSummary;
 import org.app.reportservice.service.ExcelExportService;
 import org.springframework.stereotype.Service;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +28,7 @@ public class ExcelExportServiceImpl implements ExcelExportService {
     public byte[] exportReportToExcel(List<ReportShipmentSummary> shipments, BigDecimal totalShippingFee, BigDecimal totalCodAmount, BigDecimal settledCodAmount, BigDecimal pendingCodAmount, long deliveredCount, long returningCount, String dateRangeText) throws IOException {
         try (SXSSFWorkbook workbook = new SXSSFWorkbook();
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+
             CellStyle headerStyle = createHeaderCellStyle(workbook, IndexedColors.DARK_BLUE.getIndex());
             CellStyle subHeaderStyle = createHeaderCellStyle(workbook, IndexedColors.ROYAL_BLUE.getIndex());
             CellStyle currencyStyle = createCurrencyStyle(workbook);
@@ -32,158 +37,348 @@ public class ExcelExportServiceImpl implements ExcelExportService {
             CellStyle totalRowStyle = createTotalRowStyle(workbook);
             CellStyle totalLabelStyle = createTotalLabelStyle(workbook);
 
-            SXSSFSheet sheet1 = workbook.createSheet("Tổng Hợp & Đối Soát COD");
-            sheet1.trackAllColumnsForAutoSizing();
+            buildSummarySheet(workbook, shipments, totalShippingFee, totalCodAmount, settledCodAmount, pendingCodAmount, deliveredCount, returningCount, dateRangeText, subHeaderStyle, boldCurrencyStyle, centerStyle);
+            buildDetailSheet(workbook, shipments, totalShippingFee, totalCodAmount, headerStyle, currencyStyle, totalRowStyle, totalLabelStyle);
+            buildShipperDebtSheet(workbook, shipments, headerStyle, currencyStyle, centerStyle, totalRowStyle, totalLabelStyle);
 
-            Row titleRow = sheet1.createRow(1);
-            Cell titleCell = titleRow.createCell(1);
-            titleCell.setCellValue("TỔNG CÔNG TY DỊCH VỤ VIỄN THÔNG & BƯU CHÍNH VNPT");
-            CellStyle mainTitleStyle = workbook.createCellStyle();
-            Font font = workbook.createFont();
-            font.setBold(true);
-            font.setFontHeightInPoints((short) 14);
-            font.setColor(IndexedColors.DARK_BLUE.getIndex());
-            mainTitleStyle.setFont(font);
-            titleCell.setCellStyle(mainTitleStyle);
-            Row subTitleRow = sheet1.createRow(2);
-            Cell subTitleCell = subTitleRow.createCell(1);
-            subTitleCell.setCellValue("BÁO CÁO TỔNG HỢP VẬN ĐƠN & ĐỐI SOÁT DÒNG TIỀN COD");
-
-            Row periodRow = sheet1.createRow(3);
-            periodRow.createCell(1).setCellValue("Kỳ báo cáo: " + dateRangeText + " | Hệ thống: VNPT Waybill Platform");
-
-            int r = 5;
-            Row kpiHeader = sheet1.createRow(r++);
-            kpiHeader.createCell(1).setCellValue("CHỈ SỐ ĐỐI SOÁT (KPI)");
-            kpiHeader.createCell(2).setCellValue("GIÁ TRỊ THỐNG KÊ");
-            kpiHeader.createCell(3).setCellValue("ĐƠN VỊ TÍNH");
-            kpiHeader.createCell(4).setCellValue("GHI CHÚ NGHIỆP VỤ");
-            for (int col = 1; col <= 4; col++) {
-                kpiHeader.getCell(col).setCellStyle(subHeaderStyle);
-            }
-            long totalOrders = shipments.size();
-            double successRate = totalOrders > 0 ? Math.min(100.0, deliveredCount * 100.0 / totalOrders) : 0.0;
-            addKpiRow(sheet1, r++, "1. Tổng sản lượng vận đơn phát sinh", String.format("%,d", totalOrders), "Kiện bưu gửi", "Bao gồm cả đơn B2B và quầy", centerStyle);
-            addKpiRow(sheet1, r++, "2. Số đơn giao thành công (DELIVERED)", String.format("%,d", deliveredCount), String.format("%.1f%%", successRate), "Khách đã nhận hàng & thu tiền", centerStyle);
-            addKpiRow(sheet1, r++, "3. Số đơn chuyển hoàn (RETURNING / RETURNED)", String.format("%,d", returningCount), String.format("%.1f%%", (totalOrders > 0 ? Math.min(100.0, returningCount * 100.0 / totalOrders) : 0)), "Đơn đang hoàn hoặc đã hoàn về người gửi trong bộ lọc", centerStyle);
-
-            double safeShippingFee = (totalShippingFee != null) ? totalShippingFee.doubleValue() : 0.0;
-            double safeCodAmount = (totalCodAmount != null) ? totalCodAmount.doubleValue() : 0.0;
-            double safeSettledCod = (settledCodAmount != null) ? settledCodAmount.doubleValue() : 0.0;
-            double safePendingCod = (pendingCodAmount != null) ? pendingCodAmount.doubleValue() : 0.0;
-            double safeTotalFee = safeShippingFee + safeCodAmount;
-
-            Row feeRow = sheet1.createRow(r++);
-            feeRow.createCell(1).setCellValue("4. Tổng Doanh Thu Cước Phí Vận Chuyển");
-            Cell feeVal = feeRow.createCell(2);
-            feeVal.setCellValue(safeShippingFee);
-            feeVal.setCellStyle(boldCurrencyStyle);
-            feeRow.createCell(3).setCellValue("VNĐ");
-            feeRow.createCell(4).setCellValue("Doanh thu cước dịch vụ chuyển phát");
-
-            Row codRow = sheet1.createRow(r++);
-            codRow.createCell(1).setCellValue("5. TỔNG TIỀN THU HỘ COD PHẢI ĐỐI SOÁT");
-            Cell codVal = codRow.createCell(2);
-            codVal.setCellValue(safeCodAmount);
-            codVal.setCellStyle(boldCurrencyStyle);
-            codRow.createCell(3).setCellValue("VNĐ");
-            codRow.createCell(4).setCellValue("Tiền thu hộ nộp về tài khoản quỹ trạm");
-
-            addKpiRow(sheet1, r++, "  5.1. Tiền COD đã thu quỹ bưu cục", String.format("%,.0f", safeSettledCod), "VNĐ", "Đã nộp và thủ quỹ đã xác nhận vào két", centerStyle);
-            addKpiRow(sheet1, r++, "  5.2. Tiền COD chờ bưu cục duyệt quỹ", String.format("%,.0f", safePendingCod), "VNĐ", "Bưu tá đã gửi yêu cầu nộp quỹ, bưu cục chưa xác nhận", centerStyle);
-
-            for (int i = 1; i <= 4; i++) {
-                sheet1.autoSizeColumn(i);
-            }
-            SXSSFSheet sheet2 = workbook.createSheet("Chi Tiết Vận Đơn");
-            sheet2.trackAllColumnsForAutoSizing();
-            Row hRow = sheet2.createRow(0);
-            String[] headers = {
-                    "STT", "Mã Vận Đơn", "Ngày Tạo", "Mã Khách Hàng", "Người Gửi", "Địa Chỉ Gửi",
-                    "Người Nhận", "Địa Chỉ Phát", "Dịch Vụ", "Khối Lượng (kg)",
-                    "Cước Phí (VNĐ)", "Tiền COD (VNĐ)", "Tổng Phí (VNĐ)", "Trạng Thái", "Tình Trạng Nộp Quỹ COD"
-            };
-            for (int i = 0; i < headers.length; i++) {
-                Cell c = hRow.createCell(i);
-                c.setCellValue(headers[i]);
-                c.setCellStyle(headerStyle);
-            }
-            int rowIdx = 1;
-            int stt = 1;
-            for (ReportShipmentSummary s : shipments) {
-                Row row = sheet2.createRow(rowIdx++);
-                row.createCell(0).setCellValue(stt++);
-                row.createCell(1).setCellValue(s.getTrackingCode());
-                row.createCell(2).setCellValue(s.getCreatedAt() != null ? s.getCreatedAt().format(DATE_FMT) : "");
-                row.createCell(3).setCellValue(s.getCustomerId() != null ? s.getCustomerId().toString() : "");
-                row.createCell(4).setCellValue(s.getSenderName());
-                row.createCell(5).setCellValue(s.getSenderAddress());
-                row.createCell(6).setCellValue(s.getReceiverName());
-                row.createCell(7).setCellValue(s.getReceiverAddress());
-                row.createCell(8).setCellValue(s.getServiceType());
-                row.createCell(9).setCellValue(s.getWeight() != null ? s.getWeight() : 0.0);
-                Cell cFee = row.createCell(10);
-                cFee.setCellValue(s.getShippingFee() != null ? s.getShippingFee().doubleValue() : 0.0);
-                cFee.setCellStyle(currencyStyle);
-                Cell cCod = row.createCell(11);
-                cCod.setCellValue(s.getCodAmount() != null ? s.getCodAmount().doubleValue() : 0.0);
-                cCod.setCellStyle(currencyStyle);
-                Cell cTotal = row.createCell(12);
-                cTotal.setCellValue(s.getTotalFee() != null ? s.getTotalFee().doubleValue() : 0.0);
-                cTotal.setCellStyle(currencyStyle);
-                row.createCell(13).setCellValue(s.getCurrentStatus());
-
-                String codStatusText = "Chưa Nộp Quỹ";
-                if ("SETTLED".equalsIgnoreCase(s.getCodSettlementStatus())) {
-                    codStatusText = "Đã Nộp Quỹ Bưu Cục";
-                } else if ("PENDING_SETTLEMENT".equalsIgnoreCase(s.getCodSettlementStatus())) {
-                    codStatusText = "Chờ Bưu Cục Xác Nhận";
-                }
-                row.createCell(14).setCellValue(codStatusText);
-            }
-
-            double sumTotalFee = shipments.stream()
-                    .mapToDouble(s -> s.getTotalFee() != null ? s.getTotalFee().doubleValue() : (s.getShippingFee() != null ? s.getShippingFee().doubleValue() : 0.0))
-                    .sum();
-
-            Row totalRow = sheet2.createRow(rowIdx);
-            for (int col = 0; col <= 9; col++) {
-                Cell c = totalRow.createCell(col);
-                c.setCellStyle(totalLabelStyle);
-            }
-            Cell totalLabelCell = totalRow.getCell(0);
-            totalLabelCell.setCellValue("TỔNG CỘNG (" + shipments.size() + " ĐƠN)");
-            sheet2.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, 9));
-
-            Cell sumFeeCell = totalRow.createCell(10);
-            sumFeeCell.setCellValue(safeShippingFee);
-            sumFeeCell.setCellStyle(totalRowStyle);
-            Cell sumCodCell = totalRow.createCell(11);
-            sumCodCell.setCellValue(safeCodAmount);
-            sumCodCell.setCellStyle(totalRowStyle);
-            Cell sumTotalCell = totalRow.createCell(12);
-            sumTotalCell.setCellValue(sumTotalFee);
-            sumTotalCell.setCellStyle(totalRowStyle);
-            Cell emptyCell13 = totalRow.createCell(13);
-            emptyCell13.setCellValue("-");
-            emptyCell13.setCellStyle(totalLabelStyle);
-            Cell emptyCell14 = totalRow.createCell(14);
-            emptyCell14.setCellValue("-");
-            emptyCell14.setCellStyle(totalLabelStyle);
-            for (int i = 0; i < headers.length; i++) {
-                sheet2.autoSizeColumn(i);
-                int currentWidth = sheet2.getColumnWidth(i);
-                if (currentWidth < 3500) {
-                    sheet2.setColumnWidth(i, 3500);
-                }
-            }
             workbook.write(out);
             return out.toByteArray();
         }
     }
 
-    private void addKpiRow(Sheet sheet, int r, String name, String val, String unit,
-                           String note, CellStyle centerStyle) {
+    private void buildSummarySheet(SXSSFWorkbook workbook, List<ReportShipmentSummary> shipments, BigDecimal totalShippingFee, BigDecimal totalCodAmount, BigDecimal settledCodAmount, BigDecimal pendingCodAmount, long deliveredCount, long returningCount, String dateRangeText, CellStyle subHeaderStyle, CellStyle boldCurrencyStyle, CellStyle centerStyle) {
+        SXSSFSheet sheet1 = workbook.createSheet("Tổng Hợp & Đối Soát COD");
+        sheet1.trackAllColumnsForAutoSizing();
+
+        Row titleRow = sheet1.createRow(1);
+        Cell titleCell = titleRow.createCell(1);
+        titleCell.setCellValue("TỔNG CÔNG TY DỊCH VỤ VIỄN THÔNG & BƯU CHÍNH VNPT");
+        CellStyle mainTitleStyle = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setBold(true);
+        font.setFontHeightInPoints((short) 14);
+        font.setColor(IndexedColors.DARK_BLUE.getIndex());
+        mainTitleStyle.setFont(font);
+        titleCell.setCellStyle(mainTitleStyle);
+
+        Row subTitleRow = sheet1.createRow(2);
+        Cell subTitleCell = subTitleRow.createCell(1);
+        subTitleCell.setCellValue("BÁO CÁO TỔNG HỢP VẬN ĐƠN & ĐỐI SOÁT DÒNG TIỀN COD");
+
+        Row periodRow = sheet1.createRow(3);
+        periodRow.createCell(1).setCellValue("Kỳ báo cáo: " + dateRangeText + " | Hệ thống: VNPT Waybill Platform");
+
+        int r = 5;
+        Row kpiHeader = sheet1.createRow(r++);
+        kpiHeader.createCell(1).setCellValue("CHỈ SỐ ĐỐI SOÁT (KPI)");
+        kpiHeader.createCell(2).setCellValue("GIÁ TRỊ THỐNG KÊ");
+        kpiHeader.createCell(3).setCellValue("ĐƠN VỊ TÍNH");
+        kpiHeader.createCell(4).setCellValue("GHI CHÚ NGHIỆP VỤ");
+        for (int col = 1; col <= 4; col++) {
+            kpiHeader.getCell(col).setCellStyle(subHeaderStyle);
+        }
+
+        long totalOrders = shipments.size();
+        double successRate = totalOrders > 0 ? Math.min(100.0, deliveredCount * 100.0 / totalOrders) : 0.0;
+        addKpiRow(sheet1, r++, "1. Tổng sản lượng vận đơn phát sinh", String.format("%,d", totalOrders), "Kiện bưu gửi", "Bao gồm cả đơn B2B và quầy", centerStyle);
+        addKpiRow(sheet1, r++, "2. Số đơn giao thành công (DELIVERED)", String.format("%,d", deliveredCount), String.format("%.1f%%", successRate), "Khách đã nhận hàng & thu tiền", centerStyle);
+        addKpiRow(sheet1, r++, "3. Số đơn chuyển hoàn (RETURNING / RETURNED)", String.format("%,d", returningCount), String.format("%.1f%%", (totalOrders > 0 ? Math.min(100.0, returningCount * 100.0 / totalOrders) : 0)), "Đơn đang hoàn hoặc đã hoàn về người gửi", centerStyle);
+
+        double safeShippingFee = (totalShippingFee != null) ? totalShippingFee.doubleValue() : 0.0;
+        double safeCodAmount = (totalCodAmount != null) ? totalCodAmount.doubleValue() : 0.0;
+        double safeSettledCod = (settledCodAmount != null) ? settledCodAmount.doubleValue() : 0.0;
+        double safePendingCod = (pendingCodAmount != null) ? pendingCodAmount.doubleValue() : 0.0;
+
+        Row feeRow = sheet1.createRow(r++);
+        feeRow.createCell(1).setCellValue("4. Tổng Doanh Thu Cước Phí Vận Chuyển");
+        Cell feeVal = feeRow.createCell(2);
+        feeVal.setCellValue(safeShippingFee);
+        feeVal.setCellStyle(boldCurrencyStyle);
+        feeRow.createCell(3).setCellValue("VNĐ");
+        feeRow.createCell(4).setCellValue("Doanh thu cước dịch vụ chuyển phát");
+
+        Row codRow = sheet1.createRow(r++);
+        codRow.createCell(1).setCellValue("5. TỔNG TIỀN THU HỘ COD PHẢI ĐỐI SOÁT");
+        Cell codVal = codRow.createCell(2);
+        codVal.setCellValue(safeCodAmount);
+        codVal.setCellStyle(boldCurrencyStyle);
+        codRow.createCell(3).setCellValue("VNĐ");
+        codRow.createCell(4).setCellValue("Tiền thu hộ nộp về tài khoản quỹ trạm");
+
+        addKpiRow(sheet1, r++, "  5.1. Tiền COD đã thu quỹ bưu cục", String.format("%,.0f", safeSettledCod), "VNĐ", "Đã nộp và thủ quỹ đã xác nhận vào két", centerStyle);
+        addKpiRow(sheet1, r++, "  5.2. Tiền COD chờ bưu cục duyệt quỹ", String.format("%,.0f", safePendingCod), "VNĐ", "Bưu tá đã gửi yêu cầu nộp quỹ, bưu cục chưa duyệt", centerStyle);
+
+        long onTimeCount = shipments.stream()
+                .filter(s -> "ON_TIME".equalsIgnoreCase(s.getSlaStatus()))
+                .count();
+        double onTimeRate = deliveredCount > 0 ? Math.min(100.0, onTimeCount * 100.0 / deliveredCount) : 0.0;
+        double avgLeadTime = shipments.stream()
+                .filter(s -> s.getLeadTimeHours() != null)
+                .mapToDouble(ReportShipmentSummary::getLeadTimeHours)
+                .average()
+                .orElse(0.0);
+
+        addKpiRow(sheet1, r++, "6. Tỷ lệ cam kết giao đúng hẹn (SLA On-time)", String.format("%.1f%%", onTimeRate), "% Đạt chuẩn", "Đơn giao trong vòng 24h quy định", centerStyle);
+        addKpiRow(sheet1, r++, "7. Thời gian phát hàng trung bình (Lead Time)", String.format("%.1f", avgLeadTime), "Giờ", "Tính từ lúc phát sinh đơn tới khi giao", centerStyle);
+
+        for (int i = 1; i <= 4; i++) {
+            sheet1.autoSizeColumn(i);
+        }
+    }
+
+    private void buildDetailSheet(SXSSFWorkbook workbook, List<ReportShipmentSummary> shipments, BigDecimal totalShippingFee, BigDecimal totalCodAmount, CellStyle headerStyle, CellStyle currencyStyle, CellStyle totalRowStyle, CellStyle totalLabelStyle) {
+        SXSSFSheet sheet2 = workbook.createSheet("Chi Tiết Vận Đơn");
+        sheet2.trackAllColumnsForAutoSizing();
+
+        Row hRow = sheet2.createRow(0);
+        String[] headers = {
+                "STT", "Mã Vận Đơn", "Ngày Tạo", "Mã Khách Hàng", "Người Gửi", "Địa Chỉ Gửi",
+                "Người Nhận", "Địa Chỉ Phát", "Dịch Vụ", "Khối Lượng (kg)",
+                "Cước Phí (VNĐ)", "Tiền COD (VNĐ)", "Tổng Phí (VNĐ)", "Trạng Thái", "Tình Trạng Nộp Quỹ COD",
+                "Bưu Tá Phụ Trách", "Bưu Cục Gửi/Nhận", "Thời Gian Giao (Giờ)", "Đánh Giá SLA", "Lý Do Thất Bại"
+        };
+        for (int i = 0; i < headers.length; i++) {
+            Cell c = hRow.createCell(i);
+            c.setCellValue(headers[i]);
+            c.setCellStyle(headerStyle);
+        }
+
+        int rowIdx = 1;
+        int stt = 1;
+        for (ReportShipmentSummary s : shipments) {
+            Row row = sheet2.createRow(rowIdx++);
+            row.createCell(0).setCellValue(stt++);
+            row.createCell(1).setCellValue(s.getTrackingCode());
+            row.createCell(2).setCellValue(s.getCreatedAt() != null ? s.getCreatedAt().format(DATE_FMT) : "");
+            row.createCell(3).setCellValue(s.getCustomerId() != null ? s.getCustomerId().toString() : "");
+            row.createCell(4).setCellValue(s.getSenderName() != null ? s.getSenderName() : "");
+            row.createCell(5).setCellValue(s.getSenderAddress() != null ? s.getSenderAddress() : "");
+            row.createCell(6).setCellValue(s.getReceiverName() != null ? s.getReceiverName() : "");
+            row.createCell(7).setCellValue(s.getReceiverAddress() != null ? s.getReceiverAddress() : "");
+            row.createCell(8).setCellValue(s.getServiceType() != null ? s.getServiceType() : "");
+            row.createCell(9).setCellValue(s.getWeight() != null ? s.getWeight() : 0.0);
+
+            Cell cFee = row.createCell(10);
+            cFee.setCellValue(s.getShippingFee() != null ? s.getShippingFee().doubleValue() : 0.0);
+            cFee.setCellStyle(currencyStyle);
+
+            Cell cCod = row.createCell(11);
+            cCod.setCellValue(s.getCodAmount() != null ? s.getCodAmount().doubleValue() : 0.0);
+            cCod.setCellStyle(currencyStyle);
+
+            Cell cTotal = row.createCell(12);
+            cTotal.setCellValue(s.getTotalFee() != null ? s.getTotalFee().doubleValue() : 0.0);
+            cTotal.setCellStyle(currencyStyle);
+
+            row.createCell(13).setCellValue(s.getCurrentStatus() != null ? s.getCurrentStatus() : "");
+
+            String codStatusText = "Chưa Nộp Quỹ";
+            if ("SETTLED".equalsIgnoreCase(s.getCodSettlementStatus())) {
+                codStatusText = "Đã Nộp Quỹ Bưu Cục";
+            } else if ("PENDING_SETTLEMENT".equalsIgnoreCase(s.getCodSettlementStatus())) {
+                codStatusText = "Chờ Bưu Cục Xác Nhận";
+            }
+            row.createCell(14).setCellValue(codStatusText);
+
+            row.createCell(15).setCellValue(s.getShipperName() != null && !s.getShipperName().isBlank() ? s.getShipperName() : "Chưa Gán");
+            String hubInfo = (s.getHubOrigin() != null ? s.getHubOrigin() : "-") + " -> " + (s.getHubDestination() != null ? s.getHubDestination() : "-");
+            row.createCell(16).setCellValue(hubInfo);
+            row.createCell(17).setCellValue(s.getLeadTimeHours() != null ? String.format("%.1f", s.getLeadTimeHours()) : "-");
+
+            String slaText = "-";
+            if ("ON_TIME".equalsIgnoreCase(s.getSlaStatus())) {
+                slaText = "Đúng Hạn (Đạt)";
+            } else if ("BREACHED".equalsIgnoreCase(s.getSlaStatus())) {
+                slaText = "Trễ Hạn (Vi Phạm)";
+            }
+            row.createCell(18).setCellValue(slaText);
+            row.createCell(19).setCellValue(s.getFailureReason() != null ? s.getFailureReason() : "-");
+        }
+
+        double safeShippingFee = (totalShippingFee != null) ? totalShippingFee.doubleValue() : 0.0;
+        double safeCodAmount = (totalCodAmount != null) ? totalCodAmount.doubleValue() : 0.0;
+        double sumTotalFee = shipments.stream()
+                .mapToDouble(s -> s.getTotalFee() != null ? s.getTotalFee().doubleValue() : (s.getShippingFee() != null ? s.getShippingFee().doubleValue() : 0.0))
+                .sum();
+
+        Row totalRow = sheet2.createRow(rowIdx);
+        for (int col = 0; col <= 9; col++) {
+            Cell c = totalRow.createCell(col);
+            c.setCellStyle(totalLabelStyle);
+        }
+        Cell totalLabelCell = totalRow.getCell(0);
+        totalLabelCell.setCellValue("TỔNG CỘNG (" + shipments.size() + " ĐƠN)");
+        sheet2.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, 9));
+
+        Cell sumFeeCell = totalRow.createCell(10);
+        sumFeeCell.setCellValue(safeShippingFee);
+        sumFeeCell.setCellStyle(totalRowStyle);
+
+        Cell sumCodCell = totalRow.createCell(11);
+        sumCodCell.setCellValue(safeCodAmount);
+        sumCodCell.setCellStyle(totalRowStyle);
+
+        Cell sumTotalCell = totalRow.createCell(12);
+        sumTotalCell.setCellValue(sumTotalFee);
+        sumTotalCell.setCellStyle(totalRowStyle);
+
+        for (int col = 13; col < headers.length; col++) {
+            Cell emptyCell = totalRow.createCell(col);
+            emptyCell.setCellValue("-");
+            emptyCell.setCellStyle(totalLabelStyle);
+        }
+
+        for (int i = 0; i < headers.length; i++) {
+            sheet2.autoSizeColumn(i);
+            int currentWidth = sheet2.getColumnWidth(i);
+            if (currentWidth < 3500) {
+                sheet2.setColumnWidth(i, 3500);
+            }
+        }
+    }
+
+    private void buildShipperDebtSheet(SXSSFWorkbook workbook, List<ReportShipmentSummary> shipments, CellStyle headerStyle, CellStyle currencyStyle, CellStyle centerStyle, CellStyle totalRowStyle, CellStyle totalLabelStyle) {
+        SXSSFSheet sheet3 = workbook.createSheet("Bảng Kê Công Nợ Bưu Tá");
+        sheet3.trackAllColumnsForAutoSizing();
+
+        Row hRow = sheet3.createRow(0);
+        String[] headers = {
+                "STT", "Mã Bưu Tá", "Họ Tên Bưu Tá", "Tổng Đơn Nhận", "Giao Thành Công", "Đơn Hoàn/Thất Bại",
+                "Tổng Tiền COD Phải Thu", "Tiền COD Đã Nộp Quỹ", "Tiền COD Còn Nợ Quỹ"
+        };
+        for (int i = 0; i < headers.length; i++) {
+            Cell c = hRow.createCell(i);
+            c.setCellValue(headers[i]);
+            c.setCellStyle(headerStyle);
+        }
+
+        Map<String, ShipperDebtStat> shipperStats = new LinkedHashMap<>();
+        for (ReportShipmentSummary s : shipments) {
+            String shipperKey = s.getShipperName() != null && !s.getShipperName().isBlank() ? s.getShipperName() : "Chưa Gán Bưu Tá";
+            String shipperCode = s.getShipperId() != null ? "BT-" + s.getShipperId() : "N/A";
+            ShipperDebtStat stat = shipperStats.computeIfAbsent(shipperKey, k -> new ShipperDebtStat(shipperCode, k));
+
+            stat.totalOrders++;
+            if ("DELIVERED".equalsIgnoreCase(s.getCurrentStatus())) {
+                stat.deliveredOrders++;
+            } else if ("RETURNING".equalsIgnoreCase(s.getCurrentStatus()) || "RETURNED".equalsIgnoreCase(s.getCurrentStatus()) || "DELIVERY_FAILED".equalsIgnoreCase(s.getCurrentStatus())) {
+                stat.failedOrders++;
+            }
+
+            double cod = s.getCodAmount() != null ? s.getCodAmount().doubleValue() : 0.0;
+            stat.totalCod += cod;
+            if ("SETTLED".equalsIgnoreCase(s.getCodSettlementStatus())) {
+                stat.settledCod += cod;
+            } else {
+                stat.pendingCod += cod;
+            }
+        }
+
+        int rowIdx = 1;
+        int stt = 1;
+        double sumTotalCod = 0.0;
+        double sumSettledCod = 0.0;
+        double sumPendingCod = 0.0;
+        long sumTotalOrders = 0;
+        long sumDelivered = 0;
+        long sumFailed = 0;
+
+        for (ShipperDebtStat stat : shipperStats.values()) {
+            Row row = sheet3.createRow(rowIdx++);
+            row.createCell(0).setCellValue(stt++);
+            row.createCell(1).setCellValue(stat.shipperCode);
+            row.createCell(2).setCellValue(stat.shipperName);
+
+            Cell cTotal = row.createCell(3);
+            cTotal.setCellValue(stat.totalOrders);
+            cTotal.setCellStyle(centerStyle);
+
+            Cell cDelivered = row.createCell(4);
+            cDelivered.setCellValue(stat.deliveredOrders);
+            cDelivered.setCellStyle(centerStyle);
+
+            Cell cFailed = row.createCell(5);
+            cFailed.setCellValue(stat.failedOrders);
+            cFailed.setCellStyle(centerStyle);
+
+            Cell cCod = row.createCell(6);
+            cCod.setCellValue(stat.totalCod);
+            cCod.setCellStyle(currencyStyle);
+
+            Cell cSettled = row.createCell(7);
+            cSettled.setCellValue(stat.settledCod);
+            cSettled.setCellStyle(currencyStyle);
+
+            Cell cPending = row.createCell(8);
+            cPending.setCellValue(stat.pendingCod);
+            cPending.setCellStyle(currencyStyle);
+
+            sumTotalOrders += stat.totalOrders;
+            sumDelivered += stat.deliveredOrders;
+            sumFailed += stat.failedOrders;
+            sumTotalCod += stat.totalCod;
+            sumSettledCod += stat.settledCod;
+            sumPendingCod += stat.pendingCod;
+        }
+
+        Row totalRow = sheet3.createRow(rowIdx);
+        for (int col = 0; col <= 2; col++) {
+            Cell c = totalRow.createCell(col);
+            c.setCellStyle(totalLabelStyle);
+        }
+        totalRow.getCell(0).setCellValue("TỔNG CỘNG (" + shipperStats.size() + " BƯU TÁ)");
+        sheet3.addMergedRegion(new CellRangeAddress(rowIdx, rowIdx, 0, 2));
+
+        Cell sumOrdersCell = totalRow.createCell(3);
+        sumOrdersCell.setCellValue(sumTotalOrders);
+        sumOrdersCell.setCellStyle(centerStyle);
+
+        Cell sumDeliveredCell = totalRow.createCell(4);
+        sumDeliveredCell.setCellValue(sumDelivered);
+        sumDeliveredCell.setCellStyle(centerStyle);
+
+        Cell sumFailedCell = totalRow.createCell(5);
+        sumFailedCell.setCellValue(sumFailed);
+        sumFailedCell.setCellStyle(centerStyle);
+
+        Cell sumCodCell = totalRow.createCell(6);
+        sumCodCell.setCellValue(sumTotalCod);
+        sumCodCell.setCellStyle(totalRowStyle);
+
+        Cell sumSettledCell = totalRow.createCell(7);
+        sumSettledCell.setCellValue(sumSettledCod);
+        sumSettledCell.setCellStyle(totalRowStyle);
+
+        Cell sumPendingCell = totalRow.createCell(8);
+        sumPendingCell.setCellValue(sumPendingCod);
+        sumPendingCell.setCellStyle(totalRowStyle);
+
+        for (int i = 0; i < headers.length; i++) {
+            sheet3.autoSizeColumn(i);
+            int currentWidth = sheet3.getColumnWidth(i);
+            if (currentWidth < 3800) {
+                sheet3.setColumnWidth(i, 3800);
+            }
+        }
+    }
+
+    private static class ShipperDebtStat {
+        String shipperCode;
+        String shipperName;
+        long totalOrders;
+        long deliveredOrders;
+        long failedOrders;
+        double totalCod;
+        double settledCod;
+        double pendingCod;
+
+        ShipperDebtStat(String shipperCode, String shipperName) {
+            this.shipperCode = shipperCode;
+            this.shipperName = shipperName;
+        }
+    }
+
+    private void addKpiRow(Sheet sheet, int r, String name, String val, String unit, String note, CellStyle centerStyle) {
         Row row = sheet.createRow(r);
         row.createCell(1).setCellValue(name);
         Cell v = row.createCell(2);

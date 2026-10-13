@@ -23,14 +23,14 @@
             };
         })();
     </script>
-    <link rel="stylesheet" href="css/tailwind.prod.css?v=3.5.8" />
+    <link rel="stylesheet" href="css/tailwind.prod.css?v=3.6.5" />
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <link rel="stylesheet" href="css/style.css?v=3.5.8" />
+    <link rel="stylesheet" href="css/style.css?v=3.6.5" />
     <link rel="stylesheet" href="css/views/login.css?v=3.5.8" />
 
     <script>
@@ -99,7 +99,6 @@
 
     <div id="app" v-cloak class="w-full min-h-screen bg-slate-50 selection:bg-blue-600 selection:text-white font-sans">
         
-        <!-- Full-Page Login View when currentTab === 'login' -->
         <login-view 
             v-if="currentTab === 'login'" 
             :is-dark-mode="isDarkMode"
@@ -108,7 +107,6 @@
             @navigate="navigateTo"
         ></login-view>
 
-        <!-- Main Application Layout for all other tabs -->
         <component
             v-else
             :is="currentUser ? 'InternalLayout' : 'PublicLayout'"
@@ -264,7 +262,6 @@
         <chatbot-widget v-if="!isStaffUser && currentTab !== 'login'"></chatbot-widget>
     </div>
 
-    <!-- Single ES Module Entry Point: Tự động nạp toàn bộ services, layouts, views và store -->
-    <script type="module" src="js/app.js?v=3.6.2"></script>
+    <script type="module" src="js/app.js?v=3.6.7"></script>
 </body>
 </html>

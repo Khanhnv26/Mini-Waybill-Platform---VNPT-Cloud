@@ -21,6 +21,9 @@ public class ShipmentStatusUpdatedEvent {
     private String locationCode;
     private String note;
     private String codSettlementStatus;
+    private Long shipperId;
+    private String shipperName;
+    private String failureReason;
 
     @JsonProperty("updatedAt")
     @JsonAlias({"updateAt", "updatedAt"})

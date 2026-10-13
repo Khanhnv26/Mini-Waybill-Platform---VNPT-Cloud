@@ -163,4 +163,34 @@ class PaymentManagementTest {
         assertEquals(1, result.getTotalElements());
         assertEquals("WB_TEST_01", result.getContent().get(0).getTrackingCode());
     }
+
+    @Test
+    @DisplayName("Test StringToLocalDateTimeConverter chuyển đổi linh hoạt các định dạng ISO date")
+    void testStringToLocalDateTimeConverter() {
+        org.app.paymentservice.config.WebConfig.StringToLocalDateTimeConverter converter =
+                new org.app.paymentservice.config.WebConfig.StringToLocalDateTimeConverter();
+
+        // 1. ISO UTC với đuôi Z
+        LocalDateTime dt1 = converter.convert("2026-10-13T06:36:30.589Z");
+        assertNotNull(dt1);
+
+        // 2. ISO LocalDateTime chuẩn không có Z
+        LocalDateTime dt2 = converter.convert("2026-10-13T13:36:30");
+        assertNotNull(dt2);
+        assertEquals(2026, dt2.getYear());
+        assertEquals(10, dt2.getMonthValue());
+        assertEquals(13, dt2.getDayOfMonth());
+        assertEquals(13, dt2.getHour());
+
+        // 3. Chỉ có ngày YYYY-MM-DD
+        LocalDateTime dt3 = converter.convert("2026-10-13");
+        assertNotNull(dt3);
+        assertEquals(0, dt3.getHour());
+        assertEquals(0, dt3.getMinute());
+
+        // 4. Null hoặc rỗng
+        assertNull(converter.convert(null));
+        assertNull(converter.convert("   "));
+        assertNull(converter.convert("invalid-date"));
+    }
 }

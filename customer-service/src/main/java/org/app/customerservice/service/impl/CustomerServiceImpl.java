@@ -2,10 +2,12 @@ package org.app.customerservice.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.app.customerservice.dto.request.CreateCustomerRequest;
+import org.app.customerservice.dto.request.InitCustomerProfileRequest;
 import org.app.customerservice.dto.request.UpdateCustomerRequest;
+import org.app.customerservice.dto.response.CustomerResponse;
 import org.app.customerservice.dto.response.CustomerValidation;
 import org.app.customerservice.entity.Customer;
-import org.app.customerservice.entity.CustomerStatus;
+import org.app.customerservice.enums.CustomerStatus;
 import org.app.customerservice.repository.CustomerRepository;
 import org.app.customerservice.service.CustomerService;
 import org.springframework.stereotype.Service;
@@ -20,16 +22,17 @@ public class CustomerServiceImpl implements CustomerService {
     private final CustomerRepository customerRepository;
 
     @Override
-    public Customer getCustomerById(Long id) {
-        return customerRepository.findById(id).orElseThrow(
+    public CustomerResponse getCustomerById(Long id) {
+        Customer customer = customerRepository.findById(id).orElseThrow(
                 () -> new RuntimeException("Customer not found"));
+        return CustomerResponse.fromEntity(customer);
     }
 
     @Override
     public CustomerValidation validateCustomer(Long id) {
         Customer customer = customerRepository.findById(id).orElse(null);
 
-        if(customer == null) {
+        if (customer == null) {
             return CustomerValidation.builder()
                     .isValid(false)
                     .reason("CUSTOMER_NOT_FOUND")
@@ -37,7 +40,7 @@ public class CustomerServiceImpl implements CustomerService {
                     .build();
         }
 
-        if (customer.getStatus() != null && !"ACTIVE".equals(customer.getStatus().name())) {
+        if (customer.getStatus() != null && customer.getStatus() != CustomerStatus.ACTIVE) {
             return CustomerValidation.builder()
                     .isValid(false)
                     .customerId(customer.getId())
@@ -70,7 +73,7 @@ public class CustomerServiceImpl implements CustomerService {
                     .build();
         }
 
-        if (customer.getStatus() != null && !"ACTIVE".equals(customer.getStatus().name())) {
+        if (customer.getStatus() != null && customer.getStatus() != CustomerStatus.ACTIVE) {
             return CustomerValidation.builder()
                     .isValid(false)
                     .customerId(customer.getId())
@@ -86,14 +89,14 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    public Customer initProfile(org.app.customerservice.dto.request.InitCustomerProfileRequest request) {
+    public CustomerResponse initProfile(InitCustomerProfileRequest request) {
         if (request.getUserId() == null) {
             throw new IllegalArgumentException("User ID không được để trống");
         }
 
         Optional<Customer> existingByUserId = customerRepository.findByUserId(request.getUserId());
         if (existingByUserId.isPresent()) {
-            return existingByUserId.get();
+            return CustomerResponse.fromEntity(existingByUserId.get());
         }
 
         if (request.getEmail() != null && !request.getEmail().isBlank()) {
@@ -105,7 +108,8 @@ public class CustomerServiceImpl implements CustomerService {
                     if (request.getFullName() != null && !request.getFullName().isBlank()) {
                         cust.setFullName(request.getFullName().trim());
                     }
-                    return customerRepository.save(cust);
+                    Customer saved = customerRepository.save(cust);
+                    return CustomerResponse.fromEntity(saved);
                 }
             }
         }
@@ -116,20 +120,23 @@ public class CustomerServiceImpl implements CustomerService {
                 .customerCode(code)
                 .fullName(request.getFullName() != null ? request.getFullName().trim() : request.getEmail())
                 .email(request.getEmail().trim())
-                .status(org.app.customerservice.entity.CustomerStatus.ACTIVE)
+                .status(CustomerStatus.ACTIVE)
                 .build();
-        return customerRepository.save(newCustomer);
+        Customer saved = customerRepository.save(newCustomer);
+        return CustomerResponse.fromEntity(saved);
     }
 
     @Override
-    public Customer getProfileByUserId(Long userId) {
-        return customerRepository.findByUserId(userId).orElseThrow(
+    public CustomerResponse getProfileByUserId(Long userId) {
+        Customer customer = customerRepository.findByUserId(userId).orElseThrow(
                 () -> new RuntimeException("Chưa tìm thấy hồ sơ khách hàng cho tài khoản này!"));
+        return CustomerResponse.fromEntity(customer);
     }
 
     @Override
-    public Customer updateProfileByUserId(Long userId, UpdateCustomerRequest request) {
-        Customer customer = getProfileByUserId(userId);
+    public CustomerResponse updateProfileByUserId(Long userId, UpdateCustomerRequest request) {
+        Customer customer = customerRepository.findByUserId(userId).orElseThrow(
+                () -> new RuntimeException("Chưa tìm thấy hồ sơ khách hàng cho tài khoản này!"));
         if (request.getFullName() != null) {
             customer.setFullName(request.getFullName());
         }
@@ -139,11 +146,12 @@ public class CustomerServiceImpl implements CustomerService {
         if (request.getPhoneNumber() != null) {
             customer.setPhoneNumber(request.getPhoneNumber());
         }
-        return customerRepository.save(customer);
+        Customer saved = customerRepository.save(customer);
+        return CustomerResponse.fromEntity(saved);
     }
 
     @Override
-    public Customer createCustomer(CreateCustomerRequest request) {
+    public CustomerResponse createCustomer(CreateCustomerRequest request) {
         String customerCode = request.getCustomerCode().trim();
         String email = request.getEmail().trim();
         String phoneNumber = normalizeVnPhone(request.getPhoneNumber());
@@ -162,13 +170,14 @@ public class CustomerServiceImpl implements CustomerService {
             throw new IllegalArgumentException("Số điện thoại này đã thuộc về một khách hàng khác");
         }
 
-        return customerRepository.save(Customer.builder()
+        Customer saved = customerRepository.save(Customer.builder()
                 .customerCode(customerCode)
                 .fullName(fullName)
                 .address(address)
                 .email(email)
                 .phoneNumber(phoneNumber)
                 .build());
+        return CustomerResponse.fromEntity(saved);
     }
 
     static String normalizeVnPhone(String raw) {
@@ -185,12 +194,14 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    public List<Customer> getAllCustomers() {
-        return customerRepository.findAll();
+    public List<CustomerResponse> getAllCustomers() {
+        return customerRepository.findAll().stream()
+                .map(CustomerResponse::fromEntity)
+                .toList();
     }
 
     @Override
-    public Customer updateCustomer(Long id, UpdateCustomerRequest request) {
+    public CustomerResponse updateCustomer(Long id, UpdateCustomerRequest request) {
         Customer customer = customerRepository.findById(id).orElseThrow(
                 () -> new RuntimeException("Customer not found"));
 
@@ -210,7 +221,8 @@ public class CustomerServiceImpl implements CustomerService {
             customer.setStatus(request.getStatus());
         }
 
-        return customerRepository.save(customer);
+        Customer saved = customerRepository.save(customer);
+        return CustomerResponse.fromEntity(saved);
     }
 
     @Override
@@ -224,4 +236,3 @@ public class CustomerServiceImpl implements CustomerService {
                 .build();
     }
 }
-

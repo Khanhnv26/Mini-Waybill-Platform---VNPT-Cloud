@@ -304,7 +304,6 @@
         },
         template: `
             <div class="space-y-3.5 pb-8 text-slate-800">
-                <!-- TOP BANNER KPI -->
                 <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-sm relative overflow-hidden">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
 
@@ -324,7 +323,6 @@
                             </p>
                         </div>
 
-                        <!-- KPI CARDS ON BANNER -->
                         <div class="flex items-center space-x-2 self-start md:self-auto flex-wrap sm:flex-nowrap gap-y-2">
                             <div class="px-3 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[74px]">
                                 <div class="text-base font-extrabold leading-tight text-white font-mono">{{ kpiStats.total }}</div>
@@ -350,7 +348,6 @@
                     </div>
                 </div>
 
-                <!-- FILTER BAR CARD -->
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                     <div class="flex flex-wrap items-center gap-2 flex-1">
                         <div class="relative w-full sm:w-64">
@@ -422,7 +419,6 @@
                     </div>
                 </div>
 
-                <!-- VEHICLES TABLE CARD -->
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
@@ -453,7 +449,6 @@
                                             </div>
                                             <div>
                                                 <div class="font-mono font-bold text-slate-900 text-sm tracking-tight">{{ v.vehiclePlate }}</div>
-                                                <div class="text-[10px] text-slate-400">Mã ID #{{ v.id }}</div>
                                             </div>
                                         </div>
                                     </td>
@@ -484,7 +479,7 @@
 
                                     <td class="py-2.5 px-3.5 text-center">
                                         <span 
-                                            :class="['inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border', getStatusBadge(v.status).badgeClass]"
+                                             :class="['inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border', getStatusBadge(v.status).badgeClass]"
                                         >
                                             <span :class="['w-1.5 h-1.5 rounded-full', getStatusBadge(v.status).dotClass]"></span>
                                             <span>{{ getStatusBadge(v.status).text }}</span>
@@ -493,7 +488,6 @@
 
                                     <td class="py-2.5 px-3.5 text-right whitespace-nowrap">
                                         <div class="inline-flex items-center gap-1.5">
-                                            <!-- Chuyển Bảo dưỡng nếu Sẵn sàng -->
                                             <button 
                                                 v-if="v.status === 'AVAILABLE'"
                                                 type="button"
@@ -504,7 +498,6 @@
                                                 Bảo Dưỡng
                                             </button>
 
-                                            <!-- Phục hồi Sẵn sàng nếu Bảo dưỡng hoặc Khóa -->
                                             <button 
                                                 v-else-if="v.status === 'MAINTENANCE' || v.status === 'DISABLED'"
                                                 type="button"
@@ -515,7 +508,6 @@
                                                 Sẵn Sàng
                                             </button>
 
-                                            <!-- Nút sửa / đổi tài xế -->
                                             <button 
                                                 type="button"
                                                 @click="openEditModal(v)" 
@@ -525,7 +517,6 @@
                                                 Sửa Xe
                                             </button>
 
-                                            <!-- Vô hiệu hóa xe nếu không chạy tuyến -->
                                             <button 
                                                 v-if="v.status !== 'ON_TRIP' && v.status !== 'DISABLED'"
                                                 type="button"
@@ -589,7 +580,6 @@
                     </div>
                 </div>
 
-                <!-- MODAL THÊM XE MỚI -->
                 <teleport to="body">
                     <div v-if="showAddModal" class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
                         <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in duration-150">
@@ -659,7 +649,6 @@
                     </div>
                 </teleport>
 
-                <!-- MODAL SỬA THÔNG TIN XE -->
                 <teleport to="body">
                     <div v-if="showEditModal" class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
                         <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in duration-150">
