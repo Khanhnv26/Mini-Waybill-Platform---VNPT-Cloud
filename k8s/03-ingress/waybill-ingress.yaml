@@ -8,8 +8,31 @@ metadata:
     traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
 spec:
   ingressClassName: traefik
+  tls:
+    - hosts:
+        - waybill-express.japaneast.cloudapp.azure.com
+        - waybill.vn
+        - api.waybill.vn
+      secretName: waybill-tls
   rules:
     - http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+    - host: waybill-express.japaneast.cloudapp.azure.com
+      http:
         paths:
           - path: /api
             pathType: Prefix
