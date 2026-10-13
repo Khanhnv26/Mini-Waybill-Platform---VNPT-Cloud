@@ -12,7 +12,7 @@ kubectl wait --namespace waybill \
   --selector=app=sqlserver-replica \
   --timeout=300s
 
-POD=$(kubectl get pod -l app=sqlserver-replica -n waybill -o jsonpath='{.items[0].metadata.name}')
+POD=$(kubectl get pod -l app=sqlserver-replica -n waybill --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
 echo "SQL Server Pod Name: $POD"
 
 echo "=== RESTORING 12 DATABASES VAO POD K8S ==="
