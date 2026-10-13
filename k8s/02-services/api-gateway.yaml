@@ -23,6 +23,8 @@ spec:
             - name: http
               containerPort: 8080
           env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xms64m -Xmx200m -XX:+UseSerialGC"
             - name: SERVER_PORT
               value: "8080"
             - name: SPRING_DATA_REDIS_HOST

@@ -23,6 +23,8 @@ spec:
             - name: http
               containerPort: 8084
           env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xms64m -Xmx200m -XX:+UseSerialGC"
             - name: SERVER_PORT
               value: "8084"
             - name: SPRING_DATASOURCE_PRIMARY_JDBC_URL

@@ -28,6 +28,8 @@ spec:
           periodSeconds: 10
           failureThreshold: 6
         env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xms64m -Xmx200m -XX:+UseSerialGC"
           - name: SERVER_PORT
             value: "8761"
           - name: EUREKA_INSTANCE_HOSTNAME

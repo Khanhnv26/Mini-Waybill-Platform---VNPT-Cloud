@@ -23,6 +23,8 @@ spec:
             - name: http
               containerPort: 8092
           env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xms64m -Xmx200m -XX:+UseSerialGC"
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=rating_db;encrypt=true;trustServerCertificate=true;"
             - name: SPRING_DATASOURCE_USERNAME
