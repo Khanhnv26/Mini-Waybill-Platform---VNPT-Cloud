@@ -352,7 +352,14 @@ public class PaymentServiceImpl implements PaymentService {
             }
 
             if (effectiveCustomerCode != null && !effectiveCustomerCode.isBlank()) {
-                predicates.add(cb.equal(root.get("customerCode"), effectiveCustomerCode));
+                if (isPureCustomer) {
+                    predicates.add(cb.or(
+                            cb.equal(root.get("customerCode"), effectiveCustomerCode),
+                            cb.equal(root.get("createdBy"), effectiveCustomerCode)
+                    ));
+                } else {
+                    predicates.add(cb.equal(root.get("customerCode"), effectiveCustomerCode));
+                }
             }
 
             if (f.getFromDate() != null) {
@@ -387,6 +394,12 @@ public class PaymentServiceImpl implements PaymentService {
 
         Specification<PaymentTransaction> spec = (root, query, cb) -> {
             if (effectiveCustomerCode != null && !effectiveCustomerCode.isBlank()) {
+                if (isPureCustomer) {
+                    return cb.or(
+                            cb.equal(root.get("customerCode"), effectiveCustomerCode),
+                            cb.equal(root.get("createdBy"), effectiveCustomerCode)
+                    );
+                }
                 return cb.equal(root.get("customerCode"), effectiveCustomerCode);
             }
             return cb.conjunction();

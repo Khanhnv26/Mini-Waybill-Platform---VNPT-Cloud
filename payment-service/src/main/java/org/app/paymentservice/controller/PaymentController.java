@@ -50,7 +50,15 @@ public class PaymentController {
     }
 
     @PostMapping("/create-qr")
-    public ResponseEntity<PaymentResponse> createQrPayment(@Valid @RequestBody CreateQrRequest request) {
+    public ResponseEntity<PaymentResponse> createQrPayment(
+            @Valid @RequestBody CreateQrRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) String currentUserId) {
+        if ((request.getCreatedBy() == null || request.getCreatedBy().isBlank()) && currentUserId != null) {
+            request.setCreatedBy(currentUserId);
+        }
+        if ((request.getCustomerCode() == null || request.getCustomerCode().isBlank()) && currentUserId != null) {
+            request.setCustomerCode(currentUserId);
+        }
         PaymentResponse response = paymentService.createPayment(request);
         return ResponseEntity.ok(response);
     }

@@ -20,7 +20,9 @@ import java.time.LocalDateTime;
                 @Index(name = "idx_rep_customer_id", columnList = "customer_id"),
                 @Index(name = "idx_rep_status", columnList = "current_status"),
                 @Index(name = "idx_rep_shipper_id", columnList = "shipper_id"),
-                @Index(name = "idx_rep_sla_status", columnList = "sla_status")
+                @Index(name = "idx_rep_sla_status", columnList = "sla_status"),
+                @Index(name = "idx_rep_composite_filter", columnList = "customer_id, current_status, created_at"),
+                @Index(name = "idx_rep_sla_lead_time", columnList = "sla_status, current_status, lead_time_hours")
         })
 public class ReportShipmentSummary {
 

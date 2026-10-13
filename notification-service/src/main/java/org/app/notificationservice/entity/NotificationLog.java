@@ -9,7 +9,11 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "notification_log")
+@Table(name = "notification_log", indexes = {
+        @Index(name = "idx_notif_recipient_sent", columnList = "recipient_phone, sent_at"),
+        @Index(name = "idx_notif_recipient_unread", columnList = "recipient_phone, is_read"),
+        @Index(name = "idx_notif_tracking_sent", columnList = "tracking_code, sent_at")
+})
 @AllArgsConstructor
 @NoArgsConstructor
 @Data

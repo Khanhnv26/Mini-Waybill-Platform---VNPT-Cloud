@@ -648,11 +648,13 @@
                 qrCountdown.value = 600;
 
                 try {
+                    const custCode = shipment.customerCode || shipment.customerId ? String(shipment.customerCode || shipment.customerId) : null;
                     const res = await PaymentService.createQrPayment({
                         trackingCode: shipment.trackingCode,
                         amount: shipment.codAmount || 0,
                         paymentType: 'COD',
-                        note: `Thu COD don ${shipment.trackingCode}`
+                        note: `Thu COD don ${shipment.trackingCode}`,
+                        customerCode: custCode
                     });
                     qrPaymentData.value = res;
                     isQrLoading.value = false;
@@ -963,11 +965,13 @@
                 const returnFee = getReturnFee(shipment);
 
                 try {
+                    const custCode = shipment.customerCode || shipment.customerId ? String(shipment.customerCode || shipment.customerId) : null;
                     const res = await PaymentService.createQrPayment({
                         trackingCode: shipment.trackingCode,
                         amount: returnFee,
                         paymentType: 'RETURN_FEE',
-                        note: `HOAN ${shipment.trackingCode}`
+                        note: `HOAN ${shipment.trackingCode}`,
+                        customerCode: custCode
                     });
                     returnQrPaymentData.value = res;
                     isReturnQrLoading.value = false;

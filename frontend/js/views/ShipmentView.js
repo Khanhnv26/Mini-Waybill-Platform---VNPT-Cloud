@@ -1197,11 +1197,18 @@
 
                 try {
                     const feeToPay = shipment.totalFee || shipment.shippingFee || 35000;
+                    const currentUser = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+                    const currentUserId = currentUser ? (currentUser.userId || currentUser.id) : null;
+                    const customerCodeVal = shipment.customerCode || currentUserId || shipment.customerId;
+                    const createdByVal = currentUserId || shipment.customerId;
+
                     const res = await PaymentService.createQrPayment({
                         trackingCode: shipment.trackingCode,
                         amount: feeToPay,
                         paymentType: isReturn ? 'RETURN_FEE' : 'SHIPPING_FEE',
-                        note: isReturn ? `HOAN ${shipment.trackingCode}` : `CUOC ${shipment.trackingCode}`
+                        note: isReturn ? `HOAN ${shipment.trackingCode}` : `CUOC ${shipment.trackingCode}`,
+                        customerCode: customerCodeVal ? String(customerCodeVal) : null,
+                        createdBy: createdByVal ? String(createdByVal) : null
                     });
                     checkoutPaymentData.value = res;
                     isCheckoutLoading.value = false;
