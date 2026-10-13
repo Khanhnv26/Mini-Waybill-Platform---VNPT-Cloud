@@ -21,7 +21,7 @@ import './services/pricingService.js';
 import './services/supportService.js';
 import './services/shipperService.js';
 import './services/ratingService.js';
-import './services/paymentService.js';
+import './services/paymentService.js?v=3.6.6';
 
 // ==========================================
 // 3. Layout Components
@@ -48,18 +48,19 @@ import './views/trips/TripManifestModal.js';
 // 5. Business Views
 // ==========================================
 import './views/LoginView.js';
-import './views/TrackingView.js';
+import './views/TrackingView.js?v=3.6.2';
 import './views/ShipmentView.js';
 import './views/DashboardView.js';
 import './views/PostOfficeOpsView.js';
 import './views/TripsView.js';
-import './views/FleetView.js';
+import './views/FleetView.js?v=3.6.7';
 import './views/HubOpsView.js';
 import './views/ShipperView.js';
 import './views/ShipperDirectoryView.js';
 import './views/CustomerView.js';
-import './views/AdminRbacView.js';
-import './views/ReportView.js';
+import './views/AdminRbacView.js?v=3.6.7';
+import './views/ReportView.js?v=3.6.5';
+import './views/PaymentView.js?v=3.6.7';
 import './views/TariffCalculatorView.js';
 import './views/NetworkView.js';
 import './views/GuideView.js';
@@ -95,6 +96,8 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
         '/customers': 'customers',
         '/report': 'reports',
         '/reports': 'reports',
+        '/payments': 'payments',
+        '/payment': 'payments',
         '/tariff': 'calculator',
         '/calculator': 'calculator',
         '/network': 'network',
@@ -121,6 +124,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
         'shipper-directory': '/shipper-directory',
         'customers': '/customer',
         'reports': '/report',
+        'payments': '/payments',
         'calculator': '/calculator',
         'network': '/network',
         'guide': '/guide',
@@ -134,8 +138,9 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
     const resolveRoute = (inputPath) => {
         let clean = inputPath || window.location.pathname;
         if (window.location.hash && (!inputPath || inputPath === window.location.pathname)) {
-            const hash = window.location.hash.replace('#', '').trim();
+            let hash = window.location.hash.replace('#', '').trim();
             if (hash) {
+                while (hash.startsWith('/')) hash = hash.slice(1);
                 clean = '/' + hash;
             }
         }
@@ -376,6 +381,11 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
             };
 
             const fetchNotifications = async () => {
+                const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+                if (!token) {
+                    notifications.value = [];
+                    return;
+                }
                 if (typeof NotificationService === 'undefined' || !NotificationService.getMyNotifications) return;
                 try {
                     const list = await NotificationService.getMyNotifications();
@@ -616,6 +626,12 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                     currentTrackingCode.value = '';
                 }
                 currentTab.value = tabId;
+                if (typeof document !== 'undefined') {
+                    setTimeout(() => {
+                        const mainEl = document.querySelector('main');
+                        if (mainEl) mainEl.scrollTop = 0;
+                    }, 50);
+                }
             };
             const toggleSidebarCollapse = () => {
                 isSidebarCollapsed.value = !isSidebarCollapsed.value;
@@ -703,6 +719,13 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                     component: 'ReportView', 
                     permission: null,
                     icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'
+                },
+                { 
+                    id: 'payments', 
+                    name: 'Quản Lý Thanh Toán', 
+                    component: 'PaymentView', 
+                    permission: null,
+                    icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
                 },
                 { 
                     id: 'rbac', 
@@ -1173,10 +1196,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                     return;
                 }
                 try {
-                    google.accounts.id.initialize({
-                        client_id: GOOGLE_CLIENT_ID,
-                        callback: handleGoogleLinkCallback
-                    });
+                    window.initGoogleIdentity(GOOGLE_CLIENT_ID, handleGoogleLinkCallback);
                     google.accounts.id.prompt((notification) => {
                         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
                             const container = document.getElementById('googleLinkModalBtn');
@@ -1217,8 +1237,9 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                     }
                 }
 
-                const hash = window.location.hash.replace('#', '').trim();
+                let hash = window.location.hash.replace('#', '').trim();
                 if (hash && currentTab.value !== 'error') {
+                    while (hash.startsWith('/')) hash = hash.slice(1);
                     navigateTo('/' + hash, true);
                 }
 
@@ -1472,6 +1493,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
     if (window.CustomerView) app.component('CustomerView', window.CustomerView);
     if (window.AdminRbacView) app.component('AdminRbacView', window.AdminRbacView);
     if (window.ReportView) app.component('ReportView', window.ReportView);
+    if (window.PaymentView) app.component('PaymentView', window.PaymentView);
     if (window.TariffCalculatorView) app.component('TariffCalculatorView', window.TariffCalculatorView);
     if (window.NetworkView) app.component('NetworkView', window.NetworkView);
     if (window.GuideView) app.component('GuideView', window.GuideView);

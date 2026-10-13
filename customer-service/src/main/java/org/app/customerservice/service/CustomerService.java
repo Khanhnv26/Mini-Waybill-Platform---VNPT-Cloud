@@ -1,23 +1,22 @@
 package org.app.customerservice.service;
 
 import org.app.customerservice.dto.request.CreateCustomerRequest;
-import org.app.customerservice.dto.request.UpdateCustomerRequest;
-import org.app.customerservice.dto.response.CustomerValidation;
-import org.app.customerservice.entity.Customer;
-
 import org.app.customerservice.dto.request.InitCustomerProfileRequest;
+import org.app.customerservice.dto.request.UpdateCustomerRequest;
+import org.app.customerservice.dto.response.CustomerResponse;
+import org.app.customerservice.dto.response.CustomerValidation;
 
 import java.util.List;
 
 public interface CustomerService {
-    Customer getCustomerById(Long id);
+    CustomerResponse getCustomerById(Long id);
     CustomerValidation validateCustomer(Long id);
     CustomerValidation validateByUserId(Long userId);
-    Customer initProfile(InitCustomerProfileRequest request);
-    Customer getProfileByUserId(Long userId);
-    Customer updateProfileByUserId(Long userId, UpdateCustomerRequest request);
-    Customer createCustomer(CreateCustomerRequest request);
-    List<Customer> getAllCustomers();
-    Customer updateCustomer(Long id, UpdateCustomerRequest request);
+    CustomerResponse initProfile(InitCustomerProfileRequest request);
+    CustomerResponse getProfileByUserId(Long userId);
+    CustomerResponse updateProfileByUserId(Long userId, UpdateCustomerRequest request);
+    CustomerResponse createCustomer(CreateCustomerRequest request);
+    List<CustomerResponse> getAllCustomers();
+    CustomerResponse updateCustomer(Long id, UpdateCustomerRequest request);
     CustomerValidation getRetailCustomer();
 }

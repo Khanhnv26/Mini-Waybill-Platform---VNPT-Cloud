@@ -10,7 +10,11 @@ import java.time.LocalDateTime;
 
 
 @Entity
-@Table(name = "routing")
+@Table(name = "routing", indexes = {
+        @Index(name = "idx_routing_tracking_code", columnList = "tracking_code"),
+        @Index(name = "idx_routing_dest_status", columnList = "dest_post_office, status"),
+        @Index(name = "idx_routing_status", columnList = "status")
+})
 @AllArgsConstructor
 @NoArgsConstructor
 @Data

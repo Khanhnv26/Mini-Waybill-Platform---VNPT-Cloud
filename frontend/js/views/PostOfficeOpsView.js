@@ -1250,7 +1250,8 @@
                 }
 
                 if (targetShipment && targetStatus === 'OUT_FOR_DELIVERY') {
-                    const currentLoc = (targetShipment.locationCode || '').toUpperCase();
+                    const poInfo = getDestPostOfficeInfo(targetShipment);
+                    const currentLoc = (targetShipment.locationCode || poInfo.code || selectedPostOffice.value || '').toUpperCase();
                     if (!currentLoc.startsWith('POST-')) {
                         Utils.showToast('Chưa Thể Bàn Giao', `Bưu gửi ${cleanCode} chưa được xe Feeder dỡ vào kho bưu cục. Hiện tại bưu gửi vẫn đang tại [${currentLoc || 'Kho Tổng / Trên Tuyến'}].`, 'warning');
                         return;
@@ -2592,6 +2593,11 @@
                                                 >
                                                     Tái Bàn Giao Phát
                                                 </button>
+                                            </template>
+                                            <template v-else-if="(item.currentStatus || item.status) === 'OUT_FOR_DELIVERY'">
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10.5px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                                    Bưu tá đang đi phát
+                                                </span>
                                             </template>
                                             <template v-else-if="(item.currentStatus || item.status) === 'OUT_FOR_RETURN'">
                                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-[10.5px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">

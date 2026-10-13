@@ -12,11 +12,12 @@ agent/** linguist-detectable=false
 node_modules/** linguist-vendored=true
 
 # Thư viện Frontend bên thứ ba (Vue CDN bundles tải sẵn)
-frontend/js/libs/** linguist-vendored=true
+frontend/js/libs/** linguist-vendored=true linguist-detectable=false
 
 # File CSS build/bundle tự động
 frontend/css/tailwind.prod.css linguist-generated=true
 
 # Loại trừ các file View frontend nặng HTML template string & SVG icon inline
 # để giữ tỷ lệ Java chiếm chủ đạo (~70%) và JavaScript (~28%) phản ánh logic lõi
-frontend/js/views/** linguist-detectable=false
+frontend/js/views/** linguist-vendored=true linguist-detectable=false
+

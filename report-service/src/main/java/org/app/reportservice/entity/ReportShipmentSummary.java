@@ -18,7 +18,11 @@ import java.time.LocalDateTime;
         indexes = {
                 @Index(name = "idx_rep_created_at", columnList = "created_at"),
                 @Index(name = "idx_rep_customer_id", columnList = "customer_id"),
-                @Index(name = "idx_rep_status", columnList = "current_status")
+                @Index(name = "idx_rep_status", columnList = "current_status"),
+                @Index(name = "idx_rep_shipper_id", columnList = "shipper_id"),
+                @Index(name = "idx_rep_sla_status", columnList = "sla_status"),
+                @Index(name = "idx_rep_composite_filter", columnList = "customer_id, current_status, created_at"),
+                @Index(name = "idx_rep_sla_lead_time", columnList = "sla_status, current_status, lead_time_hours")
         })
 public class ReportShipmentSummary {
 
@@ -79,4 +83,25 @@ public class ReportShipmentSummary {
 
     @Column(name = "cod_settlement_status")
     private String codSettlementStatus;
+
+    @Column(name = "shipper_id")
+    private Long shipperId;
+
+    @Column(name = "shipper_name", columnDefinition = "NVARCHAR(255)")
+    private String shipperName;
+
+    @Column(name = "hub_origin", columnDefinition = "NVARCHAR(255)")
+    private String hubOrigin;
+
+    @Column(name = "hub_destination", columnDefinition = "NVARCHAR(255)")
+    private String hubDestination;
+
+    @Column(name = "lead_time_hours")
+    private Double leadTimeHours;
+
+    @Column(name = "sla_status", columnDefinition = "NVARCHAR(50)")
+    private String slaStatus;
+
+    @Column(name = "failure_reason", columnDefinition = "NVARCHAR(500)")
+    private String failureReason;
 }

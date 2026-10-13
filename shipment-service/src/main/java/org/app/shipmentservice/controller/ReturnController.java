@@ -54,6 +54,9 @@ public class ReturnController {
             @RequestHeader(value = "X-User-Permissions", required = false) String permissions
     ) {
         ReturnRequestResponse response = returnService.getReturnRequest(code, currentUserId, roles, permissions);
+        if (response == null) {
+            return ResponseEntity.ok().build();
+        }
         return ResponseEntity.ok(response);
     }
 

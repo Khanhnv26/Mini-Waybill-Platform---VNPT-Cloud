@@ -28,6 +28,9 @@ public class PaymentResponse {
     private String bankCode;
     private String accountNo;
     private String referenceCode;
+    private String customerCode;
+    private String createdBy;
+    private String payerNote;
     private LocalDateTime createdAt;
     private LocalDateTime paidAt;
 
@@ -46,6 +49,9 @@ public class PaymentResponse {
                 .bankCode(tx.getBankCode())
                 .accountNo(tx.getAccountNo())
                 .referenceCode(tx.getReferenceCode())
+                .customerCode(tx.getCustomerCode())
+                .createdBy(tx.getCreatedBy())
+                .payerNote(tx.getPayerNote())
                 .createdAt(tx.getCreatedAt())
                 .paidAt(tx.getPaidAt())
                 .build();

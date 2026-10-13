@@ -14,7 +14,10 @@ import java.time.LocalDateTime;
 @Entity
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "tracking_history")
+@Table(name = "tracking_history", indexes = {
+        @Index(name = "idx_tracking_code_occurred_at", columnList = "tracking_code, occurred_at"),
+        @Index(name = "idx_tracking_code_status_occurred", columnList = "tracking_code, status, occurred_at")
+})
 @Builder
 @Data
 public class TrackingHistory {

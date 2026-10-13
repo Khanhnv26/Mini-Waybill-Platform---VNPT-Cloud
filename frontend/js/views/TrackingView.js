@@ -1,5 +1,5 @@
 (function () {
-    const { ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
+    const { ref, computed, watch, onMounted, onUnmounted, onActivated, nextTick } = Vue;
 
     const TrackingView = {
         name: 'TrackingView',
@@ -1563,6 +1563,17 @@
                 });
                 startLivePolling();
                 document.addEventListener('visibilitychange', handleVisibilityChange);
+            });
+
+            onActivated(() => {
+                const codeToFetch = (props.trackingCode || searchCode.value || '').trim();
+                if (codeToFetch) {
+                    searchCode.value = codeToFetch;
+                    fetchTrackingData(codeToFetch);
+                }
+                if (window.MapManager && typeof window.MapManager.invalidateSize === 'function') {
+                    setTimeout(() => window.MapManager.invalidateSize(), 200);
+                }
             });
 
             onUnmounted(() => {

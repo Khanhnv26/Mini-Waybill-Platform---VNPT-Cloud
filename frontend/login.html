@@ -4,11 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cổng Xác Thực Vận Hành - VNPT Waybill Platform</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23005baa'/%3E%3Cpath d='M7 10h18v12H7z' fill='none' stroke='white' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M7 10l9 8 9-8' fill='none' stroke='white' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <link rel="alternate icon" href="favicon.ico">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <script>
+        // Polyfill chuyển hướng sự kiện 'unload' sang 'pagehide' để triệt tiêu Permissions policy violation trên Chrome 117+
+        (function () {
+            var _ael = window.addEventListener;
+            window.addEventListener = function (type, listener, options) {
+                if (type === 'unload') {
+                    return _ael.call(this, 'pagehide', listener, options);
+                }
+                return _ael.apply(this, arguments);
+            };
+        })();
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -868,13 +881,17 @@
                     window.location.href = redirectUrl;
                 }
 
-                                function renderGoogleButton(force = false) {
+                                let isGoogleInitialized = false;
+                function renderGoogleButton(force = false) {
                     if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
-                        google.accounts.id.initialize({
-                            client_id: GOOGLE_CLIENT_ID,
-                            callback: handleGoogleLoginResponse,
-                            auto_select: false
-                        });
+                        if (!isGoogleInitialized) {
+                            google.accounts.id.initialize({
+                                client_id: GOOGLE_CLIENT_ID,
+                                callback: handleGoogleLoginResponse,
+                                auto_select: false
+                            });
+                            isGoogleInitialized = true;
+                        }
 
                         const loginContainer = document.getElementById('googleBtn');
                         if (loginContainer && (force || !loginContainer.hasChildNodes())) {

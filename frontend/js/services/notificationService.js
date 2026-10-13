@@ -12,8 +12,10 @@
         },
 
         async getMyNotifications() {
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+            if (!token) return [];
             try {
-                const response = await Api.get('/api/notifications', {}, { silent: true });
+                const response = await Api.get('/api/notifications', {}, { silent: true, skip403Toast: true });
                 if (!response.ok) return [];
                 return await response.json();
             } catch {
@@ -23,8 +25,10 @@
 
         async markAsRead(id) {
             if (!id) return false;
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+            if (!token) return false;
             try {
-                const response = await Api.put(`/api/notifications/${id}/read`, {}, {}, { silent: true });
+                const response = await Api.put(`/api/notifications/${id}/read`, {}, {}, { silent: true, skip403Toast: true });
                 return response.ok;
             } catch {
                 return false;
@@ -32,8 +36,10 @@
         },
 
         async markAllAsRead() {
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+            if (!token) return false;
             try {
-                const response = await Api.put('/api/notifications/read-all', {}, {}, { silent: true });
+                const response = await Api.put('/api/notifications/read-all', {}, {}, { silent: true, skip403Toast: true });
                 return response.ok;
             } catch {
                 return false;

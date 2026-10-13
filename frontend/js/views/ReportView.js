@@ -20,6 +20,7 @@
             const activeQuickRange = ref('7days');
             const chartGrouping = ref('day');
             const chartScrollWrapper = ref(null);
+            const tableScrollWrapper = ref(null);
             const filters = reactive({
                 fromDate: '',
                 toDate: '',
@@ -45,6 +46,10 @@
                 deliveredCount: 0,
                 returningCount: 0,
                 successRate: 0,
+                slaOnTimeRate: 0,
+                averageLeadTimeHours: 0,
+                onTimeCount: 0,
+                breachedCount: 0,
                 shipments: []
             });
 
@@ -123,6 +128,10 @@
                     reportData.deliveredCount = res.deliveredCount || 0;
                     reportData.returningCount = res.returningCount || 0;
                     reportData.successRate = res.successRate || 0;
+                    reportData.slaOnTimeRate = res.slaOnTimeRate !== undefined ? res.slaOnTimeRate : 0;
+                    reportData.averageLeadTimeHours = res.averageLeadTimeHours !== undefined ? res.averageLeadTimeHours : 0;
+                    reportData.onTimeCount = res.onTimeCount || 0;
+                    reportData.breachedCount = res.breachedCount || 0;
                     reportData.shipments = res.shipments || [];
 
                     reportData.inTransitCount = res.inTransitCount || 0;
@@ -133,6 +142,12 @@
                     pagination.totalPages = res.totalPages || 1;
                     pagination.totalElements = res.tableTotalElements !== undefined ? res.tableTotalElements : (res.totalOrders || 0);
                     pagination.page = res.currentPage || 0;
+
+                    nextTick(() => {
+                        if (tableScrollWrapper.value) {
+                            tableScrollWrapper.value.scrollLeft = 0;
+                        }
+                    });
                 } catch (err) {
                     if (window.Utils && window.Utils.showToast) {
                         window.Utils.showToast('Lỗi Tải Báo Cáo', err.message, 'error');
@@ -155,7 +170,7 @@
                         status: filters.status
                     });
                     if (window.Utils && window.Utils.showToast) {
-                        window.Utils.showToast('Xuất Báo Cáo Thành Công', 'File Excel 2 Sheet đã được tải về máy của bạn.', 'success');
+                        window.Utils.showToast('Xuất Báo Cáo Thành Công', 'File Excel 3 Sheet (Tổng Hợp, Chi Tiết & Bảng Kê Công Nợ Bưu Tá) đã được tải về máy của bạn.', 'success');
                     }
                 } catch (err) {
                     if (window.Utils && window.Utils.showToast) {
@@ -380,6 +395,17 @@
                 return { label: 'Chưa Nộp Quỹ', class: 'bg-amber-50 text-amber-700 border border-amber-200', isPulse: false };
             };
 
+            const getSlaBadge = (status) => {
+                const s = String(status || '').toUpperCase();
+                if (s === 'ON_TIME') {
+                    return { label: 'Đúng Hạn (≤24h)', class: 'bg-emerald-50 text-emerald-700 border border-emerald-200' };
+                }
+                if (s === 'BREACHED') {
+                    return { label: 'Trễ Hạn (>24h)', class: 'bg-rose-50 text-rose-700 border border-rose-200' };
+                }
+                return { label: 'Đang Tính SLA', class: 'bg-slate-50 text-slate-600 border border-slate-200' };
+            };
+
             const goToTracking = (trackingCode) => {
                 if (trackingCode) {
                     emit('view-tracking', trackingCode);
@@ -421,6 +447,7 @@
                 activeQuickRange,
                 chartGrouping,
                 chartScrollWrapper,
+                tableScrollWrapper,
                 filters,
                 pagination,
                 tableSearchQuery,
@@ -436,6 +463,7 @@
                 handleExportExcel,
                 getStatusBadge,
                 getCodSettlementBadge,
+                getSlaBadge,
                 goToTracking,
                 changePage,
                 isDockCollapsed
@@ -458,7 +486,7 @@
                                 Báo Cáo Sản Lượng &amp; Đối Soát Dòng Tiền COD
                             </h1>
                             <p class="text-xs text-blue-100/90 mt-0.5 leading-normal">
-                                Nền tảng điều phối bưu chính VNPT Cloud • Tổng hợp dữ liệu theo thời gian thực • Xuất Excel 2 Sheet.
+                                Nền tảng điều phối bưu chính VNPT Cloud • Tổng hợp dữ liệu theo thời gian thực • Quản trị SLA &amp; Công nợ Bưu tá • Xuất Excel 3 Sheet.
                             </p>
                         </div>
 
@@ -492,10 +520,8 @@
                     </div>
                 </div>
 
-                <!-- Sub-Banner Action Bar: Compact Segmented Pill Bar -->
                 <div class="bg-white/95 backdrop-blur-md text-slate-700 rounded-2xl shadow-xs border border-slate-200/90 p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
                     <div class="bg-slate-100/90 p-1 rounded-xl border border-slate-200/70 inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
-                        <!-- Tổng Hợp & KPI Tab Button -->
                         <button
                             type="button"
                             @click="activeSubtab = 'summary'"
@@ -512,7 +538,6 @@
                             <span class="truncate">Tổng Hợp &amp; KPI</span>
                         </button>
 
-                        <!-- Chi Tiết Đơn Tab Button -->
                         <button
                             type="button"
                             @click="activeSubtab = 'details'"
@@ -533,7 +558,6 @@
                         </button>
                     </div>
 
-                    <!-- Right Live Status & Mini Refresh Button -->
                     <div class="flex items-center space-x-2 shrink-0 px-1 py-0.5">
                         <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/70">
                             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -947,16 +971,16 @@
                         </div>
                     </div>
 
-                    <div class="overflow-x-auto">
+                    <div ref="tableScrollWrapper" class="overflow-x-auto w-full">
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500 tracking-wider">
-                                    <th class="py-2.5 px-3.5 w-12 text-center">STT</th>
-                                    <th class="py-2.5 px-3.5">Mã Vận Đơn &amp; Dịch Vụ</th>
-                                    <th class="py-2.5 px-3.5">Người Gửi (Tiếp Nhận)</th>
-                                    <th class="py-2.5 px-3.5">Người Nhận (Phát Trả)</th>
-                                    <th class="py-2.5 px-3.5">Tài Chính &amp; COD</th>
-                                    <th class="py-2.5 px-3.5 text-center">Trạng Thái</th>
+                                    <th class="py-2.5 px-3 w-12 text-center">STT</th>
+                                    <th class="py-2.5 px-3 min-w-[210px]">Mã Vận Đơn &amp; Bưu Tá</th>
+                                    <th class="py-2.5 px-3 min-w-[180px]">Người Gửi (Tiếp Nhận)</th>
+                                    <th class="py-2.5 px-3 min-w-[180px]">Người Nhận (Phát Trả)</th>
+                                    <th class="py-2.5 px-3 min-w-[170px]">Tài Chính &amp; COD</th>
+                                    <th class="py-2.5 px-3 text-center min-w-[170px]">Trạng Thái &amp; Chuẩn SLA</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 text-xs text-slate-800">
@@ -989,11 +1013,11 @@
                                     :key="s.trackingCode || idx"
                                     class="hover:bg-slate-50/80 transition"
                                 >
-                                    <td class="py-2.5 px-3.5 text-center font-mono text-slate-400">
+                                    <td class="py-2.5 px-3 text-center font-mono text-slate-400">
                                         {{ pagination.page * pagination.size + idx + 1 }}
                                     </td>
 
-                                    <td class="py-2.5 px-3.5">
+                                    <td class="py-2.5 px-3">
                                         <div class="flex items-center space-x-1.5">
                                             <button 
                                                 type="button" 
@@ -1010,27 +1034,34 @@
                                                 {{ s.serviceType === 'EXPRESS' ? 'HỎA TỐC' : (s.serviceType || 'TIÊU CHUẨN') }}
                                             </span>
                                         </div>
-                                        <div class="text-[11px] text-slate-400 font-mono mt-0.5 whitespace-nowrap">
+                                        <div class="text-[11px] text-slate-700 font-semibold flex items-center space-x-1 mt-1 truncate">
+                                            <svg class="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                            </svg>
+                                            <span class="truncate">{{ s.shipperName || 'Bưu tá VNPT' }}</span>
+                                            <span class="text-slate-400 font-normal">({{ s.hubOrigin || 'HN' }} &rarr; {{ s.hubDestination || 'HCM' }})</span>
+                                        </div>
+                                        <div class="text-[10.5px] text-slate-400 font-mono mt-0.5">
                                             {{ s.createdAt ? s.createdAt.substring(0, 16).replace('T', ' ') : '-' }}
                                         </div>
                                     </td>
 
-                                    <td class="py-2.5 px-3.5 max-w-[200px]">
+                                    <td class="py-2.5 px-3 max-w-[200px]">
                                         <div class="font-bold text-slate-900 truncate">{{ s.senderName || 'Người Gửi' }}</div>
                                         <div class="text-[11px] text-slate-400 truncate" :title="s.senderAddress">
                                             {{ s.senderAddress || '-' }}
                                         </div>
                                     </td>
 
-                                    <td class="py-2.5 px-3.5 max-w-[220px]">
+                                    <td class="py-2.5 px-3 max-w-[200px]">
                                         <div class="font-bold text-slate-900 truncate">{{ s.receiverName || 'Người Nhận' }}</div>
                                         <div class="text-[11px] text-slate-400 truncate" :title="s.receiverAddress">
                                             {{ s.receiverAddress || '-' }}
                                         </div>
                                     </td>
 
-                                    <td class="py-2.5 px-3.5 whitespace-nowrap">
-                                        <div class="flex items-center space-x-2">
+                                    <td class="py-2.5 px-3 whitespace-nowrap">
+                                        <div class="flex items-center space-x-1.5">
                                             <span class="font-mono font-bold text-xs" :class="Number(s.codAmount) > 0 ? 'text-purple-700' : 'text-slate-400'">
                                                 {{ Number(s.codAmount) > 0 ? 'COD: ' + formatVnd(s.codAmount) : 'Không COD' }}
                                             </span>
@@ -1048,13 +1079,29 @@
                                         </div>
                                     </td>
 
-                                    <td class="py-2.5 px-3.5 text-center whitespace-nowrap">
-                                        <span 
-                                            class="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold shadow-2xs inline-block"
-                                            :class="getStatusBadge(s.currentStatus).class"
-                                        >
-                                            {{ getStatusBadge(s.currentStatus).label }}
-                                        </span>
+                                    <td class="py-2.5 px-3 text-center whitespace-nowrap">
+                                        <div>
+                                            <span 
+                                                class="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold shadow-2xs inline-block"
+                                                :class="getStatusBadge(s.currentStatus).class"
+                                            >
+                                                {{ getStatusBadge(s.currentStatus).label }}
+                                            </span>
+                                        </div>
+                                        <div class="mt-1 flex items-center justify-center space-x-1">
+                                            <span 
+                                                class="px-2 py-0.5 rounded-full text-[10px] font-bold shadow-2xs inline-block"
+                                                :class="getSlaBadge(s.slaStatus).class"
+                                            >
+                                                {{ getSlaBadge(s.slaStatus).label }}
+                                            </span>
+                                            <span v-if="s.leadTimeHours" class="text-[10px] font-mono text-slate-500 font-bold">
+                                                ({{ Number(s.leadTimeHours).toFixed(1) }}h)
+                                            </span>
+                                        </div>
+                                        <div v-if="s.failureReason" class="text-[10px] text-rose-600 truncate max-w-[150px] mx-auto mt-0.5" :title="s.failureReason">
+                                            {{ s.failureReason }}
+                                        </div>
                                     </td>
                                 </tr>
                             </tbody>

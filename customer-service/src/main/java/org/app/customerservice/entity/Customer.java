@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import org.app.customerservice.enums.CustomerStatus;
 
 @NoArgsConstructor
 @AllArgsConstructor

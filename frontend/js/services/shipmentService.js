@@ -111,13 +111,14 @@
         },
 
         async getReturnRequest(trackingCode) {
-            const response = await Api.get(`/api/shipments/${encodeURIComponent(trackingCode)}/return-request`);
-            if (!response.ok) {
-                if (response.status === 404) return null;
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.error || errData.message || 'Lỗi khi lấy thông tin yêu cầu hoàn');
+            try {
+                const response = await Api.get(`/api/shipments/${encodeURIComponent(trackingCode)}/return-request`, {}, { silent: true, skip403Toast: true });
+                if (!response.ok) return null;
+                const text = await response.text();
+                return text ? JSON.parse(text) : null;
+            } catch {
+                return null;
             }
-            return response.json();
         },
 
         async listReturnRequests(status = null) {

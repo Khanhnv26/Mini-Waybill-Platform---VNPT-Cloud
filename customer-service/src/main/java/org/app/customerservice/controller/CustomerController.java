@@ -5,8 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.app.customerservice.dto.request.CreateCustomerRequest;
 import org.app.customerservice.dto.request.InitCustomerProfileRequest;
 import org.app.customerservice.dto.request.UpdateCustomerRequest;
+import org.app.customerservice.dto.response.CustomerResponse;
 import org.app.customerservice.dto.response.CustomerValidation;
-import org.app.customerservice.entity.Customer;
 import org.app.customerservice.service.CustomerService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,23 +22,23 @@ public class CustomerController {
     private final CustomerService customerService;
 
     @PostMapping
-    public ResponseEntity<Customer> createCustomer(@Valid @RequestBody CreateCustomerRequest request) {
+    public ResponseEntity<CustomerResponse> createCustomer(@Valid @RequestBody CreateCustomerRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(customerService.createCustomer(request));
     }
 
     @GetMapping
-    public ResponseEntity<List<Customer>> getAllCustomers() {
+    public ResponseEntity<List<CustomerResponse>> getAllCustomers() {
         return ResponseEntity.ok(customerService.getAllCustomers());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Customer> getCustomerById(@PathVariable Long id) {
+    public ResponseEntity<CustomerResponse> getCustomerById(@PathVariable Long id) {
         return ResponseEntity.ok(customerService.getCustomerById(id));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Customer> updateCustomer(@PathVariable Long id,
-                                                   @Valid @RequestBody UpdateCustomerRequest request) {
+    public ResponseEntity<CustomerResponse> updateCustomer(@PathVariable Long id,
+                                                           @Valid @RequestBody UpdateCustomerRequest request) {
         return ResponseEntity.ok(customerService.updateCustomer(id, request));
     }
 
@@ -58,12 +58,12 @@ public class CustomerController {
     }
 
     @PostMapping("/internal/init-profile")
-    public ResponseEntity<Customer> initProfile(@Valid @RequestBody InitCustomerProfileRequest request) {
+    public ResponseEntity<CustomerResponse> initProfile(@Valid @RequestBody InitCustomerProfileRequest request) {
         return ResponseEntity.ok(customerService.initProfile(request));
     }
 
     @GetMapping("/me")
-    public ResponseEntity<Customer> getMyProfile(@RequestHeader(value = "X-User-Id", required = false) String currentUserId) {
+    public ResponseEntity<CustomerResponse> getMyProfile(@RequestHeader(value = "X-User-Id", required = false) String currentUserId) {
         if (currentUserId == null || currentUserId.isBlank() || "null".equalsIgnoreCase(currentUserId)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
@@ -71,7 +71,7 @@ public class CustomerController {
     }
 
     @PutMapping("/me")
-    public ResponseEntity<Customer> updateMyProfile(
+    public ResponseEntity<CustomerResponse> updateMyProfile(
             @RequestHeader(value = "X-User-Id", required = false) String currentUserId,
             @Valid @RequestBody UpdateCustomerRequest request) {
         if (currentUserId == null || currentUserId.isBlank() || "null".equalsIgnoreCase(currentUserId)) {

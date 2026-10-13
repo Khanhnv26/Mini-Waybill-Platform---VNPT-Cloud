@@ -1,6 +1,6 @@
 
 (function () {
-    const { ref, reactive, computed, watch, onMounted, nextTick } = Vue;
+    const { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
 
     const SupportView = {
         name: 'SupportView',
@@ -288,10 +288,232 @@
                 }
             };
 
+            const isWsConnected = ref(false);
+            const isRefreshingChat = ref(false);
+            const opsViewMode = ref('table');
+
+            const isMyMessage = (msg) => {
+                if (!msg) return false;
+                if (isStaffUser.value) {
+                    return msg.senderRole === 'ROLE_CS' || msg.senderRole === 'ROLE_ADMIN' || msg.senderRole === 'STAFF';
+                }
+                return msg.senderRole === 'CUSTOMER';
+            };
+
+            const quickReplies = computed(() => {
+                if (isStaffUser.value) {
+                    return [
+                        'VNPT Post đã tiếp nhận và đang liên hệ bưu cục phát kiểm tra đơn.',
+                        'Kính nhờ Quý khách cung cấp thêm ảnh chụp bao bì và sản phẩm hư hỏng.',
+                        'Hồ sơ khiếu nại đã được phê duyệt bồi hoàn, kế toán sẽ chi trả trong 24h.',
+                        'VNPT Post thành thật cáo lỗi cùng Quý khách về sự cố vận chuyển này.'
+                    ];
+                }
+                return [
+                    'Đã có kết quả thẩm định trách nhiệm bưu cục chưa ạ?',
+                    'Tôi muốn bổ sung thêm hóa đơn mua hàng và ảnh chụp kiện hàng',
+                    'Thời gian và hình thức nhận tiền bồi thường như thế nào?'
+                ];
+            });
+
+            const chatPlaceholder = computed(() => {
+                if (isUploadingAttachment.value) return 'Đang tải ảnh lên MinIO...';
+                if (isStaffUser.value) return 'Nhập tin nhắn phản hồi khách hàng... (nhấn Enter để gửi)';
+                return 'Nhập tin nhắn trao đổi với CSKH... (nhấn Enter để gửi)';
+            });
+
+            let stompClient = null;
+            let currentTicketSub = null;
+            let currentTicketCodeSub = null;
+
+            const getWsEndpoint = () => {
+                const host = window.location.hostname || 'localhost';
+                const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+                if (typeof API_BASE_URL !== 'undefined' && API_BASE_URL.startsWith('http')) {
+                    return `${API_BASE_URL}/api/notifications/ws`;
+                }
+                const port = window.location.port;
+                if (!port || port === '80' || port === '443') {
+                    return `${protocol}//${host}/api/notifications/ws`;
+                }
+                return `${protocol}//${host}:8080/api/notifications/ws`;
+            };
+
+            const disconnectTicketWs = () => {
+                if (currentTicketSub) {
+                    try { currentTicketSub.unsubscribe(); } catch (e) {}
+                    currentTicketSub = null;
+                }
+                if (currentTicketCodeSub) {
+                    try { currentTicketCodeSub.unsubscribe(); } catch (e) {}
+                    currentTicketCodeSub = null;
+                }
+            };
+
+            const subscribeTicketTopics = (ticket) => {
+                if (!ticket) return;
+                disconnectTicketWs();
+                if (!stompClient || !stompClient.connected) {
+                    initWebSocket(ticket);
+                    return;
+                }
+
+                if (ticket.id) {
+                    currentTicketSub = stompClient.subscribe(`/topic/tickets/${ticket.id}`, (frame) => {
+                        handleIncomingWsMessage(frame);
+                    });
+                }
+                if (ticket.ticketCode) {
+                    currentTicketCodeSub = stompClient.subscribe(`/topic/tickets/code/${ticket.ticketCode}`, (frame) => {
+                        handleIncomingWsMessage(frame);
+                    });
+                }
+            };
+
+            const handleIncomingWsMessage = (frame) => {
+                try {
+                    const data = JSON.parse(frame.body);
+                    if (!data || !activeTicket.value) return;
+                    if (data.ticketId !== activeTicket.value.id && data.ticketCode !== activeTicket.value.ticketCode) return;
+
+                    if (!activeTicket.value.messages) activeTicket.value.messages = [];
+                    const exists = activeTicket.value.messages.some(m => 
+                        (m.id && data.messageId && m.id === data.messageId) ||
+                        (m.content === data.content && m.createdAt === data.createdAt)
+                    );
+                    if (!exists) {
+                        activeTicket.value.messages.push({
+                            id: data.messageId,
+                            senderId: data.senderId,
+                            senderName: data.senderName,
+                            senderRole: data.senderRole,
+                            content: data.content,
+                            attachmentUrls: data.attachmentUrls,
+                            createdAt: data.createdAt
+                        });
+                        scrollToBottom();
+
+                        if (opsTickets.value && opsTickets.value.length) {
+                            const targetOps = opsTickets.value.find(t => t.id === activeTicket.value.id);
+                            if (targetOps) {
+                                if (!targetOps.messages) targetOps.messages = [];
+                                if (!targetOps.messages.some(m => m.id === data.messageId)) {
+                                    targetOps.messages.push({ ...data, id: data.messageId });
+                                }
+                            }
+                        }
+
+                        const isFromMe = isMyMessage(data);
+                        if (!isFromMe && window.Utils?.showToast) {
+                            window.Utils.showToast('Tin Nhắn Mới', `${data.senderName || 'Đối phương'}: ${data.content || '[Ảnh đính kèm]'}`, 'info');
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[Support WebSocket] Lỗi xử lý tin nhắn:', e);
+                }
+            };
+
+            const initWebSocket = (ticketToSubscribe = null) => {
+                if (typeof SockJS === 'undefined' || typeof Stomp === 'undefined') {
+                    console.warn('[Support WebSocket] SockJS/Stomp chưa sẵn sàng. Fallback sang Smart Polling.');
+                    return;
+                }
+                if (stompClient && stompClient.connected) {
+                    if (ticketToSubscribe) subscribeTicketTopics(ticketToSubscribe);
+                    return;
+                }
+
+                try {
+                    const endpoint = getWsEndpoint();
+                    const socket = new SockJS(endpoint);
+                    stompClient = Stomp.over(socket);
+                    stompClient.debug = null;
+
+                    stompClient.connect({}, () => {
+                        isWsConnected.value = true;
+                        const target = ticketToSubscribe || activeTicket.value;
+                        if (target) {
+                            subscribeTicketTopics(target);
+                        }
+                    }, (err) => {
+                        console.warn('[Support WebSocket] Lỗi kết nối WebSocket, Smart Polling sẵn sàng:', err);
+                        isWsConnected.value = false;
+                    });
+                } catch (err) {
+                    console.warn('[Support WebSocket] Khởi tạo SockJS thất bại:', err);
+                    isWsConnected.value = false;
+                }
+            };
+
+            let pollTimer = null;
+            const startSmartPolling = () => {
+                stopSmartPolling();
+                pollTimer = setInterval(async () => {
+                    if (!activeTicket.value || document.hidden) return;
+                    await refreshActiveTicketMessagesSilently();
+                }, 3500);
+            };
+
+            const stopSmartPolling = () => {
+                if (pollTimer) {
+                    clearInterval(pollTimer);
+                    pollTimer = null;
+                }
+            };
+
+            const refreshActiveTicketMessagesSilently = async () => {
+                if (!activeTicket.value) return;
+                try {
+                    const tCode = activeTicket.value.ticketCode;
+                    const tId = activeTicket.value.id;
+                    let fresh = null;
+                    if (tCode) {
+                        fresh = await SupportService.getTicketByCode(tCode);
+                    } else if (tId) {
+                        fresh = await SupportService.getTicketById(tId);
+                    }
+                    if (fresh && fresh.messages && activeTicket.value) {
+                        const currentCount = activeTicket.value.messages?.length || 0;
+                        if (fresh.messages.length > currentCount) {
+                            activeTicket.value.messages = fresh.messages;
+                            activeTicket.value.status = fresh.status;
+                            activeTicket.value.compensationAmount = fresh.compensationAmount;
+                            activeTicket.value.resolutionNote = fresh.resolutionNote;
+                            scrollToBottom();
+                        }
+                    }
+                } catch {}
+            };
+
+            const manualRefreshChat = async () => {
+                if (!activeTicket.value) return;
+                isRefreshingChat.value = true;
+                try {
+                    let refreshed = null;
+                    if (activeTicket.value.ticketCode) {
+                        refreshed = await SupportService.getTicketByCode(activeTicket.value.ticketCode);
+                    } else if (activeTicket.value.id) {
+                        refreshed = await SupportService.getTicketById(activeTicket.value.id);
+                    }
+                    if (refreshed) {
+                        activeTicket.value = refreshed;
+                        scrollToBottom();
+                        if (window.Utils?.showToast) {
+                            window.Utils.showToast('Đã Đồng Bộ', 'Đã tải tin nhắn mới nhất thành công.', 'success');
+                        }
+                    }
+                } catch (e) {
+                    if (window.Utils?.showToast) {
+                        window.Utils.showToast('Lỗi Đồng Bộ', e.message, 'warning');
+                    }
+                } finally {
+                    setTimeout(() => { isRefreshingChat.value = false; }, 300);
+                }
+            };
+
             const selectActiveTicket = async (ticket) => {
                 if (!ticket) return;
                 try {
-                    // Tải lại chi tiết để lấy tin nhắn mới nhất (ưu tiên theo ticketCode để hỗ trợ cả khách vãng lai)
                     if (ticket.ticketCode) {
                         const refreshed = await SupportService.getTicketByCode(ticket.ticketCode);
                         activeTicket.value = refreshed;
@@ -301,11 +523,19 @@
                     } else {
                         activeTicket.value = ticket;
                     }
-                    scrollToBottom();
                 } catch {
                     activeTicket.value = ticket;
-                    scrollToBottom();
                 }
+                subscribeTicketTopics(activeTicket.value);
+                scrollToBottom();
+            };
+
+            const openDeskChatForTicket = async (ticket) => {
+                if (!ticket) return;
+                await selectActiveTicket(ticket);
+                opsViewMode.value = 'desk';
+                currentSubTab.value = 'ops';
+                scrollToBottom();
             };
 
             const sendMessage = async (presetText = null) => {
@@ -322,7 +552,9 @@
                     };
                     const newMsg = await SupportService.addMessage(activeTicket.value.id, payload);
                     if (!activeTicket.value.messages) activeTicket.value.messages = [];
-                    activeTicket.value.messages.push(newMsg);
+                    if (!activeTicket.value.messages.some(m => m.id === newMsg.id)) {
+                        activeTicket.value.messages.push(newMsg);
+                    }
                     chatInput.value = '';
                     selectedAttachmentUrl.value = null;
                     scrollToBottom();
@@ -337,6 +569,8 @@
                 nextTick(() => {
                     const el = document.getElementById('chatMessagesFeed');
                     if (el) el.scrollTop = el.scrollHeight;
+                    const deskEl = document.getElementById('chatMessagesFeedDesk');
+                    if (deskEl) deskEl.scrollTop = deskEl.scrollHeight;
                 });
             };
 
@@ -618,6 +852,8 @@
             onMounted(async () => {
                 syncUserDataToForm();
                 loadGuestHistory();
+                initWebSocket();
+                startSmartPolling();
 
                 if (currentUser.value) {
                     await loadMyTickets();
@@ -625,6 +861,10 @@
 
                 if (isStaffUser.value) {
                     await loadOpsTickets();
+                    if (!activeTicket.value && opsTickets.value.length > 0) {
+                        activeTicket.value = opsTickets.value[0];
+                        subscribeTicketTopics(activeTicket.value);
+                    }
                 }
 
                 await refreshStats();
@@ -637,6 +877,15 @@
                 }
             });
 
+            onUnmounted(() => {
+                disconnectTicketWs();
+                stopSmartPolling();
+                if (stompClient) {
+                    try { stompClient.disconnect(); } catch (e) {}
+                    stompClient = null;
+                }
+            });
+
             watch(() => props.trackingCode, (newCode) => {
                 if (newCode && newCode !== formData.trackingCode) {
                     formData.trackingCode = newCode;
@@ -644,11 +893,12 @@
                     checkShipment();
                 }
             });
+
             const selectTicketForChat = (ticket) => {
                 if (!ticket) return;
-                activeTicket.value = ticket;
-                searchCode.value = ticket.ticketCode || '';
-                currentSubTab.value = 'lookup';
+                selectActiveTicket(ticket);
+                opsViewMode.value = 'desk';
+                currentSubTab.value = 'ops';
                 scrollToBottom();
             };
 
@@ -656,6 +906,14 @@
                 currentUser,
                 isStaffUser,
                 currentSubTab,
+                opsViewMode,
+                isWsConnected,
+                isRefreshingChat,
+                isMyMessage,
+                quickReplies,
+                chatPlaceholder,
+                manualRefreshChat,
+                openDeskChatForTicket,
                 stats,
                 formData,
                 shipmentInfo,
@@ -1250,23 +1508,51 @@
                     <div class="lg:col-span-7 min-w-0 b2b-card rounded-xl shadow-xs overflow-hidden bg-white flex flex-col border border-slate-200 h-[620px] lg:h-[680px]">
                         
                         <div class="bg-white px-3.5 py-2.5 border-b border-slate-200 flex items-center justify-between shrink-0">
-                            <div class="flex items-center space-x-2.5">
-                                <div class="relative">
-                                    <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                                        CS
+                            <div class="flex items-center space-x-2.5 min-w-0">
+                                <div class="relative shrink-0">
+                                    <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-xs"
+                                        :class="isStaffUser ? 'bg-amber-600 text-white' : 'bg-blue-600 text-white'">
+                                        {{ isStaffUser ? 'KH' : 'CS' }}
                                     </div>
+                                    <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white"
+                                        :class="isWsConnected ? 'bg-emerald-500 animate-pulse' : 'bg-blue-400'"></span>
                                 </div>
-                                <div>
-                                    <div class="flex items-center space-x-1.5">
-                                        <span class="font-bold text-slate-800 text-xs">{{ activeTicket?.assignedToName || 'Chưa phân công' }}</span>
-                                        <span v-if="activeTicket?.assignedToName" class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-blue-100 text-blue-700">Chuyên Viên Thụ Lý</span>
+                                <div class="min-w-0">
+                                    <div class="flex items-center space-x-1.5 flex-wrap">
+                                        <span class="font-bold text-slate-800 text-xs truncate max-w-[180px]">
+                                            {{ isStaffUser ? (activeTicket?.creatorName || 'Khách hàng') : (activeTicket?.assignedToName || 'Tổng Đài CSKH VNPT') }}
+                                        </span>
+                                        <span v-if="!isStaffUser && activeTicket?.assignedToName" class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-blue-100 text-blue-700">Chuyên Viên Thụ Lý</span>
+                                        <span v-if="isStaffUser && activeTicket?.creatorPhone" class="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                            {{ activeTicket.creatorPhone }}
+                                        </span>
                                     </div>
-                                    <div class="text-[10px] text-slate-400">{{ activeTicket?.assignedToName ? 'Cán bộ đang thụ lý hồ sơ này' : 'Phiếu chưa được phân công cán bộ' }}</div>
+                                    <div class="text-[10px] text-slate-400 truncate">
+                                        <template v-if="isStaffUser">
+                                            <span>Mã đơn: <strong class="text-blue-600 font-mono">{{ activeTicket?.trackingCode || '---' }}</strong> • {{ formatCategory(activeTicket?.category) }}</span>
+                                        </template>
+                                        <template v-else>
+                                            {{ activeTicket?.assignedToName ? 'Cán bộ đang thụ lý hồ sơ này' : 'Hệ thống tự động tiếp nhận & phân bổ cán bộ' }}
+                                        </template>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="flex items-center space-x-2">
-                                <span class="text-[11px] font-semibold text-slate-500">Kênh hỗ trợ 24/7</span>
+                            <div class="flex items-center space-x-1.5 shrink-0">
+                                <button 
+                                    v-if="isStaffUser && activeTicket && activeTicket.status !== 'RESOLVED' && activeTicket.status !== 'CLOSED'"
+                                    type="button" 
+                                    @click="openResolveModal(activeTicket)" 
+                                    class="btn-press px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[11px] shadow-2xs transition flex items-center space-x-1"
+                                    title="Duyệt chi bồi thường và giải quyết hồ sơ"
+                                >
+                                    <span>Xử Lý / Bồi Hoàn</span>
+                                </button>
+
+                                <span class="inline-flex items-center text-[10px] font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
+                                    <span class="w-1.5 h-1.5 rounded-full mr-1.5" :class="isWsConnected ? 'bg-emerald-500 animate-pulse' : 'bg-blue-400'"></span>
+                                    <span>{{ isWsConnected ? 'Trực tiếp' : 'Tự động' }}</span>
+                                </span>
                             </div>
                         </div>
 
@@ -1281,7 +1567,7 @@
 
                                 <template v-for="msg in activeTicket.messages" :key="msg.id">
                                     
-                                    <div v-if="msg.senderRole === 'CUSTOMER'" class="flex justify-end chat-bubble-in">
+                                    <div v-if="isMyMessage(msg)" class="flex justify-end chat-bubble-in">
                                         <div class="max-w-[85%] sm:max-w-[75%] min-w-0 space-y-1">
                                             <div class="bg-blue-600 text-white rounded-2xl rounded-tr-xs p-3 shadow-xs text-xs leading-relaxed space-y-2 chat-bubble-wrap break-words break-all">
                                                 <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
@@ -1296,17 +1582,20 @@
                                                 </div>
                                             </div>
                                             <div class="text-right text-[10px] text-slate-400 font-mono pr-1">
-                                                {{ formatTime(msg.createdAt) }} • Đã gửi ✓✓
+                                                {{ isStaffUser ? 'Bạn (CSKH)' : 'Bạn' }} • {{ formatTime(msg.createdAt) }} • Đã gửi ✓✓
                                             </div>
                                         </div>
                                     </div>
 
                                     <div v-else class="flex items-start space-x-2 chat-bubble-in">
-                                        <div class="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-[10px] shrink-0 border border-blue-200 mt-1">
-                                            CS
+                                        <div class="w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 border mt-1"
+                                            :class="isStaffUser ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-blue-100 text-blue-700 border-blue-200'">
+                                            {{ isStaffUser ? 'KH' : 'CS' }}
                                         </div>
                                         <div class="max-w-[85%] sm:max-w-[75%] min-w-0 space-y-1">
-                                            <div class="text-[10px] font-bold text-slate-700 pl-1">{{ msg.senderName || 'CSKH VNPT' }}</div>
+                                            <div class="text-[10px] font-bold text-slate-700 pl-1">
+                                                {{ msg.senderName || (isStaffUser ? 'Khách hàng' : 'CSKH VNPT') }}
+                                            </div>
                                             <div class="bg-white text-slate-800 rounded-2xl rounded-tl-xs border border-slate-200 p-3 shadow-2xs text-xs leading-relaxed space-y-2 chat-bubble-wrap break-words break-all">
                                                 <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
                                                 <div v-if="msg.attachmentUrls" class="pt-1.5 border-t border-slate-100">
@@ -1366,15 +1655,15 @@
                         </div>
 
                         <div v-if="activeTicket && activeTicket.status !== 'RESOLVED' && activeTicket.status !== 'CLOSED' && activeTicket.status !== 'REJECTED'" class="px-3.5 py-2 bg-slate-100/70 border-t border-slate-200/60 flex flex-wrap items-center gap-1.5 text-[11px] shrink-0">
-                            <span class="text-slate-400 text-[10px] font-medium shrink-0">Gợi ý nhanh:</span>
-                            <button type="button" @click="sendMessage('Đã có kết quả thẩm định trách nhiệm bưu cục chưa ạ?')" class="btn-press px-2.5 py-1 bg-white hover:bg-blue-50 hover:text-blue-700 border border-slate-200 rounded-full text-slate-600 font-medium transition">
-                                Đã có kết quả chưa?
-                            </button>
-                            <button type="button" @click="sendMessage('Tôi muốn bổ sung thêm hóa đơn mua hàng và ảnh chụp kiện hàng')" class="btn-press px-2.5 py-1 bg-white hover:bg-blue-50 hover:text-blue-700 border border-slate-200 rounded-full text-slate-600 font-medium transition">
-                                Bổ sung hóa đơn &amp; ảnh kiện hàng
-                            </button>
-                            <button type="button" @click="sendMessage('Thời gian và hình thức nhận tiền bồi thường như thế nào?')" class="btn-press px-2.5 py-1 bg-white hover:bg-blue-50 hover:text-blue-700 border border-slate-200 rounded-full text-slate-600 font-medium transition">
-                                Thời gian nhận tiền bồi thường?
+                            <span class="text-slate-400 text-[10px] font-medium shrink-0">{{ isStaffUser ? 'Mẫu phản hồi CSKH:' : 'Gợi ý nhanh:' }}</span>
+                            <button 
+                                v-for="reply in quickReplies" 
+                                :key="reply"
+                                type="button" 
+                                @click="sendMessage(reply)" 
+                                class="btn-press px-2.5 py-1 bg-white hover:bg-blue-50 hover:text-blue-700 border border-slate-200 rounded-full text-slate-600 font-medium transition truncate max-w-full"
+                            >
+                                {{ reply }}
                             </button>
                         </div>
 
@@ -1431,7 +1720,7 @@
                                 @keydown.enter="sendMessage()" 
                                 :disabled="!activeTicket || isSendingMessage"
                                 maxlength="1000"
-                                :placeholder="isUploadingAttachment ? 'Đang tải ảnh lên MinIO...' : 'Nhập tin nhắn trao đổi với CSKH... (nhấn Enter để gửi)'" 
+                                :placeholder="chatPlaceholder" 
                                 class="flex-1 min-w-0 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-blue-600 transition"
                             />
                             <button 
@@ -1453,9 +1742,10 @@
 
                 <div v-if="currentSubTab === 'ops' && isStaffUser" class="tab-content-enter space-y-3.5">
                     
-                    <div class="b2b-card rounded-xl p-3 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <!-- Top control bar: Search, Status filter, Mode Switcher -->
+                    <div class="b2b-card rounded-xl p-3 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
                         <div class="flex flex-wrap items-center gap-2 flex-1">
-                            <div class="relative w-full sm:w-72">
+                            <div class="relative w-full sm:w-64">
                                 <input 
                                     type="text" 
                                     v-model="opsSearchQuery" 
@@ -1472,14 +1762,46 @@
                                 <option value="IN_PROGRESS">Đang xử lý (IN_PROGRESS)</option>
                                 <option value="RESOLVED">Đã giải quyết (RESOLVED)</option>
                             </select>
+
+                            <span class="text-xs text-slate-400 hidden xl:inline">|</span>
+                            <span class="text-xs text-slate-500 font-medium">
+                                <strong>{{ filteredOpsTickets.length }}</strong> hồ sơ
+                            </span>
                         </div>
 
-                        <div class="text-xs text-slate-500 font-medium">
-                            Hiển thị <strong>{{ filteredOpsTickets.length }}</strong> hồ sơ trên toàn hệ thống
+                        <!-- Mode Switcher -->
+                        <div class="flex items-center space-x-1.5 self-start md:self-auto bg-slate-100 p-1 rounded-xl border border-slate-200/80">
+                            <button 
+                                type="button" 
+                                @click="opsViewMode = 'table'"
+                                :class="[
+                                    'px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5',
+                                    opsViewMode === 'table' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                                ]"
+                            >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                <span>Dạng Bảng</span>
+                            </button>
+
+                            <button 
+                                type="button" 
+                                @click="opsViewMode = 'desk'; if (!activeTicket && filteredOpsTickets.length) selectActiveTicket(filteredOpsTickets[0]);"
+                                :class="[
+                                    'px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5',
+                                    opsViewMode === 'desk' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                                ]"
+                            >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                                <span>Trực Chat CSKH</span>
+                                <span v-if="stats.open > 0" class="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-500 text-white animate-pulse">
+                                    {{ stats.open }}
+                                </span>
+                            </button>
                         </div>
                     </div>
 
-                    <div class="b2b-card rounded-xl shadow-sm overflow-hidden">
+                    <!-- MODE 1: DẠNG BẢNG DANH SÁCH -->
+                    <div v-if="opsViewMode === 'table'" class="b2b-card rounded-xl shadow-sm overflow-hidden tab-content-enter">
                         <div class="overflow-x-auto">
                             <table class="w-full text-left text-xs text-slate-600">
                                 <thead class="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200">
@@ -1551,11 +1873,12 @@
                                             </button>
                                             <button 
                                                 type="button" 
-                                                @click="selectTicketForChat(t)"
-                                                class="btn-press px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-lg text-xs transition border border-blue-200"
-                                                title="Mở hồ sơ này trong khung Chatbox 2 cột"
+                                                @click="openDeskChatForTicket(t)"
+                                                class="btn-press px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-lg text-xs transition border border-blue-200 inline-flex items-center space-x-1"
+                                                title="Mở khung chat trực tiếp với khách hàng"
                                             >
-                                                Chatbox
+                                                <span>Nhắn Tin</span>
+                                                <span v-if="t.messages && t.messages.length" class="text-[9.5px] font-bold font-mono">({{ t.messages.length }})</span>
                                             </button>
                                         </td>
                                     </tr>
@@ -1568,6 +1891,286 @@
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+
+                    <!-- MODE 2: TRỰC CHAT CSKH (2 CỘT) -->
+                    <div v-else class="tab-content-enter grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch w-full max-w-full min-w-0">
+                        
+                        <!-- Cột Trái: Danh Sách Phiếu Chờ Xử Lý (col-span-5) -->
+                        <div class="lg:col-span-5 min-w-0 flex flex-col space-y-3">
+                            <div class="b2b-card rounded-xl p-3 shadow-xs space-y-2">
+                                <div class="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                                    <span class="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center space-x-1.5">
+                                        <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                                        <span>Danh Sách Hồ Sơ Cần Hỗ Trợ ({{ filteredOpsTickets.length }})</span>
+                                    </span>
+                                    <span class="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                                        Trực Tuyến
+                                    </span>
+                                </div>
+
+                                <div class="space-y-1.5 max-h-[580px] overflow-y-auto pr-0.5">
+                                    <div 
+                                        v-for="t in filteredOpsTickets" 
+                                        :key="t.id" 
+                                        @click="selectActiveTicket(t)"
+                                        :class="[
+                                            'btn-press p-2.5 rounded-xl border cursor-pointer transition text-xs space-y-1',
+                                            activeTicket && activeTicket.id === t.id ? 'border-2 border-blue-600 bg-blue-50/70 shadow-xs' : 'border-slate-200 hover:border-slate-300 bg-white'
+                                        ]"
+                                    >
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center space-x-1.5 min-w-0">
+                                                <span class="font-mono font-bold text-blue-700 truncate text-xs">{{ t.ticketCode }}</span>
+                                                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold border" :class="formatPriorityBadge(t.priority)">
+                                                    {{ formatCategory(t.category) }}
+                                                </span>
+                                            </div>
+                                            <span class="px-2 py-0.2 rounded-full text-[9px] font-bold border shrink-0" :class="formatStatusBadge(t.status)">
+                                                {{ formatStatusText(t.status) }}
+                                            </span>
+                                        </div>
+
+                                        <p class="text-[11.5px] font-semibold text-slate-800 truncate">{{ t.creatorName }} <span class="text-slate-400 font-mono font-normal">({{ t.creatorPhone }})</span></p>
+
+                                        <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono pt-0.5">
+                                            <span class="text-blue-600 font-bold truncate">Đơn: {{ t.trackingCode || 'Chưa gắn' }}</span>
+                                            <div class="flex items-center space-x-1.5 shrink-0">
+                                                <span class="inline-flex items-center space-x-1 px-1.5 py-0.5 bg-slate-100 rounded text-slate-600 font-medium text-[10px]">
+                                                    <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                                                    </svg>
+                                                    <span>{{ (t.messages || []).length }} tin</span>
+                                                </span>
+                                                <span>{{ formatTime(t.createdAt) }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div v-if="filteredOpsTickets.length === 0" class="text-center py-10 text-[11px] text-slate-400">
+                                        Không có hồ sơ nào phù hợp bộ lọc.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Cột Phải: Khung Hội Thoại Nghiệp Vụ CSKH (col-span-7) -->
+                        <div class="lg:col-span-7 min-w-0 b2b-card rounded-xl shadow-xs overflow-hidden bg-white flex flex-col border border-slate-200 h-[620px] lg:h-[680px]">
+                            
+                            <!-- Header thông tin khách hàng & thao tác CSKH -->
+                            <div class="bg-white px-3.5 py-2.5 border-b border-slate-200 flex items-center justify-between shrink-0">
+                                <div class="flex items-center space-x-2.5 min-w-0">
+                                    <div class="relative shrink-0">
+                                        <div class="w-8 h-8 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                                            KH
+                                        </div>
+                                        <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white"
+                                            :class="isWsConnected ? 'bg-emerald-500 animate-pulse' : 'bg-blue-400'"></span>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="flex items-center space-x-1.5 flex-wrap">
+                                            <span class="font-bold text-slate-800 text-xs truncate max-w-[180px]">
+                                                {{ activeTicket?.creatorName || 'Khách Hàng' }}
+                                            </span>
+                                            <span v-if="activeTicket?.creatorPhone" class="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                                {{ activeTicket.creatorPhone }}
+                                            </span>
+                                            <span v-if="activeTicket" class="px-2 py-0.2 rounded-full text-[9.5px] font-bold border" :class="formatStatusBadge(activeTicket.status)">
+                                                {{ formatStatusText(activeTicket.status) }}
+                                            </span>
+                                        </div>
+                                        <div class="text-[10px] text-slate-400 truncate">
+                                            <span>Mã bưu gửi: <strong class="text-blue-600 font-mono">{{ activeTicket?.trackingCode || '---' }}</strong> • Hồ sơ: <span class="font-mono">{{ activeTicket?.ticketCode }}</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center space-x-1.5 shrink-0">
+                                    <button 
+                                        v-if="activeTicket && (activeTicket.status === 'OPEN' || activeTicket.status === 'ESCALATED')"
+                                        type="button" 
+                                        @click="handleAssignTicket(activeTicket)" 
+                                        class="btn-press px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-[11px] shadow-2xs transition"
+                                    >
+                                        Tiếp Nhận
+                                    </button>
+
+                                    <button 
+                                        v-if="activeTicket && activeTicket.status !== 'RESOLVED' && activeTicket.status !== 'CLOSED'"
+                                        type="button" 
+                                        @click="openResolveModal(activeTicket)" 
+                                        class="btn-press px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[11px] shadow-2xs transition flex items-center space-x-1"
+                                        title="Duyệt chi bồi thường và giải quyết hồ sơ"
+                                    >
+                                        <span>Duyệt Chi / Chốt</span>
+                                    </button>
+
+                                    <span class="inline-flex items-center text-[10px] font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
+                                        <span class="w-1.5 h-1.5 rounded-full mr-1.5" :class="isWsConnected ? 'bg-emerald-500 animate-pulse' : 'bg-blue-400'"></span>
+                                        <span>{{ isWsConnected ? 'Trực tiếp' : 'Tự động' }}</span>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Feed tin nhắn Live Desk -->
+                            <div id="chatMessagesFeedDesk" class="p-3.5 space-y-3 flex-1 overflow-y-auto overflow-x-hidden min-h-0 bg-[#f8fafc]">
+                                <template v-if="activeTicket">
+                                    <div class="flex justify-center">
+                                        <span class="px-3 py-1 rounded-full bg-slate-200/80 text-slate-600 text-[10px] font-medium border border-slate-300/40 text-center">
+                                            {{ formatTime(activeTicket.createdAt) }} • Tiếp nhận hồ sơ khiếu nại {{ activeTicket.ticketCode }}
+                                        </span>
+                                    </div>
+
+                                    <template v-for="msg in activeTicket.messages" :key="msg.id">
+                                        
+                                        <!-- CSKH gửi (bên phải, màu xanh) -->
+                                        <div v-if="isMyMessage(msg)" class="flex justify-end chat-bubble-in">
+                                            <div class="max-w-[85%] sm:max-w-[75%] min-w-0 space-y-1">
+                                                <div class="bg-blue-600 text-white rounded-2xl rounded-tr-xs p-3 shadow-xs text-xs leading-relaxed space-y-2 chat-bubble-wrap break-words break-all">
+                                                    <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
+                                                    <div v-if="msg.attachmentUrls" class="pt-1.5 border-t border-blue-400/40">
+                                                        <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-white/20 bg-blue-700/50 hover:bg-blue-700 transition">
+                                                            <img :src="msg.attachmentUrls" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
+                                                            <div class="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-xs text-white rounded text-[9px] flex items-center space-x-1 opacity-90 group-hover:opacity-100 transition">
+                                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                                                <span>Xem ảnh gốc</span>
+                                                            </div>
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                                <div class="text-right text-[10px] text-slate-400 font-mono pr-1">
+                                                    Bạn (CSKH) • {{ formatTime(msg.createdAt) }} • Đã gửi ✓✓
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Khách hàng gửi (bên trái, màu trắng với avatar KH) -->
+                                        <div v-else class="flex items-start space-x-2 chat-bubble-in">
+                                            <div class="w-7 h-7 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-[10px] shrink-0 border border-amber-200 mt-1">
+                                                KH
+                                            </div>
+                                            <div class="max-w-[85%] sm:max-w-[75%] min-w-0 space-y-1">
+                                                <div class="text-[10px] font-bold text-slate-700 pl-1">
+                                                    {{ msg.senderName || 'Khách hàng' }}
+                                                </div>
+                                                <div class="bg-white text-slate-800 rounded-2xl rounded-tl-xs border border-slate-200 p-3 shadow-2xs text-xs leading-relaxed space-y-2 chat-bubble-wrap break-words break-all">
+                                                    <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
+                                                    <div v-if="msg.attachmentUrls" class="pt-1.5 border-t border-slate-100">
+                                                        <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition">
+                                                            <img :src="msg.attachmentUrls" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
+                                                            <div class="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-xs text-white rounded text-[9px] flex items-center space-x-1 opacity-90 group-hover:opacity-100 transition">
+                                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                                                <span>Xem ảnh gốc</span>
+                                                            </div>
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                                <div class="text-[10px] text-slate-400 font-mono pl-1">
+                                                    {{ formatTime(msg.createdAt) }}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </template>
+
+                                    <div v-if="activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED'" class="tab-content-enter p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
+                                        <div class="flex items-center space-x-2 text-emerald-800 font-bold text-xs">
+                                            <span class="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">✓</span>
+                                            <span>BIÊN BẢN GIẢI QUYẾT &amp; DUYỆT BỒI HOÀN THÀNH CÔNG</span>
+                                        </div>
+                                        <div class="text-[11.5px] text-emerald-700 leading-relaxed">
+                                            {{ activeTicket.resolutionNote || 'Bưu chính VNPT đã xác minh trách nhiệm và hoàn tất phương án giải quyết.' }}
+                                            Số tiền bồi thường duyệt chi: <strong class="text-emerald-900 font-bold font-mono">{{ formatCurrency(activeTicket.compensationAmount) }}</strong>.
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <div v-else class="h-full flex flex-col items-center justify-center text-slate-400 text-xs py-16 space-y-2">
+                                    <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                                    <span>Vui lòng chọn một hồ sơ khiếu nại trong danh sách bên trái để mở hội thoại.</span>
+                                </div>
+                            </div>
+
+                            <!-- Mẫu phản hồi nhanh CSKH -->
+                            <div v-if="activeTicket && activeTicket.status !== 'RESOLVED' && activeTicket.status !== 'CLOSED' && activeTicket.status !== 'REJECTED'" class="px-3.5 py-2 bg-slate-100/70 border-t border-slate-200/60 flex flex-wrap items-center gap-1.5 text-[11px] shrink-0">
+                                <span class="text-slate-400 text-[10px] font-medium shrink-0">Mẫu phản hồi CSKH:</span>
+                                <button 
+                                    v-for="reply in quickReplies" 
+                                    :key="reply"
+                                    type="button" 
+                                    @click="sendMessage(reply)" 
+                                    class="btn-press px-2.5 py-1 bg-white hover:bg-blue-50 hover:text-blue-700 border border-slate-200 rounded-full text-slate-600 font-medium transition truncate max-w-full"
+                                >
+                                    {{ reply }}
+                                </button>
+                            </div>
+
+                            <!-- Attachment preview -->
+                            <div v-if="selectedAttachmentUrl" class="px-3.5 py-2 bg-blue-50/90 border-t border-blue-100 flex items-center justify-between shrink-0">
+                                <div class="flex items-center space-x-2.5">
+                                    <div class="relative w-11 h-11 rounded-lg overflow-hidden border border-blue-200 bg-white shrink-0 shadow-2xs">
+                                        <img :src="selectedAttachmentUrl" alt="Ảnh đính kèm" class="w-full h-full object-cover" />
+                                    </div>
+                                    <div class="text-[11px] leading-snug">
+                                        <div class="font-semibold text-blue-900 flex items-center space-x-1">
+                                            <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                            <span>1 ảnh đã sẵn sàng đính kèm</span>
+                                        </div>
+                                        <span class="text-[10px] text-blue-600 font-mono">MinIO Object Storage</span>
+                                    </div>
+                                </div>
+                                <button 
+                                    type="button" 
+                                    @click="removeAttachment" 
+                                    class="btn-press px-2 py-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition"
+                                >
+                                    Hủy đính kèm
+                                </button>
+                            </div>
+
+                            <!-- Ô nhập tin nhắn -->
+                            <div class="p-3 bg-white border-t border-slate-200 flex items-center space-x-2 shrink-0" :class="activeTicket && (activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED') ? 'opacity-50 pointer-events-none' : ''">
+                                <button 
+                                    type="button" 
+                                    @click="triggerChatFileInput" 
+                                    :disabled="isSendingMessage || isUploadingAttachment"
+                                    title="Đính kèm ảnh sự cố kiện hàng / biên bản (MinIO)"
+                                    class="btn-press p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition disabled:opacity-40 shrink-0"
+                                    :class="!activeTicket ? 'opacity-60' : ''"
+                                >
+                                    <svg v-if="!isUploadingAttachment" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
+                                    </svg>
+                                    <svg v-else class="w-4 h-4 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                    </svg>
+                                </button>
+
+                                <input 
+                                    type="text" 
+                                    v-model="chatInput" 
+                                    @keydown.enter="sendMessage()" 
+                                    :disabled="!activeTicket || isSendingMessage"
+                                    maxlength="1000"
+                                    placeholder="Nhập tin nhắn phản hồi khách hàng... (nhấn Enter để gửi)" 
+                                    class="flex-1 min-w-0 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-blue-600 transition"
+                                />
+                                <button 
+                                    type="button" 
+                                    @click="sendMessage()" 
+                                    :disabled="!activeTicket || isSendingMessage || isUploadingAttachment || (!chatInput.trim() && !selectedAttachmentUrl)"
+                                    class="btn-press px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-xs transition flex items-center space-x-1.5 disabled:opacity-50 shrink-0"
+                                >
+                                    <span>Gửi</span>
+                                    <svg class="w-3.5 h-3.5 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                                    </svg>
+                                </button>
+                            </div>
+
+                        </div>
+
                     </div>
 
                 </div>

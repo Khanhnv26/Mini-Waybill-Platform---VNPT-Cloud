@@ -26,7 +26,7 @@ spec:
                 topologyKey: kubernetes.io/hostname
       containers:
         - name: api-gateway
-          image: khanhnv26/api-gateway:latest
+          image: khanhnv26/api-gateway:d83c5eb42a8cf7798eb7737c02edc5f74239f7d7
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

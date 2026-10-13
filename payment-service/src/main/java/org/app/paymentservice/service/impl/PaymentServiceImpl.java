@@ -2,9 +2,13 @@ package org.app.paymentservice.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.persistence.criteria.Predicate;
+import org.app.paymentservice.dto.request.ConfirmCashRequest;
 import org.app.paymentservice.dto.request.CreateQrRequest;
+import org.app.paymentservice.dto.request.PaymentFilterRequest;
 import org.app.paymentservice.dto.request.WebhookPayloadDto;
 import org.app.paymentservice.dto.response.PaymentResponse;
+import org.app.paymentservice.dto.response.PaymentStatsResponse;
 import org.app.paymentservice.entity.*;
 import org.app.paymentservice.exception.InvalidWebhookException;
 import org.app.paymentservice.exception.PaymentException;
@@ -14,6 +18,11 @@ import org.app.paymentservice.repository.WebhookLogRepository;
 import org.app.paymentservice.service.PaymentService;
 import org.app.paymentservice.service.VietQrService;
 import org.app.sharedevents.entity.PaymentSuccessEvent;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -22,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -91,6 +101,8 @@ public class PaymentServiceImpl implements PaymentService {
                 .bankCode(vietQrService.getDefaultBank())
                 .accountNo(vietQrService.getDefaultAcc())
                 .payerNote(req.getNote())
+                .customerCode(req.getCustomerCode())
+                .createdBy(req.getCreatedBy())
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -296,5 +308,213 @@ public class PaymentServiceImpl implements PaymentService {
             return matcher.group(1).trim().toUpperCase();
         }
         return null;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PaymentResponse> getTransactions(PaymentFilterRequest filter, String currentUserId, String userRoles) {
+        if (filter == null) {
+            filter = new PaymentFilterRequest();
+        }
+
+        boolean isPureCustomer = isCustomerOnly(userRoles);
+        final String effectiveCustomerCode;
+        if (isPureCustomer) {
+            effectiveCustomerCode = (filter.getCustomerCode() != null && !filter.getCustomerCode().isBlank())
+                    ? filter.getCustomerCode() : (currentUserId != null ? currentUserId : "");
+        } else {
+            effectiveCustomerCode = filter.getCustomerCode();
+        }
+
+        final PaymentFilterRequest f = filter;
+        Specification<PaymentTransaction> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (f.getKeyword() != null && !f.getKeyword().isBlank()) {
+                String kw = "%" + f.getKeyword().trim().toUpperCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.upper(root.get("trackingCode")), kw),
+                        cb.like(cb.upper(root.get("paymentCode")), kw),
+                        cb.like(cb.upper(root.get("referenceCode")), kw)
+                ));
+            }
+
+            if (f.getStatus() != null) {
+                predicates.add(cb.equal(root.get("status"), f.getStatus()));
+            }
+
+            if (f.getPaymentType() != null) {
+                predicates.add(cb.equal(root.get("paymentType"), f.getPaymentType()));
+            }
+
+            if (f.getPaymentMethod() != null) {
+                predicates.add(cb.equal(root.get("paymentMethod"), f.getPaymentMethod()));
+            }
+
+            if (effectiveCustomerCode != null && !effectiveCustomerCode.isBlank()) {
+                if (isPureCustomer) {
+                    predicates.add(cb.or(
+                            cb.equal(root.get("customerCode"), effectiveCustomerCode),
+                            cb.equal(root.get("createdBy"), effectiveCustomerCode)
+                    ));
+                } else {
+                    predicates.add(cb.equal(root.get("customerCode"), effectiveCustomerCode));
+                }
+            }
+
+            if (f.getFromDate() != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), f.getFromDate()));
+            }
+
+            if (f.getToDate() != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), f.getToDate()));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        int page = Math.max(0, filter.getPage());
+        int size = (filter.getSize() > 0 && filter.getSize() <= 200) ? filter.getSize() : 20;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        return paymentRepo.findAll(spec, pageable).map(PaymentResponse::from);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaymentStatsResponse getStats(String customerCode, String currentUserId, String userRoles) {
+        boolean isPureCustomer = isCustomerOnly(userRoles);
+        final String effectiveCustomerCode;
+        if (isPureCustomer) {
+            effectiveCustomerCode = (customerCode != null && !customerCode.isBlank())
+                    ? customerCode : (currentUserId != null ? currentUserId : "");
+        } else {
+            effectiveCustomerCode = customerCode;
+        }
+
+        Specification<PaymentTransaction> spec = (root, query, cb) -> {
+            if (effectiveCustomerCode != null && !effectiveCustomerCode.isBlank()) {
+                if (isPureCustomer) {
+                    return cb.or(
+                            cb.equal(root.get("customerCode"), effectiveCustomerCode),
+                            cb.equal(root.get("createdBy"), effectiveCustomerCode)
+                    );
+                }
+                return cb.equal(root.get("customerCode"), effectiveCustomerCode);
+            }
+            return cb.conjunction();
+        };
+
+        List<PaymentTransaction> list = paymentRepo.findAll(spec);
+
+        BigDecimal totalCodSuccess = BigDecimal.ZERO;
+        BigDecimal totalShippingFeeSuccess = BigDecimal.ZERO;
+        BigDecimal totalCodPending = BigDecimal.ZERO;
+        long pendingCount = 0;
+        long successCount = 0;
+
+        for (PaymentTransaction tx : list) {
+            BigDecimal amt = tx.getAmount() != null ? tx.getAmount() : BigDecimal.ZERO;
+            if (tx.getStatus() == PaymentStatus.SUCCESS) {
+                successCount++;
+                if (tx.getPaymentType() == PaymentType.COD) {
+                    totalCodSuccess = totalCodSuccess.add(amt);
+                } else if (tx.getPaymentType() == PaymentType.SHIPPING_FEE) {
+                    totalShippingFeeSuccess = totalShippingFeeSuccess.add(amt);
+                }
+            } else if (tx.getStatus() == PaymentStatus.PENDING) {
+                pendingCount++;
+                if (tx.getPaymentType() == PaymentType.COD) {
+                    totalCodPending = totalCodPending.add(amt);
+                }
+            }
+        }
+
+        return PaymentStatsResponse.builder()
+                .totalCodSuccess(totalCodSuccess)
+                .totalShippingFeeSuccess(totalShippingFeeSuccess)
+                .totalCodPending(totalCodPending)
+                .pendingCount(pendingCount)
+                .successCount(successCount)
+                .totalCount(list.size())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public PaymentResponse confirmCashPayment(ConfirmCashRequest req, String currentUserId) {
+        if (req == null || req.getTrackingCode() == null || req.getTrackingCode().isBlank()) {
+            throw new PaymentException("INVALID_REQUEST", "Mã vận đơn không được để trống!");
+        }
+        String trackingCode = req.getTrackingCode().trim().toUpperCase();
+
+        if (isShipmentCancelled(trackingCode)) {
+            throw new PaymentException("SHIPMENT_CANCELLED", "Đơn hàng " + trackingCode + " đã bị hủy, không thể xác nhận thu tiền mặt!");
+        }
+
+        PaymentType type = req.getPaymentType() != null ? req.getPaymentType() : PaymentType.COD;
+
+        Optional<PaymentTransaction> pendingTxOpt = paymentRepo
+                .findFirstByTrackingCodeAndStatusOrderByCreatedAtDesc(trackingCode, PaymentStatus.PENDING);
+
+        PaymentTransaction tx;
+        if (pendingTxOpt.isPresent()) {
+            tx = pendingTxOpt.get();
+            if (req.getAmount() != null && req.getAmount().compareTo(BigDecimal.ZERO) > 0) {
+                tx.setAmount(req.getAmount());
+            }
+            if (req.getPaymentType() != null) {
+                tx.setPaymentType(req.getPaymentType());
+            }
+        } else {
+            BigDecimal amount = (req.getAmount() != null && req.getAmount().compareTo(BigDecimal.ZERO) > 0)
+                    ? req.getAmount() : BigDecimal.valueOf(35000);
+            tx = PaymentTransaction.builder()
+                    .paymentCode("CASH_" + trackingCode + "_" + System.currentTimeMillis())
+                    .trackingCode(trackingCode)
+                    .amount(amount)
+                    .paymentType(type)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+        }
+
+        tx.setPaymentMethod(PaymentMethod.CASH);
+        tx.setStatus(PaymentStatus.SUCCESS);
+        tx.setPaidAt(LocalDateTime.now());
+        tx.setReferenceCode("CASH_REF_" + System.currentTimeMillis());
+        tx.setPayerNote(req.getNote() != null && !req.getNote().isBlank() ? req.getNote() : "Thu tiền mặt trực tiếp");
+        if (currentUserId != null && !currentUserId.isBlank()) {
+            tx.setCreatedBy(currentUserId);
+        }
+
+        PaymentTransaction saved = paymentRepo.save(tx);
+
+        PaymentSuccessEvent event = PaymentSuccessEvent.builder()
+                .eventId(UUID.randomUUID().toString())
+                .paymentCode(saved.getPaymentCode())
+                .trackingCode(saved.getTrackingCode())
+                .amount(saved.getAmount())
+                .paymentType(saved.getPaymentType().name())
+                .paymentMethod(saved.getPaymentMethod().name())
+                .referenceCode(saved.getReferenceCode())
+                .payerNote(saved.getPayerNote())
+                .paidAt(saved.getPaidAt())
+                .build();
+
+        kafkaTemplate.send(PAYMENT_SUCCESS_TOPIC, saved.getTrackingCode(), event);
+        log.info("[PAYMENT] Đã xác nhận thu tiền mặt và phát Kafka event: đơn={}, mã GD={}, số tiền={}",
+                saved.getTrackingCode(), saved.getPaymentCode(), saved.getAmount());
+
+        return PaymentResponse.from(saved);
+    }
+
+    private boolean isCustomerOnly(String userRoles) {
+        if (userRoles == null || userRoles.isBlank()) return false;
+        String upper = userRoles.toUpperCase();
+        boolean hasCustomer = upper.contains("ROLE_CUSTOMER") || upper.contains("CUSTOMER");
+        boolean hasStaff = upper.contains("ROLE_ADMIN") || upper.contains("ADMIN")
+                || upper.contains("POST_OFFICE") || upper.contains("DISPATCHER")
+                || upper.contains("HUB") || upper.contains("ROLE_CS");
+        return hasCustomer && !hasStaff;
     }
 }
