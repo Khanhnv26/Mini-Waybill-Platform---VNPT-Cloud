@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: support-service
-          image: khanhnv26/support-service:de574a6685d478d59720eacfa93a92d19d2d6ee4
+          image: khanhnv26/support-service:d83c5eb42a8cf7798eb7737c02edc5f74239f7d7
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
