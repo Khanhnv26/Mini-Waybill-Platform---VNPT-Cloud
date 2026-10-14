@@ -24,7 +24,7 @@ spec:
               containerPort: 8083
           env:
             - name: JAVA_TOOL_OPTIONS
-              value: "-Xms64m -Xmx200m -XX:+UseSerialGC"
+              value: "-Xms64m -Xmx200m -XX:+UseSerialGC -Duser.timezone=Asia/Ho_Chi_Minh"
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=routing_db;encrypt=true;trustServerCertificate=true;"
             - name: SPRING_DATASOURCE_USERNAME
@@ -55,8 +55,6 @@ spec:
               value: "${HOSTNAME}:${server.port}"
             - name: TZ
               value: "Asia/Ho_Chi_Minh"
-            - name: JAVA_TOOL_OPTIONS
-              value: "-Duser.timezone=Asia/Ho_Chi_Minh"
             - name: SPRING_DATA_REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
