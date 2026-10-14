@@ -551,7 +551,7 @@
                         <span class="text-xs font-extrabold uppercase tracking-wider text-slate-500">
                             3. Chi Tiết Quyền Lợi &amp; Đặc Quyền Gói Cước
                         </span>
-                        <span class="text-[11px] text-slate-400 font-medium hidden sm:inline">Tiêu chuẩn nghiệp vụ VNPT Post 2026</span>
+                        <span class="text-[11px] text-slate-400 font-medium hidden sm:inline">Tiêu chuẩn nghiệp vụ Waybill 2026</span>
                     </div>
 
                     <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">

@@ -52,7 +52,7 @@ public class ExcelExportServiceImpl implements ExcelExportService {
 
         Row titleRow = sheet1.createRow(1);
         Cell titleCell = titleRow.createCell(1);
-        titleCell.setCellValue("TỔNG CÔNG TY DỊCH VỤ VIỄN THÔNG & BƯU CHÍNH VNPT");
+        titleCell.setCellValue("HỆ THỐNG QUẢN TRỊ BƯU CHÍNH TOÀN TRÌNH - WAYBILL PLATFORM");
         CellStyle mainTitleStyle = workbook.createCellStyle();
         Font font = workbook.createFont();
         font.setBold(true);
@@ -66,7 +66,7 @@ public class ExcelExportServiceImpl implements ExcelExportService {
         subTitleCell.setCellValue("BÁO CÁO TỔNG HỢP VẬN ĐƠN & ĐỐI SOÁT DÒNG TIỀN COD");
 
         Row periodRow = sheet1.createRow(3);
-        periodRow.createCell(1).setCellValue("Kỳ báo cáo: " + dateRangeText + " | Hệ thống: VNPT Waybill Platform");
+        periodRow.createCell(1).setCellValue("Kỳ báo cáo: " + dateRangeText + " | Hệ thống: Waybill Platform");
 
         int r = 5;
         Row kpiHeader = sheet1.createRow(r++);

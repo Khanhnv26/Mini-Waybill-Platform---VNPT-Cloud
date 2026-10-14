@@ -25,7 +25,7 @@
             >
                 <div class="flex items-center space-x-3 overflow-hidden">
                     <div class="w-9 h-9 rounded-xl vnpt-gradient text-white flex items-center justify-center shadow-md shadow-blue-600/25 flex-shrink-0 border border-white/20 select-none">
-                        <span class="text-[10px] font-black tracking-tight leading-none">VNPT</span>
+                        <span class="text-[10px] font-black tracking-tight leading-none">WB</span>
                     </div>
                     <div v-show="!isSidebarCollapsed" class="leading-tight overflow-hidden">
                         <div class="font-extrabold text-sm text-slate-900 dark:text-white tracking-tight whitespace-nowrap">

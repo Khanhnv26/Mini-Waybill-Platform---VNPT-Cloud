@@ -39,12 +39,12 @@
             <div class="space-y-2">
                 <h4 class="text-white font-bold text-xs uppercase tracking-wider whitespace-nowrap">Tổng Đài Bưu Chính</h4>
                 <a href="tel:1900545481" class="text-white font-bold text-base text-cyan-300 hover:underline block whitespace-nowrap">1900 54 54 81</a>
-                <p class="text-slate-400 text-[11px] whitespace-nowrap">Email: cskh@vnpt-post.vn</p>
-                <p class="text-slate-400 text-[11px]">Tòa nhà VNPT, 57 Huỳnh Thúc Kháng, Đống Đa, Hà Nội</p>
+                <p class="text-slate-400 text-[11px] whitespace-nowrap">Email: cskh@waybill.vn</p>
+                <p class="text-slate-400 text-[11px]">Tòa nhà Waybill, 57 Huỳnh Thúc Kháng, Đống Đa, Hà Nội</p>
             </div>
         </div>
         <div class="max-w-7xl mx-auto pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500">
-            <span>© 2026 TỔNG CÔNG TY DỊCH VỤ VIỄN THÔNG VNPT - TẤT CẢ QUYỀN ĐƯỢC BẢO LƯU</span>
+            <span>© 2026 WAYBILL PLATFORM - TẤT CẢ QUYỀN ĐƯỢC BẢO LƯU</span>
             <span class="mt-2 sm:mt-0 font-mono">Cổng Dịch Vụ Khách Hàng Công Khai v2.6.0</span>
         </div>
     </footer>

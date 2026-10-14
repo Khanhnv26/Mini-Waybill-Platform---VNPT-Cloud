@@ -86,7 +86,7 @@ public class TicketServiceImpl implements TicketService {
         if (savedTicket.getCreatorEmail() != null && !savedTicket.getCreatorEmail().isBlank()) {
             SendEmailEvent welcomeEmail = SendEmailEvent.builder()
                     .toEmail(savedTicket.getCreatorEmail())
-                    .subject("[VNPT Waybill] Tiếp nhận yêu cầu khiếu nại " + savedTicket.getTicketCode())
+                    .subject("[Waybill] Tiếp nhận yêu cầu khiếu nại " + savedTicket.getTicketCode())
                     .body("Xin chào " + savedTicket.getCreatorName() + ",\n\n"
                             + "Yêu cầu khiếu nại của bạn về đơn hàng [" + savedTicket.getTrackingCode() + "] đã được tiếp nhận thành công.\n"
                             + "Mã phiếu hỗ trợ: " + savedTicket.getTicketCode() + "\n"

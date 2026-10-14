@@ -430,7 +430,7 @@
                             <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
                                 Kế Toán &amp; Đối Soát Dòng Tiền
                             </span>
-                            <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
+                            <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
                         </div>
                         <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white flex items-center space-x-2">
                             <span>Quản Lý Giao Dịch &amp; Đối Soát Thanh Toán</span>
@@ -442,7 +442,7 @@
                         <p class="text-[11px] text-blue-100 mt-1.5 font-medium flex items-center space-x-2">
                             <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
                             <span v-if="isStaff">Phạm vi: Toàn hệ thống (Quản trị viên / Điều hành bưu cục)</span>
-                            <span v-else>Khách hàng: <strong>{{ currentUser?.fullName || 'Khách Hàng VNPT' }}</strong></span>
+                            <span v-else>Khách hàng: <strong>{{ currentUser?.fullName || 'Khách Hàng Waybill' }}</strong></span>
                         </p>
                     </div>
 
@@ -886,7 +886,7 @@
                                     <rect x="48" y="22" width="10" height="8" fill="#0077dd"/>
                                     <rect x="38" y="38" width="24" height="24" rx="3" fill="#00376d"/>
                                     <rect x="42" y="42" width="16" height="16" rx="1.5" fill="#ffffff"/>
-                                    <text x="50" y="53" font-size="7" font-weight="bold" text-anchor="middle" fill="#0055bb">VNPT</text>
+                                    <text x="50" y="53" font-size="7" font-weight="bold" text-anchor="middle" fill="#0055bb">WB</text>
                                     <rect x="68" y="38" width="10" height="6" fill="#00376d"/>
                                     <rect x="80" y="72" width="10" height="18" fill="#00376d"/>
                                 </svg>
@@ -1007,11 +1007,11 @@
                         <div class="flex items-center justify-between border-b border-slate-100 dark:border-[#1e2e56] pb-3">
                             <div class="flex items-center space-x-2">
                                 <div class="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/40 text-blue-600 flex items-center justify-center font-bold text-xs">
-                                    VNPT
+                                    WB
                                 </div>
                                 <div>
                                     <h3 class="font-bold text-xs uppercase tracking-wide">Biên Lai Thu Tiền Điện Tử</h3>
-                                    <p class="text-[11px] text-slate-400">Hệ thống bưu chính VNPT Post Logistics</p>
+                                    <p class="text-[11px] text-slate-400">Hệ thống bưu chính Waybill Logistics</p>
                                 </div>
                             </div>
                             <button type="button" @click="closeReceiptModal" class="text-slate-400 hover:text-slate-600 text-sm cursor-pointer">✕</button>

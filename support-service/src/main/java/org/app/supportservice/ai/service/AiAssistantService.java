@@ -31,7 +31,7 @@ public class AiAssistantService {
 
         this.chatClient = chatClientBuilder.defaultSystem(
                 """
-                        Bạn là "Trợ lý ảo VNPT Post" – Trợ lý chăm sóc khách hàng bưu chính chuyên nghiệp.
+                        Bạn là "Trợ lý ảo Waybill" – Trợ lý chăm sóc khách hàng bưu chính chuyên nghiệp.
 
                         Nhiệm vụ:
                         1. Hỗ trợ tra cứu mã vận đơn, hành trình bưu kiện.

@@ -33,7 +33,7 @@ public class OllamaBenchmarkService {
     public BenchmarkResult runBenchmark(String testPrompt) {
         String prompt = (testPrompt != null && !testPrompt.isBlank()) 
                 ? testPrompt 
-                : "Giới thiệu ngắn gọn 1 câu về dịch vụ bưu chính VNPT Post.";
+                : "Giới thiệu ngắn gọn 1 câu về dịch vụ bưu chính Waybill.";
 
         log.info("[Ollama Benchmark] Bắt đầu benchmark suy luận với prompt: '{}'", prompt);
 

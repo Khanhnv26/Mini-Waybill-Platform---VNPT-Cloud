@@ -237,7 +237,7 @@
                     if (typeof NotificationService !== 'undefined' && NotificationService.sendTelegramTest) {
                         await NotificationService.sendTelegramTest(
                             chatId,
-                            `🔔 [VNPT POST TEST] Xin chào bưu tá ${form.fullName || form.courierCode}! Kênh thông báo Telegram của bạn đã kết nối thành công với hệ thống Mini Waybill.`
+                            `🔔 [WAYBILL POST TEST] Xin chào bưu tá ${form.fullName || form.courierCode}! Kênh thông báo Telegram của bạn đã kết nối thành công với hệ thống Mini Waybill.`
                         );
                         if (window.Utils) window.Utils.showToast('Đã gửi tin nhắn test', 'Tin nhắn thử nghiệm đã được gửi đến Telegram của bưu tá.', 'success');
                     } else {
@@ -449,7 +449,7 @@
                                 <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
                                     Shipper Operations
                                 </span>
-                                <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
+                                <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
                             </div>
                             <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
                                 Quản Trị Ca Trực &amp; Năng Lực Tiếp Nhận Đơn Của Bưu Tá

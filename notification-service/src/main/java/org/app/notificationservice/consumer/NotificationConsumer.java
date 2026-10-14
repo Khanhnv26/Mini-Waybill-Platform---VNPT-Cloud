@@ -57,7 +57,7 @@ public class NotificationConsumer {
                     "Theo địa chỉ người nhận trên phiếu gửi"
             );
 
-            String subject = "[VNPT Waybill] Tạo đơn hàng thành công - " + event.getTrackingCode();
+            String subject = "[Waybill] Tạo đơn hàng thành công - " + event.getTrackingCode();
             emailService.sendHtmlEmail(event.getCustomerEmail(), subject, htmlBody);
 
             NotificationLog noti = NotificationLog.builder()
@@ -143,7 +143,7 @@ public class NotificationConsumer {
                     event.getNote()
             );
 
-            String subject = "[VNPT Waybill] Cập nhật đơn " + event.getTrackingCode() + " - " + status;
+            String subject = "[Waybill] Cập nhật đơn " + event.getTrackingCode() + " - " + status;
             emailService.sendHtmlEmail(customerEmail, subject, htmlBody);
 
             NotificationLog noti = NotificationLog.builder()

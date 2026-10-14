@@ -311,10 +311,10 @@
             const quickReplies = computed(() => {
                 if (isStaffUser.value) {
                     return [
-                        'VNPT Post đã tiếp nhận và đang liên hệ bưu cục phát kiểm tra đơn.',
+                        'Waybill đã tiếp nhận và đang liên hệ bưu cục phát kiểm tra đơn.',
                         'Kính nhờ Quý khách cung cấp thêm ảnh chụp bao bì và sản phẩm hư hỏng.',
                         'Hồ sơ khiếu nại đã được phê duyệt bồi hoàn, kế toán sẽ chi trả trong 24h.',
-                        'VNPT Post thành thật cáo lỗi cùng Quý khách về sự cố vận chuyển này.'
+                        'Waybill thành thật cáo lỗi cùng Quý khách về sự cố vận chuyển này.'
                     ];
                 }
                 return [
@@ -977,7 +977,7 @@
                                 <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
                                     CSKH &amp; Helpdesk
                                 </span>
-                                <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
+                                <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
                             </div>
                             <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
                                 Cổng Tiếp Nhận Hỗ Trợ &amp; Xử Lý Khiếu Nại Bưu Gửi
@@ -1234,7 +1234,7 @@
                                 <span>Kênh Hỗ Trợ Khẩn Cấp 24/7</span>
                                 <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                             </div>
-                            <p class="text-[11px] text-slate-500">Liên hệ trực tiếp tổng đài viên VNPT Post để tiếp nhận khiếu nại khẩn cấp.</p>
+                            <p class="text-[11px] text-slate-500">Liên hệ trực tiếp tổng đài viên Waybill để tiếp nhận khiếu nại khẩn cấp.</p>
                             <div class="pt-1 font-mono font-bold text-blue-700 text-sm">Hotline: 1900 54 54 81 (Phím 1)</div>
                         </div>
                     </div>
@@ -1489,7 +1489,7 @@
                                 <div class="min-w-0">
                                     <div class="flex items-center space-x-1.5 flex-wrap">
                                         <span class="font-bold text-slate-800 text-xs truncate max-w-[180px]">
-                                            {{ isStaffUser ? (activeTicket?.creatorName || 'Khách hàng') : (activeTicket?.assignedToName || 'Tổng Đài CSKH VNPT') }}
+                                            {{ isStaffUser ? (activeTicket?.creatorName || 'Khách hàng') : (activeTicket?.assignedToName || 'Tổng Đài CSKH Waybill') }}
                                         </span>
                                         <span v-if="!isStaffUser && activeTicket?.assignedToName" class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-blue-100 text-blue-700">Chuyên Viên Thụ Lý</span>
                                         <span v-if="isStaffUser && activeTicket?.creatorPhone" class="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200">
@@ -1564,7 +1564,7 @@
                                         </div>
                                         <div class="max-w-[85%] sm:max-w-[75%] min-w-0 space-y-1">
                                             <div class="text-[10px] font-bold text-slate-700 pl-1">
-                                                {{ msg.senderName || (isStaffUser ? 'Khách hàng' : 'CSKH VNPT') }}
+                                                {{ msg.senderName || (isStaffUser ? 'Khách hàng' : 'CSKH Waybill') }}
                                             </div>
                                             <div class="bg-white text-slate-800 rounded-2xl rounded-tl-xs border border-slate-200 p-3 shadow-2xs text-xs leading-relaxed space-y-2 chat-bubble-wrap break-words break-all">
                                                 <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
@@ -1592,12 +1592,12 @@
                                         <span>BIÊN BẢN GIẢI QUYẾT &amp; DUYỆT BỒI HOÀN THÀNH CÔNG</span>
                                     </div>
                                     <div class="text-[11.5px] text-emerald-700 leading-relaxed">
-                                        {{ activeTicket.resolutionNote || 'Bưu chính VNPT đã xác minh trách nhiệm và hoàn tất phương án giải quyết.' }}
+                                        {{ activeTicket.resolutionNote || 'Bưu chính Waybill đã xác minh trách nhiệm và hoàn tất phương án giải quyết.' }}
                                         Số tiền bồi thường duyệt chi: <strong class="text-emerald-900 font-bold font-mono">{{ formatCurrency(activeTicket.compensationAmount) }}</strong>.
                                     </div>
                                     <div class="pt-1 flex items-center justify-between text-[10px] text-emerald-600 border-t border-emerald-200/60">
                                         <span>Hồ sơ đã được đóng thành công.</span>
-                                        <span class="text-slate-500 font-medium">Bưu chính VNPT Cloud</span>
+                                        <span class="text-slate-500 font-medium">Bưu chính Waybill</span>
                                     </div>
                                 </div>
 
@@ -1612,7 +1612,7 @@
                                     </div>
                                     <div class="pt-1 flex items-center justify-between text-[10px] text-rose-600 border-t border-rose-200/60 font-mono">
                                         <span>Hồ sơ đã được đóng lại.</span>
-                                        <span class="text-slate-500 font-medium">Bưu chính VNPT Cloud</span>
+                                        <span class="text-slate-500 font-medium">Bưu chính Waybill</span>
                                     </div>
                                 </div>
                             </template>
@@ -2049,7 +2049,7 @@
                                             <span>BIÊN BẢN GIẢI QUYẾT &amp; DUYỆT BỒI HOÀN THÀNH CÔNG</span>
                                         </div>
                                         <div class="text-[11.5px] text-emerald-700 leading-relaxed">
-                                            {{ activeTicket.resolutionNote || 'Bưu chính VNPT đã xác minh trách nhiệm và hoàn tất phương án giải quyết.' }}
+                                            {{ activeTicket.resolutionNote || 'Bưu chính Waybill đã xác minh trách nhiệm và hoàn tất phương án giải quyết.' }}
                                             Số tiền bồi thường duyệt chi: <strong class="text-emerald-900 font-bold font-mono">{{ formatCurrency(activeTicket.compensationAmount) }}</strong>.
                                         </div>
                                     </div>

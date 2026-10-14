@@ -201,7 +201,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
             const currentTrackingCode = ref(trackingQuery && !hasInitialError && initialRoute.tab !== 'error' ? trackingQuery.trim() : '');
             const currentErrorCode = ref(isHttpErrorCode ? rawErrorCodeParam : (initialRoute.notFound ? 404 : 200));
             const currentErrorTitle = ref(urlParams.get('title') || (initialRoute.notFound ? 'Không Tìm Thấy Trang Yêu Cầu' : ''));
-            const currentErrorMessage = ref(urlParams.get('message') || (initialRoute.notFound ? `Đường dẫn "${window.location.pathname}" không tồn tại trên hệ thống máy chủ bưu chính VNPT.` : ''));
+            const currentErrorMessage = ref(urlParams.get('message') || (initialRoute.notFound ? `Đường dẫn "${window.location.pathname}" không tồn tại trên hệ thống máy chủ bưu chính Waybill.` : ''));
             const previousTab = ref(null);
             const selectedCustomerForShipment = ref(null);
             const selectedTariffForShipment = ref(null);
@@ -919,7 +919,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                 }
 
                 if (resolved.notFound) {
-                    showError(404, 'Không Tìm Thấy Trang Yêu Cầu', `Đường dẫn "${urlObj.pathname}" không tồn tại trên hệ thống máy chủ bưu chính VNPT.`);
+                    showError(404, 'Không Tìm Thấy Trang Yêu Cầu', `Đường dẫn "${urlObj.pathname}" không tồn tại trên hệ thống máy chủ bưu chính Waybill.`);
                 } else {
                     activateTab(resolved.tab);
                     if (['calculator', 'network', 'guide', 'support'].includes(resolved.tab)) {
@@ -1270,7 +1270,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                         currentTrackingCode.value = code.trim();
                     }
                     if (resolved.notFound) {
-                        showError(404, 'Không Tìm Thấy Trang Yêu Cầu', `Đường dẫn "${window.location.pathname}" không tồn tại trên hệ thống máy chủ bưu chính VNPT.`);
+                        showError(404, 'Không Tìm Thấy Trang Yêu Cầu', `Đường dẫn "${window.location.pathname}" không tồn tại trên hệ thống máy chủ bưu chính Waybill.`);
                     } else {
                         activateTab(resolved.tab);
                         if (['calculator', 'network', 'guide', 'support'].includes(resolved.tab)) {

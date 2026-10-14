@@ -63,7 +63,7 @@ public class TariffPricingServiceImpl implements TariffPricingService {
 
         plans.add(buildPlan(
                 "ECO",
-                "VNPT Tiết Kiệm",
+                "Waybill Tiết Kiệm",
                 isIntraProvince ? "1-2 ngày" : "3-4 ngày",
                 isIntraProvince ? 15000.0 : 25000.0,
                 isIntraProvince ? 5000.0 : 9000.0,
@@ -74,7 +74,7 @@ public class TariffPricingServiceImpl implements TariffPricingService {
 
         plans.add(buildPlan(
                 "STANDARD",
-                "VNPT Tiêu Chuẩn",
+                "Waybill Tiêu Chuẩn",
                 isIntraProvince ? "Trong 24 giờ" : "1-2 ngày",
                 isIntraProvince ? 20000.0 : 30000.0,
                 isIntraProvince ? 7000.0 : 13000.0,
@@ -85,7 +85,7 @@ public class TariffPricingServiceImpl implements TariffPricingService {
 
         plans.add(buildPlan(
                 "EXPRESS",
-                "VNPT Hỏa Tốc",
+                "Waybill Hỏa Tốc",
                 isIntraProvince ? "4-6 giờ" : "12-24 giờ",
                 isIntraProvince ? 35000.0 : 55000.0,
                 isIntraProvince ? 12000.0 : 22000.0,

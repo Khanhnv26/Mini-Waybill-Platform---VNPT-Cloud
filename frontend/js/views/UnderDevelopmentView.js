@@ -26,7 +26,7 @@
         guide: {
             title: 'Cẩm Nang & Quy Chuẩn Đóng Gói',
             badge: 'QUY CHUẨN VẬN HÀNH',
-            desc: 'Tài liệu tương tác hướng dẫn quy chuẩn đóng gói bưu gửi tiêu chuẩn, danh mục hàng hóa cấm vận chuyển và chính sách bồi thường bưu chính VNPT.',
+            desc: 'Tài liệu tương tác hướng dẫn quy chuẩn đóng gói bưu gửi tiêu chuẩn, danh mục hàng hóa cấm vận chuyển và chính sách bồi thường bưu chính Waybill.',
             highlights: [
                 'Hướng dẫn đóng gói bưu phẩm điện tử & dễ vỡ',
                 'Quy định trọng lượng và kích thước quá khổ',
@@ -36,7 +36,7 @@
         support: {
             title: 'Cổng Hỗ Trợ & Khiếu Nại Bưu Gửi 24/7',
             badge: 'CSKH & TICKET SYSTEM',
-            desc: 'Hệ thống Helpdesk điện tử tiếp nhận yêu cầu bồi thường, tra cứu lịch sử xử lý khiếu nại và kết nối trực tiếp với tổng đài viên VNPT Post.',
+            desc: 'Hệ thống Helpdesk điện tử tiếp nhận yêu cầu bồi thường, tra cứu lịch sử xử lý khiếu nại và kết nối trực tiếp với tổng đài viên Waybill.',
             highlights: [
                 'Khởi tạo Ticket khiếu nại bưu gửi trong 30 giây',
                 'Theo dõi tiến độ giải quyết bồi hoàn trực tuyến',
@@ -59,7 +59,7 @@
                 return FEATURES_DATA[props.featureId] || {
                     title: 'Tính Năng Đang Được Hoàn Thiện',
                     badge: 'HỆ THỐNG ĐANG TÍCH HỢP',
-                    desc: 'Chức năng này đang trong quá trình lập trình và tích hợp vào hệ thống Mini Waybill VNPT Cloud.',
+                    desc: 'Chức năng này đang trong quá trình lập trình và tích hợp vào hệ thống Waybill Platform Cloud.',
                     highlights: [
                         'Thiết kế giao diện chuẩn B2B Design System',
                         'Kết nối API dữ liệu microservice thời gian thực',
@@ -83,7 +83,7 @@
                     <div>
                         <div class="flex items-center space-x-2">
                             <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
-                                VNPT Post Ecosystem
+                                Waybill Ecosystem
                             </span>
                             <span class="text-blue-100 text-xs font-medium">Đang Phát Triển</span>
                         </div>
@@ -108,7 +108,7 @@
                         <div class="absolute inset-3 rounded-full border-2 border-transparent border-b-cyan-500 border-l-cyan-300 animate-spin" style="animation-duration: 2s; animation-direction: reverse;"></div>
 
                         <div class="w-12 h-12 rounded-xl vnpt-gradient text-white font-black text-xs flex items-center justify-center shadow-md shadow-blue-500/25 z-10 select-none">
-                            VNPT
+                            WB
                         </div>
                     </div>
 

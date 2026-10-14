@@ -1865,7 +1865,7 @@
                             <span class="px-2 py-0.5 rounded bg-white/15 text-white text-[10.5px] uppercase font-bold tracking-wider border border-white/20">
                                 Bưu Cục Giao Dịch
                             </span>
-                            <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
+                            <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
                         </div>
                         <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
                             Khai Thác &amp; Tiếp Nhận Bưu Gửi Tại Bưu Cục

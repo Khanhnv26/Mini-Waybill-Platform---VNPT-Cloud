@@ -1098,7 +1098,7 @@
                             <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
                                 Hub Operations
                             </span>
-                            <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
+                            <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
                         </div>
                         <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
                             Khai Thác &amp; Quản Lý Tồn Kho Tại Hub Chia Chọn

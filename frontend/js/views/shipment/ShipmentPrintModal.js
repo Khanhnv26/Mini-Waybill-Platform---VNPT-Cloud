@@ -7,7 +7,7 @@
             <div class="p-4 px-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
                 <div class="flex items-center space-x-2">
                     <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                        VNPT
+                        WB
                     </div>
                     <div>
                         <h3 class="text-xs sm:text-sm font-bold text-slate-900">Xem Trước Phiếu Gửi & Tem Vận Đơn</h3>
@@ -23,7 +23,7 @@
                 <div id="waybill-thermal-label" class="border-2 border-slate-900 rounded-xl p-4 bg-white text-slate-900 font-sans space-y-3">
                     <div class="flex items-center justify-between border-b-2 border-slate-900 pb-2.5">
                         <div class="flex items-center space-x-2">
-                            <span class="text-base font-black tracking-tighter text-blue-800">VNPT POST</span>
+                            <span class="text-base font-black tracking-tighter text-blue-800">WAYBILL POST</span>
                             <span class="text-[10px] font-bold border border-slate-900 px-1.5 py-0.5 rounded">
                                 {{ shipment?.serviceType === 'EXPRESS' ? 'HỎA TỐC' : 'TIÊU CHUẨN' }}
                             </span>
@@ -105,7 +105,7 @@
                 printWindow.document.write(`
                     <html>
                     <head>
-                        <title>In Tem Vận Đơn - VNPT Post</title>
+                        <title>In Tem Vận Đơn - Waybill Post</title>
                         <style>
                             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 15px; margin: 0; }
                             * { box-sizing: border-box; }

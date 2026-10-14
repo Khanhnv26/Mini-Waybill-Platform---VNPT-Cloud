@@ -61,7 +61,7 @@
                 plans: [
                     {
                         serviceCode: 'ECO',
-                        serviceName: 'VNPT Tiết Kiệm',
+                        serviceName: 'Waybill Tiết Kiệm',
                         estimatedDelivery: isIntraProvince ? '1-2 ngày' : '3-4 ngày',
                         baseFee: ecoBase,
                         fuelSurcharge: ecoFuel,
@@ -71,7 +71,7 @@
                     },
                     {
                         serviceCode: 'STANDARD',
-                        serviceName: 'VNPT Tiêu Chuẩn',
+                        serviceName: 'Waybill Tiêu Chuẩn',
                         estimatedDelivery: isIntraProvince ? 'Trong 24 giờ' : '1-2 ngày',
                         baseFee: stdBase,
                         fuelSurcharge: stdFuel,
@@ -81,7 +81,7 @@
                     },
                     {
                         serviceCode: 'EXPRESS',
-                        serviceName: 'VNPT Hỏa Tốc',
+                        serviceName: 'Waybill Hỏa Tốc',
                         estimatedDelivery: isIntraProvince ? '4-6 giờ' : '12-24 giờ',
                         baseFee: expBase,
                         fuelSurcharge: expFuel,

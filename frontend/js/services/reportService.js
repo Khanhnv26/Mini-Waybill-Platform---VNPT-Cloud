@@ -57,7 +57,7 @@
             }
 
             // Lấy tên file từ header Content-Disposition hoặc đặt tên mặc định
-            let filename = 'VNPT_BaoCao_VanDon.xlsx';
+            let filename = 'Waybill_BaoCao_VanDon.xlsx';
             const disposition = response.headers.get('content-disposition');
             if (disposition && disposition.includes('filename=')) {
                 const parts = disposition.split('filename=');

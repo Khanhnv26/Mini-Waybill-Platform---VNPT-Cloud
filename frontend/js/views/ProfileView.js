@@ -72,12 +72,12 @@
 
             const uniqueCode = computed(() => {
                 const u = currentUser.value;
-                if (!u) return 'VNPT';
+                if (!u) return 'WB';
                 if (isStaffUser.value) {
                     const id = u.userId || u.id || 1;
                     return 'NV-' + String(id).padStart(5, '0');
                 }
-                return userProfile.value?.customerCode || ('KH-' + String(u.userId || u.id || 'VNPT'));
+                return userProfile.value?.customerCode || ('KH-' + String(u.userId || u.id || 'WB'));
             });
 
             const passwordStrength = computed(() => {
@@ -757,7 +757,7 @@
                             <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
                                 <div>
                                     <h3 class="text-xs sm:text-sm font-bold text-slate-800">Tài Khoản Ngân Hàng Nhận Tiền Thu Hộ COD</h3>
-                                    <p class="text-[11px] text-slate-500">VNPT Post tự động đối soát và thanh toán tiền thu hộ vào tài khoản này</p>
+                                    <p class="text-[11px] text-slate-500">Waybill tự động đối soát và thanh toán tiền thu hộ vào tài khoản này</p>
                                 </div>
                                 <span v-if="shopSettings.bankAccount" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                     Đã Cấu Hình
@@ -873,7 +873,7 @@
                                 />
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-slate-700 mb-1.5">Hoặc chọn phong cách nhận diện VNPT:</label>
+                                <label class="block text-xs font-bold text-slate-700 mb-1.5">Hoặc chọn phong cách nhận diện màu sắc:</label>
                                 <div class="grid grid-cols-4 gap-2">
                                     <div @click="selectPresetColor('bg-blue-600')" class="h-10 rounded-lg bg-blue-600 cursor-pointer flex items-center justify-center text-white text-xs font-bold hover:scale-105 transition shadow-xs">Xanh</div>
                                     <div @click="selectPresetColor('bg-slate-800')" class="h-10 rounded-lg bg-slate-800 cursor-pointer flex items-center justify-center text-white text-xs font-bold hover:scale-105 transition shadow-xs">Đen</div>

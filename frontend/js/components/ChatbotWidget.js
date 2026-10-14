@@ -12,7 +12,7 @@
 
                     <button 
                         @click="openChat"
-                        title="Trò chuyện với Trợ lý ảo VNPT Post 24/7"
+                        title="Trò chuyện với Trợ lý ảo Waybill 24/7"
                         class="group relative flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-tr from-blue-700 via-blue-600 to-blue-500 text-white shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 transform hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none border-2 border-white/60"
                     >
                         <span v-if="unreadCount > 0" class="absolute -top-1 -right-1 flex h-5 w-5">
@@ -67,7 +67,7 @@
 
                             <div>
                                 <div class="flex items-center space-x-1.5">
-                                    <h3 class="font-bold text-sm tracking-tight leading-none">Trợ lý ảo VNPT Post</h3>
+                                    <h3 class="font-bold text-sm tracking-tight leading-none">Trợ lý ảo Waybill</h3>
                                     <span class="text-[9px] bg-white/20 text-white font-semibold px-1.5 py-0.5 rounded border border-white/30">CSKH 24/7</span>
                                 </div>
                                 <p class="text-[11px] text-blue-100 flex items-center space-x-1.5 mt-0.5">
@@ -337,7 +337,7 @@
                         <div class="flex items-center justify-between px-1 text-[10px] text-slate-400">
                             <span class="flex items-center space-x-1">
                                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                <span>Chuyển phát nhanh VNPT Post</span>
+                                <span>Chuyển phát nhanh Waybill</span>
                             </span>
                             <span>Hotline CSKH: <strong class="text-slate-600 hover:text-blue-600 cursor-pointer">1900 54 54 81</strong></span>
                         </div>
@@ -434,7 +434,7 @@
                         id: 'init_1',
                         sender: 'bot',
                         type: 'text',
-                        html: 'Xin chào Quý khách! Em là <strong>Trợ lý ảo VNPT Post</strong>.<br>' +
+                        html: 'Xin chào Quý khách! Em là <strong>Trợ lý ảo Waybill</strong>.<br>' +
                               'Em có thể hỗ trợ tra cứu bưu gửi, biểu phí cước hoặc tiếp nhận phản ánh sự cố đơn hàng.',
                         time: this.getCurrentTime()
                     }
@@ -533,7 +533,7 @@
                     return 'Đang kiểm tra quy trình hỗ trợ bưu gửi...';
                 }
                 if (lower.includes('bưu cục') || lower.includes('chi nhánh') || lower.includes('địa chỉ') || lower.includes('điểm gửi') || lower.includes('gần nhất') || lower.includes('mở cửa') || lower.includes('làm việc')) {
-                    return 'Đang tìm kiếm bưu cục VNPT gần nhất...';
+                    return 'Đang tìm kiếm bưu cục Waybill gần nhất...';
                 }
                 return 'Trợ lý AI đang suy nghĩ...';
             },
@@ -1077,7 +1077,7 @@
                 this.baseTitle = document.title;
                 let showAlert = false;
                 this.titleFlashTimer = setInterval(() => {
-                    document.title = showAlert ? this.baseTitle : 'Tin nhắn mới từ Trợ lý ảo VNPT';
+                    document.title = showAlert ? this.baseTitle : 'Tin nhắn mới từ Trợ lý ảo Waybill';
                     showAlert = !showAlert;
                 }, 900);
                 this.titleFlashTimeout = setTimeout(() => this.stopTitleFlash(), 9000);

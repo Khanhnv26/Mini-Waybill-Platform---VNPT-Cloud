@@ -105,7 +105,7 @@
                         <div class="relative z-10 space-y-3 stagger-1">
                             <div class="flex items-center space-x-3">
                                 <div class="h-10 px-3.5 rounded-xl bg-white text-vnpt-500 font-black flex items-center justify-center text-xs tracking-wider shadow-md">
-                                    VNPT
+                                    WB
                                 </div>
                                 <div>
                                     <div class="flex items-center space-x-1.5">
@@ -141,8 +141,8 @@
                         </div>
 
                         <div class="relative z-10 pt-4 border-t border-white/15 flex items-center justify-between text-[11px] text-blue-100/70 stagger-3">
-                            <span>TẬP ĐOÀN BƯU CHÍNH VIỄN THÔNG VIỆT NAM</span>
-                            <span class="font-mono text-[10px]">VNPT 2026</span>
+                            <span>HỆ THỐNG ĐIỀU PHỐI VẬN ĐƠN BƯU CHÍNH</span>
+                            <span class="font-mono text-[10px]">WAYBILL 2026</span>
                         </div>
                     </div>
 
@@ -436,7 +436,7 @@
                             <button type="button" @click="goToHome" class="text-vnpt-500 hover:underline font-medium">
                                 ← Quay lại trang tra cứu vận đơn
                             </button>
-                            <span class="font-mono">VNPT Cloud Platform</span>
+                            <span class="font-mono">Waybill Platform</span>
                         </div>
                     </div>
                 </div>
