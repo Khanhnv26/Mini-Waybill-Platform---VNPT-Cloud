@@ -24,6 +24,13 @@ spec:
                 name: grafana-ext
                 port:
                   number: 3000
+          - path: /argocd
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-ext
+                port:
+                  number: 80
           - path: /api
             pathType: Prefix
             backend:
@@ -140,3 +147,15 @@ spec:
   ports:
     - port: 3000
       targetPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-ext
+  namespace: waybill
+spec:
+  type: ExternalName
+  externalName: argocd-server.argocd.svc.cluster.local
+  ports:
+    - port: 80
+      targetPort: 8080
