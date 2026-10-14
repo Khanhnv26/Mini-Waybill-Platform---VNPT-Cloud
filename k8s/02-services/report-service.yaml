@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: report-service
-          image: khanhnv26/report-service:1fd3c6e21f1e0d16986502764152725f1f1b2df5
+          image: khanhnv26/report-service:4df04ef21ce5b5da4d191ed78b5c7a84eb83892f
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
