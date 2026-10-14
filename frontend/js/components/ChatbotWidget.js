@@ -570,23 +570,27 @@
                     });
 
                     if (streamRes.ok && streamRes.body && typeof streamRes.body.getReader === 'function') {
-                        this.isTyping = false;
-                        const botMsg = {
-                            id: 'bot_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-                            sender: 'bot',
-                            type: 'text',
-                            html: '<span class="inline-flex items-center gap-1.5 text-xs text-gray-400 italic py-1"><span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span> Đang suy nghĩ câu trả lời...</span>',
-                            text: '',
-                            data: null,
-                            time: this.getCurrentTime()
-                        };
-                        this.messages.push(botMsg);
-                        this.scrollToBottom();
-
+                        let botMsg = null;
                         const reader = streamRes.body.getReader();
                         const decoder = new TextDecoder();
                         let accumulatedText = '';
                         let buffer = '';
+
+                        const ensureBotMsg = () => {
+                            if (!botMsg) {
+                                this.isTyping = false;
+                                botMsg = {
+                                    id: 'bot_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                                    sender: 'bot',
+                                    type: 'text',
+                                    html: '',
+                                    text: '',
+                                    data: null,
+                                    time: this.getCurrentTime()
+                                };
+                                this.messages.push(botMsg);
+                            }
+                        };
 
                         while (true) {
                             const { done, value } = await reader.read();
@@ -602,6 +606,7 @@
                                     token = line.slice(5);
                                 }
                                 if (token !== '') {
+                                    ensureBotMsg();
                                     accumulatedText += token;
                                     botMsg.text = accumulatedText;
                                     botMsg.html = this.formatMarkdown(accumulatedText);
@@ -615,12 +620,15 @@
                                 token = buffer.slice(5);
                             }
                             if (token !== '') {
+                                ensureBotMsg();
                                 accumulatedText += token;
                                 botMsg.text = accumulatedText;
                                 botMsg.html = this.formatMarkdown(accumulatedText);
                             }
                         }
+                        this.isTyping = false;
                         if (!accumulatedText.trim()) {
+                            ensureBotMsg();
                             botMsg.text = 'Trợ lý AI đang bận. Quý khách vui lòng thử lại sau.';
                             botMsg.html = this.formatMarkdown(botMsg.text);
                         }
