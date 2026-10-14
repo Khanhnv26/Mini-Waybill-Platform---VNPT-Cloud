@@ -216,7 +216,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
             const isDarkMode = ref(
                 (typeof document !== 'undefined' && (
                     document.documentElement.classList.contains('dark') ||
-                    localStorage.getItem('theme') === 'dark'
+                    (localStorage.getItem('waybill_theme') || localStorage.getItem('theme')) === 'dark'
                 )) ||
                 (window.appStore && window.appStore.isDarkMode === true) ||
                 false
@@ -241,10 +241,12 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                 } else if (typeof document !== 'undefined') {
                     if (nextMode) {
                         document.documentElement.classList.add('dark');
-                        localStorage.setItem('theme', 'dark');
+                        localStorage.setItem('waybill_theme', 'dark');
+                        localStorage.removeItem('theme');
                     } else {
                         document.documentElement.classList.remove('dark');
-                        localStorage.setItem('theme', 'light');
+                        localStorage.setItem('waybill_theme', 'light');
+                        localStorage.removeItem('theme');
                     }
                 }
                 if (typeof window !== 'undefined') {

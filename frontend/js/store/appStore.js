@@ -1,8 +1,8 @@
 import { reactive } from 'vue';
 
 const isInitialDark = typeof window !== 'undefined' && (
-    localStorage.getItem('theme') === 'dark' || 
-    (!localStorage.getItem('theme') && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    (localStorage.getItem('waybill_theme') || localStorage.getItem('theme')) === 'dark' || 
+    (!(localStorage.getItem('waybill_theme') || localStorage.getItem('theme')) && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
 );
 
 const state = reactive({
@@ -59,10 +59,12 @@ export const appStore = {
             if (typeof window !== 'undefined') {
                 if (state.isDarkMode) {
                     document.documentElement.classList.add('dark');
-                    localStorage.setItem('theme', 'dark');
+                    localStorage.setItem('waybill_theme', 'dark');
+                    localStorage.removeItem('theme');
                 } else {
                     document.documentElement.classList.remove('dark');
-                    localStorage.setItem('theme', 'light');
+                    localStorage.setItem('waybill_theme', 'light');
+                    localStorage.removeItem('theme');
                 }
                 window.dispatchEvent(new CustomEvent('theme-changed', {
                     detail: { isDark: state.isDarkMode }

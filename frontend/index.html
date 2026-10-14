@@ -36,7 +36,11 @@
     <script>
         (function () {
             try {
-                var savedTheme = localStorage.getItem('theme');
+                var savedTheme = localStorage.getItem('waybill_theme') || localStorage.getItem('theme');
+                if (localStorage.getItem('theme')) {
+                    localStorage.setItem('waybill_theme', localStorage.getItem('theme'));
+                    localStorage.removeItem('theme');
+                }
                 var systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
                 if (savedTheme === 'dark' || (!savedTheme && systemDark)) {
                     document.documentElement.classList.add('dark');

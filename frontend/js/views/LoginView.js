@@ -771,7 +771,7 @@
                 }
                 if (typeof document !== 'undefined') {
                     if (document.documentElement.classList.contains('dark')) return true;
-                    if (localStorage.getItem('theme') === 'dark') return true;
+                    if ((localStorage.getItem('waybill_theme') || localStorage.getItem('theme')) === 'dark') return true;
                 }
                 if (window.appStore && typeof window.appStore.isDarkMode === 'boolean') {
                     return window.appStore.isDarkMode;
@@ -840,10 +840,12 @@
                 } else if (typeof document !== 'undefined') {
                     if (nextMode) {
                         document.documentElement.classList.add('dark');
-                        localStorage.setItem('theme', 'dark');
+                        localStorage.setItem('waybill_theme', 'dark');
+                        localStorage.removeItem('theme');
                     } else {
                         document.documentElement.classList.remove('dark');
-                        localStorage.setItem('theme', 'light');
+                        localStorage.setItem('waybill_theme', 'light');
+                        localStorage.removeItem('theme');
                     }
                 }
                 if (typeof window !== 'undefined') {

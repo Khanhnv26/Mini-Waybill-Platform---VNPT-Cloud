@@ -45,6 +45,7 @@
     <script>
         (function () {
             try {
+                localStorage.removeItem('waybill_theme');
                 localStorage.removeItem('theme');
                 document.documentElement.classList.remove('dark');
             } catch (e) {}
