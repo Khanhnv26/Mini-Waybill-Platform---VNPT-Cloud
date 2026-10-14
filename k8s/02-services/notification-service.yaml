@@ -75,6 +75,16 @@ spec:
                   key: jwt-secret
             - name: WS_ALLOWED_ORIGINS
               value: "https://waybill-express.japaneast.cloudapp.azure.com,https://waybill-express.me,https://waybill.vn,http://localhost:*"
+            - name: TELEGRAM_BOT_ENABLED
+              value: "true"
+            - name: TELEGRAM_BOT_USERNAME
+              value: "NovaWay_Bill_Bot"
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: telegram-bot-token
+                  optional: true
           resources:
             requests:
               memory: "128Mi"
