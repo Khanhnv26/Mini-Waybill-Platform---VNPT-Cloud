@@ -2991,7 +2991,7 @@
                     const socket = new SockJS(endpoint);
                     tripProgressClient = Stomp.over(socket);
                     tripProgressClient.debug = null;
-                    tripProgressClient.connect({}, () => {
+                    tripProgressClient.connect((typeof Auth !== 'undefined' && Auth.getToken()) ? { Authorization: `Bearer ${Auth.getToken()}` } : {}, () => {
                         tripProgressSubscription = tripProgressClient.subscribe('/topic/trips/progress', (message) => {
                             try {
                                 applyTripProgressEvent(JSON.parse(message.body));

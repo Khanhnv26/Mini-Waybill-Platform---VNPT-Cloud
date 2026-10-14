@@ -20,6 +20,11 @@ public interface ShipmentClient {
     @GetMapping(value = "/api/shipments/{code}/return-request", headers = {"X-User-Roles=ROLE_SHIPPER"})
     ReturnRequestResponse getReturnRequest(@PathVariable("code") String code);
 
-    @PostMapping("/api/shipments/cod/submit-settlement")
-    List<Object> submitCodSettlement(@RequestBody Map<String, Object> request);
+    default List<Object> submitCodSettlement(Map<String, Object> request) {
+        return submitCodSettlementAsShipper(request, String.valueOf(request.get("courierId")));
+    }
+
+    @PostMapping(value = "/api/shipments/cod/submit-settlement", headers = "X-User-Roles=ROLE_SHIPPER")
+    List<Object> submitCodSettlementAsShipper(@RequestBody Map<String, Object> request,
+            @org.springframework.web.bind.annotation.RequestHeader("X-User-Id") String courierId);
 }

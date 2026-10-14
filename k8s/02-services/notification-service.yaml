@@ -28,7 +28,10 @@ spec:
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=notification_db;encrypt=true;trustServerCertificate=true;"
             - name: SPRING_DATASOURCE_USERNAME
-              value: "sa"
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: db-user
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -60,6 +63,18 @@ spec:
                 secretKeyRef:
                   name: waybill-runtime
                   key: mail-password
+            - name: SPRING_DATA_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: redis-password
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: jwt-secret
+            - name: WS_ALLOWED_ORIGINS
+              value: "https://waybill-express.japaneast.cloudapp.azure.com,https://waybill-express.me,https://waybill.vn,http://localhost:*"
           resources:
             requests:
               memory: "128Mi"

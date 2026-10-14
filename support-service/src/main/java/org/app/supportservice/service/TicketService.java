@@ -12,9 +12,11 @@ public interface TicketService {
     TicketResponse createTicket(CreateTicketRequest req, Long userId, String userEmail);
     List<TicketResponse> getMyTickets(Long userId);
     List<TicketResponse> getAllTickets(String status, String trackingCode);
+    List<TicketResponse> getAccessibleTickets(String status, String trackingCode, Long userId, String roles);
     TicketResponse getTicketById(Long id);
     TicketResponse getTicketByCode(String ticketCode);
     TicketResponse assignTicket(Long id, Long csUserId, String csName);
     TicketResponse resolveTicket(Long id, ResolveTicketRequest req);
     MessageResponse addMessage(Long id, AddMessageRequest req, Long senderId, String senderRole);
+    MessageResponse addMessage(Long id, AddMessageRequest req, Long senderId, String senderRole, String guestToken);
 }

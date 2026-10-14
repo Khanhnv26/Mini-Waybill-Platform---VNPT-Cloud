@@ -54,7 +54,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest registerRequest) {
+    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest registerRequest) {
         User user = authService.registerUser(registerRequest);
         String jwt = jwtService.generateToken(user);
         return ResponseEntity.ok(buildResponse(user, jwt));
@@ -126,11 +126,6 @@ public class AuthController {
     }
 
     private Long resolveUserId(String userIdHeader, String authHeader) {
-        if (userIdHeader != null && !userIdHeader.isBlank() && !"null".equalsIgnoreCase(userIdHeader)) {
-            try {
-                return Long.parseLong(userIdHeader.trim());
-            } catch (NumberFormatException ignored) {}
-        }
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             return jwtService.extractUserId(authHeader.substring(7));
         }

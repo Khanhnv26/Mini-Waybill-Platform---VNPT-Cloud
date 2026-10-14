@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
+public interface ShipmentRepository extends JpaRepository<Shipment, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<Shipment> {
     Optional<Shipment> findShipmentByTrackingCode(String trackingCode);
     Optional<List<Shipment>> findAllByCustomerId(Long customerId);
 

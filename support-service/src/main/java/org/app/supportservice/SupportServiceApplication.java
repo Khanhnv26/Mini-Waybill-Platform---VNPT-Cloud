@@ -11,6 +11,7 @@ import java.util.List;
 
 @SpringBootApplication
 @EnableFeignClients
+@org.springframework.scheduling.annotation.EnableScheduling
 public class SupportServiceApplication {
 
     public static void main(String[] args) {

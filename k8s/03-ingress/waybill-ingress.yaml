@@ -31,6 +31,13 @@ spec:
                 name: argocd-ext
                 port:
                   number: 80
+          - path: /api/notifications/ws
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 8085
           - path: /api
             pathType: Prefix
             backend:
@@ -47,6 +54,13 @@ spec:
                   number: 80
     - http:
         paths:
+          - path: /api/notifications/ws
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 8085
           - path: /api
             pathType: Prefix
             backend:
@@ -64,6 +78,13 @@ spec:
     - host: waybill-express.me
       http:
         paths:
+          - path: /api/notifications/ws
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 8085
           - path: /api
             pathType: Prefix
             backend:
@@ -81,6 +102,13 @@ spec:
     - host: api.waybill-express.me
       http:
         paths:
+          - path: /api/notifications/ws
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 8085
           - path: /api
             pathType: Prefix
             backend:
@@ -101,6 +129,13 @@ spec:
     - host: waybill.vn
       http:
         paths:
+          - path: /api/notifications/ws
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 8085
           - path: /api
             pathType: Prefix
             backend:
@@ -118,6 +153,13 @@ spec:
     - host: api.waybill.vn
       http:
         paths:
+          - path: /api/notifications/ws
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 8085
           - path: /api
             pathType: Prefix
             backend:

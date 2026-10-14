@@ -28,7 +28,10 @@ spec:
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=rating_db;encrypt=true;trustServerCertificate=true;"
             - name: SPRING_DATASOURCE_USERNAME
-              value: "sa"
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: db-user
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
                 secretKeyRef:

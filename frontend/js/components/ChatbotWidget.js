@@ -365,6 +365,18 @@
                 inputText: '',
                 isTyping: false,
                 typingMessage: 'Trợ lý AI đang suy nghĩ...',
+                sessionId: (function () {
+                    try {
+                        let sid = sessionStorage.getItem('vnpt_ai_session_id');
+                        if (!sid) {
+                            sid = 'sid_' + Date.now() + '_' + Math.random().toString(36).substr(2, 7);
+                            sessionStorage.setItem('vnpt_ai_session_id', sid);
+                        }
+                        return sid;
+                    } catch (e) {
+                        return 'sid_' + Date.now();
+                    }
+                })(),
                 messages: []
             };
         },
@@ -437,6 +449,14 @@
                 }
             },
             resetChat() {
+                try {
+                    if (this.sessionId) {
+                        const baseUrl = (['3000', '80', '443', ''].includes(window.location.port) && window.location.protocol.startsWith('http')) ? '' : 'http://localhost:8080';
+                        fetch(`${baseUrl}/api/support/ai/reset?sessionId=${encodeURIComponent(this.sessionId)}`, { method: 'POST' }).catch(() => {});
+                    }
+                    this.sessionId = 'sid_' + Date.now() + '_' + Math.random().toString(36).substr(2, 7);
+                    sessionStorage.setItem('vnpt_ai_session_id', this.sessionId);
+                } catch (e) {}
                 sessionStorage.removeItem('vnpt_waybill_chatbot_messages');
                 this.loadSessionMessages();
                 this.typeBotResponse('Cuộc trò chuyện đã được làm mới. Em có thể hỗ trợ gì tiếp theo cho Quý khách ạ?');
@@ -533,8 +553,96 @@
                 this.isTyping = true;
                 this.scrollToBottom();
 
+                const baseUrl = (['3000', '80', '443', ''].includes(window.location.port) && window.location.protocol.startsWith('http')) ? '' : 'http://localhost:8080';
+                const payload = JSON.stringify({ message: text, sessionId: this.sessionId });
+
+                // Thử nhận phản hồi dạng Stream (Server-Sent Events) để chữ tuôn ra tức thì
                 try {
-                    const payload = JSON.stringify({ message: text });
+                    const streamRes = await fetch(`${baseUrl}/api/support/ai/stream`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'text/event-stream',
+                            'ngrok-skip-browser-warning': 'true'
+                        },
+                        body: payload,
+                        signal: AbortSignal.timeout(60000)
+                    });
+
+                    if (streamRes.ok && streamRes.body && typeof streamRes.body.getReader === 'function') {
+                        this.isTyping = false;
+                        const botMsg = {
+                            id: 'bot_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                            sender: 'bot',
+                            type: 'text',
+                            html: '',
+                            text: '',
+                            data: null,
+                            time: this.getCurrentTime()
+                        };
+                        this.messages.push(botMsg);
+                        this.scrollToBottom();
+
+                        const reader = streamRes.body.getReader();
+                        const decoder = new TextDecoder();
+                        let accumulatedText = '';
+                        let buffer = '';
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            buffer += decoder.decode(value, { stream: true });
+                            const lines = buffer.split('\n');
+                            buffer = lines.pop();
+
+                            for (const line of lines) {
+                                if (!line || line.startsWith(':')) continue;
+                                let token = line;
+                                if (line.startsWith('data:')) {
+                                    token = line.slice(5);
+                                    if (token.startsWith(' ')) {
+                                        token = token.slice(1);
+                                    }
+                                }
+                                if (token) {
+                                    accumulatedText += token;
+                                    botMsg.text = accumulatedText;
+                                    botMsg.html = this.formatMarkdown(accumulatedText);
+                                    this.scrollToBottom();
+                                }
+                            }
+                        }
+                        if (buffer && !buffer.startsWith(':')) {
+                            let token = buffer;
+                            if (buffer.startsWith('data:')) {
+                                token = buffer.slice(5);
+                                if (token.startsWith(' ')) {
+                                    token = token.slice(1);
+                                }
+                            }
+                            if (token) {
+                                accumulatedText += token;
+                                botMsg.text = accumulatedText;
+                                botMsg.html = this.formatMarkdown(accumulatedText);
+                            }
+                        }
+                        this.saveSessionMessages();
+                        if (!this.isOpen) {
+                            this.unreadCount++;
+                        }
+                        this.playNotificationSound();
+
+                        if (trackingMatch) {
+                            await this.fetchAndDisplayShipment(trackingMatch[1].toUpperCase());
+                        }
+                        return;
+                    }
+                } catch (streamErr) {
+                    console.warn('[Chatbot] Stream không khả dụng, chuyển sang chế độ chuẩn:', streamErr);
+                }
+
+                // Chế độ dự phòng: Gọi endpoint /chat chuẩn
+                try {
                     let response = null;
                     try {
                         if (typeof Api !== 'undefined' && typeof Api.request === 'function') {
@@ -546,7 +654,6 @@
                                 signal: AbortSignal.timeout(60000)
                             });
                         } else {
-                            const baseUrl = (['3000', '80', '443', ''].includes(window.location.port) && window.location.protocol.startsWith('http')) ? '' : 'http://localhost:8080';
                             response = await fetch(`${baseUrl}/api/support/ai/chat`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },

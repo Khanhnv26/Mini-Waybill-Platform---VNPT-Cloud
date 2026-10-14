@@ -28,7 +28,10 @@ spec:
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=routing_db;encrypt=true;trustServerCertificate=true;"
             - name: SPRING_DATASOURCE_USERNAME
-              value: "sa"
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: db-user
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -54,6 +57,11 @@ spec:
               value: "Asia/Ho_Chi_Minh"
             - name: JAVA_TOOL_OPTIONS
               value: "-Duser.timezone=Asia/Ho_Chi_Minh"
+            - name: SPRING_DATA_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: redis-password
           resources:
             requests:
               memory: "128Mi"

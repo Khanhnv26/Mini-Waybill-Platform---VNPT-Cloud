@@ -46,14 +46,22 @@ public class TicketServiceImpl implements TicketService {
     private final RabbitTemplate rabbitTemplate;
     private final ShipmentClient shipmentClient;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final org.app.supportservice.service.TicketAccessService ticketAccess;
+    private final org.app.supportservice.repository.ChatOutboxRepository chatOutbox;
+    private final org.app.supportservice.service.MinioStorageService storage;
 
     @Override
     @Transactional
     public TicketResponse createTicket(CreateTicketRequest req, Long userId, String userEmail) {
         String ticketCode = nextTicketCode();
+        byte[] secret = new byte[32];
+        new java.security.SecureRandom().nextBytes(secret);
+        String guestToken = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(secret);
 
         SupportTicket ticket = SupportTicket.builder()
                 .ticketCode(ticketCode)
+                .guestAccessHash(userId == null || userId == 0L
+                        ? org.app.supportservice.service.TicketAccessService.hash(guestToken) : null)
                 .trackingCode(req.getTrackingCode() != null && !req.getTrackingCode().isBlank()
                         ? req.getTrackingCode().trim().toUpperCase() : null)
                 .creatorUserId(userId != null ? userId : 0L)
@@ -102,7 +110,9 @@ public class TicketServiceImpl implements TicketService {
         messageRepository.save(initialMsg);
 
         savedTicket.getMessages().add(initialMsg);
-        return TicketResponse.fromEntity(savedTicket);
+        TicketResponse response = TicketResponse.fromEntity(savedTicket);
+        if (userId == null || userId == 0L) response.setAccessToken(guestToken);
+        return response;
     }
 
     @Override
@@ -110,7 +120,7 @@ public class TicketServiceImpl implements TicketService {
     public List<TicketResponse> getMyTickets(Long userId) {
         return ticketRepository.findByCreatorUserIdOrderByCreatedAtDesc(userId)
                 .stream()
-                .map(TicketResponse::fromEntity)
+                .map(this::responseFor)
                 .collect(Collectors.toList());
     }
 
@@ -125,7 +135,7 @@ public class TicketServiceImpl implements TicketService {
         } else {
             list = ticketRepository.findAllByOrderByCreatedAtDesc();
         }
-        return list.stream().map(TicketResponse::fromEntity).collect(Collectors.toList());
+        return list.stream().map(this::responseFor).collect(Collectors.toList());
     }
 
     @Override
@@ -133,7 +143,27 @@ public class TicketServiceImpl implements TicketService {
     public TicketResponse getTicketById(Long id) {
         SupportTicket ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ticket với ID: " + id));
-        return TicketResponse.fromEntity(ticket);
+        return responseFor(ticket);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TicketResponse> getAccessibleTickets(String status, String trackingCode, Long userId, String roles) {
+        if (userId == null || userId <= 0) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED);
+        boolean staff = org.app.sharedevents.security.RoleAccess.hasAny(roles, "ADMIN", "CS");
+        org.springframework.data.jpa.domain.Specification<SupportTicket> scope = (root, query, cb) -> {
+            List<jakarta.persistence.criteria.Predicate> predicates = new java.util.ArrayList<>();
+            if (!staff) predicates.add(cb.equal(root.get("creatorUserId"), userId));
+            if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status)) {
+                predicates.add(cb.equal(root.get("status"), status.trim().toUpperCase(Locale.ROOT)));
+            }
+            if (trackingCode != null && !trackingCode.isBlank()) {
+                predicates.add(cb.equal(root.get("trackingCode"), trackingCode.trim().toUpperCase(Locale.ROOT)));
+            }
+            return cb.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
+        };
+        return ticketRepository.findAll(scope, org.springframework.data.domain.Sort.by(
+                org.springframework.data.domain.Sort.Direction.DESC, "createdAt", "id")).stream().map(this::responseFor).toList();
     }
 
     @Override
@@ -141,7 +171,7 @@ public class TicketServiceImpl implements TicketService {
     public TicketResponse getTicketByCode(String ticketCode) {
         SupportTicket ticket = ticketRepository.findByTicketCode(ticketCode.trim().toUpperCase())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ticket với mã: " + ticketCode));
-        return TicketResponse.fromEntity(ticket);
+        return responseFor(ticket);
     }
 
     @Override
@@ -156,7 +186,7 @@ public class TicketServiceImpl implements TicketService {
         ticket.setAssignedToName(csName != null && !csName.isBlank() ? csName : "Nhân viên CSKH");
         ticket.setStatus("IN_PROGRESS");
         SupportTicket updated = ticketRepository.save(ticket);
-        return TicketResponse.fromEntity(updated);
+        return responseFor(updated);
     }
 
     @Override
@@ -189,14 +219,21 @@ public class TicketServiceImpl implements TicketService {
             }
         }
 
-        return TicketResponse.fromEntity(updated);
+        return responseFor(updated);
     }
 
     @Override
     @Transactional
     public MessageResponse addMessage(Long id, AddMessageRequest req, Long senderId, String senderRole) {
+        return addMessage(id, req, senderId, senderRole, null);
+    }
+
+    @Override
+    @Transactional
+    public MessageResponse addMessage(Long id, AddMessageRequest req, Long senderId, String senderRole, String guestToken) {
         SupportTicket ticket = ticketRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ticket với ID: " + id));
+        ticketAccess.check(ticket, senderId, senderRole, guestToken);
 
         String status = ticket.getStatus() == null ? "" : ticket.getStatus().trim().toUpperCase(Locale.ROOT);
         if ("RESOLVED".equals(status) || "CLOSED".equals(status)) {
@@ -214,27 +251,15 @@ public class TicketServiceImpl implements TicketService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
+        msg.setAttachmentUrls(storage.normalizeAttachment(req.getAttachmentUrls(), id));
+
         TicketMessage saved = messageRepository.save(msg);
+        chatOutbox.save(org.app.supportservice.entity.ChatOutbox.builder().messageId(saved.getId())
+                .delivered(false).nextAttemptAt(LocalDateTime.now()).build());
 
-        try {
-            TicketChatMessageEvent chatEvent = TicketChatMessageEvent.builder()
-                    .ticketId(ticket.getId())
-                    .ticketCode(ticket.getTicketCode())
-                    .messageId(saved.getId())
-                    .senderId(saved.getSenderId())
-                    .senderName(saved.getSenderName())
-                    .senderRole(saved.getSenderRole())
-                    .content(saved.getContent())
-                    .attachmentUrls(saved.getAttachmentUrls())
-                    .createdAt(saved.getCreatedAt())
-                    .build();
-            kafkaTemplate.send("support-chat-events", ticket.getTicketCode(), chatEvent);
-            log.info(">>> Đã phát sự kiện realtime chat Kafka cho vé {}: messageId={}", ticket.getTicketCode(), saved.getId());
-        } catch (Exception ex) {
-            log.warn("Không thể phát sự kiện realtime chat qua Kafka: {}", ex.getMessage());
-        }
-
-        return MessageResponse.fromEntity(saved);
+        MessageResponse response = MessageResponse.fromEntity(saved);
+        response.setAttachmentUrls(storage.signedUrl(saved.getAttachmentUrls()));
+        return response;
     }
 
     private String nextTicketCode() {
@@ -247,6 +272,12 @@ public class TicketServiceImpl implements TicketService {
             }
         }
         throw new BadRequestException("Không sinh được mã phiếu duy nhất. Vui lòng thử lại");
+    }
+
+    private TicketResponse responseFor(SupportTicket ticket) {
+        TicketResponse response = TicketResponse.fromEntity(ticket);
+        response.getMessages().forEach(message -> message.setAttachmentUrls(storage.signedUrl(message.getAttachmentUrls())));
+        return response;
     }
 
 

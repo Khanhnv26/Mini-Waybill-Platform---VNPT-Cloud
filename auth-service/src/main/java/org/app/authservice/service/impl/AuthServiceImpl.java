@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.Optional;
-import java.util.Random;
+import java.security.SecureRandom;
 import java.util.concurrent.TimeUnit;
 
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +40,7 @@ public class AuthServiceImpl implements AuthService {
     private final StringRedisTemplate redisTemplate;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final CustomerClient customerClient;
+    private final org.app.authservice.service.SessionRevocationService sessionRevocationService;
 
     @Override
     @Transactional
@@ -50,6 +51,9 @@ public class AuthServiceImpl implements AuthService {
         String googleSub = payload.getSubject();
 
         User user = userRepository.findByEmail(email).map(existingUser -> {
+            if (!"ACTIVE".equalsIgnoreCase(existingUser.getStatus())) {
+                throw new IllegalArgumentException("Tài khoản đã bị khóa hoặc ngừng hoạt động");
+            }
             existingUser.setGoogleSub(googleSub);
             if (pictureUrl != null && !pictureUrl.isBlank()) {
                 existingUser.setAvatarUrl(pictureUrl);
@@ -88,11 +92,6 @@ public class AuthServiceImpl implements AuthService {
         Optional<User> existingOpt = userRepository.findByEmail(registerRequest.getEmail());
 
         if(existingOpt.isPresent()) {
-            User existingUser = existingOpt.get();
-            if (existingUser.getPassword() == null) {
-                existingUser.setPassword(encodedPass);
-                return userRepository.save(existingUser);
-            }
             throw new IllegalArgumentException("Email này đã có tài khoản và mật khẩu!");
         }
 
@@ -142,8 +141,17 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void resetPassword(ResetPasswordRequest resetPasswordRequest) {
-        String email = resetPasswordRequest.getEmail().trim();
+        String email = resetPasswordRequest.getEmail().trim().toLowerCase(java.util.Locale.ROOT);
         String otpKey = "otp:" + email;
+
+        Long attempts = redisTemplate.opsForValue().increment("otp_attempts:" + email);
+        if (attempts != null && attempts == 1) {
+            redisTemplate.expire("otp_attempts:" + email, 15, TimeUnit.MINUTES);
+        }
+        if (attempts == null || attempts > 5) {
+            redisTemplate.delete(otpKey);
+            throw new IllegalArgumentException("Đã vượt giới hạn xác thực. Vui lòng yêu cầu mã mới sau khi hết thời gian chờ.");
+        }
 
         String cachedOtp = redisTemplate.opsForValue().get(otpKey);
         if(cachedOtp == null) {
@@ -157,15 +165,23 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản với email này: " + email));
 
+        Long consumed = redisTemplate.execute(new org.springframework.data.redis.core.script.DefaultRedisScript<>(
+                "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end", Long.class),
+                java.util.List.of(otpKey), resetPasswordRequest.getOtp().trim());
+        if (!Long.valueOf(1).equals(consumed)) {
+            throw new IllegalArgumentException("Mã xác thực đã được sử dụng hoặc hết hạn");
+        }
+
         user.setPassword(passwordEncoder.encode(resetPasswordRequest.getNewPassword()));
         userRepository.save(user);
         redisTemplate.delete(otpKey);
+        sessionRevocationService.revokeUser(user.getId());
     }
 
     @Override
     @Transactional
     public void forgotPassword(ForgotPasswordRequest forgotPasswordRequest) {
-        String email = forgotPasswordRequest.getEmail().trim();
+        String email = forgotPasswordRequest.getEmail().trim().toLowerCase(java.util.Locale.ROOT);
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản với email này: " + email));
@@ -176,9 +192,10 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Vui lòng đợi " + (expire != null ? expire : 60) + " giây trước khi yêu cầu mã mới!");
         }
 
-        String otp = String.format("%06d", new Random().nextInt(1000000));
+        String otp = String.format("%06d", new SecureRandom().nextInt(1000000));
         String otpKey = "otp:" + email;
         redisTemplate.opsForValue().set(otpKey, otp, 15, TimeUnit.MINUTES);
+        redisTemplate.delete("otp_attempts:" + email);
         redisTemplate.opsForValue().set(coolDownKey, "LOCK", 60, TimeUnit.SECONDS);
 
         SendEmailEvent sendEmailEvent = SendEmailEvent.builder()
@@ -299,6 +316,7 @@ public class AuthServiceImpl implements AuthService {
 
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
+        sessionRevocationService.revokeUser(user.getId());
     }
 
     private Role getOrCreateCustomerRole() {

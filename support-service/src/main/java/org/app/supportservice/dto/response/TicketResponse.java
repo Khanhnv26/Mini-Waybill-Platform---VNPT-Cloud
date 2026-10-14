@@ -19,6 +19,8 @@ import java.util.stream.Collectors;
 public class TicketResponse {
     private Long id;
     private String ticketCode;
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    private String accessToken;
     private String trackingCode;
     private Long creatorUserId;
     private String creatorName;

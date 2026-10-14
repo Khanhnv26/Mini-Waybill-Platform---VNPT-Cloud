@@ -52,11 +52,13 @@ public class PaymentController {
     @PostMapping("/create-qr")
     public ResponseEntity<PaymentResponse> createQrPayment(
             @Valid @RequestBody CreateQrRequest request,
-            @RequestHeader(value = "X-User-Id", required = false) String currentUserId) {
-        if ((request.getCreatedBy() == null || request.getCreatedBy().isBlank()) && currentUserId != null) {
+            @RequestHeader(value = "X-User-Id", required = false) String currentUserId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles) {
+        if (currentUserId != null && !currentUserId.isBlank()) {
             request.setCreatedBy(currentUserId);
         }
-        if ((request.getCustomerCode() == null || request.getCustomerCode().isBlank()) && currentUserId != null) {
+        if (currentUserId != null && !org.app.sharedevents.security.RoleAccess.hasAny(roles,
+                "ADMIN", "CS", "POST_OFFICE_OPERATOR", "POST_OFFICE_STAFF", "DISPATCHER", "SHIPPER")) {
             request.setCustomerCode(currentUserId);
         }
         PaymentResponse response = paymentService.createPayment(request);
@@ -69,17 +71,25 @@ public class PaymentController {
     }
 
     @GetMapping("/tracking/{trackingCode}")
-    public ResponseEntity<PaymentResponse> getPaymentByTracking(@PathVariable String trackingCode) {
+    public ResponseEntity<PaymentResponse> getPaymentByTracking(@PathVariable String trackingCode,
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles,
+            @RequestHeader(value = "X-Gateway-Request", required = false) String gateway) {
         PaymentResponse response = paymentService.getLatestByTrackingCode(trackingCode);
         if (response == null) {
             throw new PaymentNotFoundException("Không tìm thấy thông tin giao dịch thanh toán cho vận đơn: " + trackingCode);
         }
+        if (gateway != null || userId != null) checkReadable(response, userId, roles);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{paymentCode}")
-    public ResponseEntity<PaymentResponse> getPayment(@PathVariable String paymentCode) {
+    public ResponseEntity<PaymentResponse> getPayment(@PathVariable String paymentCode,
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles,
+            @RequestHeader(value = "X-Gateway-Request", required = false) String gateway) {
         PaymentResponse response = paymentService.getPaymentByCode(paymentCode);
+        if (gateway != null || userId != null) checkReadable(response, userId, roles);
         return ResponseEntity.ok(response);
     }
 
@@ -91,5 +101,12 @@ public class PaymentController {
                 "message", "Thanh toán giả lập thành công cho đơn " + trackingCode,
                 "data", response
         ));
+    }
+
+    private void checkReadable(PaymentResponse payment, String userId, String roles) {
+        if (userId != null && !userId.isBlank() && (userId.equals(payment.getCustomerCode())
+                || userId.equals(payment.getCreatedBy())
+                || org.app.sharedevents.security.RoleAccess.hasAny(roles, "ADMIN", "CS", "POST_OFFICE_OPERATOR", "POST_OFFICE_STAFF", "DISPATCHER"))) return;
+        throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);
     }
 }

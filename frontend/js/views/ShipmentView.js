@@ -39,6 +39,11 @@
             const selectedStatusFilter = ref('ALL');
             const currentPage = ref(1);
             const itemsPerPage = ref(10);
+            const serverTotalPages = ref(1);
+            const serverTotalElements = ref(0);
+            const serverStats = ref({ total: 0, pending: 0, inTransit: 0, delivered: 0, totalCod: 0 });
+            let shipmentRequestVersion = 0;
+            let shipmentFilterTimer = null;
 
             const currentUser = typeof Auth !== 'undefined' ? Auth.getUser() : null;
 
@@ -497,6 +502,7 @@
             };
 
             const loadShipments = async () => {
+                const requestVersion = ++shipmentRequestVersion;
                 isLoadingShipments.value = true;
                 try {
                     let customerIdParam = null;
@@ -506,20 +512,25 @@
                         }
                     }
                     const [data, paidList] = await Promise.all([
-                        ShipmentService.getShipments(customerIdParam),
+                        ShipmentService.getShipmentPage(customerIdParam, { page: currentPage.value - 1, size: itemsPerPage.value, keyword: shipmentSearchQuery.value, status: selectedStatusFilter.value }),
                         typeof PaymentService !== 'undefined' && PaymentService.getPaidTrackingCodes
                             ? PaymentService.getPaidTrackingCodes().catch(() => [])
                             : Promise.resolve([])
                     ]);
-                    shipmentsList.value = Array.isArray(data) ? data : [];
+                    if (requestVersion !== shipmentRequestVersion) return;
+                    shipmentsList.value = Array.isArray(data.content) ? data.content : [];
+                    serverTotalPages.value = Math.max(1, data.totalPages);
+                    serverTotalElements.value = data.totalElements;
+                    serverStats.value = data.stats;
                     if (Array.isArray(paidList)) {
                         paidTrackingCodes.value = new Set([...paidTrackingCodes.value, ...paidList]);
                     }
                 } catch (err) {
                     console.error('[ShipmentView] Lỗi tải danh sách vận đơn:', err);
+                    if (requestVersion !== shipmentRequestVersion) return;
                     Utils.showToast('Thông Báo', err.message || 'Không thể tải danh sách vận đơn', 'warning');
                 } finally {
-                    isLoadingShipments.value = false;
+                    if (requestVersion === shipmentRequestVersion) isLoadingShipments.value = false;
                 }
             };
 
@@ -846,47 +857,17 @@
                 }
             };
 
-            const filteredShipments = computed(() => {
-                let list = shipmentsList.value || [];
-                if (selectedStatusFilter.value && selectedStatusFilter.value !== 'ALL') {
-                    list = list.filter(s => s.currentStatus === selectedStatusFilter.value);
-                }
-                if (shipmentSearchQuery.value && shipmentSearchQuery.value.trim()) {
-                    const q = shipmentSearchQuery.value.trim().toLowerCase();
-                    list = list.filter(s => 
-                        (s.trackingCode && s.trackingCode.toLowerCase().includes(q)) ||
-                        (s.senderName && s.senderName.toLowerCase().includes(q)) ||
-                        (s.senderPhone && s.senderPhone.includes(q)) ||
-                        (s.receiverName && s.receiverName.toLowerCase().includes(q)) ||
-                        (s.receiverPhone && s.receiverPhone.includes(q)) ||
-                        (s.receiverAddress && s.receiverAddress.toLowerCase().includes(q))
-                    );
-                }
-                return list;
-            });
+            const filteredShipments = computed(() => shipmentsList.value || []);
+            const paginatedShipments = computed(() => shipmentsList.value || []);
+            const totalPages = computed(() => serverTotalPages.value);
+            const stats = computed(() => serverStats.value);
 
-            const totalPages = computed(() => Math.max(1, Math.ceil(filteredShipments.value.length / itemsPerPage.value)));
-
-            const paginatedShipments = computed(() => {
-                const start = (currentPage.value - 1) * itemsPerPage.value;
-                return filteredShipments.value.slice(start, start + itemsPerPage.value);
-            });
-
-            watch([selectedStatusFilter, shipmentSearchQuery], () => {
+            watch([selectedStatusFilter, shipmentSearchQuery, selectedCustomerFilter, itemsPerPage], () => {
+                clearTimeout(shipmentFilterTimer);
                 currentPage.value = 1;
+                shipmentFilterTimer = setTimeout(() => { shipmentFilterTimer = null; loadShipments(); }, 300);
             });
-
-            const stats = computed(() => {
-                const list = shipmentsList.value || [];
-                const total = list.length;
-                const inTransit = list.filter(s => 
-                    ['ROUTE_ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ARRIVED_DEST_HUB'].includes(s.currentStatus)
-                ).length;
-                const delivered = list.filter(s => s.currentStatus === 'DELIVERED').length;
-                const pending = list.filter(s => ['CREATED', 'PENDING_ROUTING'].includes(s.currentStatus)).length;
-                const totalCod = list.reduce((acc, s) => acc + (Number(s.codAmount) || 0), 0);
-                return { total, inTransit, delivered, pending, totalCod };
-            });
+            watch(currentPage, () => { if (!shipmentFilterTimer) loadShipments(); });
 
             const baseFee = computed(() => {
                 const w = Math.max(0.1, Number(form.weight) || 1);
@@ -1343,6 +1324,8 @@
             });
 
             onUnmounted(() => {
+                clearTimeout(shipmentFilterTimer);
+                shipmentRequestVersion++;
                 if (decisionCountdownTimer) clearInterval(decisionCountdownTimer);
             });
 
@@ -1402,6 +1385,7 @@
                 paginatedShipments,
                 currentPage,
                 totalPages,
+                serverTotalElements,
                 itemsPerPage,
                 stats,
                 viewTracking,
@@ -2516,7 +2500,7 @@
 
                         <div v-if="filteredShipments.length > 0" class="p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
                             <div>
-                                Hiển thị <span class="font-bold text-slate-700">{{ paginatedShipments.length }}</span> / <span class="font-bold text-slate-700">{{ filteredShipments.length }}</span> vận đơn (Trang {{ currentPage }} / {{ totalPages }})
+                                Hiển thị <span class="font-bold text-slate-700">{{ paginatedShipments.length }}</span> / <span class="font-bold text-slate-700">{{ serverTotalElements }}</span> vận đơn (Trang {{ currentPage }} / {{ totalPages }})
                             </div>
                             <div class="flex items-center space-x-1.5">
                                 <button 

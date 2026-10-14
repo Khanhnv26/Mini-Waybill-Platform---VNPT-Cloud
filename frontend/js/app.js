@@ -1321,7 +1321,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                         const socket = new SockJS(endpoint);
                         bellStomp = Stomp.over(socket);
                         bellStomp.debug = null;
-                        bellStomp.connect({}, () => {
+                        bellStomp.connect((typeof Auth !== 'undefined' && Auth.getToken()) ? { Authorization: `Bearer ${Auth.getToken()}` } : {}, () => {
                             bellSubscription = bellStomp.subscribe('/topic/notifications/broadcast', () => {
                                 fetchNotifications();
                             });

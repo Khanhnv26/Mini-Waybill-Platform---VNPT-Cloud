@@ -47,4 +47,4 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: waybill-runtime
-                  key: db-password
+                  key: db-admin-password

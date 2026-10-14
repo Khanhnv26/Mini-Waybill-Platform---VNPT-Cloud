@@ -42,6 +42,13 @@ spec:
                 secretKeyRef:
                   name: waybill-runtime
                   key: jwt-secret
+            - name: SPRING_DATA_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: redis-password
+            - name: TRUSTED_PROXY_REGEX
+              value: '10\.42\..*|127\.0\.0\.1|::1'
           resources:
             requests:
               memory: "128Mi"

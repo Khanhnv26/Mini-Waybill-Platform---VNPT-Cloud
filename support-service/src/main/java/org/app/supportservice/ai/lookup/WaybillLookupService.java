@@ -80,10 +80,10 @@ public class WaybillLookupService {
         if (shipment.found()) {
             ShipmentSnapshot snap = shipment.value();
             if (hasText(snap.getReceiverName())) {
-                text.append("- Người nhận: ").append(snap.getReceiverName().trim()).append('\n');
+                text.append("- Người nhận: ").append(maskReceiverName(snap.getReceiverName())).append('\n');
             }
             if (hasText(snap.getReceiverAddress())) {
-                text.append("- Địa chỉ phát: ").append(snap.getReceiverAddress().trim()).append('\n');
+                text.append("- Địa chỉ phát: ").append(maskReceiverAddress(snap.getReceiverAddress())).append('\n');
             }
             if (snap.getCodAmount() != null) {
                 text.append("- Tiền thu hộ: ").append(snap.getCodAmount().toPlainString()).append(" VND\n");
@@ -217,6 +217,26 @@ public class WaybillLookupService {
 
     private static boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    static String maskReceiverName(String name) {
+        if (!hasText(name)) return "";
+        String trimmed = name.trim();
+        int spaceIdx = trimmed.lastIndexOf(' ');
+        if (spaceIdx > 0) {
+            return trimmed.substring(0, spaceIdx + 1) + "***";
+        }
+        return trimmed.length() > 2 ? trimmed.substring(0, 2) + "***" : "***";
+    }
+
+    static String maskReceiverAddress(String address) {
+        if (!hasText(address)) return "";
+        String trimmed = address.trim();
+        String[] parts = trimmed.split("[,\\-]");
+        if (parts.length >= 2) {
+            return "***, " + parts[parts.length - 2].trim() + ", " + parts[parts.length - 1].trim();
+        }
+        return "***";
     }
 
     private record RemoteRead<T>(T value, boolean unavailable) {

@@ -307,7 +307,7 @@ public class NotificationConsumer {
             log.info("[WEBSOCKET-PUBSUB] Đã đẩy sự kiện realtime lên Redis channel: {}", event.getTrackingCode());
         } catch (Exception ex) {
             log.error("[WEBSOCKET-PUBSUB] Lỗi publish sự kiện lên Redis, fallback sang local broker: {}", ex.getMessage(), ex);
-            messagingTemplate.convertAndSend("/topic/tracking/" + event.getTrackingCode(), event);
+            messagingTemplate.convertAndSend("/topic/tracking/" + event.getTrackingCode(), org.app.notificationservice.dto.response.PublicTrackingEvent.from(event));
         }
     }
 
@@ -372,8 +372,7 @@ public class NotificationConsumer {
     @KafkaListener(topics = "support-chat-events", groupId = "notification-group")
     public void handleSupportChatMessage(TicketChatMessageEvent event) {
         if (event == null) return;
-        log.info("[NOTIFICATION] Nhận sự kiện chat thời gian thực cho phiếu {}: senderRole={}, content={}",
-                event.getTicketCode(), event.getSenderRole(), event.getContent());
+        log.info("[NOTIFICATION] Nhận sự kiện chat: messageId={}, ticketId={}", event.getMessageId(), event.getTicketId());
         try {
             if (event.getTicketId() != null) {
                 messagingTemplate.convertAndSend("/topic/tickets/" + event.getTicketId(), event);

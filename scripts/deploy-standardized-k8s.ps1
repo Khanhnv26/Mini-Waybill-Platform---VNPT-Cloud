@@ -58,17 +58,9 @@ try {
     Invoke-Kubectl -Arguments @("apply", "-f", "k8s/00-namespaces/")
 
     Write-Host "2.1. Tao Runtime Secret va ConfigMap waybill..." -ForegroundColor Green
-    & kubectl create secret generic waybill-runtime -n waybill `
-        --from-literal=db-password="Replica@123456" `
-        --from-literal=jwt-secret="9a7b8c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b" `
-        --from-literal=rabbitmq-user="admin" `
-        --from-literal=rabbitmq-password="admin" `
-        --from-literal=minio-user="minioadmin" `
-        --from-literal=minio-password="minioadmin" `
-        --from-literal=ai-api-key="default-key" `
-        --from-literal=mail-username="noreply@waybill.vn" `
-        --from-literal=mail-password="dummy-password" `
-        --dry-run=client -o yaml | kubectl apply -f -
+    $runtimeSecretFile = Join-Path $PSScriptRoot '../.secrets/waybill-runtime.env'
+    if (-not (Test-Path -LiteralPath $runtimeSecretFile)) { throw 'Prepare private runtime configuration first; see docs/security-rollout.md' }
+    & kubectl create secret generic waybill-runtime -n waybill --from-env-file=$runtimeSecretFile --dry-run=client -o yaml | kubectl apply -f -
 
     & kubectl create configmap waybill-config -n waybill `
         --from-literal=AI_BASE_URL="http://host.docker.internal:11434/v1" `

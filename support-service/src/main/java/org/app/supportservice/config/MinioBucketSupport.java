@@ -15,7 +15,7 @@ public class MinioBucketSupport {
 
     private final AtomicBoolean ready = new AtomicBoolean(false);
 
-    public void ensurePublicBucket(MinioClient client, String bucketName) throws Exception {
+    public void ensurePrivateBucket(MinioClient client, String bucketName) throws Exception {
         if (ready.get()) {
             return;
         }
@@ -28,22 +28,9 @@ public class MinioBucketSupport {
                 client.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
                 log.info("Đã tạo MinIO bucket {}", bucketName);
             }
-            String policy = """
-                    {
-                        "Version": "2012-10-17",
-                        "Statement": [
-                            {
-                                "Effect": "Allow",
-                                "Principal": {"AWS": ["*"]},
-                                "Action": ["s3:GetObject"],
-                                "Resource": ["arn:aws:s3:::%s/*"]
-                            }
-                        ]
-                    }
-                    """.formatted(bucketName);
-            client.setBucketPolicy(SetBucketPolicyArgs.builder().bucket(bucketName).config(policy).build());
+            client.deleteBucketPolicy(io.minio.DeleteBucketPolicyArgs.builder().bucket(bucketName).build());
             ready.set(true);
-            log.info("Bucket {} sẵn sàng và cho phép đọc công khai", bucketName);
+            log.info("Bucket {} sẵn sàng và chỉ cho phép truy cập có xác thực", bucketName);
         }
     }
 }

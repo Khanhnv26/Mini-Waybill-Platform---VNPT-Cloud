@@ -323,7 +323,7 @@
                     stompClient = Stomp.over(socket);
                     stompClient.debug = null;
 
-                    stompClient.connect({}, () => {
+                    stompClient.connect((typeof Auth !== 'undefined' && Auth.getToken()) ? { Authorization: `Bearer ${Auth.getToken()}` } : {}, () => {
                         isWsConnected.value = true;
                         subscribeTrackingTopic(cleanCode);
                     }, (error) => {

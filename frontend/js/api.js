@@ -57,6 +57,7 @@ const Api = {
             }
 
             if (response.status === 429) {
+                if (options.silent) return response;
                 console.warn('[API 429] Vượt quá giới hạn tần suất yêu cầu (Rate Limiting). Chuyển hướng sang màn hình lỗi 429...');
                 const retryAfter = response.headers.get('Retry-After') || '10';
                 

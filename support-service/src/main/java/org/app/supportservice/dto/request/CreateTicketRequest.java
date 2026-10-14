@@ -13,6 +13,7 @@ public class CreateTicketRequest {
     private String trackingCode;
 
     @NotBlank(message = "Tiêu dề không được để trống")
+    @jakarta.validation.constraints.Size(max = 255)
     private String title;
 
     @NotBlank(message = "Vui lòng chọn loại khiếu nại")
@@ -21,6 +22,7 @@ public class CreateTicketRequest {
     private String priority = "NORMAL";
 
     @NotBlank(message = "Nội dung khiếu nại không được để trống")
+    @jakarta.validation.constraints.Size(max = 4000)
     private String description;
 
     private String creatorName;

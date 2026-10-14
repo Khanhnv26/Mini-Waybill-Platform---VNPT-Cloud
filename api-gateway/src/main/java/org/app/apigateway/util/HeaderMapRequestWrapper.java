@@ -7,7 +7,7 @@ import jakarta.servlet.http.HttpServletRequestWrapper;
 import java.util.*;
 
 public class HeaderMapRequestWrapper extends HttpServletRequestWrapper {
-    private final Map<String, String> customHeaders = new HashMap<>();
+    private final Map<String, String> customHeaders = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 
     public HeaderMapRequestWrapper(HttpServletRequest request) {
         super(request);
@@ -27,7 +27,8 @@ public class HeaderMapRequestWrapper extends HttpServletRequestWrapper {
 
     @Override
     public Enumeration<String> getHeaderNames() {
-        Set<String> set = new HashSet<>(customHeaders.keySet());
+        Set<String> set = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        set.addAll(customHeaders.keySet());
         Enumeration<String> e = super.getHeaderNames();
         while(e.hasMoreElements()) {
             set.add(e.nextElement());

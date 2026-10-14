@@ -152,15 +152,18 @@
             };
 
             const searchCode = ref('');
+            const guestAccessInput = ref('');
             const isSearching = ref(false);
             const myTickets = ref([]);
             const guestHistory = ref([]);
             const activeTicket = ref(null);
+            let ticketSelectionVersion = 0;
             const chatInput = ref('');
             const isSendingMessage = ref(false);
             const chatBoxRef = ref(null);
 
             const selectedAttachmentUrl = ref(null);
+            const selectedAttachmentKey = ref(null);
             const isUploadingAttachment = ref(false);
 
             const handleAttachmentUpload = async (event) => {
@@ -185,8 +188,9 @@
 
                 isUploadingAttachment.value = true;
                 try {
-                    const result = await SupportService.uploadAttachment(file);
+                    const result = await SupportService.uploadAttachment(file, activeTicket.value?.id);
                     selectedAttachmentUrl.value = result.url;
+                    selectedAttachmentKey.value = result.objectKey;
                     if (window.Utils?.showToast) {
                         window.Utils.showToast('Tải Ảnh Thành Công', 'Ảnh đã sẵn sàng đính kèm vào tin nhắn.', 'success');
                     }
@@ -201,7 +205,7 @@
             };
 
             const removeAttachment = () => {
-                selectedAttachmentUrl.value = null;
+                selectedAttachmentUrl.value = null; selectedAttachmentKey.value = null;
             };
 
             const triggerChatFileInput = () => {
@@ -241,7 +245,7 @@
                     });
                     if (list.length > 5) list = list.slice(0, 5);
                     guestHistory.value = list;
-                    localStorage.setItem('vnpt_guest_support_history', JSON.stringify(list));
+                    localStorage.setItem('vnpt_guest_support_history', JSON.stringify(list.map(({ accessToken, ...metadata }) => metadata)));
                 } catch {}
             };
 
@@ -265,14 +269,18 @@
                     return;
                 }
 
+                if (!currentUser.value && guestAccessInput.value.trim()) SupportService.setTicketAccess(code, guestAccessInput.value);
+                const selection = ++ticketSelectionVersion;
                 isSearching.value = true;
                 try {
                     if (code.startsWith('TKT-') || code.startsWith('TKT')) {
                         const ticket = await SupportService.getTicketByCode(code);
+                        if (selection !== ticketSelectionVersion || chatDestroyed) return;
                         activeTicket.value = ticket;
                         saveGuestHistory(ticket);
                     } else {
                         const list = await SupportService.getTicketsByTrackingCode(code);
+                        if (selection !== ticketSelectionVersion || chatDestroyed) return;
                         if (list && list.length > 0) {
                             activeTicket.value = list[0];
                             saveGuestHistory(list[0]);
@@ -282,9 +290,9 @@
                     }
                     scrollToBottom();
                 } catch (err) {
-                    if (window.Utils?.showToast) window.Utils.showToast('Không Tìm Thấy', err.message, 'error');
+                    if (selection === ticketSelectionVersion && !chatDestroyed && window.Utils?.showToast) window.Utils.showToast('Không Tìm Thấy', err.message, 'error');
                 } finally {
-                    isSearching.value = false;
+                    if (selection === ticketSelectionVersion) isSearching.value = false;
                 }
             };
 
@@ -322,10 +330,6 @@
                 return 'Nhập tin nhắn trao đổi với CSKH... (nhấn Enter để gửi)';
             });
 
-            let stompClient = null;
-            let currentTicketSub = null;
-            let currentTicketCodeSub = null;
-
             const getWsEndpoint = () => {
                 const host = window.location.hostname || 'localhost';
                 const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
@@ -339,40 +343,18 @@
                 return `${protocol}//${host}:8080/api/notifications/ws`;
             };
 
-            const disconnectTicketWs = () => {
-                if (currentTicketSub) {
-                    try { currentTicketSub.unsubscribe(); } catch (e) {}
-                    currentTicketSub = null;
-                }
-                if (currentTicketCodeSub) {
-                    try { currentTicketCodeSub.unsubscribe(); } catch (e) {}
-                    currentTicketCodeSub = null;
-                }
-            };
-
+            let chatConnection = null;
+            let chatDestroyed = false;
+            const disconnectTicketWs = () => { if (chatConnection) chatConnection.subscribe(null); };
             const subscribeTicketTopics = (ticket) => {
-                if (!ticket) return;
-                disconnectTicketWs();
-                if (!stompClient || !stompClient.connected) {
-                    initWebSocket(ticket);
-                    return;
-                }
-
-                if (ticket.id) {
-                    currentTicketSub = stompClient.subscribe(`/topic/tickets/${ticket.id}`, (frame) => {
-                        handleIncomingWsMessage(frame);
-                    });
-                }
-                if (ticket.ticketCode) {
-                    currentTicketCodeSub = stompClient.subscribe(`/topic/tickets/code/${ticket.ticketCode}`, (frame) => {
-                        handleIncomingWsMessage(frame);
-                    });
-                }
+                if (!chatConnection) initWebSocket();
+                if (chatConnection) chatConnection.subscribe(ticket);
             };
 
             const handleIncomingWsMessage = (frame) => {
                 try {
                     const data = JSON.parse(frame.body);
+                    if (data.attachmentUrls) refreshActiveTicketMessagesSilently();
                     if (!data || !activeTicket.value) return;
                     if (data.ticketId !== activeTicket.value.id && data.ticketCode !== activeTicket.value.ticketCode) return;
 
@@ -388,7 +370,7 @@
                             senderName: data.senderName,
                             senderRole: data.senderRole,
                             content: data.content,
-                            attachmentUrls: data.attachmentUrls,
+                            attachmentUrls: /^https?:\/\//.test(data.attachmentUrls || '') ? data.attachmentUrls : null,
                             createdAt: data.createdAt
                         });
                         scrollToBottom();
@@ -413,36 +395,16 @@
                 }
             };
 
-            const initWebSocket = (ticketToSubscribe = null) => {
-                if (typeof SockJS === 'undefined' || typeof Stomp === 'undefined') {
-                    console.warn('[Support WebSocket] SockJS/Stomp chưa sẵn sàng. Fallback sang Smart Polling.');
-                    return;
-                }
-                if (stompClient && stompClient.connected) {
-                    if (ticketToSubscribe) subscribeTicketTopics(ticketToSubscribe);
-                    return;
-                }
-
-                try {
-                    const endpoint = getWsEndpoint();
-                    const socket = new SockJS(endpoint);
-                    stompClient = Stomp.over(socket);
-                    stompClient.debug = null;
-
-                    stompClient.connect({}, () => {
-                        isWsConnected.value = true;
-                        const target = ticketToSubscribe || activeTicket.value;
-                        if (target) {
-                            subscribeTicketTopics(target);
-                        }
-                    }, (err) => {
-                        console.warn('[Support WebSocket] Lỗi kết nối WebSocket, Smart Polling sẵn sàng:', err);
-                        isWsConnected.value = false;
-                    });
-                } catch (err) {
-                    console.warn('[Support WebSocket] Khởi tạo SockJS thất bại:', err);
-                    isWsConnected.value = false;
-                }
+            const initWebSocket = () => {
+                if (chatDestroyed || chatConnection) return;
+                chatConnection = new window.SupportChatConnection({
+                    url: getWsEndpoint(),
+                    onConnect: () => { isWsConnected.value = true; startSmartPolling(); refreshActiveTicketMessagesSilently(); },
+                    onDisconnect: () => { isWsConnected.value = false; startSmartPolling(); },
+                    onMessage: handleIncomingWsMessage
+                });
+                chatConnection.subscribe(activeTicket.value);
+                chatConnection.start();
             };
 
             let pollTimer = null;
@@ -451,7 +413,7 @@
                 pollTimer = setInterval(async () => {
                     if (!activeTicket.value || document.hidden) return;
                     await refreshActiveTicketMessagesSilently();
-                }, 3500);
+                }, isWsConnected.value ? 15000 : 3500);
             };
 
             const stopSmartPolling = () => {
@@ -461,32 +423,31 @@
                 }
             };
 
+            let pollInFlight = false;
             const refreshActiveTicketMessagesSilently = async () => {
-                if (!activeTicket.value) return;
+                const target = activeTicket.value;
+                if (!target || pollInFlight || chatDestroyed) return;
+                pollInFlight = true;
                 try {
-                    const tCode = activeTicket.value.ticketCode;
-                    const tId = activeTicket.value.id;
-                    let fresh = null;
-                    if (tCode) {
-                        fresh = await SupportService.getTicketByCode(tCode);
-                    } else if (tId) {
-                        fresh = await SupportService.getTicketById(tId);
+                    const fresh = target.ticketCode ? await SupportService.getTicketByCode(target.ticketCode) : await SupportService.getTicketById(target.id);
+                    if (chatDestroyed || activeTicket.value?.id !== target.id) return;
+                    const messages = new Map((activeTicket.value.messages || []).map(m => [m.id, m]));
+                    for (const m of fresh.messages || []) messages.set(m.id, m);
+                    activeTicket.value.messages = [...messages.values()].sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt) || a.id - b.id);
+                    activeTicket.value.status = fresh.status;
+                    activeTicket.value.resolutionNote = fresh.resolutionNote;
+                    scrollToBottom();
+                } catch {} finally {
+                    pollInFlight = false;
+                    if (!chatDestroyed && activeTicket.value && activeTicket.value.id !== target.id) {
+                        refreshActiveTicketMessagesSilently();
                     }
-                    if (fresh && fresh.messages && activeTicket.value) {
-                        const currentCount = activeTicket.value.messages?.length || 0;
-                        if (fresh.messages.length > currentCount) {
-                            activeTicket.value.messages = fresh.messages;
-                            activeTicket.value.status = fresh.status;
-                            activeTicket.value.compensationAmount = fresh.compensationAmount;
-                            activeTicket.value.resolutionNote = fresh.resolutionNote;
-                            scrollToBottom();
-                        }
-                    }
-                } catch {}
+                }
             };
 
             const manualRefreshChat = async () => {
                 if (!activeTicket.value) return;
+                const target = activeTicket.value;
                 isRefreshingChat.value = true;
                 try {
                     let refreshed = null;
@@ -495,7 +456,7 @@
                     } else if (activeTicket.value.id) {
                         refreshed = await SupportService.getTicketById(activeTicket.value.id);
                     }
-                    if (refreshed) {
+                    if (refreshed && activeTicket.value?.id === target.id && !chatDestroyed) {
                         activeTicket.value = refreshed;
                         scrollToBottom();
                         if (window.Utils?.showToast) {
@@ -513,19 +474,23 @@
 
             const selectActiveTicket = async (ticket) => {
                 if (!ticket) return;
+                const selection = ++ticketSelectionVersion;
+                isSearching.value = false;
+                activeTicket.value = ticket;
                 try {
                     if (ticket.ticketCode) {
                         const refreshed = await SupportService.getTicketByCode(ticket.ticketCode);
-                        activeTicket.value = refreshed;
+                        if (selection === ticketSelectionVersion && !chatDestroyed) activeTicket.value = refreshed;
                     } else if (ticket.id) {
                         const refreshed = await SupportService.getTicketById(ticket.id);
-                        activeTicket.value = refreshed;
+                        if (selection === ticketSelectionVersion && !chatDestroyed) activeTicket.value = refreshed;
                     } else {
                         activeTicket.value = ticket;
                     }
                 } catch {
-                    activeTicket.value = ticket;
+                    if (selection === ticketSelectionVersion && !chatDestroyed) activeTicket.value = ticket;
                 }
+                if (selection !== ticketSelectionVersion || chatDestroyed) return;
                 subscribeTicketTopics(activeTicket.value);
                 scrollToBottom();
             };
@@ -540,7 +505,7 @@
 
             const sendMessage = async (presetText = null) => {
                 const text = (presetText || chatInput.value).trim();
-                const attachment = selectedAttachmentUrl.value;
+                const attachment = selectedAttachmentKey.value || selectedAttachmentUrl.value;
                 if ((!text && !attachment) || !activeTicket.value) return;
 
                 isSendingMessage.value = true;
@@ -556,7 +521,7 @@
                         activeTicket.value.messages.push(newMsg);
                     }
                     chatInput.value = '';
-                    selectedAttachmentUrl.value = null;
+                    selectedAttachmentUrl.value = null; selectedAttachmentKey.value = null;
                     scrollToBottom();
                 } catch (err) {
                     if (window.Utils?.showToast) window.Utils.showToast('Lỗi Chat', err.message, 'error');
@@ -638,10 +603,11 @@
             const closeResolveModal = () => {
                 showResolveModal.value = false;
                 modalTicket.value = null;
-                modalAttachmentUrl.value = null;
+                modalAttachmentUrl.value = null; modalAttachmentKey.value = null;
             };
 
             const modalAttachmentUrl = ref(null);
+            const modalAttachmentKey = ref(null);
             const isUploadingModalAttachment = ref(false);
 
             const handleModalAttachmentUpload = async (event) => {
@@ -666,8 +632,9 @@
 
                 isUploadingModalAttachment.value = true;
                 try {
-                    const result = await SupportService.uploadAttachment(file);
+                    const result = await SupportService.uploadAttachment(file, modalTicket.value?.id);
                     modalAttachmentUrl.value = result.url;
+                    modalAttachmentKey.value = result.objectKey;
                     if (window.Utils?.showToast) {
                         window.Utils.showToast('Tải Ảnh Thành Công', 'Ảnh biên bản đã sẵn sàng gửi.', 'success');
                     }
@@ -682,12 +649,12 @@
             };
 
             const removeModalAttachment = () => {
-                modalAttachmentUrl.value = null;
+                modalAttachmentUrl.value = null; modalAttachmentKey.value = null;
             };
 
             const handleSendCsMessageInModal = async () => {
                 const text = modalCsReply.value.trim();
-                const attachment = modalAttachmentUrl.value;
+                const attachment = modalAttachmentKey.value || modalAttachmentUrl.value;
                 if ((!text && !attachment) || !modalTicket.value) return;
                 try {
                     const payload = {
@@ -699,7 +666,7 @@
                     if (!modalTicket.value.messages) modalTicket.value.messages = [];
                     modalTicket.value.messages.push(newMsg);
                     modalCsReply.value = '';
-                    modalAttachmentUrl.value = null;
+                    modalAttachmentUrl.value = null; modalAttachmentKey.value = null;
                 } catch (err) {
                     if (window.Utils?.showToast) window.Utils.showToast('Lỗi', err.message, 'error');
                 }
@@ -878,13 +845,13 @@
             });
 
             onUnmounted(() => {
-                disconnectTicketWs();
+                chatDestroyed = true;
                 stopSmartPolling();
-                if (stompClient) {
-                    try { stompClient.disconnect(); } catch (e) {}
-                    stompClient = null;
-                }
+                chatConnection?.stop();
+                chatConnection = null;
             });
+
+            watch(() => activeTicket.value?.id, () => subscribeTicketTopics(activeTicket.value));
 
             watch(() => props.trackingCode, (newCode) => {
                 if (newCode && newCode !== formData.trackingCode) {
@@ -922,6 +889,7 @@
                 checkShipment,
                 submitTicket,
                 searchCode,
+                guestAccessInput,
                 isSearching,
                 myTickets,
                 guestHistory,
@@ -1295,6 +1263,7 @@
                                     maxlength="35"
                                     class="flex-1 min-w-0 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold uppercase focus:bg-white focus:border-blue-600 outline-none transition"
                                 />
+                                <input v-if="!currentUser" v-model="guestAccessInput" type="password" autocomplete="off" placeholder="Mã truy cập bí mật" aria-label="Mã truy cập phiếu hỗ trợ" class="min-w-0 w-36 px-3 py-2 border rounded-lg text-xs" />
                                 <button 
                                     type="button" 
                                     @click="handleSearch"
@@ -1556,6 +1525,7 @@
                             </div>
                         </div>
 
+                        <div v-if="!currentUser && activeTicket?.accessToken" class="px-3 py-2 text-xs break-all bg-slate-50">Lưu mã truy cập này để mở lại phiếu trên thiết bị khác: <code>{{ activeTicket.accessToken }}</code></div>
                         <div id="chatMessagesFeed" class="p-3.5 space-y-3 flex-1 overflow-y-auto overflow-x-hidden min-h-0 bg-[#f8fafc]">
                             
                             <template v-if="activeTicket">

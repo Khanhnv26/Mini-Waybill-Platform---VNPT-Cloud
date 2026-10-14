@@ -11,8 +11,11 @@ public interface ShipmentService {
 
     Shipment createShipment(CreateShipmentRequest request, String currentUserId, String permissions);
     Shipment getShipmentByTrackCode(String trackCode, String currentUserId, String permissions);
+    boolean canViewDetails(Shipment shipment, String currentUserId, String permissions);
     List<Shipment> getShipmentByCustomerId(Long customerId, String currentUserId, String permissions);
     List<Shipment> getShipments(Long customerId, String currentUserId, String permissions);
+    org.app.shipmentservice.dto.response.ShipmentPageResponse getShipmentPage(Long customerId, String userId,
+            String permissions, int page, int size, String keyword, String status);
     Shipment cancelShipment(String trackCode, String currentUserId, String roles, String permissions, CancelShipmentRequest cancelRequest);
 
     Shipment recalculateEta(String trackingCode);
