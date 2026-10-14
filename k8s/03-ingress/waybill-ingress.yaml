@@ -17,6 +17,13 @@ spec:
     - host: waybill-express.japaneast.cloudapp.azure.com
       http:
         paths:
+          - path: /grafana
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana-ext
+                port:
+                  number: 3000
           - path: /api
             pathType: Prefix
             backend:
@@ -121,3 +128,15 @@ spec:
                 name: minio
                 port:
                   number: 9000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-ext
+  namespace: waybill
+spec:
+  type: ExternalName
+  externalName: grafana.monitor.svc.cluster.local
+  ports:
+    - port: 3000
+      targetPort: 3000
