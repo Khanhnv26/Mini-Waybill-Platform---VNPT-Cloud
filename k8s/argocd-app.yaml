@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: 'https://github.com/Khanhnv26/Mini-Waybill-Platform---VNPT-Cloud.git'
-    targetRevision: business
+    targetRevision: main
     path: k8s/02-services
   destination:
     server: 'https://kubernetes.default.svc'
