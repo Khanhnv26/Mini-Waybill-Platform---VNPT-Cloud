@@ -2,7 +2,10 @@ package org.app.shipmentservice.consumer;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.app.sharedevents.entity.OperationType;
 import org.app.sharedevents.entity.PaymentSuccessEvent;
+import org.app.sharedevents.entity.ShipmentLifecycleEvent;
+import org.app.shipmentservice.dto.event.ShipmentStatusUpdatedEvent;
 import org.app.shipmentservice.entity.CodSettlementStatus;
 import org.app.shipmentservice.entity.Shipment;
 import org.app.shipmentservice.entity.ShipmentStatus;
@@ -11,10 +14,12 @@ import org.app.shipmentservice.entity.ReturnRequest;
 import org.app.shipmentservice.repository.ReturnRequestRepository;
 import org.app.shipmentservice.repository.ShipmentRepository;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -23,6 +28,7 @@ public class PaymentSuccessConsumer {
 
     private final ShipmentRepository shipmentRepository;
     private final ReturnRequestRepository returnRequestRepository;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @KafkaListener(topics = "payment-success-events", groupId = "shipment-payment-group")
     public void handlePaymentSuccess(PaymentSuccessEvent event) {
@@ -48,13 +54,49 @@ public class PaymentSuccessConsumer {
         }
 
         if ("COD".equalsIgnoreCase(event.getPaymentType())) {
+            LocalDateTime settledAt = event.getPaidAt() != null ? event.getPaidAt() : LocalDateTime.now();
             shipment.setCurrentStatus(ShipmentStatus.DELIVERED);
             shipment.setCodSettlementStatus(CodSettlementStatus.SETTLED);
-            shipment.setCodSettledAt(event.getPaidAt() != null ? event.getPaidAt() : LocalDateTime.now());
+            shipment.setCodSettledAt(settledAt);
             shipment.setCodSettledBy("VIETQR_GATEWAY");
             shipmentRepository.save(shipment);
 
             log.info("[SHIPMENT-SERVICE] Đã cập nhật DELIVERED và COD SETTLED cho đơn {}", event.getTrackingCode());
+
+            String location = "CUSTOMER";
+            String note = "Bưu tá phát thành công tận nơi và đã thanh toán COD qua VietQR";
+
+            // 1. Đồng bộ qua shipment-lifecycle-events
+            ShipmentLifecycleEvent lifecycleEvent = ShipmentLifecycleEvent.builder()
+                    .eventId("cod-payment-delivered:" + UUID.randomUUID())
+                    .trackingCode(shipment.getTrackingCode())
+                    .status("DELIVERED")
+                    .operationType(OperationType.DELIVERED)
+                    .locationCode(location)
+                    .actorId("VIETQR_GATEWAY")
+                    .note(note)
+                    .occurredAt(settledAt)
+                    .build();
+            try {
+                kafkaTemplate.send("shipment-lifecycle-events", shipment.getTrackingCode(), lifecycleEvent);
+            } catch (Exception ex) {
+                log.warn("[SHIPMENT-SERVICE] Lỗi gửi lifecycle event DELIVERED: {}", ex.getMessage());
+            }
+
+            // 2. Đồng bộ qua tracking-status-events
+            ShipmentStatusUpdatedEvent statusEvent = ShipmentStatusUpdatedEvent.builder()
+                    .trackingCode(shipment.getTrackingCode())
+                    .status("DELIVERED")
+                    .codSettlementStatus(CodSettlementStatus.SETTLED.name())
+                    .locationCode(location)
+                    .note(note)
+                    .updateAt(settledAt)
+                    .build();
+            try {
+                kafkaTemplate.send("tracking-status-events", shipment.getTrackingCode(), statusEvent);
+            } catch (Exception ex) {
+                log.warn("[SHIPMENT-SERVICE] Lỗi gửi tracking-status-events DELIVERED: {}", ex.getMessage());
+            }
         } else if ("SHIPPING_FEE".equalsIgnoreCase(event.getPaymentType())) {
             shipmentRepository.save(shipment);
             log.info("[SHIPMENT-SERVICE] Đã ghi nhận thanh toán cước phí vận chuyển thành công cho đơn {}", event.getTrackingCode());

@@ -237,18 +237,20 @@ public class TrackingConsumer {
         String trackingCode = event.getTrackingCode().trim().toUpperCase(Locale.ROOT);
         String status = event.getStatus() != null
                 ? event.getStatus().trim().toUpperCase(Locale.ROOT) : "";
-        if (!Set.of("ARRIVED_DEST_HUB", "IN_TRANSIT", "CANCELLED").contains(status)) {
+        if (!Set.of("ARRIVED_DEST_HUB", "IN_TRANSIT", "CANCELLED", "DELIVERED").contains(status)) {
             return;
         }
 
         String defaultNode = "CANCELLED".equals(status)
                 ? "Đơn hàng đã được hủy"
+                : "DELIVERED".equals(status)
+                ? "Bưu tá phát thành công tận nơi cho người nhận"
                 : "ARRIVED_DEST_HUB".equals(status)
                 ? "Đơn hàng đã đến trạm trung chuyển cuối cùng trước khi giao hàng"
                 : "Chuyến xe vận chuyển bưu phẩm đang lưu thông trên tuyến trục";
         String locCode = event.getLocationCode() != null && !event.getLocationCode().isBlank()
                 ? ("CANCELLED".equals(status) ? event.getLocationCode().trim() : event.getLocationCode().trim().toUpperCase(Locale.ROOT))
-                : ("CANCELLED".equals(status) ? "CANCELLED" : "ARRIVED_DEST_HUB".equals(status) ? "DEST_HUB" : "TRANSIT_HUB");
+                : ("CANCELLED".equals(status) ? "CANCELLED" : "DELIVERED".equals(status) ? "CUSTOMER" : "ARRIVED_DEST_HUB".equals(status) ? "DEST_HUB" : "TRANSIT_HUB");
         String node = event.getNote() != null && !event.getNote().isBlank() ? event.getNote() : defaultNode;
         LocalDateTime occurredAt = event.getUpdatedAt() != null ? event.getUpdatedAt() : LocalDateTime.now();
 
@@ -292,7 +294,12 @@ public class TrackingConsumer {
                 .occurredAt(occurredAt)
                 .eventId(legacyEventId)
                 .build();
-        trackingRepository.save(trackingHistory);
+        TrackingHistory saved = trackingRepository.save(trackingHistory);
+        try {
+            kafkaTemplate.send("tracking-replica-sync", trackingCode, saved);
+        } catch (Exception e) {
+            log.warn("[TRACKING-SERVICE] Không thể bắn event sync sang Replica: {}", e.getMessage());
+        }
 
         // updateRedisProjection rechecks SQL ordering, so an older legacy event
         // cannot overwrite a newer lifecycle projection.

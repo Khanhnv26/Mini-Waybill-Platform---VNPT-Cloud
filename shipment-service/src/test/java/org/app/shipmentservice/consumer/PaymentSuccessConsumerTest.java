@@ -32,6 +32,9 @@ class PaymentSuccessConsumerTest {
     @Mock
     private ReturnRequestRepository returnRequestRepository;
 
+    @Mock
+    private org.springframework.kafka.core.KafkaTemplate<String, Object> kafkaTemplate;
+
     @InjectMocks
     private PaymentSuccessConsumer consumer;
 
@@ -90,5 +93,30 @@ class PaymentSuccessConsumerTest {
         consumer.handlePaymentSuccess(event);
 
         verify(returnRequestRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Nghiệm thu sự kiện COD: cập nhật DELIVERED và bắn sự kiện sang Kafka")
+    void testHandleCodSuccess() {
+        testShipment.setCurrentStatus(ShipmentStatus.OUT_FOR_DELIVERY);
+        when(shipmentRepository.findShipmentByTrackingCode("WB_RETURN_123"))
+                .thenReturn(Optional.of(testShipment));
+
+        LocalDateTime now = LocalDateTime.now();
+        PaymentSuccessEvent event = PaymentSuccessEvent.builder()
+                .trackingCode("WB_RETURN_123")
+                .paymentType("COD")
+                .amount(BigDecimal.valueOf(250000))
+                .paidAt(now)
+                .build();
+
+        consumer.handlePaymentSuccess(event);
+
+        ArgumentCaptor<Shipment> captor = ArgumentCaptor.forClass(Shipment.class);
+        verify(shipmentRepository, times(1)).save(captor.capture());
+        assertEquals(ShipmentStatus.DELIVERED, captor.getValue().getCurrentStatus());
+        assertEquals(org.app.shipmentservice.entity.CodSettlementStatus.SETTLED, captor.getValue().getCodSettlementStatus());
+        verify(kafkaTemplate, times(1)).send(eq("shipment-lifecycle-events"), eq("WB_RETURN_123"), any());
+        verify(kafkaTemplate, times(1)).send(eq("tracking-status-events"), eq("WB_RETURN_123"), any());
     }
 }

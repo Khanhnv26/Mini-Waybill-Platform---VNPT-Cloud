@@ -1290,9 +1290,16 @@
                         return;
                     }
 
-                    const status = (data && data.currentStatus)
-                        || (detail && (detail.currentStatus || detail.status))
-                        || 'PENDING_ROUTING';
+                    const trackingStatus = (data && data.currentStatus) ? String(data.currentStatus).trim().toUpperCase() : '';
+                    const detailStatus = (detail && (detail.currentStatus || detail.status)) ? String(detail.currentStatus || detail.status).trim().toUpperCase() : '';
+
+                    // So sánh trọng số tiến trình: nếu shipment-service đã hoàn tất (DELIVERED, RETURNED, CANCELLED)
+                    // hoặc có trạng thái tiến xa hơn tracking-service, ưu tiên trạng thái tiến xa hơn để tránh lệch dữ liệu.
+                    const trackingWeight = STATUS_CHRONO_WEIGHT[trackingStatus] || 0;
+                    const detailWeight = STATUS_CHRONO_WEIGHT[detailStatus] || 0;
+                    const status = detailWeight > trackingWeight
+                        ? detailStatus
+                        : (trackingStatus || detailStatus || 'PENDING_ROUTING');
 
                     currentShipment.value = {
                         ...(detail || {}),
@@ -1323,6 +1330,15 @@
                                 occurredAt: assignment.assignedAt || new Date().toISOString()
                             }
                         ];
+                    }
+                    if (status === 'DELIVERED' && !rawHistory.some(h => String(h.status || '').toUpperCase() === 'DELIVERED')) {
+                        rawHistory.push({
+                            trackingCode: code,
+                            status: 'DELIVERED',
+                            locationCode: (detail && (detail.destPostOffice || detail.destinationPostOffice)) || 'DELIVERY_POINT',
+                            node: 'Bưu tá phát thành công tận nơi cho người nhận.',
+                            occurredAt: (detail && (detail.updatedAt || detail.codSettledAt)) || new Date().toISOString()
+                        });
                     }
 
                     trackingHistory.value = mergeHistory(
