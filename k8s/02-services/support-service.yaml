@@ -42,6 +42,8 @@ spec:
               value: "true"
             - name: EUREKA_INSTANCE_INSTANCE_ID
               value: "${HOSTNAME}:${server.port}"
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka:9092"
             - name: AI_API_KEY
               valueFrom:
                 secretKeyRef:
