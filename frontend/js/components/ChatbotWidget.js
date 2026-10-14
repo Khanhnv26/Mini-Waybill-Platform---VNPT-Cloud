@@ -575,7 +575,7 @@
                             id: 'bot_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
                             sender: 'bot',
                             type: 'text',
-                            html: '',
+                            html: '<span class="inline-flex items-center gap-1.5 text-xs text-gray-400 italic py-1"><span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span> Đang suy nghĩ câu trả lời...</span>',
                             text: '',
                             data: null,
                             time: this.getCurrentTime()
@@ -600,11 +600,8 @@
                                 let token = line;
                                 if (line.startsWith('data:')) {
                                     token = line.slice(5);
-                                    if (token.startsWith(' ')) {
-                                        token = token.slice(1);
-                                    }
                                 }
-                                if (token) {
+                                if (token !== '') {
                                     accumulatedText += token;
                                     botMsg.text = accumulatedText;
                                     botMsg.html = this.formatMarkdown(accumulatedText);
@@ -616,15 +613,16 @@
                             let token = buffer;
                             if (buffer.startsWith('data:')) {
                                 token = buffer.slice(5);
-                                if (token.startsWith(' ')) {
-                                    token = token.slice(1);
-                                }
                             }
-                            if (token) {
+                            if (token !== '') {
                                 accumulatedText += token;
                                 botMsg.text = accumulatedText;
                                 botMsg.html = this.formatMarkdown(accumulatedText);
                             }
+                        }
+                        if (!accumulatedText.trim()) {
+                            botMsg.text = 'Trợ lý AI đang bận. Quý khách vui lòng thử lại sau.';
+                            botMsg.html = this.formatMarkdown(botMsg.text);
                         }
                         this.saveSessionMessages();
                         if (!this.isOpen) {
