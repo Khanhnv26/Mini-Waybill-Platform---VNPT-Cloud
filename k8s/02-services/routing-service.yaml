@@ -60,6 +60,7 @@ spec:
                 secretKeyRef:
                   name: waybill-runtime
                   key: redis-password
+                  optional: true
           resources:
             requests:
               memory: "128Mi"

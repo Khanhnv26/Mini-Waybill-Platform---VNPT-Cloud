@@ -47,6 +47,7 @@ spec:
                 secretKeyRef:
                   name: waybill-runtime
                   key: redis-password
+                  optional: true
             - name: TRUSTED_PROXY_REGEX
               value: '10\.42\..*|127\.0\.0\.1|::1'
           resources:

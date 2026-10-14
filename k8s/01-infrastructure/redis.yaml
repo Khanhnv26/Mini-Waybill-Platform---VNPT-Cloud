@@ -26,6 +26,7 @@ spec:
                 secretKeyRef:
                   name: waybill-runtime
                   key: redis-password
+                  optional: true
           ports:
             - name: redis
               containerPort: 6379
