@@ -39,6 +39,8 @@ spec:
                   key: db-password
             - name: SPRING_JPA_HIBERNATE_DDL_AUTO
               value: "validate"
+            - name: SPRING_FLYWAY_VALIDATE_ON_MIGRATE
+              value: "false"
             - name: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
               value: "http://eureka-peer1:8761/eureka/"
             - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS
