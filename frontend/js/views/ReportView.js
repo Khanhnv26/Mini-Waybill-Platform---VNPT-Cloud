@@ -433,6 +433,17 @@
             });
 
             onMounted(() => {
+                if (!window.Auth || !window.Auth.isAuthenticated()) {
+                    try {
+                        sessionStorage.setItem('redirectAfterLogin', '/reports');
+                    } catch (e) {}
+                    if (typeof window.navigateTo === 'function') {
+                        window.navigateTo('/login');
+                    } else if (typeof window !== 'undefined' && window.location) {
+                        window.location.href = '/login';
+                    }
+                    return;
+                }
                 updateClock();
                 setInterval(updateClock, 1000);
                 applyQuickRange('7days');

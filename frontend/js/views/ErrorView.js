@@ -1,6 +1,6 @@
 
 (function () {
-    const { ref, computed, onMounted, onUnmounted } = Vue;
+    const { ref, computed, watch, onMounted, onUnmounted } = Vue;
 
     const errorConfigs = {
         404: {
@@ -125,12 +125,27 @@
                 countdownSeconds.value = 0;
             };
 
+            const checkAndStartCountdown = () => {
+                clearInterval(countdownTimer);
+                if (activeConfig.value.hasCountdown) {
+                    const urlRetry = parseInt(new URLSearchParams(window.location.search).get('retryAfter'), 10);
+                    const waitSecs = !isNaN(urlRetry) && urlRetry > 0 ? urlRetry : 10;
+                    startCountdown(waitSecs);
+                } else {
+                    countdownSeconds.value = 0;
+                }
+            };
+
+            watch(() => props.errorCode, () => {
+                checkAndStartCountdown();
+            });
+
             const handleAction = (actionKey) => {
                 if (actionKey === 'home' || actionKey === 'tracking') {
                     cancelCountdown();
                     const pathSegments = window.location.pathname.split('/').filter(Boolean);
                     const candidate = pathSegments.length === 1 ? pathSegments[0] : '';
-                    if (actionKey === 'tracking' && candidate && /^[a-zA-Z0-9_-]{3,40}$/.test(candidate)) {
+                    if (actionKey === 'tracking' && candidate && /^(?:wb[0-9a-z_-]*|vnpt[0-9a-z_-]*|[0-9]{4,30})$/i.test(candidate)) {
                         if (window.navigateTo) {
                             window.navigateTo('/tracking?code=' + encodeURIComponent(candidate));
                         } else {
@@ -154,10 +169,12 @@
                         isRetrying.value = false;
                         const from = new URLSearchParams(window.location.search).get('from');
                         if (from) {
-                            if (window.navigateTo) {
-                                window.navigateTo(decodeURIComponent(from));
+                            const decodedFrom = decodeURIComponent(from);
+                            if (window.navigateTo && (decodedFrom.startsWith('/') || decodedFrom.startsWith(window.location.origin))) {
+                                const targetPath = decodedFrom.startsWith('http') ? (new URL(decodedFrom).pathname + new URL(decodedFrom).search) : decodedFrom;
+                                window.navigateTo(targetPath);
                             } else {
-                                window.location.href = decodeURIComponent(from);
+                                window.location.href = decodedFrom;
                             }
                         } else {
                             window.location.reload();
@@ -167,11 +184,7 @@
             };
 
             onMounted(() => {
-                if (activeConfig.value.hasCountdown) {
-                    const urlRetry = parseInt(new URLSearchParams(window.location.search).get('retryAfter'), 10);
-                    const waitSecs = !isNaN(urlRetry) && urlRetry > 0 ? urlRetry : 10;
-                    startCountdown(waitSecs);
-                }
+                checkAndStartCountdown();
             });
 
             onUnmounted(() => {
@@ -190,7 +203,7 @@
         },
         template: `
             <div class="min-h-[520px] flex items-center justify-center p-4 sm:p-6">
-                <div class="max-w-xl w-full bg-white border border-slate-200/90 rounded-2xl shadow-xl shadow-slate-200/60 p-8 sm:p-10 text-center relative overflow-hidden">
+                <div class="max-w-xl w-full error-view-card rounded-2xl p-8 sm:p-10 text-center relative overflow-hidden backdrop-blur-sm">
                     
                     <div :class="['error-aura-pulse absolute top-1/4 left-1/2 w-64 h-64 rounded-full blur-3xl pointer-events-none transition-all duration-500', activeConfig.glowClass]"></div>
 
@@ -229,7 +242,7 @@
                                     </svg>
                                     <svg class="w-5 h-5 text-amber-500 absolute -top-1 -right-1 anim-503-gear-sub" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <circle cx="12" cy="12" r="3"></circle>
-                                        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"></path>
+                                        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"></path>
                                     </svg>
                                 </div>
                                 <div class="absolute -top-2 -right-2 bg-amber-600 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-md shadow-amber-500/20">BẢO TRÌ</div>
@@ -260,11 +273,11 @@
                         {{ activeConfig.badgeText }}
                     </div>
 
-                    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 mb-3">
+                    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 mb-3">
                         {{ customTitle || activeConfig.title }}
                     </h1>
 
-                    <p class="text-sm sm:text-base text-slate-600 max-w-md mx-auto mb-6 leading-relaxed">
+                    <p class="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-md mx-auto mb-6 leading-relaxed">
                         {{ customMessage || activeConfig.desc }}
                     </p>
 
@@ -303,19 +316,19 @@
                         </button>
                     </div>
 
-                    <div class="mt-8 pt-6 border-t border-slate-100 flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500">
+                    <div class="mt-8 pt-6 border-t border-slate-100 error-view-footer flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500 dark:text-slate-400">
                         <span class="flex items-center space-x-1.5">
                             <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
                             </svg>
-                            <span>Tổng đài hỗ trợ: <strong class="font-bold text-slate-700">1800 1260</strong></span>
+                            <span>Tổng đài hỗ trợ: <strong class="font-bold text-slate-700 dark:text-slate-200">1800 1260</strong></span>
                         </span>
-                        <span class="text-slate-300">•</span>
+                        <span class="text-slate-300 dark:text-slate-700">•</span>
                         <span class="flex items-center space-x-1.5">
                             <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
                             </svg>
-                            <span>Email: <strong class="font-bold text-slate-700">hotro@vnpt.vn</strong></span>
+                            <span>Email: <strong class="font-bold text-slate-700 dark:text-slate-200">hotro@vnpt.vn</strong></span>
                         </span>
                     </div>
 

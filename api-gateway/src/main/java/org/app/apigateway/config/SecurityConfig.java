@@ -42,6 +42,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,"/api/shipments/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/ratings/*/status").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/ratings").permitAll()
+                        .requestMatchers(HttpMethod.PATCH, "/api/ratings/admin/*/visibility").hasRole("ADMIN")
+                        .requestMatchers("/api/ratings/admin", "/api/ratings/admin/**").hasAnyRole("ADMIN", "DISPATCHER")
 
                         .requestMatchers("/api/notifications/ws", "/api/notifications/ws/**").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/notifications/*").hasAnyRole("ADMIN", "CS", "POST_OFFICE_OPERATOR", "POST_OFFICE_STAFF", "DISPATCHER")

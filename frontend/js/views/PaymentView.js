@@ -349,6 +349,18 @@
             });
 
             onMounted(() => {
+                if (!window.Auth || !window.Auth.isAuthenticated()) {
+                    try {
+                        sessionStorage.setItem('redirectAfterLogin', '/payments');
+                    } catch (e) {}
+                    if (typeof window.navigateTo === 'function') {
+                        window.navigateTo('/login');
+                    } else if (typeof window !== 'undefined' && window.location) {
+                        window.location.href = '/login';
+                    }
+                    return;
+                }
+
                 // Check if URL has tracking query
                 const urlParams = new URLSearchParams(window.location.search);
                 const trackingQuery = urlParams.get('tracking') || urlParams.get('code');

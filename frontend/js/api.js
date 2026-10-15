@@ -61,9 +61,14 @@ const Api = {
                 console.warn('[API 429] Vượt quá giới hạn tần suất yêu cầu (Rate Limiting). Chuyển hướng sang màn hình lỗi 429...');
                 const retryAfter = response.headers.get('Retry-After') || '10';
                 
-                if (!window.location.pathname.includes('error.html')) {
+                if (!window.location.pathname.startsWith('/error') && !window.location.pathname.includes('error.html')) {
                     const fromUrl = encodeURIComponent(window.location.href);
-                    window.location.href = `error.html?code=429&retryAfter=${retryAfter}&from=${fromUrl}`;
+                    const errorPath = `/error?code=429&retryAfter=${retryAfter}&from=${fromUrl}`;
+                    if (typeof window.navigateTo === 'function') {
+                        window.navigateTo(errorPath);
+                    } else {
+                        window.location.href = errorPath;
+                    }
                 }
                 return response;
             }

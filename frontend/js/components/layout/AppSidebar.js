@@ -3,7 +3,7 @@
     <aside 
         id="app-sidebar" 
         :style="{ width: isSidebarCollapsed ? '72px' : '260px' }"
-        class="h-full bg-white dark:bg-[#0f1a38] border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between smooth-transition relative z-40 shadow-sm flex-shrink-0 !overflow-visible"
+        class="h-full bg-white dark:bg-[#0f1a38] border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between smooth-transition relative z-40 shadow-sm flex-shrink-0"
     >
         <button 
             @click="$emit('toggle-sidebar')" 
@@ -16,53 +16,54 @@
             </svg>
         </button>
 
-        <div>
-            <div 
-                @click="$emit('logo-click')"
-                :title="isSidebarCollapsed ? 'Bấm để mở rộng thanh bên' : 'Về trang Tra cứu bưu gửi'"
-                class="h-16 flex items-center px-4 border-b border-slate-100 dark:border-slate-800 cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition"
-                :class="{ 'justify-center !px-0': isSidebarCollapsed }"
-            >
-                <div class="flex items-center space-x-3 overflow-hidden">
-                    <div class="w-9 h-9 rounded-xl vnpt-gradient text-white flex items-center justify-center shadow-md shadow-blue-600/25 flex-shrink-0 border border-white/20 select-none">
-                        <span class="text-[10px] font-black tracking-tight leading-none">WB</span>
-                    </div>
-                    <div v-show="!isSidebarCollapsed" class="leading-tight overflow-hidden">
-                        <div class="font-extrabold text-sm text-slate-900 dark:text-white tracking-tight whitespace-nowrap">
-                            Waybill Post
-                        </div>
-                        <p class="text-[10.5px] text-slate-400 dark:text-slate-400 font-medium whitespace-nowrap">Quản trị &amp; Điều phối</p>
-                    </div>
+        <!-- 1. Header / Logo (Pinned Top) -->
+        <div 
+            @click="$emit('logo-click')"
+            :title="isSidebarCollapsed ? 'Bấm để mở rộng thanh bên' : 'Về trang Tra cứu bưu gửi'"
+            class="h-16 flex items-center px-4 border-b border-slate-100 dark:border-slate-800 cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition flex-shrink-0"
+            :class="{ 'justify-center !px-0': isSidebarCollapsed }"
+        >
+            <div class="flex items-center space-x-3 overflow-hidden">
+                <div class="w-9 h-9 rounded-xl vnpt-gradient text-white flex items-center justify-center shadow-md shadow-blue-600/25 flex-shrink-0 border border-white/20 select-none">
+                    <span class="text-[10px] font-black tracking-tight leading-none">WB</span>
                 </div>
-            </div>
-
-            <div class="p-3 space-y-1">
-                <div v-show="!isSidebarCollapsed" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                    Phân Hệ Nghiệp Vụ
+                <div v-show="!isSidebarCollapsed" class="leading-tight overflow-hidden">
+                    <div class="font-extrabold text-sm text-slate-900 dark:text-white tracking-tight whitespace-nowrap">
+                        Waybill Post
+                    </div>
+                    <p class="text-[10.5px] text-slate-400 dark:text-slate-400 font-medium whitespace-nowrap">Quản trị &amp; Điều phối</p>
                 </div>
-
-                <button 
-                    v-for="tab in navigationTabs" 
-                    :key="tab.id"
-                    @click="$emit('switch-tab', tab.id)"
-                    :title="isSidebarCollapsed ? tab.name : ''"
-                    :class="[
-                        'w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs transition smooth-transition cursor-pointer text-left',
-                        isSidebarCollapsed ? 'justify-center !px-0 !space-x-0' : '',
-                        currentTab === tab.id 
-                            ? 'bg-blue-50 dark:bg-blue-600/25 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-500/40 shadow-sm shadow-blue-500/10 font-bold' 
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800/50 font-medium'
-                    ]"
-                >
-                    <svg class="w-4 h-4 flex-shrink-0" :class="currentTab === tab.id ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tab.icon || 'M4 6h16M4 12h16M4 18h16'" />
-                    </svg>
-                    <span v-show="!isSidebarCollapsed" class="truncate">{{ tab.name }}</span>
-                </button>
             </div>
         </div>
 
-        <div class="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
+        <!-- 2. Navigation items (Scrollable) -->
+        <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 space-y-1">
+            <div v-show="!isSidebarCollapsed" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                Phân Hệ Nghiệp Vụ
+            </div>
+
+            <button 
+                v-for="tab in navigationTabs" 
+                :key="tab.id"
+                @click="$emit('switch-tab', tab.id)"
+                :title="isSidebarCollapsed ? tab.name : ''"
+                :class="[
+                    'w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs transition smooth-transition cursor-pointer text-left',
+                    isSidebarCollapsed ? 'justify-center !px-0 !space-x-0' : '',
+                    currentTab === tab.id 
+                        ? 'bg-blue-50 dark:bg-blue-600/25 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-500/40 shadow-sm shadow-blue-500/10 font-bold' 
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800/50 font-medium'
+                ]"
+            >
+                <svg class="w-4 h-4 flex-shrink-0" :class="currentTab === tab.id ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tab.icon || 'M4 6h16M4 12h16M4 18h16'" />
+                </svg>
+                <span v-show="!isSidebarCollapsed" class="truncate">{{ tab.name }}</span>
+            </button>
+        </div>
+
+        <!-- 3. Profile / Bottom (Pinned Bottom) -->
+        <div class="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 flex-shrink-0">
             <div class="flex items-center justify-between p-1.5 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 shadow-sm" :class="{ 'justify-center !p-1': isSidebarCollapsed }">
                 <button 
                     type="button"

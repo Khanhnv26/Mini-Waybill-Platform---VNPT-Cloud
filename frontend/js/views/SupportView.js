@@ -937,6 +937,13 @@
         },
         template: `
             <div class="space-y-3.5 pb-10 text-slate-800">
+                <input 
+                    type="file" 
+                    id="supportChatFileInput" 
+                    accept="image/png,image/jpeg,image/webp,image/jpg" 
+                    class="hidden" 
+                    @change="handleAttachmentUpload" 
+                />
 
                 <div v-if="!currentUser" class="page-header-banner rounded-3xl p-6 sm:p-7 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden transition-all duration-300 hover:shadow-md">
                     <div class="flex items-start space-x-4">
@@ -1660,13 +1667,6 @@
                         </div>
 
                         <div class="p-3 bg-white border-t border-slate-200 flex items-center space-x-2 shrink-0" :class="activeTicket && (activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED') ? 'opacity-50 pointer-events-none' : ''">
-                            <input 
-                                type="file" 
-                                id="supportChatFileInput" 
-                                accept="image/png,image/jpeg,image/webp,image/jpg" 
-                                class="hidden" 
-                                @change="handleAttachmentUpload" 
-                            />
                             <button 
                                 type="button" 
                                 @click="triggerChatFileInput" 

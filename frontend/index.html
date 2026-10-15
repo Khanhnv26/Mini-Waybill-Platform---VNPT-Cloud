@@ -30,7 +30,7 @@
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <link rel="stylesheet" href="css/style.css?v=3.6.5" />
+    <link rel="stylesheet" href="css/style.css?v=3.6.6" />
     <link rel="stylesheet" href="css/views/login.css?v=3.5.8" />
 
     <script>
@@ -140,7 +140,7 @@
                 <keep-alive>
                     <component 
                         :is="activeComponent" 
-                        :key="currentTab"
+                        :key="currentTab === 'error' ? ('error-' + currentErrorCode) : currentTab"
                         :current-user="currentUser"
                         :tracking-code="currentTrackingCode"
                         :previous-tab="previousTab"

@@ -117,7 +117,17 @@
             });
 
             const loadAccountData = async () => {
-                if (!window.Auth || !window.Auth.isAuthenticated()) return;
+                if (!window.Auth || !window.Auth.isAuthenticated()) {
+                    try {
+                        sessionStorage.setItem('redirectAfterLogin', '/profile');
+                    } catch (e) {}
+                    if (typeof window.navigateTo === 'function') {
+                        window.navigateTo('/login');
+                    } else if (typeof window !== 'undefined' && window.location) {
+                        window.location.href = '/login';
+                    }
+                    return;
+                }
                 isLoading.value = true;
                 try {
                     currentUser.value = window.Auth.getUser() || {};
@@ -318,6 +328,17 @@
             };
 
             onMounted(() => {
+                if (!window.Auth || !window.Auth.isAuthenticated()) {
+                    try {
+                        sessionStorage.setItem('redirectAfterLogin', '/profile');
+                    } catch (e) {}
+                    if (typeof window.navigateTo === 'function') {
+                        window.navigateTo('/login');
+                    } else if (typeof window !== 'undefined' && window.location) {
+                        window.location.href = '/login';
+                    }
+                    return;
+                }
                 loadAccountData();
             });
 
