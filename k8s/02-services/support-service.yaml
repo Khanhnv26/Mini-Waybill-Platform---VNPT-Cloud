@@ -14,6 +14,8 @@ spec:
     metadata:
       labels:
         app: support-service
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2026-10-15T07:15:00Z"
     spec:
       containers:
         - name: support-service

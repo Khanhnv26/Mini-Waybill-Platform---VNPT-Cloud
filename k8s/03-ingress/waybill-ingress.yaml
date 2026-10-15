@@ -68,6 +68,13 @@ spec:
                 name: notification-service
                 port:
                   number: 8085
+          - path: /support-tickets
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 9000
           - path: /api
             pathType: Prefix
             backend:
@@ -92,6 +99,13 @@ spec:
                 name: notification-service
                 port:
                   number: 8085
+          - path: /support-tickets
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 9000
           - path: /api
             pathType: Prefix
             backend:
@@ -143,6 +157,13 @@ spec:
                 name: notification-service
                 port:
                   number: 8085
+          - path: /support-tickets
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 9000
           - path: /api
             pathType: Prefix
             backend:
