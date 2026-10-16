@@ -7,32 +7,9 @@
 <br/>
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-HTTPS%20Online-brightgreen?style=for-the-badge&logo=googlechrome&logoColor=white)](https://waybill-express.japaneast.cloudapp.azure.com)
-[![Azure](https://img.shields.io/badge/Azure-Cloud%20VM%20E2as__v4-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white)](https://azure.microsoft.com/)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-K3s%20Cluster-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://k3s.io/)
-[![ArgoCD](https://img.shields.io/badge/ArgoCD-GitOps%20CD-EF6B48?style=for-the-badge&logo=argo&logoColor=white)](https://argoproj.github.io/cd/)
-[![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-Smart%20CI%2FCD-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/features/actions)
-
-<br/>
-
-[![Java](https://img.shields.io/badge/Java-21%20LTS-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://www.oracle.com/java/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
-[![Spring Cloud](https://img.shields.io/badge/Spring%20Cloud-2025.1.3-6DB33F?style=for-the-badge&logo=spring&logoColor=white)](https://spring.io/projects/spring-cloud)
-[![Vue.js](https://img.shields.io/badge/Vue.js%203-Tailwind%20CSS-4FC08D?style=for-the-badge&logo=vuedotjs&logoColor=white)](https://vuejs.org/)
-
-<br/>
-
-[![Apache Kafka](https://img.shields.io/badge/Apache%20Kafka-KRaft%20HA-231F20?style=for-the-badge&logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
-[![Redis](https://img.shields.io/badge/Redis-7.x%20Cache%20%26%20Lock-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
-[![SQL Server](https://img.shields.io/badge/SQL%20Server-2022%20Read--Write%20Split-CC292B?style=for-the-badge&logo=microsoftsqlserver&logoColor=white)](https://www.microsoft.com/sql-server)
-[![RabbitMQ](https://img.shields.io/badge/RabbitMQ-TTL%20120s%20%26%20DLX-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)](https://www.rabbitmq.com/)
-[![MinIO](https://img.shields.io/badge/MinIO-S3%20Storage-C72C48?style=for-the-badge&logo=minio&logoColor=white)](https://min.io/)
-
-<br/>
-
-[![Spring AI](https://img.shields.io/badge/Spring%20AI-Ollama%20Qwen%202.5-6DB33F?style=for-the-badge&logo=spring&logoColor=white)](https://spring.io/projects/spring-ai)
-[![Telegram Bot](https://img.shields.io/badge/Telegram%20Bot-Long--Polling%20Dispatch-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://core.telegram.org/bots)
-[![VietQR](https://img.shields.io/badge/VietQR-NAPAS%20247-005BAA?style=for-the-badge&logoColor=white)](https://vietqr.net/)
-[![Observability](https://img.shields.io/badge/Observability-Prometheus%20%26%20Grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white)](https://grafana.com/)
+[![Architecture](https://img.shields.io/badge/Architecture-14%20Microservices-6DB33F?style=for-the-badge)](docs/12-kubernetes-orchestration-and-deployment.md)
+[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen?style=for-the-badge)](https://github.com)
+[![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 
 <br/>
 
@@ -57,11 +34,18 @@
 
 ---
 
-## 1. Giới Thiệu Tổng Quan
+## 1. Giới Thiệu Tổng Quan & Ma Trận Công Nghệ (Tech Stack Matrix)
 
 **Waybill Platform** là nền tảng Microservices chuẩn Enterprise mô phỏng chuỗi cung ứng chuyển phát bưu chính toàn trình: từ tiếp nhận bưu phẩm quầy B2B, quản lý chuyến xe trục liên tỉnh (Trips Management), phân luồng tại 5 Siêu Hub trọng điểm toàn quốc, cho đến điều phối bưu tá phát hàng chặng cuối và quyết toán dòng tiền thu hộ COD 3 pha.
 
-Hệ thống được thiết kế theo nguyên lý **High Availability (HA)** đa tầng, sẵn sàng chịu lỗi và tự phục hồi khi có sự cố phần cứng, mạng hoặc cụm dữ liệu phân tán.
+### Bảng Ma Trận Công Nghệ Cốt Lõi
+
+| Phân Tầng Kiến Trúc | Hệ Sinh Thái Công Nghệ & Badges | Vai Trò & Trọng Tâm Kỹ Thuật |
+| :--- | :--- | :--- |
+| **Backend & Client Portal** | [![Java](https://img.shields.io/badge/Java-21%20LTS-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://www.oracle.com/java/) [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)<br/>[![Spring Cloud](https://img.shields.io/badge/Spring%20Cloud-2025.1.3-6DB33F?style=for-the-badge&logo=spring&logoColor=white)](https://spring.io/projects/spring-cloud) [![Vue.js](https://img.shields.io/badge/Vue.js%203-Tailwind%20CSS-4FC08D?style=for-the-badge&logo=vuedotjs&logoColor=white)](https://vuejs.org/) | • Kiến trúc 14 Microservices độc lập quản lý đa module qua Maven Parent POM.<br/>• Spring Cloud Gateway HA cân bằng tải, Rate Limiting và Eureka Service Registry 2 chiều.<br/>• Frontend Vue 3 SPA B2B, tối ưu RAM với Component Caching `<keep-alive>` và bản đồ Leaflet GIS. |
+| **Dữ Liệu & Event-Driven** | [![Apache Kafka](https://img.shields.io/badge/Apache%20Kafka-KRaft%20HA-231F20?style=for-the-badge&logo=apachekafka&logoColor=white)](https://kafka.apache.org/) [![Redis](https://img.shields.io/badge/Redis-7.x%20Cache%20%26%20Lock-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)<br/>[![SQL Server](https://img.shields.io/badge/SQL%20Server-2022%20Read--Write%20Split-CC292B?style=for-the-badge&logo=microsoftsqlserver&logoColor=white)](https://www.microsoft.com/sql-server) [![RabbitMQ](https://img.shields.io/badge/RabbitMQ-TTL%20120s%20%26%20DLX-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)](https://www.rabbitmq.com/) | • Cụm 3 Broker Kafka KRaft bảo đảm Exactly-Once Semantics, Zero-Copy và Idempotent Producer.<br/>• Phân tách Đọc/Ghi dữ liệu (Database Read-Write Splitting) với `AbstractRoutingDataSource`.<br/>• Redis Distributed Lock (`SETNX`) chống race condition và Token Blacklist (< 0.5ms).<br/>• Quản lý bộ đếm ngược SLA bưu phẩm 120s bằng RabbitMQ Message TTL và Dead Letter Queue. |
+| **Trí Tuệ Nhân Tạo & Storage** | [![Spring AI](https://img.shields.io/badge/Spring%20AI-Ollama%20Qwen%202.5-6DB33F?style=for-the-badge&logo=spring&logoColor=white)](https://spring.io/projects/spring-ai) [![MinIO](https://img.shields.io/badge/MinIO-S3%20Storage-C72C48?style=for-the-badge&logo=minio&logoColor=white)](https://min.io/)<br/>[![Telegram Bot](https://img.shields.io/badge/Telegram%20Bot-Long--Polling-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://core.telegram.org/bots) [![VietQR](https://img.shields.io/badge/VietQR-NAPAS%20247-005BAA?style=for-the-badge&logoColor=white)](https://vietqr.net/) | • Trợ lý GenAI On-Premise (Ollama `qwen2.5:3b`), CPU inference < 1.5s với Autonomous Tool Calling.<br/>• Lưu trữ chứng từ MinIO Private S3 Bucket, kiểm tra Magic-byte và Pre-signed URLs 10 phút.<br/>• Điều phối bưu tá 2 chiều qua Telegram Bot (Long-Polling không yêu cầu mở cổng Inbound).<br/>• Cổng VietQR NAPAS 247 động, xác thực chữ ký Webhook và đối soát tự động qua Kafka. |
+| **Cloud Hạ Tầng & GitOps** | [![Azure](https://img.shields.io/badge/Azure-Cloud%20VM%20E2as__v4-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white)](https://azure.microsoft.com/) [![Kubernetes](https://img.shields.io/badge/Kubernetes-K3s%20Cluster-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://k3s.io/)<br/>[![ArgoCD](https://img.shields.io/badge/ArgoCD-GitOps%20CD-EF6B48?style=for-the-badge&logo=argo&logoColor=white)](https://argoproj.github.io/cd/) [![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-Smart%20CI%2FCD-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/features/actions)<br/>[![Observability](https://img.shields.io/badge/Observability-Prometheus%20%26%20Grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white)](https://grafana.com/) | • Máy ảo Azure Region Japan East ($0 chi phí), tinh giản JVM SerialGC nén 14 services dưới 4.5 GB RAM.<br/>• Cụm K3s Kubernetes gọn nhẹ tích hợp Ingress HTTPS Let's Encrypt tự động.<br/>• Quy trình GitOps tự động hóa triển khai qua ArgoCD kết hợp GitHub Actions CI đa luồng.<br/>• Giám sát thời gian thực với Prometheus TSDB và 3 bộ Dashboard Grafana chuyên nghiệp. |
 
 ---
 
