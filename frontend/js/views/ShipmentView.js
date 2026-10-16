@@ -708,10 +708,10 @@
                 isSubmittingUpdateInfo.value = true;
                 try {
                     await ShipmentService.submitFailureDecision(code, {
-                        decisionType: 'UPDATE_INFO',
+                        decision: 'UPDATE_RECEIVER',
                         newReceiverPhone: updateInfoForm.newReceiverPhone.trim(),
                         newReceiverAddress: updateInfoForm.newReceiverAddress.trim(),
-                        notes: updateInfoForm.notes ? updateInfoForm.notes.trim() : 'Shop đã cập nhật thông tin người nhận mới'
+                        decisionNote: updateInfoForm.notes ? updateInfoForm.notes.trim() : 'Shop đã cập nhật thông tin người nhận mới'
                     });
                     Utils.showToast('Cập Nhật Thành Công', `Đã đổi thông tin người nhận cho vận đơn ${code} và lên lịch giao lại.`);
                     showUpdateInfoModal.value = false;
@@ -729,8 +729,8 @@
                 const code = decision.trackingCode;
                 try {
                     await ShipmentService.submitFailureDecision(code, {
-                        decisionType: 'REDELIVER',
-                        notes: 'Shop yêu cầu giao lại không đổi thông tin'
+                        decision: 'REDELIVER',
+                        decisionNote: 'Shop yêu cầu giao lại không đổi thông tin'
                     });
                     Utils.showToast('Yêu Cầu Giao Lại', `Đã ghi nhận yêu cầu giao lại cho đơn hàng ${code}. Bưu tá sẽ đi phát lại trong ca tiếp theo.`);
                     await loadPendingDecisions();
@@ -764,7 +764,7 @@
                 try {
                     await ShipmentService.updatePostalFault(code, {
                         postalFault: true,
-                        reason: postalFaultReason.value
+                        note: postalFaultReason.value
                     });
                     Utils.showToast('Đã Xác Nhận Lỗi Bưu Chính', `Vận đơn ${code} đã được miễn toàn bộ cước hoàn (0 VNĐ).`);
                     showPostalFaultModal.value = false;
@@ -798,6 +798,8 @@
                     list = list.filter(r => 
                         (r.trackingCode && r.trackingCode.toLowerCase().includes(q)) ||
                         (r.reason && r.reason.toLowerCase().includes(q)) ||
+                        (r.reasonNote && r.reasonNote.toLowerCase().includes(q)) ||
+                        (r.reasonCode && r.reasonCode.toLowerCase().includes(q)) ||
                         (r.notes && r.notes.toLowerCase().includes(q))
                     );
                 }
@@ -1027,11 +1029,13 @@
                         senderName: form.senderName.trim(),
                         senderPhone: cleanSenderPhone,
                         senderAddress: senderAddress,
+                        senderProvince: form.senderProvince || '',
                         senderLatitude: verifiedSenderAddress.value ? Number(verifiedSenderAddress.value.lat) : null,
                         senderLongitude: verifiedSenderAddress.value ? Number(verifiedSenderAddress.value.lon) : null,
                         receiverName: form.receiverName.trim(),
                         receiverPhone: cleanReceiverPhone,
                         receiverAddress: receiverAddress,
+                        receiverProvince: form.receiverProvince || '',
                         receiverLatitude: verifiedAddress.value ? Number(verifiedAddress.value.lat) : null,
                         receiverLongitude: verifiedAddress.value ? Number(verifiedAddress.value.lon) : null,
                         serviceType: form.serviceType,
@@ -1053,7 +1057,7 @@
                         receiverAddress: payload.receiverAddress,
                         shippingFee: res.shippingFee || res.totalFee || totalEstimatedFee.value || 35000,
                         totalFee: res.totalFee || res.shippingFee || totalEstimatedFee.value || 35000,
-                        senderName: (senderMode.value === 'B2B' ? (customersList.value.find(c => c.id === form.customerId)?.fullName || 'Đối Tác Ký Gửi') : (myProfile.value?.fullName || 'Khách Gửi Tại Quầy')),
+                        senderName: payload.senderName || (senderMode.value === 'B2B' ? (customersList.value.find(c => c.id === form.customerId)?.fullName || 'Đối Tác Ký Gửi') : (myProfile.value?.fullName || 'Khách Gửi Tại Quầy')),
                         weight: payload.weight,
                         serviceType: payload.serviceType
                     };
@@ -1062,6 +1066,14 @@
                     form.receiverPhone = '';
                     form.receiverDetail = '';
                     clearVerifiedAddress();
+
+                    if (canCreateForOthers.value && senderMode.value === 'RETAIL') {
+                        form.senderName = '';
+                        form.senderPhone = '';
+                        form.senderDetail = '';
+                        senderAddressQuery.value = '';
+                        clearVerifiedSenderAddress();
+                    }
 
                     showOrderSuccessPrompt.value = true;
                     await loadShipments();
@@ -2574,7 +2586,7 @@
                             v-for="d in pendingDecisions" 
                             :key="d.id"
                             class="b2b-card bg-white border rounded-xl p-4 shadow-sm space-y-3 transition-all hover:shadow-md"
-                            :class="isDecisionUrgent(d.deadline) ? 'border-rose-300 ring-1 ring-rose-300/50' : 'border-slate-200 hover:border-blue-300'"
+                            :class="isDecisionUrgent(d.decisionDeadline || d.deadline) ? 'border-rose-300 ring-1 ring-rose-300/50' : 'border-slate-200 hover:border-blue-300'"
                         >
                             <!-- Card Header -->
                             <div class="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
@@ -2597,8 +2609,8 @@
                                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                                         </button>
                                     </div>
-                                    <span class="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold" :class="d.failureCount >= 2 ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-amber-100 text-amber-800 border border-amber-200'">
-                                        Giao thất bại lần {{ d.failureCount }}/3
+                                    <span class="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold" :class="(d.attemptNo || d.failureCount || 1) >= 2 ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-amber-100 text-amber-800 border border-amber-200'">
+                                        Giao thất bại lần {{ d.attemptNo || d.failureCount || 1 }}/3
                                     </span>
                                 </div>
 
@@ -2606,10 +2618,10 @@
                                 <div class="text-right">
                                     <div 
                                         class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold shadow-2xs border"
-                                        :class="isDecisionUrgent(d.deadline) ? 'bg-rose-50 text-rose-700 border-rose-300 animate-pulse' : 'bg-amber-50 text-amber-800 border-amber-200'"
+                                        :class="isDecisionUrgent(d.decisionDeadline || d.deadline) ? 'bg-rose-50 text-rose-700 border-rose-300 animate-pulse' : 'bg-amber-50 text-amber-800 border-amber-200'"
                                     >
                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                        <span>{{ formatRemainingTime(d.deadline) }}</span>
+                                        <span>{{ formatRemainingTime(d.decisionDeadline || d.deadline) }}</span>
                                     </div>
                                     <div class="text-[9.5px] text-slate-400 mt-0.5 font-medium">Hạn tự động giao lại</div>
                                 </div>
@@ -2622,21 +2634,21 @@
                                     <span>Lý do shipper báo:</span>
                                 </div>
                                 <div class="text-slate-800 font-medium text-[11.5px] pl-5">
-                                    {{ d.reason || 'Khách không nghe máy / Thuê bao' }}
+                                    {{ d.failureReason || d.reason || 'Khách không nghe máy / Thuê bao' }}
                                 </div>
-                                <div v-if="d.notes" class="text-slate-500 text-[10.5px] italic pl-5">
-                                    "{{ d.notes }}"
+                                <div v-if="d.decisionNote || d.notes" class="text-slate-500 text-[10.5px] italic pl-5">
+                                    "{{ d.decisionNote || d.notes }}"
                                 </div>
                             </div>
 
                             <!-- Receiver info -->
                             <div class="text-xs space-y-1 text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-200/60">
                                 <div class="flex items-center justify-between">
-                                    <span class="font-bold text-slate-800 text-[11.5px]">{{ d.shipment?.receiverName || 'Người nhận' }}</span>
-                                    <span class="font-mono text-slate-700 font-bold text-[11px]">{{ d.shipment?.receiverPhone || 'N/A' }}</span>
+                                    <span class="font-bold text-slate-800 text-[11.5px]">{{ d.receiverName || d.shipment?.receiverName || 'Người nhận' }}</span>
+                                    <span class="font-mono text-slate-700 font-bold text-[11px]">{{ d.receiverPhone || d.shipment?.receiverPhone || 'N/A' }}</span>
                                 </div>
-                                <div class="text-[10.5px] text-slate-500 line-clamp-2" :title="d.shipment?.receiverAddress">
-                                    {{ d.shipment?.receiverAddress || 'N/A' }}
+                                <div class="text-[10.5px] text-slate-500 line-clamp-2" :title="d.receiverAddress || d.shipment?.receiverAddress">
+                                    {{ d.receiverAddress || d.shipment?.receiverAddress || 'N/A' }}
                                 </div>
                             </div>
 
@@ -2731,13 +2743,14 @@
                                     class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                                 >
                                     <option value="ALL">Tất cả trạng thái ({{ returnRequestsList.length }})</option>
-                                    <option value="CONFIRMED">Đã xác nhận hoàn</option>
-                                    <option value="PROCESSING">Đang xử lý hoàn</option>
+                                    <option value="APPROVED">Đã xác nhận hoàn</option>
                                     <option value="COMPLETED">Đã hoàn tất</option>
+                                    <option value="REJECTED">Bị từ chối</option>
                                     <option value="DOORSTEP">Phát hoàn tận nơi</option>
                                     <option value="COUNTER_PICKUP">Nhận tại bưu cục</option>
                                     <option value="PREPAID">Đã trả trước cước</option>
-                                    <option value="PAY_ON_RECEIPT">Thu cước khi nhận</option>
+                                    <option value="UNPAID">Chưa thanh toán</option>
+                                    <option value="PAID_ON_RETURN">Đã thu khi hoàn</option>
                                     <option value="WAIVED">Miễn cước (Lỗi bưu chính)</option>
                                 </select>
 
@@ -2806,13 +2819,13 @@
                                             <div class="flex items-center space-x-1.5">
                                                 <span 
                                                     class="px-1.5 py-0.2 rounded text-[9.5px] font-bold"
-                                                    :class="r.initiator === 'CUSTOMER' ? 'bg-blue-50 text-blue-700 border border-blue-200' : (r.initiator === 'SYSTEM' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-purple-50 text-purple-700 border border-purple-200')"
+                                                    :class="r.initiator === 'CUSTOMER' ? 'bg-blue-50 text-blue-700 border border-blue-200' : ((r.initiator === 'SYSTEM' || r.initiator === 'AUTO_MAX_FAILED' || r.initiator === 'RECEIVER_REFUSED') ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-purple-50 text-purple-700 border border-purple-200')"
                                                 >
-                                                    {{ r.initiator === 'CUSTOMER' ? 'Shop yêu cầu' : (r.initiator === 'SYSTEM' ? 'Tự động (3 lần)' : 'CSKH điều phối') }}
+                                                    {{ r.initiator === 'CUSTOMER' ? 'Shop yêu cầu' : ((r.initiator === 'SYSTEM' || r.initiator === 'AUTO_MAX_FAILED') ? 'Tự động (3 lần)' : (r.initiator === 'RECEIVER_REFUSED' ? 'Khách từ chối nhận' : 'CSKH điều phối')) }}
                                                 </span>
                                             </div>
-                                            <div class="text-[11px] text-slate-700 font-medium truncate mt-0.5" :title="r.reason">
-                                                {{ r.reason || 'N/A' }}
+                                            <div class="text-[11px] text-slate-700 font-medium truncate mt-0.5" :title="r.reasonNote || r.reasonCode || r.reason">
+                                                {{ r.reasonNote || r.reasonCode || r.reason || 'N/A' }}
                                             </div>
                                         </td>
 
@@ -2852,10 +2865,16 @@
                                                     Miễn phí (Lỗi BC)
                                                 </span>
                                                 <span 
+                                                    v-else-if="r.feePaymentStatus === 'PAID_ON_RETURN'" 
+                                                    class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                                >
+                                                    Đã thu khi hoàn
+                                                </span>
+                                                <span 
                                                     v-else 
                                                     class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-slate-100 text-slate-600 border border-slate-200"
                                                 >
-                                                    Thu khi nhận
+                                                    Chưa thanh toán
                                                 </span>
                                             </div>
                                         </td>
@@ -2863,9 +2882,9 @@
                                         <td class="py-3 px-3.5 whitespace-nowrap">
                                             <span 
                                                 class="px-2 py-0.5 rounded-full text-[10.5px] font-bold border"
-                                                :class="r.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'"
+                                                :class="r.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : (r.status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-800 border-amber-200')"
                                             >
-                                                {{ r.status === 'COMPLETED' ? 'Đã hoàn tất' : (r.status === 'PROCESSING' ? 'Đang luân chuyển' : 'Đã xác nhận') }}
+                                                {{ r.status === 'COMPLETED' ? 'Đã hoàn tất' : (r.status === 'APPROVED' ? 'Đã duyệt hoàn' : (r.status === 'REJECTED' ? 'Bị từ chối' : r.status)) }}
                                             </span>
                                         </td>
 
@@ -3235,7 +3254,7 @@
                                     </div>
                                     <div class="flex justify-between items-center">
                                         <span class="text-slate-500">Gói cước:</span>
-                                        <span class="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-[10.5px]">{{ checkoutTargetShipment?.serviceType === 'EXPRESS' ? 'Waybill Hỏa Tốc' : 'Waybill Tiêu Chuẩn' }}</span>
+                                        <span class="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-[10.5px]">{{ checkoutTargetShipment?.serviceType === 'EXPRESS' ? 'Waybill Hỏa Tốc' : (checkoutTargetShipment?.serviceType === 'ECO' ? 'Waybill Tiết Kiệm' : 'Waybill Tiêu Chuẩn') }}</span>
                                     </div>
                                 </div>
 
@@ -3328,7 +3347,7 @@
                                             </div>
                                             <div class="flex justify-between items-center border-t border-slate-100 pt-1.5">
                                                 <span class="text-slate-500">Nội dung:</span>
-                                                <span class="font-mono font-bold text-blue-700">CUOC {{ checkoutTargetShipment?.trackingCode }}</span>
+                                                <span class="font-mono font-bold text-blue-700">{{ checkoutTargetShipment?._isReturnFee ? 'HOAN ' : 'CUOC ' }}{{ checkoutTargetShipment?.trackingCode }}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -3524,10 +3543,10 @@
                                 <div class="flex items-center justify-between border-b border-slate-200/70 pb-2">
                                     <div>
                                         <div class="font-bold text-slate-800 text-[11.5px]">Phí Chuyển Hoàn Bưu Gửi:</div>
-                                        <div v-if="returnQuoteData?.postalFault" class="text-[10px] text-purple-600 font-bold">Miễn phí hoàn do lỗi bưu chính</div>
+                                        <div v-if="returnQuoteData?.isPostalFault || returnQuoteData?.postalFault" class="text-[10px] text-purple-600 font-bold">Miễn phí hoàn do lỗi bưu chính</div>
                                     </div>
-                                    <div class="font-mono text-base font-extrabold" :class="returnQuoteData?.postalFault ? 'text-purple-600' : 'text-blue-700'">
-                                        {{ Utils.formatCurrency(returnQuoteData?.returnFee || 17500) }}
+                                    <div class="font-mono text-base font-extrabold" :class="(returnQuoteData?.isPostalFault || returnQuoteData?.postalFault) ? 'text-purple-600' : 'text-blue-700'">
+                                        {{ Utils.formatCurrency(returnQuoteData?.estimatedReturnFee ?? returnQuoteData?.returnFee ?? 17500) }}
                                     </div>
                                 </div>
 

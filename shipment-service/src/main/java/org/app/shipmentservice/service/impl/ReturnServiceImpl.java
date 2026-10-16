@@ -279,12 +279,19 @@ public class ReturnServiceImpl implements ReturnService {
             }
         }
 
-        Map<String, Shipment> shipmentMap = shipmentRepository.findAllById(
-                requests.stream().map(ReturnRequest::getId).collect(Collectors.toList())
-        ).stream().collect(Collectors.toMap(Shipment::getTrackingCode, s -> s, (s1, s2) -> s1));
+        List<String> trackingCodes = requests.stream()
+                .map(ReturnRequest::getTrackingCode)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<String, Shipment> shipmentMap = trackingCodes.isEmpty()
+                ? Collections.emptyMap()
+                : shipmentRepository.findByTrackingCodeIn(trackingCodes).stream()
+                        .collect(Collectors.toMap(Shipment::getTrackingCode, s -> s, (s1, s2) -> s1));
 
         return requests.stream().map(r -> {
-            Shipment s = shipmentRepository.findShipmentByTrackingCode(r.getTrackingCode()).orElse(null);
+            Shipment s = shipmentMap.get(r.getTrackingCode());
             return mapToReturnResponse(r, s);
         }).collect(Collectors.toList());
     }
@@ -323,14 +330,31 @@ public class ReturnServiceImpl implements ReturnService {
 
     @Override
     public List<DeliveryFailureDecisionResponse> getPendingFailureDecisions(String currentUserId, String roles, String permissions) {
-        Long myCustomerId = resolveCustomerId(currentUserId);
-        List<DeliveryFailureDecision> decisions = failureDecisionRepository.findByCustomerIdAndDecisionOrderByCreatedAtDesc(
-                myCustomerId, FailureDecisionType.PENDING
-        );
+        boolean staff = isStaffOrAdmin(roles, permissions);
+        List<DeliveryFailureDecision> decisions;
+        if (staff) {
+            decisions = failureDecisionRepository.findByDecisionOrderByCreatedAtDesc(FailureDecisionType.PENDING);
+        } else {
+            Long myCustomerId = resolveCustomerId(currentUserId);
+            decisions = failureDecisionRepository.findByCustomerIdAndDecisionOrderByCreatedAtDesc(
+                    myCustomerId, FailureDecisionType.PENDING
+            );
+        }
+
+        List<String> trackingCodes = decisions.stream()
+                .map(DeliveryFailureDecision::getTrackingCode)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<String, Shipment> shipmentMap = trackingCodes.isEmpty()
+                ? Collections.emptyMap()
+                : shipmentRepository.findByTrackingCodeIn(trackingCodes).stream()
+                        .collect(Collectors.toMap(Shipment::getTrackingCode, s -> s, (s1, s2) -> s1));
 
         LocalDateTime now = LocalDateTime.now();
         return decisions.stream().map(d -> {
-            Shipment s = shipmentRepository.findShipmentByTrackingCode(d.getTrackingCode()).orElse(null);
+            Shipment s = shipmentMap.get(d.getTrackingCode());
             long remaining = Duration.between(now, d.getDecisionDeadline()).toSeconds();
             return DeliveryFailureDecisionResponse.builder()
                     .id(d.getId())
@@ -393,7 +417,15 @@ public class ReturnServiceImpl implements ReturnService {
                 shipment.setReceiverAddress(requestDto.getNewReceiverAddress().trim());
             }
             shipmentRepository.save(shipment);
-            // Xóa cache chi tiết để bưu tá thấy địa chỉ mới
+            try {
+                redisTemplate.delete("shipment-detail:" + trackingCode);
+            } catch (Exception ignored) {}
+
+            String note = "[CẬP NHẬT GIAO LẠI] " + (requestDto.getDecisionNote() != null && !requestDto.getDecisionNote().isBlank() ? requestDto.getDecisionNote().trim() : "Khách cập nhật SĐT/Địa chỉ người nhận mới");
+            publishOutboxStatusEvent(trackingCode, ShipmentStatus.OUT_FOR_DELIVERY, note, shipment.getReceiverAddress());
+        } else if (requestDto.getDecision() == FailureDecisionType.REDELIVER) {
+            String note = "[YÊU CẦU GIAO LẠI] " + (requestDto.getDecisionNote() != null && !requestDto.getDecisionNote().isBlank() ? requestDto.getDecisionNote().trim() : "Khách hàng yêu cầu giao lại");
+            publishOutboxStatusEvent(trackingCode, ShipmentStatus.OUT_FOR_DELIVERY, note, shipment.getReceiverAddress());
             try {
                 redisTemplate.delete("shipment-detail:" + trackingCode);
             } catch (Exception ignored) {}
@@ -452,5 +484,31 @@ public class ReturnServiceImpl implements ReturnService {
                 .receiverPhone(s != null ? s.getReceiverPhone() : null)
                 .receiverAddress(s != null ? s.getReceiverAddress() : null)
                 .build();
+    }
+
+    private void publishOutboxStatusEvent(String trackingCode, ShipmentStatus status, String note, String location) {
+        ShipmentStatusUpdatedEvent statusEvent = ShipmentStatusUpdatedEvent.builder()
+                .trackingCode(trackingCode)
+                .status(status != null ? status.name() : "DELIVERY_FAILED")
+                .note(note)
+                .locationCode(location != null ? location : "")
+                .updateAt(LocalDateTime.now())
+                .build();
+
+        try {
+            String payloadJson = objectMapper.writeValueAsString(statusEvent);
+            OutboxEvent outboxEvent = OutboxEvent.builder()
+                    .aggregateType("SHIPMENT")
+                    .aggregateId(trackingCode)
+                    .eventType("SHIPMENT_" + (status != null ? status.name() : "STATUS_UPDATED"))
+                    .payload(payloadJson)
+                    .status("PENDING")
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            outboxEventRepository.save(outboxEvent);
+            log.info("[RETURN] Đã tạo Outbox Event {} cho đơn {}", status, trackingCode);
+        } catch (Exception e) {
+            log.error("[RETURN] Lỗi ghi nhận Outbox Event cho đơn {}: {}", trackingCode, e.getMessage());
+        }
     }
 }

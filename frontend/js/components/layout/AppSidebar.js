@@ -85,12 +85,7 @@
                         </span>
                     </div>
                     <div v-show="!isSidebarCollapsed" class="leading-tight truncate flex-1">
-                        <div class="flex items-center space-x-1">
-                            <span class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">{{ currentUser?.fullName || currentUser?.email }}</span>
-                            <svg class="w-3 h-3 text-slate-400 group-hover:text-blue-500 flex-shrink-0 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                            </svg>
-                        </div>
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition block">{{ currentUser?.fullName || currentUser?.email }}</span>
                         <div class="text-[10px] text-blue-600 dark:text-blue-400 font-semibold truncate">{{ currentUser?.email }}</div>
                     </div>
                 </button>

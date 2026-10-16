@@ -453,12 +453,40 @@
                 }
             };
 
+            const isAdmin = computed(() => {
+                try {
+                    return typeof Auth !== 'undefined' && typeof Auth.hasRole === 'function'
+                        && (Auth.hasRole('ROLE_ADMIN') || Auth.hasRole('ADMIN'));
+                } catch (e) {
+                    return false;
+                }
+            });
+
+            const userStation = computed(() => {
+                try {
+                    const user = typeof Auth !== 'undefined' && typeof Auth.getUser === 'function' ? Auth.getUser() : null;
+                    const loc = (typeof Auth !== 'undefined' && typeof Auth.getLocationCode === 'function' ? Auth.getLocationCode() : '')
+                        || user?.locationCode || user?.postOfficeCode || '';
+                    return loc ? String(loc).trim().toUpperCase() : '';
+                } catch (e) {
+                    return '';
+                }
+            });
+
             const deliveryShipments = computed(() => {
                 const finalMileStatuses = new Set([
                     'ARRIVED_DEST_HUB', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED',
                     'DELIVERED', 'RETURNING', 'OUT_FOR_RETURN', 'RETURNED'
                 ]);
-                return shipmentsList.value.filter(item => finalMileStatuses.has(getShipmentStatus(item)));
+                let items = shipmentsList.value.filter(item => finalMileStatuses.has(getShipmentStatus(item)));
+                if (userStation.value && !isAdmin.value) {
+                    items = items.filter(item => {
+                        const dest = getDestinationPostOfficeInfo(item, null, true);
+                        const loc = normalizeLocationCode(item.locationCode);
+                        return dest.code === userStation.value || loc === userStation.value;
+                    });
+                }
+                return items;
             });
 
             // 3. Lọc theo trạng thái + tìm kiếm. "Chờ nhận đi phát" chỉ gồm kiện đã
@@ -505,31 +533,31 @@
             });
 
             const kpiAwaitingDispatch = computed(() => {
-                return shipmentsList.value.filter(s => getShipmentStatus(s) === 'ARRIVED_DEST_HUB' && isAtDestinationPostOffice(s)).length;
+                return deliveryShipments.value.filter(s => getShipmentStatus(s) === 'ARRIVED_DEST_HUB' && isAtDestinationPostOffice(s)).length;
             });
 
             const kpiOutForDelivery = computed(() => {
-                return shipmentsList.value.filter(s => getShipmentStatus(s) === 'OUT_FOR_DELIVERY').length;
+                return deliveryShipments.value.filter(s => getShipmentStatus(s) === 'OUT_FOR_DELIVERY').length;
             });
 
             const kpiDeliveredCount = computed(() => {
-                return shipmentsList.value.filter(s => getShipmentStatus(s) === 'DELIVERED').length;
+                return deliveryShipments.value.filter(s => getShipmentStatus(s) === 'DELIVERED').length;
             });
 
             const kpiTotalDeliveredCod = computed(() => {
-                return shipmentsList.value
+                return deliveryShipments.value
                     .filter(s => getShipmentStatus(s) === 'DELIVERED')
                     .reduce((acc, cur) => acc + (cur.codAmount || 0), 0);
             });
 
             const kpiPendingCod = computed(() => {
-                return shipmentsList.value
+                return deliveryShipments.value
                     .filter(s => getShipmentStatus(s) === 'OUT_FOR_DELIVERY')
                     .reduce((acc, cur) => acc + (cur.codAmount || 0), 0);
             });
 
             const kpiReturningCount = computed(() => {
-                return shipmentsList.value.filter(s => getShipmentStatus(s) === 'RETURNING' || getShipmentStatus(s) === 'OUT_FOR_RETURN').length;
+                return deliveryShipments.value.filter(s => getShipmentStatus(s) === 'RETURNING' || getShipmentStatus(s) === 'OUT_FOR_RETURN').length;
             });
 
             const updateOptimisticShipment = (trackingCode, status, locationCode = null) => {
@@ -1184,7 +1212,7 @@
             const showSettlementModal = ref(false);
 
             const deliveredCodShipments = computed(() => {
-                return shipmentsList.value.filter(s => {
+                return deliveryShipments.value.filter(s => {
                     const status = getShipmentStatus(s);
                     const cod = Number(s.codAmount) || 0;
                     return status === 'DELIVERED' && cod > 0;
@@ -1242,7 +1270,7 @@
             };
 
             const selectedCodTotalAmount = computed(() => {
-                return shipmentsList.value
+                return deliveryShipments.value
                     .filter(s => selectedCodCodes.value.includes(s.trackingCode))
                     .reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0);
             });
@@ -1356,6 +1384,8 @@
             });
 
             return {
+                isAdmin,
+                userStation,
                 currentSubtab,
                 shipperForecast,
                 isForecastLoading,

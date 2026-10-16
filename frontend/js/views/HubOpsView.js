@@ -166,6 +166,14 @@
             const shipmentsList = ref([]);
             const hubsList = ref([]);
             const scanInputCode = ref('');
+            const scanInputRef = ref(null);
+            const focusScanInput = () => {
+                setTimeout(() => {
+                    if (scanInputRef.value && typeof scanInputRef.value.focus === 'function') {
+                        scanInputRef.value.focus();
+                    }
+                }, 80);
+            };
             const stationContext = ref(resolveStationContext());
             const isAdmin = computed(() => {
                 try {
@@ -775,6 +783,7 @@
                     showOperationError(error);
                 } finally {
                     isActionRunning.value = false;
+                    focusScanInput();
                 }
             };
 
@@ -783,6 +792,7 @@
                 const cleanCode = asNonBlankString(item?.trackingCode);
                 if (!cleanCode) {
                     showToast('Thông Báo', 'Vui lòng nhập mã bưu gửi cần xử lý', 'warning');
+                    focusScanInput();
                     return;
                 }
                 const locationCode = currentActionLocation.value;
@@ -824,6 +834,7 @@
                     await refreshAfterOperation();
                 } finally {
                     isActionRunning.value = false;
+                    focusScanInput();
                 }
             };
 
@@ -1032,9 +1043,12 @@
                     loadHubsData(),
                     loadShipmentsData()
                 ]);
+                focusScanInput();
             });
 
             return {
+                scanInputRef,
+                focusScanInput,
                 currentSubtab,
                 isLoading,
                 isActionRunning,
@@ -1221,6 +1235,7 @@
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <input
+                        ref="scanInputRef"
                         v-model="scanInputCode"
                         @keyup.enter="handleQuickScan()"
                         type="text"
