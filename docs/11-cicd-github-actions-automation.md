@@ -87,9 +87,9 @@ Workflow (.github/workflows/*.yml)
 
 ## 2. Bối Cảnh Thực Tế & Thách Thức Của Microservices Monorepo
 
-Trong các dự án phần mềm doanh nghiệp sử dụng kiến trúc **Microservices Monorepo** (gom toàn bộ 11 microservices, thư viện dùng chung `shared-events`, và Frontend vào chung một Git repository), việc xây dựng hệ thống **CI/CD** đối mặt với 4 thách thức cốt tử:
+Trong các dự án phần mềm doanh nghiệp sử dụng kiến trúc **Microservices Monorepo** (gom toàn bộ 14 microservices, thư viện dùng chung `shared-events`, và Frontend vào chung một Git repository), việc xây dựng hệ thống **CI/CD** đối mặt với 4 thách thức cốt tử:
 
-1. **Lãng phí tài nguyên & nghẽn Pipeline:** Nếu mỗi lần lập trình viên chỉ sửa 1 dòng code trong `customer-service` mà pipeline bắt đầu kéo cả 11 service ra build lại từ đầu, mỗi lần push sẽ mất **15–25 phút**, làm cạn kiệt giới hạn phút chạy miễn phí của GitHub Actions.
+1. **Lãng phí tài nguyên & nghẽn Pipeline:** Nếu mỗi lần lập trình viên chỉ sửa 1 dòng code trong `customer-service` mà pipeline bắt đầu kéo cả 14 service ra build lại từ đầu, mỗi lần push sẽ mất **15–25 phút**, làm cạn kiệt giới hạn phút chạy miễn phí của GitHub Actions.
 2. **Sự phụ thuộc thư viện dùng chung (`shared-events`):** Khi DTO hoặc Event Kafka trong `shared-events` thay đổi, hệ thống CI phải đủ thông minh để tự động nhận biết những microservices nào đang phụ thuộc vào nó để build lại đồng bộ.
 3. **Chống sập dây chuyền (`fail-fast: false`):** Trong kiến trúc vi dịch vụ, các service có tính độc lập cao. Nếu một service bị lỗi compile hoặc lỗi test, các service khác trong cùng commit vẫn phải được build và đẩy lên Registry bình thường.
 4. **Tính bất biến & khả năng Rollback (Immutable Tagging):** Không bao giờ chỉ dùng tag `:latest` trên môi trường Production. Mọi bản build phải được gắn kèm mã định danh commit **Git SHA (`:${{ github.sha }}`)** để phục vụ việc rollback tức thì khi xảy ra sự cố.

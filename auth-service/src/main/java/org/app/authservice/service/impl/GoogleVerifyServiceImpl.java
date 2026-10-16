@@ -31,6 +31,9 @@ public class GoogleVerifyServiceImpl implements GoogleVerifyService {
             if(idToken == null) {
                 throw new Exception("Mã xác thực Google ID Token không hợp lệ!");
             }
+            if (!Boolean.TRUE.equals(idToken.getPayload().getEmailVerified())) {
+                throw new Exception("Email Google chưa được xác minh");
+            }
             return idToken.getPayload();
         } catch (Exception e) {
             throw new Exception("Lỗi xác thực Google ID Token: " + e.getMessage());

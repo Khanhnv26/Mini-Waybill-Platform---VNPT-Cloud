@@ -34,7 +34,7 @@ public class RedisPubSubConfig {
         return (message, pattern) -> {
             try {
                 ShipmentStatusUpdatedEvent event = objectMapper.readValue(message.getBody(), ShipmentStatusUpdatedEvent.class);
-                messagingTemplate.convertAndSend("/topic/tracking/" + event.getTrackingCode(), event);
+                messagingTemplate.convertAndSend("/topic/tracking/" + event.getTrackingCode(), org.app.notificationservice.dto.response.PublicTrackingEvent.from(event));
                 log.info("[WEBSOCKET-CLUSTER] Node đã broadcast thành công event cho đơn: {}", event.getTrackingCode());
             } catch (Exception e) {
                 log.error("[WEBSOCKET-CLUSTER] Lỗi parse/broadcast tin nhắn từ Redis: {}", e.getMessage(), e);

@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface SupportTicketRepository extends JpaRepository<SupportTicket, Long> {
+public interface SupportTicketRepository extends JpaRepository<SupportTicket, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<SupportTicket> {
     Optional<SupportTicket> findByTicketCode(String ticketCode);
     boolean existsByTicketCode(String ticketCode);
     List<SupportTicket> findByCreatorUserIdOrderByCreatedAtDesc(Long creatorUserId);

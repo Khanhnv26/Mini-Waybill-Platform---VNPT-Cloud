@@ -320,8 +320,10 @@ public class PaymentServiceImpl implements PaymentService {
         boolean isPureCustomer = isCustomerOnly(userRoles);
         final String effectiveCustomerCode;
         if (isPureCustomer) {
-            effectiveCustomerCode = (filter.getCustomerCode() != null && !filter.getCustomerCode().isBlank())
-                    ? filter.getCustomerCode() : (currentUserId != null ? currentUserId : "");
+            if (currentUserId == null || currentUserId.isBlank()) {
+                throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED);
+            }
+            effectiveCustomerCode = currentUserId;
         } else {
             effectiveCustomerCode = filter.getCustomerCode();
         }
@@ -386,8 +388,10 @@ public class PaymentServiceImpl implements PaymentService {
         boolean isPureCustomer = isCustomerOnly(userRoles);
         final String effectiveCustomerCode;
         if (isPureCustomer) {
-            effectiveCustomerCode = (customerCode != null && !customerCode.isBlank())
-                    ? customerCode : (currentUserId != null ? currentUserId : "");
+            if (currentUserId == null || currentUserId.isBlank()) {
+                throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED);
+            }
+            effectiveCustomerCode = currentUserId;
         } else {
             effectiveCustomerCode = customerCode;
         }
@@ -509,12 +513,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private boolean isCustomerOnly(String userRoles) {
-        if (userRoles == null || userRoles.isBlank()) return false;
-        String upper = userRoles.toUpperCase();
-        boolean hasCustomer = upper.contains("ROLE_CUSTOMER") || upper.contains("CUSTOMER");
-        boolean hasStaff = upper.contains("ROLE_ADMIN") || upper.contains("ADMIN")
-                || upper.contains("POST_OFFICE") || upper.contains("DISPATCHER")
-                || upper.contains("HUB") || upper.contains("ROLE_CS");
-        return hasCustomer && !hasStaff;
+        return !org.app.sharedevents.security.RoleAccess.hasAny(userRoles,
+                "ADMIN", "CS", "POST_OFFICE_OPERATOR", "POST_OFFICE_STAFF", "DISPATCHER", "HUB_OPERATOR");
     }
 }

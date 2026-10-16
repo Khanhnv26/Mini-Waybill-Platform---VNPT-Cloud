@@ -16,6 +16,11 @@ import java.util.Map;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ResponseEntity<Map<String, Object>> handleAccessError(org.springframework.web.server.ResponseStatusException ex) {
+        return ResponseEntity.status(ex.getStatusCode()).body(Map.of("message",
+                ex.getReason() != null ? ex.getReason() : "Không có quyền truy cập"));
+    }
 
 
     @ExceptionHandler(ResourceNotFoundException.class)

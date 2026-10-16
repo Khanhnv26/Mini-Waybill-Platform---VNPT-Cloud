@@ -173,3 +173,28 @@
 .error-btn-interactive:active {
     transform: translateY(0) scale(0.97);
 }
+
+/* Card Container & Night Mode Border/Shadow */
+.error-view-card {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+}
+
+html.dark .error-view-card,
+.dark .error-view-card {
+    background-color: #131e3a;
+    border: 1px solid #1e293b;
+    box-shadow: 0 20px 30px -5px rgba(0, 0, 0, 0.6), 0 8px 12px -6px rgba(0, 0, 0, 0.5);
+}
+
+html.dark .error-aura-pulse,
+.dark .error-aura-pulse {
+    opacity: 0.08;
+}
+
+html.dark .error-view-footer,
+.dark .error-view-footer {
+    border-color: #1e293b !important;
+}
+

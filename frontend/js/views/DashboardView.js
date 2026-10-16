@@ -742,7 +742,7 @@
                 return list.slice(0, 5).map((s, idx) => {
                     return {
                         id: s?.id || idx,
-                        trackingCode: s?.trackingCode || `VNPT-${idx}`,
+                        trackingCode: s?.trackingCode || `WB-${idx}`,
                         receiverName: s?.receiverName || 'Khách nhận',
                         receiverAddress: s?.receiverAddress || 'Chưa có địa chỉ',
                         destination: s?.destinationPostOffice || s?.currentLocation || '',
@@ -1007,7 +1007,7 @@
                                 <span class="px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10.5px] font-extrabold uppercase tracking-wider border border-white/25">
                                     {{ currentRoleHeader.badge }}
                                 </span>
-                                <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
+                                <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
                                 <span class="text-blue-200 text-xs">•</span>
                                 <span class="text-[11px] text-emerald-300 font-semibold flex items-center space-x-1">
                                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>

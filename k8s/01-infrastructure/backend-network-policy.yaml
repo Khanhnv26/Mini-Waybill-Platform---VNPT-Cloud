@@ -1,0 +1,43 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-private-ingress
+  namespace: waybill
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [auth-service, customer-service, shipment-service, routing-service, tracking-service, notification-service, payment-service, rating-service, support-service, audit-service, shipper-service, report-service]
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: [api-gateway, auth-service, customer-service, shipment-service, routing-service, tracking-service, notification-service, payment-service, rating-service, support-service, audit-service, shipper-service, report-service, prometheus]
+---
+# The ingress controller reaches only the WebSocket URL configured in Ingress.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: notification-websocket-ingress
+  namespace: waybill
+spec:
+  podSelector:
+    matchLabels:
+      app: notification-service
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - protocol: TCP
+          port: 8085
+        # Optional ingress-nginx installations need their namespace added explicitly.

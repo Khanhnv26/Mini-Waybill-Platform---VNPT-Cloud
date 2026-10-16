@@ -10,7 +10,7 @@ import org.app.authservice.repository.PermissionRepository;
 import org.app.authservice.repository.RoleRepository;
 import org.app.authservice.repository.UserRepository;
 import org.app.authservice.service.AdminService;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,7 +27,8 @@ public class AdminServiceImpl implements AdminService {
     private final PermissionRepository permissionRepository;
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
-    private final RedisTemplate redisTemplate;
+    private final StringRedisTemplate redisTemplate;
+    private final org.app.authservice.service.SessionRevocationService sessionRevocationService;
 
     @Override
     public List<PermissionResponse> getAllPermissions() {
@@ -68,6 +69,7 @@ public class AdminServiceImpl implements AdminService {
 
         role.setPermissions(new HashSet<>(matchedPermissions));
         Role savedRole = roleRepository.save(role);
+        sessionRevocationService.revokeRole(savedRole.getName());
 
         log.info("Admin đã cập nhật phân quyền cho Role: {} với {} quyền", role.getName(), matchedPermissions.size());
 
@@ -98,6 +100,7 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
+    @Transactional
     public UserAdminResponse updateUserRoles(Long userId, UpdateUserRolesRequest request) {
         User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản với ID: " + userId));
 
@@ -123,6 +126,7 @@ public class AdminServiceImpl implements AdminService {
         List<Role> matchedRoles = roleRepository.findByNameIn(roleNames);
         user.setRoles(new HashSet<>(matchedRoles));
         User savedUser = userRepository.save(user);
+        sessionRevocationService.revokeUser(userId);
 
         log.info("Admin đã cập nhật vai trò cho tài khoản {}: {}", user.getEmail(), roleNames);
 
@@ -156,6 +160,7 @@ public class AdminServiceImpl implements AdminService {
 
         user.setLocationCode(normalizedLocation);
         User savedUser = userRepository.save(user);
+        sessionRevocationService.revokeUser(userId);
         log.info("Admin đã phân công tài khoản {} tại {}", savedUser.getEmail(), normalizedLocation != null ? normalizedLocation : "không có trạm");
 
         return UserAdminResponse.builder()
@@ -185,6 +190,7 @@ public class AdminServiceImpl implements AdminService {
 
         user.setStatus(request.getStatus());
         User savedUser = userRepository.save(user);
+        sessionRevocationService.revokeUser(userId);
 
         //backlist
         String blackListKey = "auth:blacklist:user:" + userId;

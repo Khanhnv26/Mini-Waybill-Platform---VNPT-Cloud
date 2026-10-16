@@ -112,7 +112,7 @@ CREATE INDEX idx_shipments_cod_settlement
 }
 ```
 * **Xử lý Backend:**
-  1. Kiểm tra Station Context Binding: Bưu phẩm phải thuộc trạm bưu cục của nhân viên đang đăng nhập (`X-User-Station-Id`).
+  1. Kiểm tra Station Context Binding: Bưu phẩm phải thuộc trạm bưu cục của nhân viên đang đăng nhập (`X-User-Location-Code`).
   2. Cập nhật `cod_settlement_status = 'SETTLED'`, `cod_settled_at = LocalDateTime.now()`, `cod_confirmed_by = authentication.getName()`.
   3. Bắn sự kiện Kafka `COD_SETTLED` sang `report-service` và `notification-service` để gửi thông báo biến động số dư.
 

@@ -25,6 +25,7 @@ public class TicketController {
 
     private final TicketService ticketService;
     private final MinioStorageService minioStorageService;
+    private final org.app.supportservice.service.TicketAccessService ticketAccess;
 
     @PostMapping
     public ResponseEntity<TicketResponse> createTicket(
@@ -51,17 +52,47 @@ public class TicketController {
     @GetMapping
     public ResponseEntity<List<TicketResponse>> getAllTickets(
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String trackingCode) {
-        return ResponseEntity.ok(ticketService.getAllTickets(status, trackingCode));
+            @RequestParam(required = false) String trackingCode,
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles) {
+        Long caller = parseUserId(userId);
+        if (caller == null) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        return ResponseEntity.ok(ticketService.getAccessibleTickets(status, trackingCode, caller, roles));
+    }
+
+    @GetMapping("/{id}/access")
+    public ResponseEntity<Void> checkAccess(@PathVariable Long id,
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles,
+            @RequestHeader(value = "X-Ticket-Access-Token", required = false) String token) {
+        ticketAccess.check(id, parseUserId(userId), roles, token);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/code/{code}/access")
+    public ResponseEntity<Void> checkCodeAccess(@PathVariable String code,
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles,
+            @RequestHeader(value = "X-Ticket-Access-Token", required = false) String token) {
+        ticketAccess.checkCode(code, parseUserId(userId), roles, token);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<TicketResponse> getTicketById(@PathVariable Long id) {
+    public ResponseEntity<TicketResponse> getTicketById(@PathVariable Long id,
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles,
+            @RequestHeader(value = "X-Ticket-Access-Token", required = false) String guestToken) {
+        ticketAccess.check(id, parseUserId(userId), roles, guestToken);
         return ResponseEntity.ok(ticketService.getTicketById(id));
     }
 
     @GetMapping("/code/{ticketCode}")
-    public ResponseEntity<TicketResponse> getTicketByCode(@PathVariable String ticketCode) {
+    public ResponseEntity<TicketResponse> getTicketByCode(@PathVariable String ticketCode,
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles,
+            @RequestHeader(value = "X-Ticket-Access-Token", required = false) String guestToken) {
+        ticketAccess.checkCode(ticketCode, parseUserId(userId), roles, guestToken);
         return ResponseEntity.ok(ticketService.getTicketByCode(ticketCode));
     }
 
@@ -89,17 +120,24 @@ public class TicketController {
             @PathVariable Long id,
             @Valid @RequestBody AddMessageRequest request,
             @RequestHeader(value = "X-User-Id", required = false) String headerUserId,
-            @RequestHeader(value = "X-User-Roles", required = false) String headerRoles) {
+            @RequestHeader(value = "X-User-Roles", required = false) String headerRoles,
+            @RequestHeader(value = "X-Ticket-Access-Token", required = false) String guestToken) {
         Long senderId = parseUserId(headerUserId);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ticketService.addMessage(id, request, senderId != null ? senderId : 0L, resolveSenderRole(headerRoles)));
+                .body(ticketService.addMessage(id, request, senderId != null ? senderId : 0L, resolveSenderRole(headerRoles), guestToken));
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<Map<String, String>> uploadAttachment(@RequestParam("file") MultipartFile file) {
-        String fileUrl = minioStorageService.uploadFile(file);
+    public ResponseEntity<Map<String, String>> uploadAttachment(@RequestParam("file") MultipartFile file,
+            @RequestParam("ticketId") Long ticketId,
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles,
+            @RequestHeader(value = "X-Ticket-Access-Token", required = false) String token) {
+        ticketAccess.check(ticketId, parseUserId(userId), roles, token);
+        String objectKey = minioStorageService.uploadFile(file, ticketId);
         return ResponseEntity.ok(Map.of(
-                "url", fileUrl,
+                "url", minioStorageService.signedUrl(objectKey),
+                "objectKey", objectKey,
                 "originalName", file.getOriginalFilename() != null ? file.getOriginalFilename() : "image"
         ));
     }

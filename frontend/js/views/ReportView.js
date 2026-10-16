@@ -433,6 +433,17 @@
             });
 
             onMounted(() => {
+                if (!window.Auth || !window.Auth.isAuthenticated()) {
+                    try {
+                        sessionStorage.setItem('redirectAfterLogin', '/reports');
+                    } catch (e) {}
+                    if (typeof window.navigateTo === 'function') {
+                        window.navigateTo('/login');
+                    } else if (typeof window !== 'undefined' && window.location) {
+                        window.location.href = '/login';
+                    }
+                    return;
+                }
                 updateClock();
                 setInterval(updateClock, 1000);
                 applyQuickRange('7days');
@@ -480,13 +491,13 @@
                                 <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
                                     Financial &amp; Volume Reporting
                                 </span>
-                                <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
+                                <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
                             </div>
                             <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
                                 Báo Cáo Sản Lượng &amp; Đối Soát Dòng Tiền COD
                             </h1>
                             <p class="text-xs text-blue-100/90 mt-0.5 leading-normal">
-                                Nền tảng điều phối bưu chính VNPT Cloud • Tổng hợp dữ liệu theo thời gian thực • Quản trị SLA &amp; Công nợ Bưu tá • Xuất Excel 3 Sheet.
+                                Nền tảng điều phối bưu chính Waybill • Tổng hợp dữ liệu theo thời gian thực • Quản trị SLA &amp; Công nợ Bưu tá • Xuất Excel 3 Sheet.
                             </p>
                         </div>
 
@@ -1038,7 +1049,7 @@
                                             <svg class="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                             </svg>
-                                            <span class="truncate">{{ s.shipperName || 'Bưu tá VNPT' }}</span>
+                                            <span class="truncate">{{ s.shipperName || 'Bưu tá Waybill' }}</span>
                                             <span class="text-slate-400 font-normal">({{ s.hubOrigin || 'HN' }} &rarr; {{ s.hubDestination || 'HCM' }})</span>
                                         </div>
                                         <div class="text-[10.5px] text-slate-400 font-mono mt-0.5">

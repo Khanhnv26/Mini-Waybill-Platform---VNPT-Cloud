@@ -24,11 +24,15 @@ public class RedisConfig {
 
     @Value("${spring.data.redis.port:6379}")
     private int redisPort;
+    @Value("${spring.data.redis.password:}")
+    private String redisPassword;
 
 
     @Bean
     public RedisClient redisClient() {
-        return RedisClient.create(RedisURI.builder().withHost(redisHost).withPort(redisPort).build());
+        RedisURI.Builder builder = RedisURI.builder().withHost(redisHost).withPort(redisPort);
+        if (!redisPassword.isBlank()) builder.withPassword(redisPassword.toCharArray());
+        return RedisClient.create(builder.build());
     }
 
     @Bean

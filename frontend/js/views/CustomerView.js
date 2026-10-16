@@ -40,7 +40,7 @@
                 return customers.value.filter(c => c.status === 'ACTIVE').length;
             });
 
-            const corpKeywords = ['công ty', 'tnhh', 'cp', 'tập đoàn', 'chi nhánh', 'doanh nghiệp', 'vnpt', 'bưu điện'];
+            const corpKeywords = ['công ty', 'tnhh', 'cp', 'tập đoàn', 'chi nhánh', 'doanh nghiệp', 'waybill', 'bưu điện'];
             const isCorporate = (c) => {
                 if (!c || c.customerCode === 'CUS_RETAIL') return false;
                 const name = (c.fullName || '').toLowerCase();
@@ -286,7 +286,7 @@
                                 <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
                                     CRM Directory
                                 </span>
-                                <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
+                                <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
                             </div>
                             <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
                                 Quản Lý Danh Bạ &amp; Hồ Sơ Khách Hàng Bưu Chính
@@ -572,7 +572,7 @@
                                     type="text" 
                                     required 
                                     maxlength="100"
-                                    placeholder="VD: Công ty CP Viễn Thông VNPT..." 
+                                    placeholder="VD: Công ty CP Vận Chuyển Waybill..." 
                                     class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
                                 />
                             </div>

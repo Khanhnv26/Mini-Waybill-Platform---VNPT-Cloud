@@ -2,6 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: waybill
 resources:
+  - 01-infrastructure/backend-network-policy.yaml
   - 00-namespaces/00-namespace.yaml
   - 01-infrastructure/eureka.yaml
   - 01-infrastructure/kafka.yaml

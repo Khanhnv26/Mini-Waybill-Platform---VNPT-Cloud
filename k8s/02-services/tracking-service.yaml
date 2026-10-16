@@ -17,18 +17,23 @@ spec:
     spec:
       containers:
         - name: tracking-service
-          image: khanhnv26/tracking-service:4a6ff24b5a9e31fb29fe466e758894b4faec857f
+          image: khanhnv26/tracking-service:ca6e9899bb493782c7be311bea126d061767f27d
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8084
           env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xms64m -Xmx200m -XX:+UseSerialGC"
             - name: SERVER_PORT
               value: "8084"
             - name: SPRING_DATASOURCE_PRIMARY_JDBC_URL
               value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=tracking_db;encrypt=true;trustServerCertificate=true;"
             - name: SPRING_DATASOURCE_PRIMARY_USERNAME
-              value: "sa"
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: db-user
             - name: SPRING_DATASOURCE_PRIMARY_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -37,7 +42,10 @@ spec:
             - name: SPRING_DATASOURCE_REPLICA_JDBC_URL
               value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=tracking_db;encrypt=true;trustServerCertificate=true;"
             - name: SPRING_DATASOURCE_REPLICA_USERNAME
-              value: "sa"
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: db-user
             - name: SPRING_DATASOURCE_REPLICA_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -57,10 +65,16 @@ spec:
               value: "${HOSTNAME}:${server.port}"
             - name: SPRING_JPA_HIBERNATE_DDL_AUTO
               value: "validate"
+            - name: SPRING_DATA_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: redis-password
+                  optional: true
           resources:
             requests:
-              memory: "256Mi"
-              cpu: "100m"
+              memory: "128Mi"
+              cpu: "20m"
             limits:
               memory: "512Mi"
               cpu: "500m"

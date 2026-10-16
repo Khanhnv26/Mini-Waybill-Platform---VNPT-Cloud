@@ -39,6 +39,11 @@
             const selectedStatusFilter = ref('ALL');
             const currentPage = ref(1);
             const itemsPerPage = ref(10);
+            const serverTotalPages = ref(1);
+            const serverTotalElements = ref(0);
+            const serverStats = ref({ total: 0, pending: 0, inTransit: 0, delivered: 0, totalCod: 0 });
+            let shipmentRequestVersion = 0;
+            let shipmentFilterTimer = null;
 
             const currentUser = typeof Auth !== 'undefined' ? Auth.getUser() : null;
 
@@ -80,7 +85,7 @@
                 weight: 1.0,
                 codAmount: 0,
                 
-                senderName: currentUser?.fullName || 'Bưu chính Viễn thông VNPT',
+                senderName: currentUser?.fullName || 'Waybill Platform',
                 senderPhone: '',
                 senderProvince: 'Hà Nội',
                 senderDetail: '',
@@ -497,6 +502,7 @@
             };
 
             const loadShipments = async () => {
+                const requestVersion = ++shipmentRequestVersion;
                 isLoadingShipments.value = true;
                 try {
                     let customerIdParam = null;
@@ -506,20 +512,25 @@
                         }
                     }
                     const [data, paidList] = await Promise.all([
-                        ShipmentService.getShipments(customerIdParam),
+                        ShipmentService.getShipmentPage(customerIdParam, { page: currentPage.value - 1, size: itemsPerPage.value, keyword: shipmentSearchQuery.value, status: selectedStatusFilter.value }),
                         typeof PaymentService !== 'undefined' && PaymentService.getPaidTrackingCodes
                             ? PaymentService.getPaidTrackingCodes().catch(() => [])
                             : Promise.resolve([])
                     ]);
-                    shipmentsList.value = Array.isArray(data) ? data : [];
+                    if (requestVersion !== shipmentRequestVersion) return;
+                    shipmentsList.value = Array.isArray(data.content) ? data.content : [];
+                    serverTotalPages.value = Math.max(1, data.totalPages);
+                    serverTotalElements.value = data.totalElements;
+                    serverStats.value = data.stats;
                     if (Array.isArray(paidList)) {
                         paidTrackingCodes.value = new Set([...paidTrackingCodes.value, ...paidList]);
                     }
                 } catch (err) {
                     console.error('[ShipmentView] Lỗi tải danh sách vận đơn:', err);
+                    if (requestVersion !== shipmentRequestVersion) return;
                     Utils.showToast('Thông Báo', err.message || 'Không thể tải danh sách vận đơn', 'warning');
                 } finally {
-                    isLoadingShipments.value = false;
+                    if (requestVersion === shipmentRequestVersion) isLoadingShipments.value = false;
                 }
             };
 
@@ -846,47 +857,17 @@
                 }
             };
 
-            const filteredShipments = computed(() => {
-                let list = shipmentsList.value || [];
-                if (selectedStatusFilter.value && selectedStatusFilter.value !== 'ALL') {
-                    list = list.filter(s => s.currentStatus === selectedStatusFilter.value);
-                }
-                if (shipmentSearchQuery.value && shipmentSearchQuery.value.trim()) {
-                    const q = shipmentSearchQuery.value.trim().toLowerCase();
-                    list = list.filter(s => 
-                        (s.trackingCode && s.trackingCode.toLowerCase().includes(q)) ||
-                        (s.senderName && s.senderName.toLowerCase().includes(q)) ||
-                        (s.senderPhone && s.senderPhone.includes(q)) ||
-                        (s.receiverName && s.receiverName.toLowerCase().includes(q)) ||
-                        (s.receiverPhone && s.receiverPhone.includes(q)) ||
-                        (s.receiverAddress && s.receiverAddress.toLowerCase().includes(q))
-                    );
-                }
-                return list;
-            });
+            const filteredShipments = computed(() => shipmentsList.value || []);
+            const paginatedShipments = computed(() => shipmentsList.value || []);
+            const totalPages = computed(() => serverTotalPages.value);
+            const stats = computed(() => serverStats.value);
 
-            const totalPages = computed(() => Math.max(1, Math.ceil(filteredShipments.value.length / itemsPerPage.value)));
-
-            const paginatedShipments = computed(() => {
-                const start = (currentPage.value - 1) * itemsPerPage.value;
-                return filteredShipments.value.slice(start, start + itemsPerPage.value);
-            });
-
-            watch([selectedStatusFilter, shipmentSearchQuery], () => {
+            watch([selectedStatusFilter, shipmentSearchQuery, selectedCustomerFilter, itemsPerPage], () => {
+                clearTimeout(shipmentFilterTimer);
                 currentPage.value = 1;
+                shipmentFilterTimer = setTimeout(() => { shipmentFilterTimer = null; loadShipments(); }, 300);
             });
-
-            const stats = computed(() => {
-                const list = shipmentsList.value || [];
-                const total = list.length;
-                const inTransit = list.filter(s => 
-                    ['ROUTE_ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'ARRIVED_DEST_HUB'].includes(s.currentStatus)
-                ).length;
-                const delivered = list.filter(s => s.currentStatus === 'DELIVERED').length;
-                const pending = list.filter(s => ['CREATED', 'PENDING_ROUTING'].includes(s.currentStatus)).length;
-                const totalCod = list.reduce((acc, s) => acc + (Number(s.codAmount) || 0), 0);
-                return { total, inTransit, delivered, pending, totalCod };
-            });
+            watch(currentPage, () => { if (!shipmentFilterTimer) loadShipments(); });
 
             const baseFee = computed(() => {
                 const w = Math.max(0.1, Number(form.weight) || 1);
@@ -1343,6 +1324,8 @@
             });
 
             onUnmounted(() => {
+                clearTimeout(shipmentFilterTimer);
+                shipmentRequestVersion++;
                 if (decisionCountdownTimer) clearInterval(decisionCountdownTimer);
             });
 
@@ -1402,6 +1385,7 @@
                 paginatedShipments,
                 currentPage,
                 totalPages,
+                serverTotalElements,
                 itemsPerPage,
                 stats,
                 viewTracking,
@@ -1510,7 +1494,7 @@
                                 <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
                                     Logistics Dispatch &amp; Management
                                 </span>
-                                <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
+                                <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
                             </div>
                             <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
                                 Quản Trị Vận Đơn &amp; Khởi Tạo Bưu Gửi Ký Gửi
@@ -1758,7 +1742,7 @@
                                             ]"
                                         >
                                             <div>
-                                                <div class="text-xs">VNPT Tiết Kiệm (Eco)</div>
+                                                <div class="text-xs">Waybill Tiết Kiệm (Eco)</div>
                                                 <div class="text-[10.5px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">Tiết kiệm 3 - 5 ngày</div>
                                             </div>
                                             <span 
@@ -1779,7 +1763,7 @@
                                             ]"
                                         >
                                             <div>
-                                                <div class="text-xs">VNPT Tiêu Chuẩn (Standard)</div>
+                                                <div class="text-xs">Waybill Tiêu Chuẩn (Standard)</div>
                                                 <div class="text-[10.5px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">Liên tỉnh 1 - 2 ngày</div>
                                             </div>
                                             <span 
@@ -1800,7 +1784,7 @@
                                             ]"
                                         >
                                             <div>
-                                                <div class="text-xs">VNPT Hỏa Tốc (Express)</div>
+                                                <div class="text-xs">Waybill Hỏa Tốc (Express)</div>
                                                 <div class="text-[10.5px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">Toàn quốc trong 24h</div>
                                             </div>
                                             <span 
@@ -2231,7 +2215,7 @@
 
                             <div class="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 text-[11px] text-blue-900 dark:text-blue-300 leading-relaxed space-y-1">
                                 <div class="font-bold text-blue-900 dark:text-blue-300">
-                                    Chính Sách Bưu Gửi VNPT
+                                    Chính Sách Bưu Gửi Waybill
                                 </div>
                                 <p class="text-slate-600 dark:text-slate-400 text-[10.5px]">
                                     Vận đơn sau khi khởi tạo sẽ tự động sinh mã vạch Code128, kích hoạt điều phối OSRM trên toàn quốc và thông báo tin nhắn xác nhận cho khách hàng.
@@ -2516,7 +2500,7 @@
 
                         <div v-if="filteredShipments.length > 0" class="p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
                             <div>
-                                Hiển thị <span class="font-bold text-slate-700">{{ paginatedShipments.length }}</span> / <span class="font-bold text-slate-700">{{ filteredShipments.length }}</span> vận đơn (Trang {{ currentPage }} / {{ totalPages }})
+                                Hiển thị <span class="font-bold text-slate-700">{{ paginatedShipments.length }}</span> / <span class="font-bold text-slate-700">{{ serverTotalElements }}</span> vận đơn (Trang {{ currentPage }} / {{ totalPages }})
                             </div>
                             <div class="flex items-center space-x-1.5">
                                 <button 
@@ -2950,7 +2934,7 @@
                                     type="text" 
                                     maxlength="100"
                                     required 
-                                    placeholder="VD: Công ty TNHH Giải Pháp VNPT..." 
+                                    placeholder="VD: Công ty TNHH Giải Pháp Waybill..." 
                                     class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none"
                                 />
                             </div>
@@ -3088,7 +3072,7 @@
                             </div>
                             <div>
                                 <h3 class="text-base font-extrabold text-slate-900">Khởi Tạo Vận Đơn Thành Công!</h3>
-                                <p class="text-xs text-slate-500 mt-0.5">Bưu gửi đã được tiếp nhận vào hệ thống VNPT Post</p>
+                                <p class="text-xs text-slate-500 mt-0.5">Bưu gửi đã được tiếp nhận vào hệ thống Waybill</p>
                             </div>
 
                             <div class="inline-flex items-center gap-2 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-xl">
@@ -3129,7 +3113,7 @@
                                 </div>
                                 <div class="text-[10px] text-emerald-700/90 leading-tight flex items-center gap-1.5">
                                     <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                                    <span>VNPT Post cam kết giao đúng hạn. Tự động bồi hoàn cước nếu trễ hạn.</span>
+                                    <span>Waybill cam kết giao đúng hạn. Tự động bồi hoàn cước nếu trễ hạn.</span>
                                 </div>
                                 <div v-if="createdShipmentPrompt?.assignedTripCode && canCreateForOthers" class="pt-1.5 border-t border-emerald-200/60 flex items-center justify-between text-[10.5px] text-slate-600 font-mono">
                                     <span class="flex items-center gap-1">
@@ -3251,7 +3235,7 @@
                                     </div>
                                     <div class="flex justify-between items-center">
                                         <span class="text-slate-500">Gói cước:</span>
-                                        <span class="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-[10.5px]">{{ checkoutTargetShipment?.serviceType === 'EXPRESS' ? 'VNPT Hỏa Tốc' : 'VNPT Tiêu Chuẩn' }}</span>
+                                        <span class="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-[10.5px]">{{ checkoutTargetShipment?.serviceType === 'EXPRESS' ? 'Waybill Hỏa Tốc' : 'Waybill Tiêu Chuẩn' }}</span>
                                     </div>
                                 </div>
 
@@ -3534,7 +3518,7 @@
                                     <span class="font-mono font-bold text-slate-700">{{ Utils.formatCurrency(returnQuoteData?.originalShippingFee || selectedShipmentForReturn?.shippingFee || 35000) }}</span>
                                 </div>
                                 <div class="flex items-center justify-between border-b border-slate-200/70 pb-2">
-                                    <span class="text-slate-500">Tỷ lệ phí hoàn (Chính sách VNPT):</span>
+                                    <span class="text-slate-500">Tỷ lệ phí hoàn (Chính sách Waybill):</span>
                                     <span class="font-bold text-slate-700">50% cước chính</span>
                                 </div>
                                 <div class="flex items-center justify-between border-b border-slate-200/70 pb-2">
@@ -3621,7 +3605,7 @@
 
                         <div class="space-y-3 text-xs">
                             <div class="p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-[11px] text-blue-900">
-                                <strong>Quy định VNPT Post:</strong> Bạn có thể đổi số điện thoại hoặc địa chỉ mới của người nhận trong <strong>cùng địa bàn Quận/Huyện</strong> để bưu cục phát hiện tại tiếp tục giao lại.
+                                <strong>Quy định Waybill:</strong> Bạn có thể đổi số điện thoại hoặc địa chỉ mới của người nhận trong <strong>cùng địa bàn Quận/Huyện</strong> để bưu cục phát hiện tại tiếp tục giao lại.
                             </div>
 
                             <div>

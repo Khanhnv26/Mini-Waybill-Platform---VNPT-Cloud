@@ -1,0 +1,231 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: waybill-ingress
+  namespace: waybill
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+    traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - waybill-express.japaneast.cloudapp.azure.com
+      secretName: waybill-azure-tls
+  rules:
+    - host: waybill-express.japaneast.cloudapp.azure.com
+      http:
+        paths:
+          - path: /grafana
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana-ext
+                port:
+                  number: 3000
+          - path: /argocd
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-ext
+                port:
+                  number: 80
+          - path: /api/notifications/ws
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 8085
+          - path: /support-tickets
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 9000
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+    - http:
+        paths:
+          - path: /api/notifications/ws
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 8085
+          - path: /support-tickets
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 9000
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+    - host: waybill-express.me
+      http:
+        paths:
+          - path: /api/notifications/ws
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 8085
+          - path: /support-tickets
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 9000
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+    - host: api.waybill-express.me
+      http:
+        paths:
+          - path: /api/notifications/ws
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 8085
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8080
+    - host: storage.waybill-express.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 9000
+    - host: waybill.vn
+      http:
+        paths:
+          - path: /api/notifications/ws
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 8085
+          - path: /support-tickets
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 9000
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+    - host: api.waybill.vn
+      http:
+        paths:
+          - path: /api/notifications/ws
+            pathType: Prefix
+            backend:
+              service:
+                name: notification-service
+                port:
+                  number: 8085
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8080
+    - host: storage.waybill.vn
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: minio
+                port:
+                  number: 9000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-ext
+  namespace: waybill
+spec:
+  type: ExternalName
+  externalName: grafana.monitor.svc.cluster.local
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-ext
+  namespace: waybill
+spec:
+  type: ExternalName
+  externalName: argocd-server.argocd.svc.cluster.local
+  ports:
+    - port: 80
+      targetPort: 8080

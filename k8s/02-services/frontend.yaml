@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: khanhnv26/frontend:4a6ff24b5a9e31fb29fe466e758894b4faec857f
+          image: khanhnv26/frontend:5cc150eeb53390fdacccf815b6c3461fe083bd7b
           imagePullPolicy: IfNotPresent
           command: ["node", "server.js", "3000"]
           ports:
@@ -33,7 +33,7 @@ spec:
           resources:
             requests:
               memory: "64Mi"
-              cpu: "50m"
+              cpu: "20m"
             limits:
               memory: "128Mi"
               cpu: "200m"

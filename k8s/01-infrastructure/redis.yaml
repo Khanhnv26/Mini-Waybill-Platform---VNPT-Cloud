@@ -19,6 +19,14 @@ spec:
         - name: redis
           image: redis:alpine
           imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "exec redis-server --requirepass \"$REDIS_PASSWORD\""]
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: redis-password
+                  optional: true
           ports:
             - name: redis
               containerPort: 6379
@@ -30,7 +38,7 @@ spec:
           resources:
             requests:
               memory: "64Mi"
-              cpu: "50m"
+              cpu: "20m"
             limits:
               memory: "256Mi"
               cpu: "200m"

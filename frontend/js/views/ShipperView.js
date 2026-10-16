@@ -1458,7 +1458,7 @@
                             <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
                                 Bưu Tá Giao Vận
                             </span>
-                            <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
+                            <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
                         </div>
                         <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
                             Bàn Tác Nghiệp Bưu Tá Phát Hàng &amp; Tiền Thu Hộ COD
@@ -2258,7 +2258,7 @@
                                         </div>
                                         <div class="text-center text-[11px] space-y-0.5">
                                             <p class="font-extrabold text-blue-900">{{ qrPaymentData?.bankCode || 'MB Bank' }} • {{ qrPaymentData?.accountNo || '0987654321' }}</p>
-                                            <p class="font-bold text-slate-700">{{ qrPaymentData?.accountName || 'VNPT POST LOGISTICS' }}</p>
+                                            <p class="font-bold text-slate-700">{{ qrPaymentData?.accountName || 'WAYBILL LOGISTICS' }}</p>
                                             <div class="text-[10px] bg-blue-50 text-blue-800 py-0.5 px-2 rounded font-mono font-bold border border-blue-200 inline-block mt-0.5">
                                                 Nội dung: COD {{ deliveryTargetShipment?.trackingCode }}
                                             </div>
@@ -2475,7 +2475,7 @@
                                 </div>
                                 <div class="text-center text-[11px] space-y-0.5">
                                     <p class="font-extrabold text-blue-900">{{ returnQrPaymentData?.bankCode || 'MB Bank' }} • {{ returnQrPaymentData?.accountNo || '0987654321' }}</p>
-                                    <p class="font-bold text-slate-700">{{ returnQrPaymentData?.accountName || 'VNPT POST LOGISTICS' }}</p>
+                                    <p class="font-bold text-slate-700">{{ returnQrPaymentData?.accountName || 'WAYBILL LOGISTICS' }}</p>
                                     <div class="text-[10px] bg-orange-50 text-orange-800 py-0.5 px-2 rounded font-mono font-bold border border-orange-200 inline-block mt-0.5">
                                         Nội dung: CUOC HOAN {{ returnTargetShipment?.trackingCode }}
                                     </div>

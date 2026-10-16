@@ -1,24 +1,38 @@
 package org.app.ratingservice.service.impl;
 
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.app.ratingservice.client.ShipmentClient;
 import org.app.ratingservice.client.TrackingClient;
 import org.app.ratingservice.dto.request.CreateRatingRequest;
+import org.app.ratingservice.dto.request.UpdateRatingVisibilityRequest;
+import org.app.ratingservice.dto.response.AdminRatingItemResponse;
+import org.app.ratingservice.dto.response.RatingPageResponse;
 import org.app.ratingservice.dto.response.RatingResponse;
+import org.app.ratingservice.dto.response.RatingStatsResponse;
 import org.app.ratingservice.dto.response.RatingStatusResponse;
 import org.app.ratingservice.entity.ShipmentRating;
 import org.app.ratingservice.repository.ShipmentRatingRepository;
 import org.app.ratingservice.service.RatingService;
 import org.app.sharedevents.entity.ShipmentFeedbackEvent;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.util.Locale;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -72,7 +86,6 @@ public class RatingServiceImpl implements RatingService {
         String trackingCode = request.getTrackingCode().trim().toUpperCase();
         if (shipmentRatingRepository.existsByTrackingCode(trackingCode)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bưu gửi này đã được đánh giá trước đó.");
-
         }
 
         ShipmentClient.ShipmentDetailDto shipment;
@@ -113,6 +126,7 @@ public class RatingServiceImpl implements RatingService {
                 .attachmentUrls(attachStr)
                 .verifiedPhone(request.getVerifiedPhone())
                 .createdAt(LocalDateTime.now())
+                .isHidden(false)
                 .build();
 
         ShipmentRating savedRating = shipmentRatingRepository.save(rating);
@@ -152,6 +166,165 @@ public class RatingServiceImpl implements RatingService {
                 .build();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public RatingPageResponse getAdminRatings(String keyword, Integer star, Boolean isNegative, String courierCode, Boolean isHidden, LocalDateTime fromDate, LocalDateTime toDate, Pageable pageable) {
+        Specification<ShipmentRating> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (keyword != null && !keyword.isBlank()) {
+                String pattern = "%" + keyword.trim().toLowerCase() + "%";
+                Predicate trackingMatch = cb.like(cb.lower(root.get("trackingCode")), pattern);
+                Predicate commentMatch = cb.like(cb.lower(root.get("comment")), pattern);
+                Predicate phoneMatch = cb.like(cb.lower(root.get("verifiedPhone")), pattern);
+                Predicate courierMatch = cb.like(cb.lower(root.get("courierCode")), pattern);
+                predicates.add(cb.or(trackingMatch, commentMatch, phoneMatch, courierMatch));
+            }
+
+            if (star != null && star >= 1 && star <= 5) {
+                predicates.add(cb.or(
+                        cb.equal(root.get("serviceRating"), star),
+                        cb.equal(root.get("shipperRating"), star)
+                ));
+            }
+
+            if (Boolean.TRUE.equals(isNegative)) {
+                predicates.add(cb.or(
+                        cb.lessThanOrEqualTo(root.get("serviceRating"), 2),
+                        cb.lessThanOrEqualTo(root.get("shipperRating"), 2)
+                ));
+            }
+
+            if (courierCode != null && !courierCode.isBlank()) {
+                predicates.add(cb.equal(cb.lower(root.get("courierCode")), courierCode.trim().toLowerCase()));
+            }
+
+            if (isHidden != null) {
+                predicates.add(cb.equal(root.get("isHidden"), isHidden));
+            }
+
+            if (fromDate != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), fromDate));
+            }
+
+            if (toDate != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), toDate));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<ShipmentRating> page = shipmentRatingRepository.findAll(spec, pageable);
+        List<AdminRatingItemResponse> items = page.getContent().stream()
+                .map(this::toAdminRatingItemResponse)
+                .toList();
+
+        return RatingPageResponse.builder()
+                .content(items)
+                .page(page.getNumber())
+                .size(page.getSize())
+                .totalPages(page.getTotalPages())
+                .totalElements(page.getTotalElements())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AdminRatingItemResponse getRatingDetail(Long id) {
+        ShipmentRating rating = shipmentRatingRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đánh giá ID: " + id));
+        return toAdminRatingItemResponse(rating);
+    }
+
+    @Override
+    @Transactional
+    public AdminRatingItemResponse updateRatingVisibility(Long id, UpdateRatingVisibilityRequest request, String actor) {
+        ShipmentRating rating = shipmentRatingRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đánh giá ID: " + id));
+
+        boolean targetHidden = Boolean.TRUE.equals(request.getIsHidden());
+        rating.setIsHidden(targetHidden);
+
+        if (targetHidden) {
+            rating.setHiddenReason(request.getReason() != null ? request.getReason().trim() : null);
+            rating.setHiddenBy((actor != null && !actor.isBlank()) ? actor.trim() : "admin");
+            rating.setHiddenAt(LocalDateTime.now());
+        } else {
+            rating.setHiddenReason(null);
+            rating.setHiddenBy(null);
+            rating.setHiddenAt(null);
+        }
+
+        ShipmentRating saved = shipmentRatingRepository.save(rating);
+        return toAdminRatingItemResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public RatingStatsResponse getRatingStats() {
+        double rawAvgService = shipmentRatingRepository.findAverageServiceRating().orElse(0.0);
+        double rawAvgShipper = shipmentRatingRepository.findAverageShipperRating().orElse(0.0);
+
+        double avgService = BigDecimal.valueOf(rawAvgService).setScale(1, RoundingMode.HALF_UP).doubleValue();
+        double avgShipper = BigDecimal.valueOf(rawAvgShipper).setScale(1, RoundingMode.HALF_UP).doubleValue();
+
+        long total = shipmentRatingRepository.count();
+        long visible = shipmentRatingRepository.countByIsHiddenFalse();
+        long hidden = shipmentRatingRepository.countByIsHiddenTrue();
+        long negative = shipmentRatingRepository.countNegativeRatings();
+
+        Map<Integer, Long> distribution = new HashMap<>();
+        for (int i = 1; i <= 5; i++) {
+            distribution.put(i, 0L);
+        }
+
+        List<Object[]> rawDist = shipmentRatingRepository.findServiceRatingDistribution();
+        if (rawDist != null) {
+            for (Object[] row : rawDist) {
+                if (row.length >= 2 && row[0] instanceof Number score && row[1] instanceof Number count) {
+                    distribution.put(score.intValue(), count.longValue());
+                }
+            }
+        }
+
+        return RatingStatsResponse.builder()
+                .averageServiceRating(avgService)
+                .averageShipperRating(avgShipper)
+                .totalRatings(total)
+                .visibleRatingsCount(visible)
+                .hiddenRatingsCount(hidden)
+                .negativeRatingsCount(negative)
+                .starDistribution(distribution)
+                .build();
+    }
+
+    private AdminRatingItemResponse toAdminRatingItemResponse(ShipmentRating rating) {
+        List<String> tags = (rating.getTags() != null && !rating.getTags().isBlank())
+                ? Arrays.stream(rating.getTags().split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList()
+                : List.of();
+
+        List<String> attachmentUrls = (rating.getAttachmentUrls() != null && !rating.getAttachmentUrls().isBlank())
+                ? Arrays.stream(rating.getAttachmentUrls().split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList()
+                : List.of();
+
+        return AdminRatingItemResponse.builder()
+                .id(rating.getId())
+                .trackingCode(rating.getTrackingCode())
+                .courierCode(rating.getCourierCode())
+                .serviceRating(rating.getServiceRating())
+                .shipperRating(rating.getShipperRating())
+                .tags(tags)
+                .comment(rating.getComment())
+                .attachmentUrls(attachmentUrls)
+                .verifiedPhone(rating.getVerifiedPhone())
+                .createdAt(rating.getCreatedAt())
+                .isHidden(rating.getIsHidden())
+                .hiddenReason(rating.getHiddenReason())
+                .hiddenBy(rating.getHiddenBy())
+                .hiddenAt(rating.getHiddenAt())
+                .build();
+    }
+
     private String findCourierCode(String trackingCode) {
         try {
             return trackingClient.getTrackingHistory(trackingCode).stream()
@@ -167,5 +340,3 @@ public class RatingServiceImpl implements RatingService {
         }
     }
 }
-
-

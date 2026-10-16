@@ -5,7 +5,7 @@ services:
     image: apache/kafka:latest
     container_name: waybill-kafka-1
     ports:
-      - "9092:9092"
+      - "127.0.0.1:9092:9092"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -25,7 +25,7 @@ services:
     image: apache/kafka:latest
     container_name: waybill-kafka-2
     ports:
-      - "9094:9094"
+      - "127.0.0.1:9094:9094"
     environment:
       KAFKA_NODE_ID: 2
       KAFKA_PROCESS_ROLES: broker,controller
@@ -45,7 +45,7 @@ services:
     image: apache/kafka:latest
     container_name: waybill-kafka-3
     ports:
-      - "9096:9096"
+      - "127.0.0.1:9096:9096"
     environment:
       KAFKA_NODE_ID: 3
       KAFKA_PROCESS_ROLES: broker,controller
@@ -65,7 +65,7 @@ services:
     image: provectuslabs/kafka-ui:latest
     container_name: waybill-kafka-ui
     ports:
-      - "8090:8080"
+      - "127.0.0.1:8090:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: waybill-ha-cluster
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka-1:29092,kafka-2:29092,kafka-3:29092
@@ -79,7 +79,7 @@ services:
     image: khanhnv26/frontend:1.0
     container_name: waybill-frontend-1
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       - PORT=3000
     command: ["node", "server.js", "3000"]
@@ -89,7 +89,7 @@ services:
     image: khanhnv26/frontend:1.0
     container_name: waybill-frontend-2
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     environment:
       - PORT=3001
     command: ["node", "server.js", "3001"]
@@ -110,24 +110,28 @@ services:
     depends_on:
       - frontend-1
       - frontend-2
+      - notification-service
     restart: always
 
   redis:
       image: redis:alpine
       container_name: redis
       ports:
-        - "6379:6379"
+        - "127.0.0.1:6379:6379"
+      environment:
+        REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+      command: ["sh", "-c", "exec redis-server --requirepass \"$REDIS_PASSWORD\""]
       restart: always
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: mini-waybill-rabbitmq
     ports:
-        - "5672:5672"
-        - "15672:15672"
+        - "127.0.0.1:5672:5672"
+        - "127.0.0.1:15672:15672"
     environment:
-        RABBITMQ_DEFAULT_USER: "admin"
-        RABBITMQ_DEFAULT_PASS: "admin"
+        RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?Set RABBITMQ_USER}
+        RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
     restart: always
 
   minio:
@@ -135,11 +139,11 @@ services:
     container_name: waybill-minio
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin
+      - MINIO_ROOT_USER=${MINIO_USER:?Set MINIO_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_PASSWORD:?Set MINIO_PASSWORD}
     volumes:
       - minio_data:/data
     restart: always
@@ -148,9 +152,9 @@ services:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: waybill-sqlserver-replica
     ports:
-      - "2433:1433"
+      - "127.0.0.1:2433:1433"
     environment:
-      SA_PASSWORD: "Replica@123456"
+      SA_PASSWORD: "${DB_ADMIN_PASSWORD:?Set DB_ADMIN_PASSWORD}"
       ACCEPT_EULA: "Y"
     restart: always
 
@@ -168,7 +172,7 @@ services:
         done
         /opt/mssql-tools18/bin/sqlcmd -S sqlserver-replica -U sa -P "$$SA_PASSWORD" -C -b -Q "IF DB_ID(N'rating_db') IS NULL CREATE DATABASE [rating_db]; IF DB_ID(N'payment_db') IS NULL CREATE DATABASE [payment_db];"
     environment:
-      SA_PASSWORD: "Replica@123456"
+      SA_PASSWORD: "${DB_ADMIN_PASSWORD:?Set DB_ADMIN_PASSWORD}"
     depends_on:
       - sqlserver-replica
     restart: "no"
@@ -177,7 +181,7 @@ services:
     image: khanhnv26/service-registry:1.0
     container_name: waybill-eureka-peer1
     ports:
-      - "8761:8761"
+      - "127.0.0.1:8761:8761"
     environment:
       - SERVER_PORT=8761
       - EUREKA_INSTANCE_HOSTNAME=eureka-peer1
@@ -188,7 +192,7 @@ services:
     image: khanhnv26/service-registry:1.0
     container_name: waybill-eureka-peer2
     ports:
-      - "8762:8762"
+      - "127.0.0.1:8762:8762"
     environment:
       - SERVER_PORT=8762
       - EUREKA_INSTANCE_HOSTNAME=eureka-peer2
@@ -199,10 +203,13 @@ services:
     image: khanhnv26/api-gateway:1.0
     container_name: waybill-api-gateway-1
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       - SERVER_PORT=8080
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET}
+      - TRUSTED_PROXY_REGEX=172\.(1[6-9]|2[0-9]|3[0-1])\..*
       - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD:?Set REDIS_PASSWORD}
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
     depends_on:
       - eureka-peer1
@@ -214,10 +221,13 @@ services:
     image: khanhnv26/api-gateway:1.0
     container_name: waybill-api-gateway-2
     ports:
-      - "8088:8088"
+      - "127.0.0.1:8088:8088"
     environment:
       - SERVER_PORT=8088
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET}
+      - TRUSTED_PROXY_REGEX=172\.(1[6-9]|2[0-9]|3[0-1])\..*
       - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD:?Set REDIS_PASSWORD}
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
     depends_on:
       - eureka-peer1
@@ -229,12 +239,14 @@ services:
     image: khanhnv26/auth-service:1.0
     container_name: waybill-auth-service
     ports:
-      - "8087:8087"
+      - "127.0.0.1:8087:8087"
     environment:
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET}
       - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=auth_db;encrypt=true;trustServerCertificate=true;
-      - SPRING_DATASOURCE_USERNAME=sa
-      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_DATASOURCE_USERNAME=waybill_app
+      - SPRING_DATASOURCE_PASSWORD=${DB_APP_PASSWORD:?Set DB_APP_PASSWORD}
       - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD:?Set REDIS_PASSWORD}
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
@@ -252,11 +264,11 @@ services:
     image: khanhnv26/customer-service:1.0
     container_name: waybill-customer-service
     ports:
-      - "8081:8081"
+      - "127.0.0.1:8081:8081"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=customer_db;encrypt=true;trustServerCertificate=true;
-      - SPRING_DATASOURCE_USERNAME=sa
-      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_DATASOURCE_USERNAME=waybill_app
+      - SPRING_DATASOURCE_PASSWORD=${DB_APP_PASSWORD:?Set DB_APP_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
     depends_on:
@@ -269,11 +281,11 @@ services:
     image: khanhnv26/shipment-service:1.0
     container_name: waybill-shipment-service
     ports:
-      - "8082:8082"
+      - "127.0.0.1:8082:8082"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=shipment_db;encrypt=true;trustServerCertificate=true;
-      - SPRING_DATASOURCE_USERNAME=sa
-      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_DATASOURCE_USERNAME=waybill_app
+      - SPRING_DATASOURCE_PASSWORD=${DB_APP_PASSWORD:?Set DB_APP_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
@@ -290,13 +302,14 @@ services:
     image: khanhnv26/routing-service:1.0
     container_name: waybill-routing-service
     ports:
-      - "8083:8083"
+      - "127.0.0.1:8083:8083"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=routing_db;encrypt=true;trustServerCertificate=true;
-      - SPRING_DATASOURCE_USERNAME=sa
-      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_DATASOURCE_USERNAME=waybill_app
+      - SPRING_DATASOURCE_PASSWORD=${DB_APP_PASSWORD:?Set DB_APP_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD:?Set REDIS_PASSWORD}
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
       - TZ=Asia/Ho_Chi_Minh
@@ -315,18 +328,19 @@ services:
     image: khanhnv26/tracking-service:1.0
     container_name: waybill-tracking-service-1
     ports:
-      - "8084:8084"
+      - "127.0.0.1:8084:8084"
     environment:
       - SERVER_PORT=8084
       - SPRING_DATASOURCE_PRIMARY_JDBC_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=tracking_db;encrypt=true;trustServerCertificate=true;
-      - SPRING_DATASOURCE_PRIMARY_USERNAME=sa
-      - SPRING_DATASOURCE_PRIMARY_PASSWORD=Replica@123456
+      - SPRING_DATASOURCE_PRIMARY_USERNAME=waybill_app
+      - SPRING_DATASOURCE_PRIMARY_PASSWORD=${DB_APP_PASSWORD:?Set DB_APP_PASSWORD}
 
       - SPRING_DATASOURCE_REPLICA_JDBC_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=tracking_db;encrypt=true;trustServerCertificate=true;
-      - SPRING_DATASOURCE_REPLICA_USERNAME=sa
-      - SPRING_DATASOURCE_REPLICA_PASSWORD=Replica@123456
+      - SPRING_DATASOURCE_REPLICA_USERNAME=waybill_app
+      - SPRING_DATASOURCE_REPLICA_PASSWORD=${DB_APP_PASSWORD:?Set DB_APP_PASSWORD}
 
       - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD:?Set REDIS_PASSWORD}
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
       - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
@@ -344,18 +358,19 @@ services:
     image: khanhnv26/tracking-service:1.0
     container_name: waybill-tracking-service-2
     ports:
-      - "8094:8094"
+      - "127.0.0.1:8094:8094"
     environment:
       - SERVER_PORT=8094
       - SPRING_DATASOURCE_PRIMARY_JDBC_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=tracking_db;encrypt=true;trustServerCertificate=true;
-      - SPRING_DATASOURCE_PRIMARY_USERNAME=sa
-      - SPRING_DATASOURCE_PRIMARY_PASSWORD=Replica@123456
+      - SPRING_DATASOURCE_PRIMARY_USERNAME=waybill_app
+      - SPRING_DATASOURCE_PRIMARY_PASSWORD=${DB_APP_PASSWORD:?Set DB_APP_PASSWORD}
 
       - SPRING_DATASOURCE_REPLICA_JDBC_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=tracking_db;encrypt=true;trustServerCertificate=true;
-      - SPRING_DATASOURCE_REPLICA_USERNAME=sa
-      - SPRING_DATASOURCE_REPLICA_PASSWORD=Replica@123456
+      - SPRING_DATASOURCE_REPLICA_USERNAME=waybill_app
+      - SPRING_DATASOURCE_REPLICA_PASSWORD=${DB_APP_PASSWORD:?Set DB_APP_PASSWORD}
 
       - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD:?Set REDIS_PASSWORD}
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
       - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
@@ -373,13 +388,16 @@ services:
     image: khanhnv26/notification-service:1.0
     container_name: waybill-notification-service
     ports:
-      - "8085:8085"
+      - "127.0.0.1:8085:8085"
     environment:
+      - WS_ALLOWED_ORIGINS=${WS_ALLOWED_ORIGINS:-http://localhost:*,http://127.0.0.1:*}
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET}
       - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=notification_db;encrypt=true;trustServerCertificate=true;
-      - SPRING_DATASOURCE_USERNAME=sa
-      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_DATASOURCE_USERNAME=waybill_app
+      - SPRING_DATASOURCE_PASSWORD=${DB_APP_PASSWORD:?Set DB_APP_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD:?Set REDIS_PASSWORD}
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
     depends_on:
@@ -396,11 +414,11 @@ services:
     image: khanhnv26/audit-service:1.0
     container_name: waybill-audit-service
     ports:
-      - "8086:8086"
+      - "127.0.0.1:8086:8086"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=audit_db;encrypt=true;trustServerCertificate=true;
-      - SPRING_DATASOURCE_USERNAME=sa
-      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_DATASOURCE_USERNAME=waybill_app
+      - SPRING_DATASOURCE_PASSWORD=${DB_APP_PASSWORD:?Set DB_APP_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
@@ -417,11 +435,11 @@ services:
     image: khanhnv26/shipper-service:1.0
     container_name: waybill-shipper-service
     ports:
-      - "8089:8089"
+      - "127.0.0.1:8089:8089"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=shipper_db;encrypt=true;trustServerCertificate=true;
-      - SPRING_DATASOURCE_USERNAME=sa
-      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_DATASOURCE_USERNAME=waybill_app
+      - SPRING_DATASOURCE_PASSWORD=${DB_APP_PASSWORD:?Set DB_APP_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
@@ -438,11 +456,11 @@ services:
     image: khanhnv26/report-service:1.0
     container_name: waybill-report-service
     ports:
-      - "8091:8091"
+      - "127.0.0.1:8091:8091"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=report_db;encrypt=true;trustServerCertificate=true;sendStringParametersAsUnicode=true
-      - SPRING_DATASOURCE_USERNAME=sa
-      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_DATASOURCE_USERNAME=waybill_app
+      - SPRING_DATASOURCE_PASSWORD=${DB_APP_PASSWORD:?Set DB_APP_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
@@ -460,19 +478,23 @@ services:
     image: khanhnv26/support-service:1.0
     container_name: waybill-support-service
     ports:
-      - "8093:8093"
+      - "127.0.0.1:8093:8093"
     environment:
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_USERNAME=${RABBITMQ_USER:?Set RABBITMQ_USER}
+      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD}
       - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=support_db;encrypt=true;trustServerCertificate=true;
-      - SPRING_DATASOURCE_USERNAME=sa
-      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_DATASOURCE_USERNAME=waybill_app
+      - SPRING_DATASOURCE_PASSWORD=${DB_APP_PASSWORD:?Set DB_APP_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
       - AI_API_KEY=${AI_API_KEY:-ollama}
       - AI_BASE_URL=${AI_BASE_URL_IN_DOCKER:-http://host.docker.internal:11434/v1}
       - AI_MODEL=${AI_MODEL:-qwen2.5:3b}
       - LLM_MODEL=${LLM_MODEL:-qwen2.5:3b}
       - MINIO_ENDPOINT=http://minio:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_ACCESS_KEY=${MINIO_USER:?Set MINIO_USER}
+      - MINIO_SECRET_KEY=${MINIO_PASSWORD:?Set MINIO_PASSWORD}
       - MINIO_BUCKET_NAME=support-tickets
       - MINIO_PUBLIC_URL=http://localhost:9000
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/
@@ -489,11 +511,11 @@ services:
       dockerfile: rating-service/Dockerfile
     container_name: waybill-rating-service
     ports:
-      - "8092:8092"
+      - "127.0.0.1:8092:8092"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=rating_db;encrypt=true;trustServerCertificate=true;
-      - SPRING_DATASOURCE_USERNAME=sa
-      - SPRING_DATASOURCE_PASSWORD=Replica@123456
+      - SPRING_DATASOURCE_USERNAME=waybill_app
+      - SPRING_DATASOURCE_PASSWORD=${DB_APP_PASSWORD:?Set DB_APP_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-peer1:8761/eureka/,http://eureka-peer2:8762/eureka/

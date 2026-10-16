@@ -1,5 +1,17 @@
 (function () {
     const ShipmentService = {
+        async getShipmentPage(customerId, { page = 0, size = 20, keyword = '', status = 'ALL' } = {}) {
+            const query = new URLSearchParams({ page, size });
+            if (customerId) query.set('customerId', customerId);
+            if (keyword.trim()) query.set('keyword', keyword.trim());
+            if (status && status !== 'ALL') query.set('status', status);
+            const response = await Api.get(`/api/shipments/page?${query}`);
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(error.message || error.error || 'Không thể tải danh sách vận đơn');
+            }
+            return response.json();
+        },
         async createShipment(payload) {
             const response = await Api.post('/api/shipments', payload);
             if (!response.ok) {

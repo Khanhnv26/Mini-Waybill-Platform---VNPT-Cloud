@@ -10,6 +10,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HeaderMapRequestWrapperTest {
+    @Test
+    void clientHeaderCasingCannotCreateDuplicateForwardedIdentityOrGatewayMarkers() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("x-user-id", "attacker");
+        request.addHeader("x-gateway-request", "false");
+        HeaderMapRequestWrapper wrapper = new HeaderMapRequestWrapper(request);
+        wrapper.addHeader("X-User-Id", "7");
+        wrapper.addHeader("X-Gateway-Request", "true");
+        var names = Collections.list(wrapper.getHeaderNames());
+        assertEquals(1, names.stream().filter("X-User-Id"::equalsIgnoreCase).count());
+        assertEquals(1, names.stream().filter("X-Gateway-Request"::equalsIgnoreCase).count());
+        assertEquals(java.util.List.of("7"), Collections.list(wrapper.getHeaders("x-user-id")));
+        assertEquals("true", wrapper.getHeader("x-gateway-request"));
+    }
 
     @Test
     void blankIdentityHeaderKeepsAnEmptyValue() {

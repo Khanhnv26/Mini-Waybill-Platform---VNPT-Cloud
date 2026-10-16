@@ -53,6 +53,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String token = authHeader.substring(7);
+        HttpServletRequest forwardedRequest;
         try {
             Claims claims = Jwts.parser()
                     .verifyWith(getSigningKey())
@@ -70,6 +71,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             //kiem tra blacklist trong redis
             if(!userId.isBlank()) {
+                if (redisConnection.sync().exists("auth:pending:user:" + userId) > 0) {
+                    response.sendError(401);
+                    return;
+                }
+                String currentVersion = redisConnection.sync().get("auth:version:user:" + userId);
+                if (currentVersion == null || !currentVersion.equals(claims.get("authVersion", String.class))) {
+                    response.sendError(401, "Phiên đăng nhập đã hết hiệu lực");
+                    return;
+                }
                 String blackKeyList = "auth:blacklist:user:" + userId;
                 Long isBacklisted = redisConnection.sync().exists(blackKeyList);
                 if (isBacklisted != null && isBacklisted > 0) {
@@ -83,6 +93,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             @SuppressWarnings("unchecked")
             List<String> roles = claims.get("roles",List.class);
+            Map<?, ?> roleVersions = claims.get("roleVersions", Map.class);
+            if (userId.isBlank() || roles == null || roleVersions == null) {
+                response.sendError(401);
+                return;
+            }
+            for (String role : roles) {
+                if (redisConnection.sync().exists("auth:pending:role:" + role) > 0) {
+                    response.sendError(401);
+                    return;
+                }
+                String version = redisConnection.sync().get("auth:version:role:" + role);
+                if (version == null || !version.equals(roleVersions.get(role))) {
+                    response.sendError(401, "Quyền truy cập đã thay đổi. Vui lòng đăng nhập lại");
+                    return;
+                }
+            }
             @SuppressWarnings("unchecked")
             List<String> permissions = claims.get("permissions",List.class);
 
@@ -111,16 +137,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // trust only the station assignment from the signed JWT, never a
             // client-supplied X-User-Location-Code header.
             wrapperRequest.addHeader("X-User-Location-Code", locationCode);
+            wrapperRequest.addHeader("X-Gateway-Request", "true");
 
-            filterChain.doFilter(wrapperRequest, response);
+            forwardedRequest = wrapperRequest;
 
         } catch (Exception e) {
             log.error("Lỗi xác thực JWT tại Gateway: {}", e.getMessage());
 
             SecurityContextHolder.clearContext();
-            filterChain.doFilter(blankIdentityHeaders(request), response);
+            forwardedRequest = blankIdentityHeaders(request);
 
         }
+        filterChain.doFilter(forwardedRequest, response);
 
 
     }
@@ -135,6 +163,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         wrapper.addHeader("X-User-Roles", "");
         wrapper.addHeader("X-User-Permissions", "");
         wrapper.addHeader("X-User-Location-Code", "");
+        wrapper.addHeader("X-Gateway-Request", "true");
         return wrapper;
     }
 

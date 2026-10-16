@@ -24,8 +24,15 @@ public class TrackingController {
     }
 
     @GetMapping("/{trackingCode}/history")
-    public ResponseEntity<List<TrackingHistory>> getTrackingHistory(@PathVariable String trackingCode) {
+    public ResponseEntity<?> getTrackingHistory(@PathVariable String trackingCode,
+            @RequestHeader(value = "X-Gateway-Request", required = false) String gatewayRequest,
+            @RequestHeader(value = "X-User-Permissions", required = false) String permissions) {
         List<TrackingHistory> history = trackingService.getTrackingHistory(trackingCode);
+        boolean staff = permissions != null && java.util.Arrays.stream(permissions.split(","))
+                .map(String::trim).anyMatch("tracking:read_all"::equals);
+        if (gatewayRequest != null && !staff) {
+            return ResponseEntity.ok(history.stream().map(org.app.trackingservice.dto.response.PublicTrackingHistory::from).toList());
+        }
         return ResponseEntity.ok(history);
     }
 

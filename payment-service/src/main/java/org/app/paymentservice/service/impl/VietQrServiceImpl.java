@@ -17,7 +17,7 @@ public class VietQrServiceImpl implements VietQrService {
     @Value("${vietqr.account-no:0987654321}")
     private String defaultAcc;
 
-    @Value("${vietqr.account-name:VNPT POST LOGISTICS}")
+    @Value("${vietqr.account-name:WAYBILL LOGISTICS}")
     private String accountName;
 
     @Value("${vietqr.template:compact2}")

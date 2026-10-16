@@ -37,6 +37,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -46,6 +47,8 @@ import static org.app.shipmentservice.constant.ShipmentFeeConstant.*;
 @RequiredArgsConstructor
 @Slf4j
 public class ShipmentServiceImpl implements ShipmentService {
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
     private final ShipmentRepository shipmentRepository;
     private final CustomerClient customerClient;
     private final StringRedisTemplate redisTemplate;
@@ -362,6 +365,14 @@ public class ShipmentServiceImpl implements ShipmentService {
     }
 
     @Override
+    public boolean canViewDetails(Shipment shipment, String userId, String permissions) {
+        if (userId == null || userId.isBlank()) return false;
+        if (hasPermission(permissions, "shipment:read_all")) return true;
+        try { return Objects.equals(shipment.getCustomerId(), resolveCustomerId(userId)); }
+        catch (RuntimeException e) { return false; }
+    }
+
+    @Override
     public List<Shipment> getShipmentByCustomerId(Long customerId, String currentUserId, String permissions) {
 
         if (!lacksPermissionClaim(permissions) && !hasPermission(permissions, "shipment:read_all")) {
@@ -402,6 +413,58 @@ public class ShipmentServiceImpl implements ShipmentService {
         log.info("[SHIPMENT] Khách hàng {} (userId: {}) đang xem danh sách đơn của chính mình", myCustomerId, currentUserId);
         return shipmentRepository.findAllByCustomerIdOrderByCreatedAtDesc(myCustomerId);
 
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public org.app.shipmentservice.dto.response.ShipmentPageResponse getShipmentPage(Long customerId, String userId,
+            String permissions, int page, int size, String keyword, String status) {
+        if (userId == null || userId.isBlank()) throw new UnauthorizedException("Vui lòng đăng nhập");
+        Long scopeId = customerId;
+        if (!hasPermission(permissions, "shipment:read_all")) {
+            Long ownerId = resolveCustomerId(userId);
+            if (customerId != null && !ownerId.equals(customerId)) throw new ForbiddenException("Không có quyền xem đơn của khách khác");
+            scopeId = ownerId;
+        }
+        final Long allowedCustomer = scopeId;
+        org.springframework.data.jpa.domain.Specification<Shipment> scope = (root, query, cb) ->
+                allowedCustomer == null ? cb.conjunction() : cb.equal(root.get("customerId"), allowedCustomer);
+        org.springframework.data.jpa.domain.Specification<Shipment> filter = scope;
+        if (status != null && !status.isBlank() && !"ALL".equals(status)) {
+            ShipmentStatus selected = ShipmentStatus.valueOf(status);
+            filter = filter.and((root, query, cb) -> cb.equal(root.get("currentStatus"), selected));
+        }
+        if (keyword != null && !keyword.isBlank()) {
+            if (keyword.length() > 100) throw new IllegalArgumentException("Từ khóa tối đa 100 ký tự");
+            String escaped = keyword.trim().toLowerCase(java.util.Locale.ROOT)
+                    .replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+            String pattern = "%" + escaped + "%";
+            filter = filter.and((root, query, cb) -> cb.or(java.util.stream.Stream.of(
+                    "trackingCode", "senderName", "senderPhone", "receiverName", "receiverPhone", "receiverAddress")
+                    .map(field -> cb.like(cb.lower(root.get(field)), pattern, '\\'))
+                    .toArray(jakarta.persistence.criteria.Predicate[]::new)));
+        }
+        var pageable = org.springframework.data.domain.PageRequest.of(Math.max(0, page), Math.min(100, Math.max(1, size)),
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt", "id"));
+        var result = shipmentRepository.findAll(filter, pageable);
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("total", shipmentRepository.count(scope));
+        stats.put("pending", countStatuses(scope, List.of(ShipmentStatus.CREATED, ShipmentStatus.PENDING_ROUTING)));
+        stats.put("delivered", countStatuses(scope, List.of(ShipmentStatus.DELIVERED)));
+        stats.put("inTransit", countStatuses(scope, List.of(ShipmentStatus.ROUTE_ASSIGNED, ShipmentStatus.PICKED_UP,
+                ShipmentStatus.IN_TRANSIT, ShipmentStatus.OUT_FOR_DELIVERY, ShipmentStatus.ARRIVED_DEST_HUB)));
+        var cb = entityManager.getCriteriaBuilder();
+        var sumQuery = cb.createQuery(BigDecimal.class);
+        var root = sumQuery.from(Shipment.class);
+        sumQuery.select(cb.sum(root.<BigDecimal>get("codAmount"))).where(scope.toPredicate(root, sumQuery, cb));
+        BigDecimal sum = entityManager.createQuery(sumQuery).getSingleResult();
+        stats.put("totalCod", sum == null ? BigDecimal.ZERO : sum);
+        return new org.app.shipmentservice.dto.response.ShipmentPageResponse(result.getContent(), result.getNumber(),
+                result.getSize(), result.getTotalPages(), result.getTotalElements(), stats);
+    }
+
+    private long countStatuses(org.springframework.data.jpa.domain.Specification<Shipment> scope, List<ShipmentStatus> statuses) {
+        return shipmentRepository.count(scope.and((root, query, cb) -> root.get("currentStatus").in(statuses)));
     }
 
     @Override

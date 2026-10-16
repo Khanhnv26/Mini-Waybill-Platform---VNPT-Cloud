@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 public class AddMessageRequest {
 
     @NotBlank(message = "Nội dung tin nhắn không được để trống")
+    @jakarta.validation.constraints.Size(max = 4000)
     private String content;
 
     private String attachmentUrls;

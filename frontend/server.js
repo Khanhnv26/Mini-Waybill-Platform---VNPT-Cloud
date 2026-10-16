@@ -128,6 +128,6 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-    console.log(`VNPT WAYBILL FRONTEND SERVER ĐANG CHẠY TẠI: http://localhost:${PORT}`);
+    console.log(`WAYBILL FRONTEND SERVER ĐANG CHẠY TẠI: http://localhost:${PORT}`);
     console.log(`Proxy chuyển tiếp /api sang Spring Cloud Gateway: http://${GATEWAY_HOST}:${GATEWAY_PORT}`);
 });

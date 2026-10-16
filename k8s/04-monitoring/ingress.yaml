@@ -4,19 +4,21 @@ metadata:
   name: monitoring-ingress
   namespace: monitor
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
-    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    kubernetes.io/ingress.class: "traefik"
+    traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
 spec:
-  ingressClassName: nginx
-  tls:
-    - hosts:
-        - grafana.waybill.vn
-        - prometheus.waybill.vn
-      secretName: monitoring-tls
+  ingressClassName: traefik
   rules:
+    - host: waybill-express.japaneast.cloudapp.azure.com
+      http:
+        paths:
+          - path: /grafana
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000
     - host: grafana.waybill.vn
       http:
         paths:

@@ -12,9 +12,15 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 public class JwtServiceImpl implements JwtService {
+    private final org.app.authservice.service.SessionRevocationService sessions;
+    private final org.app.authservice.repository.UserRepository users;
 
     @Value("${app.jwt.secret}")
     private String secretKey;
@@ -43,6 +49,8 @@ public class JwtServiceImpl implements JwtService {
         return Jwts.builder()
                 .subject(user.getEmail())
                 .claim("userId", user.getId())
+                .claim("authVersion", sessions.userVersion(user.getId()))
+                .claim("roleVersions", rolesName.stream().collect(Collectors.toMap(r -> r, sessions::roleVersion)))
                 .claim("roles", rolesName)
                 .claim("fullname", user.getFullName())
                 .claim("locationCode", user.getLocationCode())
@@ -68,7 +76,16 @@ public class JwtServiceImpl implements JwtService {
                     .getPayload();
             Object uid = claims.get("userId");
             if (uid != null) {
-                return Long.parseLong(uid.toString());
+                Long userId = Long.parseLong(uid.toString());
+                if (!sessions.userVersion(userId).equals(claims.get("authVersion", String.class))) return null;
+                Map<?, ?> versions = claims.get("roleVersions", Map.class);
+                List<?> roles = claims.get("roles", List.class);
+                if (versions == null || roles == null) return null;
+                for (Object role : roles) {
+                    if (!sessions.roleVersion(role.toString()).equals(versions.get(role.toString()))) return null;
+                }
+                return users.findById(userId).filter(u -> "ACTIVE".equalsIgnoreCase(u.getStatus()))
+                        .map(User::getId).orElse(null);
             }
         } catch (Exception ignored) {}
         return null;

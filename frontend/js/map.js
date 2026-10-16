@@ -447,7 +447,7 @@
             const BLANK_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
             const roadLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {
-                attribution: '&copy; Google Bản đồ Việt Nam | Bưu chính VNPT',
+                attribution: '&copy; Google Bản đồ Việt Nam | Bưu chính Waybill',
                 subdomains: ['0', '1', '2', '3'],
                 maxZoom: 20,
                 keepBuffer: 4,
@@ -456,7 +456,7 @@
             });
 
             const hybridLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&hl=vi', {
-                attribution: '&copy; Google Vệ tinh | Bưu chính VNPT',
+                attribution: '&copy; Google Vệ tinh | Bưu chính Waybill',
                 subdomains: ['0', '1', '2', '3'],
                 maxZoom: 20,
                 keepBuffer: 4,
@@ -465,7 +465,7 @@
             });
 
             const darkLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {
-                attribution: '&copy; Google Bản đồ (Chế độ Đêm) | Bưu chính VNPT',
+                attribution: '&copy; Google Bản đồ (Chế độ Đêm) | Bưu chính Waybill',
                 subdomains: ['0', '1', '2', '3'],
                 maxZoom: 20,
                 keepBuffer: 4,
@@ -985,7 +985,7 @@
 
                 if (typeof L.tileLayer === 'function') {
                     const baseLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        attribution: '&copy; OpenStreetMap | Bưu chính VNPT',
+                        attribution: '&copy; OpenStreetMap | Bưu chính Waybill',
                         maxZoom: 19,
                         keepBuffer: 4,
                         updateWhenIdle: false

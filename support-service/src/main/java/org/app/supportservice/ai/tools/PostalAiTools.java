@@ -39,8 +39,8 @@ public class PostalAiTools {
 
         SupportTicket ticket = ticketOpt.get();
         return String.format(
-                "Thông tin khiếu nại [%s]:\n- Tiêu đề: %s\n- Phân loại: %s\n- Trạng thái hiện tại: %s\n- Mức độ ưu tiên: %s\n- Ngày tiếp nhận: %s\n- Nội dung: %s",
-                ticket.getTicketCode(), ticket.getTitle(), ticket.getCategory(), ticket.getStatus(), ticket.getPriority(), ticket.getCreatedAt(), ticket.getDescription()
+                "Thông tin khiếu nại [%s]:\n- Tiêu đề: %s\n- Phân loại: %s\n- Trạng thái hiện tại: %s\n- Mức độ ưu tiên: %s\n- Ngày tiếp nhận: %s",
+                ticket.getTicketCode(), ticket.getTitle(), ticket.getCategory(), ticket.getStatus(), ticket.getPriority(), ticket.getCreatedAt()
         );
     }
 

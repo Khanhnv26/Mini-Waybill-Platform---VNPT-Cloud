@@ -6,7 +6,7 @@ metadata:
   labels:
     app: support-service
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: support-service
@@ -14,19 +14,26 @@ spec:
     metadata:
       labels:
         app: support-service
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2026-10-15T07:15:00Z"
     spec:
       containers:
         - name: support-service
-          image: khanhnv26/support-service:4a6ff24b5a9e31fb29fe466e758894b4faec857f
+          image: khanhnv26/support-service:4df04ef21ce5b5da4d191ed78b5c7a84eb83892f
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8093
           env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xms64m -Xmx200m -XX:+UseSerialGC"
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=support_db;encrypt=true;trustServerCertificate=true;"
             - name: SPRING_DATASOURCE_USERNAME
-              value: "sa"
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: db-user
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -34,12 +41,16 @@ spec:
                   key: db-password
             - name: SPRING_JPA_HIBERNATE_DDL_AUTO
               value: "validate"
+            - name: SPRING_FLYWAY_VALIDATE_ON_MIGRATE
+              value: "false"
             - name: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
               value: "http://eureka-peer1:8761/eureka/"
             - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS
               value: "true"
             - name: EUREKA_INSTANCE_INSTANCE_ID
               value: "${HOSTNAME}:${server.port}"
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka:9092"
             - name: AI_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -86,8 +97,8 @@ spec:
                   key: MINIO_PUBLIC_URL
           resources:
             requests:
-              memory: "256Mi"
-              cpu: "100m"
+              memory: "128Mi"
+              cpu: "20m"
             limits:
               memory: "512Mi"
               cpu: "500m"

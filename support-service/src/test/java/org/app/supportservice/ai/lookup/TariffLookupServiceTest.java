@@ -44,7 +44,7 @@ class TariffLookupServiceTest {
     void quoteUsesPricingServiceTotal() {
         TariffQuoteResponse.PlanDetail plan = new TariffQuoteResponse.PlanDetail();
         plan.setServiceCode("EXPRESS");
-        plan.setServiceName("VNPT Hỏa Tốc");
+        plan.setServiceName("Waybill Hỏa Tốc");
         plan.setEstimatedDelivery("12-24 giờ");
         plan.setBaseFee(new BigDecimal("55000"));
         plan.setFuelSurcharge(new BigDecimal("3300"));
@@ -63,7 +63,7 @@ class TariffLookupServiceTest {
         assertEquals(1000.0, captor.getValue().getWeightGram());
         assertEquals("Hà Nội", captor.getValue().getSenderProvince());
         assertTrue(text.contains("Gói khách hỏi: EXPRESS"));
-        assertTrue(text.contains("VNPT Hỏa Tốc"));
+        assertTrue(text.contains("Waybill Hỏa Tốc"));
         assertTrue(text.contains(TariffLookupService.vnd(new BigDecimal("58300"))));
         assertTrue(text.contains("12-24 giờ"));
         assertFalse(text.contains("Chưa bao gồm VAT"));

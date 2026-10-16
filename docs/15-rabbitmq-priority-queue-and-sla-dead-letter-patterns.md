@@ -1,6 +1,6 @@
 # Cẩm Nang Kỹ Thuật 15: Kiến Trúc Hàng Đợi Ưu Tiên RabbitMQ, Cơ Chế Đếm Ngược SLA Bằng Dead-Letter Exchange & Mô Hình Polyglot Messaging Trong Logistics
 
-> **Mục tiêu cẩm nang:** Cung cấp tài liệu kỹ thuật toàn diện về giải pháp tích hợp **RabbitMQ** trong vi dịch vụ `support-service` (Cổng 8093): Phân tích mô hình kiến trúc **Polyglot Messaging (RabbitMQ + Kafka + OpenFeign)**, kỹ thuật phân tầng độ ưu tiên **Priority Queuing (Max Priority 10)**, cơ chế đếm lùi thời gian cam kết dịch vụ **SLA Countdown Timer bằng Message TTL (120s) kết hợp Dead-Letter Exchange (DLX)** mà không cần quét CSDL định kỳ, luồng xử lý khiếu nại đơn hàng đang vận chuyển (`IN_TRANSIT`), cùng **Bộ Mã Nguồn Boilerplate Độc Lập** và checklist câu hỏi phỏng vấn chuyên sâu cho kỹ sư backend phân tán.
+> **Mục tiêu cẩm nang:** Cung cấp tài liệu kỹ thuật toàn diện về giải pháp tích hợp **RabbitMQ** trong vi dịch vụ `support-service` (Cổng 8093): Phân tích mô hình kiến trúc **Polyglot Messaging (RabbitMQ + Kafka + OpenFeign)**, cơ chế đếm lùi thời gian cam kết dịch vụ **SLA Countdown Timer bằng Message TTL (120s) kết hợp Dead-Letter Exchange (DLX)** mà không cần quét CSDL định kỳ, luồng xử lý khiếu nại đơn hàng đang vận chuyển (`IN_TRANSIT`), cùng **Bộ Mã Nguồn Boilerplate Độc Lập** và checklist câu hỏi phỏng vấn chuyên sâu cho kỹ sư backend phân tán.
 
 ---
 
@@ -46,9 +46,9 @@ Một trong những quyết định thiết kế tinh tế nhất trong dự án
 │   │                     │    (POST /api/shipments/cancel)    │  service  │  │
 │   └──────────┬──────────┘                                    └─────┬─────┘  │
 │              │                                                     │        │
-│    RabbitMQ  │ (Internal Queuing)                        Kafka     │        │
-│   (AMQP 0-9-1)│ • Priority Queue (1-10)               Event Backbone│        │
-│              │ • SLA 120s TTL + DLX                                │        │
+│    RabbitMQ  │ (Internal SLA Queuing)                    Kafka     │        │
+│   (AMQP 0-9-1)│ • SLA 120s Countdown Timer         Event Backbone│        │
+│              │ • Dead-Letter Exchange (DLX)                        │        │
 │              ▼                                                     ▼        │
 │   ┌─────────────────────┐                            ┌───────────────────┐  │
 │   │  mini-waybill-      │                            │  Apache Kafka     │  │

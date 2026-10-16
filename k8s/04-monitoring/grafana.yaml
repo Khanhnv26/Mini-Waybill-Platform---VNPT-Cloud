@@ -62,6 +62,10 @@ spec:
               value: "admin"
             - name: GF_SECURITY_ADMIN_PASSWORD
               value: "admin"
+            - name: GF_SERVER_ROOT_URL
+              value: "%(protocol)s://%(domain)s/grafana/"
+            - name: GF_SERVER_SERVE_FROM_SUB_PATH
+              value: "true"
           resources:
             requests:
               memory: "64Mi"

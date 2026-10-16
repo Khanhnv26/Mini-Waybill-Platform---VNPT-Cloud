@@ -323,7 +323,7 @@
                     stompClient = Stomp.over(socket);
                     stompClient.debug = null;
 
-                    stompClient.connect({}, () => {
+                    stompClient.connect((typeof Auth !== 'undefined' && Auth.getToken()) ? { Authorization: `Bearer ${Auth.getToken()}` } : {}, () => {
                         isWsConnected.value = true;
                         subscribeTrackingTopic(cleanCode);
                     }, (error) => {
@@ -1155,7 +1155,7 @@
                 searchCode.value = code;
 
                 if (!code.startsWith('WB') && !code.startsWith('VNPT')) {
-                    validationError.value = 'Mã bưu gửi không đúng định dạng. Mã chuẩn bắt đầu bằng "WB" hoặc "VNPT" (Ví dụ: VNPT-HN-SG-9821 hoặc WB...).';
+                    validationError.value = 'Mã bưu gửi không đúng định dạng. Mã chuẩn bắt đầu bằng "WB" (Ví dụ: WB-HN-SG-9821 hoặc WB1788...).';
                     return;
                 }
 
@@ -1176,7 +1176,7 @@
                     localStorage.setItem('vnpt_waybill_recent_searches', JSON.stringify(list.slice(0, 6)));
                 } catch {}
 
-                if (code === 'VNPT-HN-SG-9821' || code.startsWith('VNPT-')) {
+                if (code === 'WB-HN-SG-9821' || code === 'VNPT-HN-SG-9821' || code.startsWith('WB-') || code.startsWith('VNPT-')) {
                     setTimeout(async () => {
                         currentShipment.value = {
                             trackingCode: code,
@@ -1185,7 +1185,7 @@
                             destinationHub: 'HUB-HCM-01',
                             originPostOffice: 'POST-HN-CG',
                             destPostOffice: 'POST-HCM-Q1',
-                            senderName: 'Công ty Công nghệ Bưu chính VNPT',
+                            senderName: 'Công ty Công nghệ Bưu chính Waybill',
                             senderPhone: '024 3768 9999',
                             senderAddress: 'Số 57 Huỳnh Thúc Kháng, Q. Đống Đa, Hà Nội',
                             receiverName: 'Trần Thị Thu Trang',
@@ -1290,9 +1290,16 @@
                         return;
                     }
 
-                    const status = (data && data.currentStatus)
-                        || (detail && (detail.currentStatus || detail.status))
-                        || 'PENDING_ROUTING';
+                    const trackingStatus = (data && data.currentStatus) ? String(data.currentStatus).trim().toUpperCase() : '';
+                    const detailStatus = (detail && (detail.currentStatus || detail.status)) ? String(detail.currentStatus || detail.status).trim().toUpperCase() : '';
+
+                    // So sánh trọng số tiến trình: nếu shipment-service đã hoàn tất (DELIVERED, RETURNED, CANCELLED)
+                    // hoặc có trạng thái tiến xa hơn tracking-service, ưu tiên trạng thái tiến xa hơn để tránh lệch dữ liệu.
+                    const trackingWeight = STATUS_CHRONO_WEIGHT[trackingStatus] || 0;
+                    const detailWeight = STATUS_CHRONO_WEIGHT[detailStatus] || 0;
+                    const status = detailWeight > trackingWeight
+                        ? detailStatus
+                        : (trackingStatus || detailStatus || 'PENDING_ROUTING');
 
                     currentShipment.value = {
                         ...(detail || {}),
@@ -1323,6 +1330,15 @@
                                 occurredAt: assignment.assignedAt || new Date().toISOString()
                             }
                         ];
+                    }
+                    if (status === 'DELIVERED' && !rawHistory.some(h => String(h.status || '').toUpperCase() === 'DELIVERED')) {
+                        rawHistory.push({
+                            trackingCode: code,
+                            status: 'DELIVERED',
+                            locationCode: (detail && (detail.destPostOffice || detail.destinationPostOffice)) || 'DELIVERY_POINT',
+                            node: 'Bưu tá phát thành công tận nơi cho người nhận.',
+                            occurredAt: (detail && (detail.updatedAt || detail.codSettledAt)) || new Date().toISOString()
+                        });
                     }
 
                     trackingHistory.value = mergeHistory(
@@ -1633,7 +1649,7 @@
                     label: 'Bình thường / Tạm ổn',
                     badgeClass: 'bg-yellow-50 text-yellow-800 border-yellow-200',
                     tags: ['Đúng giờ nhưng vội', 'Thái độ bình thường', 'Hộp hơi nhăn', 'Đúng quy trình'],
-                    placeholder: 'Góp ý thêm để dịch vụ VNPT Post lần sau tốt hơn...'
+                    placeholder: 'Góp ý thêm để dịch vụ Waybill lần sau tốt hơn...'
                 },
                 4: {
                     label: 'Hài lòng',
@@ -1932,7 +1948,7 @@
                                                     @input="validationError = ''" 
                                                     type="text" 
                                                     maxlength="35"
-                                                    placeholder="Nhập mã vận đơn (VD: VNPT-HN-SG-9821 hoặc WB...)..." 
+                                                    placeholder="Nhập mã vận đơn (VD: WB-HN-SG-9821 hoặc WB...)..." 
                                                     class="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white transition-all duration-200"
                                                 />
                                                 <button 
@@ -1962,7 +1978,7 @@
                                         <div class="mt-2.5 flex flex-wrap items-center justify-between text-[11px] text-slate-400 px-1 gap-2">
                                             <span class="whitespace-nowrap">
                                                 Mã mẫu kiểm tra: 
-                                                <button type="button" @click="fillSampleCode('VNPT-HN-SG-9821')" class="font-mono text-blue-600 hover:underline font-bold transition-colors cursor-pointer">VNPT-HN-SG-9821</button> 
+                                                <button type="button" @click="fillSampleCode('WB-HN-SG-9821')" class="font-mono text-blue-600 hover:underline font-bold transition-colors cursor-pointer">WB-HN-SG-9821</button> 
                                                 hoặc 
                                                 <button type="button" @click="fillSampleCode('WB902188214')" class="font-mono text-blue-600 hover:underline font-bold transition-colors cursor-pointer">WB902188214</button>
                                             </span>
@@ -2338,7 +2354,7 @@
                                             <span>Thông Tin Bưu Gửi</span>
                                         </span>
                                         <span class="font-mono text-[10.5px] text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full font-bold border border-blue-200">
-                                            {{ currentShipment.serviceType || 'VNPT EXPRESS' }}
+                                            {{ currentShipment.serviceType || 'WAYBILL EXPRESS' }}
                                         </span>
                                     </div>
 
@@ -2414,7 +2430,7 @@
                                                 <span class="text-slate-400 text-[10.5px] uppercase font-bold">Người Gửi (Đã che SĐT):</span>
                                                 <span class="font-mono text-slate-600 text-[11px] bg-slate-100 px-2 py-0.5 rounded font-semibold">{{ maskPhone(currentShipment.senderPhone) || '0912***888' }}</span>
                                             </div>
-                                            <div class="font-bold text-slate-800 text-[12.5px] break-words break-all">{{ currentShipment.senderName || 'Bưu cục tiếp nhận VNPT' }}</div>
+                                            <div class="font-bold text-slate-800 text-[12.5px] break-words break-all">{{ currentShipment.senderName || 'Bưu cục tiếp nhận Waybill' }}</div>
                                             <div class="text-slate-500 text-[11px] mt-0.5 break-words break-all">{{ currentShipment.senderAddress || 'Quận Đống Đa, TP. Hà Nội' }}</div>
                                         </div>
                                         <div class="py-2">
@@ -2451,7 +2467,7 @@
                                         <span>Cần hẹn lại giờ phát bưu gửi?</span>
                                     </div>
                                     <p class="text-slate-600 text-[11.5px] leading-relaxed">
-                                        Tổng đài viên VNPT Post luôn sẵn sàng hỗ trợ thay đổi địa chỉ hoặc chuyển giờ phát thuận tiện nhất cho bạn.
+                                        Tổng đài viên Waybill luôn sẵn sàng hỗ trợ thay đổi địa chỉ hoặc chuyển giờ phát thuận tiện nhất cho bạn.
                                     </p>
                                     <a href="tel:1900545481" class="inline-flex items-center space-x-2 text-blue-700 hover:text-blue-900 font-black text-sm pt-1">
                                         <svg class="w-4 h-4 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
@@ -2490,7 +2506,7 @@
                                 <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
                                     Tracking &amp; Tracing
                                 </span>
-                                <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông VNPT</span>
+                                <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
                             </div>
                             <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
                                 Định Vị &amp; Theo Dõi Hành Trình Bưu Gửi Toàn Trình
@@ -2602,7 +2618,7 @@
                         </div>
                         <div class="flex items-center space-x-2 text-xs text-slate-500">
                             <span>Mã mẫu:</span>
-                            <button type="button" @click="fillSampleCode('VNPT-HN-SG-9821')" class="font-mono text-blue-600 hover:underline font-bold transition-colors cursor-pointer bg-blue-50 px-2 py-0.5 rounded border border-blue-200">VNPT-HN-SG-9821</button>
+                            <button type="button" @click="fillSampleCode('WB-HN-SG-9821')" class="font-mono text-blue-600 hover:underline font-bold transition-colors cursor-pointer bg-blue-50 px-2 py-0.5 rounded border border-blue-200">WB-HN-SG-9821</button>
                             <button type="button" @click="fillSampleCode('WB902188214')" class="font-mono text-blue-600 hover:underline font-bold transition-colors cursor-pointer bg-blue-50 px-2 py-0.5 rounded border border-blue-200">WB902188214</button>
                         </div>
                     </div>
@@ -2616,7 +2632,7 @@
                         <svg class="w-3.5 h-3.5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span>Quy chuẩn mã bưu gửi VNPT: Bắt đầu bằng <strong>WB</strong>, theo sau là chuỗi số và chữ hoa không dấu (Ví dụ: <strong>WB1788...</strong>).</span>
+                        <span>Quy chuẩn mã bưu gửi: Bắt đầu bằng <strong>WB</strong>, theo sau là chuỗi số và chữ hoa không dấu (Ví dụ: <strong>WB1788...</strong>).</span>
                     </div>
                 </div>
                 <div v-if="isNotFound" class="b2b-card bg-white border border-slate-200 rounded-xl p-6 sm:p-10 shadow-sm text-center max-w-3xl mx-auto my-2">
@@ -3258,10 +3274,10 @@
                                     </div>
                                     <div>
                                         <div class="flex items-center gap-1.5">
-                                            <span class="text-xs sm:text-sm font-bold text-slate-900">{{ currentShipment?.courierName || currentShipment?.shipperName || 'Bưu tá VNPT Post' }}</span>
+                                            <span class="text-xs sm:text-sm font-bold text-slate-900">{{ currentShipment?.courierName || currentShipment?.shipperName || 'Bưu tá Waybill' }}</span>
                                             <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-[#004488]">Tài xế giao hàng</span>
                                         </div>
-                                        <p class="text-[11px] text-slate-500">Mã bưu tá: <span class="font-mono font-semibold text-slate-700">{{ currentShipment?.courierCode || currentShipment?.shipperCode || 'VNPT-POST' }}</span></p>
+                                        <p class="text-[11px] text-slate-500">Mã bưu tá: <span class="font-mono font-semibold text-slate-700">{{ currentShipment?.courierCode || currentShipment?.shipperCode || 'WB-POST' }}</span></p>
                                     </div>
                                 </div>
                                 <div class="text-right">
@@ -3397,7 +3413,7 @@
 
                             <div class="space-y-1">
                                 <h4 class="text-base font-extrabold text-slate-900">
-                                    {{ ratingResultView === 'positive' ? 'Cảm ơn bạn đã đánh giá dịch vụ!' : 'VNPT Post xin lỗi vì trải nghiệm chưa tốt!' }}
+                                    {{ ratingResultView === 'positive' ? 'Cảm ơn bạn đã đánh giá dịch vụ!' : 'Waybill xin lỗi vì trải nghiệm chưa tốt!' }}
                                 </h4>
                                 <p class="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
                                     {{ ratingResultView === 'positive' 

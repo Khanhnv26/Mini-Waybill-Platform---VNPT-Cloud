@@ -20,7 +20,11 @@ public class SchedulerController {
     }
 
     @PostMapping("/config")
-    public ResponseEntity<SchedulerConfigResponse> updateConfig(@RequestBody SchedulerConfigRequest request) {
+    public ResponseEntity<SchedulerConfigResponse> updateConfig(@RequestBody SchedulerConfigRequest request,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles) {
+        if (!org.app.sharedevents.security.RoleAccess.hasAny(roles, "ADMIN", "DISPATCHER")) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);
+        }
         return ResponseEntity.ok(tripScheduleManager.updateConfig(request));
     }
 }

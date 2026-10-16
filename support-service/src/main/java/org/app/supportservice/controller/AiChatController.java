@@ -25,7 +25,7 @@ public class AiChatController {
     @PostMapping("/chat")
     public ResponseEntity<AiChatResponse> chatWithAi(@Valid @RequestBody AiChatRequest request) {
 
-        String reply = aiAssistantService.chat(request.getMessage());
+        String reply = aiAssistantService.chat(request.getMessage(), request.getSessionId());
         AiChatResponse response = new AiChatResponse(reply, LocalDateTime.now());
         return ResponseEntity.ok(response);
     }

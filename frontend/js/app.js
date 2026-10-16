@@ -59,6 +59,7 @@ import './views/ShipperView.js';
 import './views/ShipperDirectoryView.js';
 import './views/CustomerView.js';
 import './views/AdminRbacView.js?v=3.6.7';
+import './views/AdminRatingView.js';
 import './views/ReportView.js?v=3.6.5';
 import './views/PaymentView.js?v=3.6.7';
 import './views/TariffCalculatorView.js';
@@ -103,6 +104,8 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
         '/network': 'network',
         '/guide': 'guide',
         '/support': 'support',
+        '/ratings': 'ratings',
+        '/admin-ratings': 'ratings',
         '/admin-rbac': 'rbac',
         '/rbac': 'rbac',
         '/profile': 'profile',
@@ -129,6 +132,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
         'network': '/network',
         'guide': '/guide',
         'support': '/support',
+        'ratings': '/ratings',
         'rbac': '/admin-rbac',
         'profile': '/profile',
         'login': '/login',
@@ -136,8 +140,9 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
     };
 
     const resolveRoute = (inputPath) => {
-        let clean = inputPath || window.location.pathname;
-        if (window.location.hash && (!inputPath || inputPath === window.location.pathname)) {
+        const hasWindow = typeof window !== 'undefined' && window.location;
+        let clean = inputPath || (hasWindow ? window.location.pathname : '/');
+        if (hasWindow && window.location.hash && (!inputPath || inputPath === window.location.pathname)) {
             let hash = window.location.hash.replace('#', '').trim();
             if (hash) {
                 while (hash.startsWith('/')) hash = hash.slice(1);
@@ -157,12 +162,12 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
         if (trackingSubMatch) {
             const code = decodeURIComponent(trackingSubMatch[1]).trim();
             if (code) {
-                return { tab: 'tracking', path: '/tracking', code, notFound: false };
+                return { tab: 'tracking', path: '/tracking', code: code.toUpperCase(), notFound: false };
             }
         }
 
-        // Direct waybill code in path: /324325, /WB123456, etc.
-        const directCodeMatch = pathname.match(/^\/([a-zA-Z0-9_-]{3,40})$/);
+        // Direct waybill code in path: /324325 (numeric), /WB..., /VNPT...
+        const directCodeMatch = pathname.match(/^\/((?:wb[0-9a-z_-]*|vnpt[0-9a-z_-]*|[0-9]{4,30}))$/i);
         if (directCodeMatch) {
             const potentialCode = directCodeMatch[1].trim();
             if (!potentialCode.includes('.') && !['api', 'css', 'js', 'libs', 'images', 'assets', 'favicon', 'fonts'].includes(potentialCode.toLowerCase())) {
@@ -171,6 +176,158 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
         }
 
         return { tab: 'error', path: pathname, notFound: true };
+    };
+
+    const ALL_NAVIGATION_TABS = [
+        { 
+            id: 'dashboard', 
+            name: 'Bảng Điều Hành', 
+            component: 'DashboardView', 
+            staffOnly: true,
+            icon: 'M4 5a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10-5a1 1 0 011-1h4a1 1 0 011 1v9a1 1 0 01-1 1h-4a1 1 0 01-1-1v-9z'
+        },
+        { 
+            id: 'tracking', 
+            name: 'Tra Cứu Bưu Gửi', 
+            component: 'TrackingView', 
+            permission: null,
+            icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
+        },
+        { 
+            id: 'shipment', 
+            name: 'Khởi Tạo Vận Đơn', 
+            component: 'ShipmentView', 
+            permission: 'shipment:create',
+            icon: 'M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+        },
+        { 
+            id: 'trips', 
+            name: 'Quản Lý Chuyến Xe', 
+            component: 'TripsView', 
+            permission: 'routing:trip_manage',
+            icon: 'M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8h4.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h2a1 1 0 001-1'
+        },
+        { 
+            id: 'fleet', 
+            name: 'Quản Lý Đội Xe', 
+            component: 'FleetView', 
+            permission: 'routing:trip_manage',
+            icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10'
+        },
+        { 
+            id: 'post-office', 
+            name: 'Khai Thác Bưu Cục', 
+            component: 'PostOfficeOpsView', 
+            permission: 'tracking:update_post_office',
+            icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
+        },
+        { 
+            id: 'hub-ops', 
+            name: 'Khai Thác Hub Chia Chọn', 
+            component: 'HubOpsView', 
+            permission: 'tracking:update_hub',
+            icon: 'M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z'
+        },
+        { 
+            id: 'shipper', 
+            name: 'Bưu Tá Phát Hàng', 
+            component: 'ShipperView', 
+            permission: 'tracking:update_delivery',
+            icon: 'M13 10V3L4 14h7v7l9-11h-7z'
+        },
+        { 
+            id: 'customers', 
+            name: 'Danh Bạ Khách Hàng', 
+            component: 'CustomerView', 
+            permission: 'user:read',
+            icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z'
+        },
+        {
+            id: 'shipper-directory',
+            name: 'Ca Trực & Bưu Tá',
+            component: 'ShipperDirectoryView',
+            permission: 'user:assign_role',
+            icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
+        },
+        { 
+            id: 'reports', 
+            name: 'Báo Cáo & Đối Soát', 
+            component: 'ReportView', 
+            permission: null,
+            requiresAuth: true,
+            icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'
+        },
+        { 
+            id: 'payments', 
+            name: 'Quản Lý Thanh Toán', 
+            component: 'PaymentView', 
+            permission: null,
+            requiresAuth: true,
+            icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+        },
+        { 
+            id: 'ratings', 
+            name: 'Quản Lý Đánh Giá', 
+            component: 'AdminRatingView', 
+            roles: ['ROLE_ADMIN', 'ADMIN', 'ROLE_DISPATCHER', 'DISPATCHER'],
+            icon: 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z'
+        },
+        { 
+            id: 'rbac', 
+            name: 'Quản Trị Hệ Thống & RBAC', 
+            component: 'AdminRbacView', 
+            permission: 'user:assign_role',
+            icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z'
+        },
+        { 
+            id: 'support', 
+            name: 'Hỗ Trợ & Khiếu Nại', 
+            component: 'SupportView', 
+            permission: null,
+            icon: 'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z'
+        },
+        { 
+            id: 'profile', 
+            name: 'Hồ Sơ & Thiết Lập', 
+            component: 'ProfileView', 
+            permission: null,
+            requiresAuth: true,
+            icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
+        }
+    ];
+
+    const PUBLIC_GUEST_TABS = [
+        {
+            id: 'tracking',
+            name: 'Tra Cứu Bưu Gửi',
+            icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
+        },
+        {
+            id: 'calculator',
+            name: 'Ước Tính Cước',
+            icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z'
+        },
+        {
+            id: 'network',
+            name: 'Mạng Lưới Bưu Cục',
+            icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z'
+        },
+        {
+            id: 'guide',
+            name: 'Cẩm Nang',
+            icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253'
+        },
+        {
+            id: 'support',
+            name: 'CSKH & Khiếu Nại',
+            icon: 'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z'
+        }
+    ];
+
+    const isTabAuthRequired = (tab) => {
+        if (!tab) return false;
+        if (tab.id === 'tracking' || tab.id === 'support') return false;
+        return Boolean(tab.requiresAuth || tab.permission || tab.role || tab.roles || tab.staffOnly);
     };
 
     const app = createApp({
@@ -187,21 +344,48 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
 
             const trackingQuery = initialRoute.code || urlParams.get('code') || urlParams.get('tracking');
 
-            const currentUser = ref(typeof Auth !== 'undefined' ? Auth.getUser() : null);
+            const isAuthUser = () => {
+                if (typeof Auth !== 'undefined' && typeof Auth.isAuthenticated === 'function') {
+                    return Auth.isAuthenticated();
+                }
+                return Boolean(currentUser.value);
+            };
+
+            const initialUser = (typeof Auth !== 'undefined' && typeof Auth.isAuthenticated === 'function')
+                ? (Auth.isAuthenticated() ? Auth.getUser() : null)
+                : (typeof Auth !== 'undefined' ? Auth.getUser() : null);
+            const currentUser = ref(initialUser);
             // Bumped whenever the auth session changes (login/logout/profile sync)
             // so permission-gated menus recompute without a full page reload.
             const authVersion = ref(0);
             if (typeof window !== 'undefined') {
                 window.addEventListener('auth:changed', () => {
-                    currentUser.value = typeof Auth !== 'undefined' ? Auth.getUser() : null;
+                    const authenticated = typeof Auth !== 'undefined' && typeof Auth.isAuthenticated === 'function'
+                        ? Auth.isAuthenticated()
+                        : false;
+                    currentUser.value = authenticated ? Auth.getUser() : null;
                     authVersion.value += 1;
                 });
             }
-            const currentTab = ref(hasInitialError ? 'error' : initialRoute.tab);
+
+            const initialTabObj = ALL_NAVIGATION_TABS.find(t => t.id === initialRoute.tab);
+            const isInitialAuthRequired = isTabAuthRequired(initialTabObj);
+            const shouldRedirectToLogin = !isAuthUser() && isInitialAuthRequired;
+
+            if (shouldRedirectToLogin) {
+                try {
+                    sessionStorage.setItem('redirectAfterLogin', window.location.pathname + window.location.search);
+                } catch (e) {}
+                if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+                    window.history.replaceState({ tab: 'login' }, '', '/login');
+                }
+            }
+
+            const currentTab = ref(hasInitialError ? 'error' : (shouldRedirectToLogin ? 'login' : initialRoute.tab));
             const currentTrackingCode = ref(trackingQuery && !hasInitialError && initialRoute.tab !== 'error' ? trackingQuery.trim() : '');
             const currentErrorCode = ref(isHttpErrorCode ? rawErrorCodeParam : (initialRoute.notFound ? 404 : 200));
             const currentErrorTitle = ref(urlParams.get('title') || (initialRoute.notFound ? 'Không Tìm Thấy Trang Yêu Cầu' : ''));
-            const currentErrorMessage = ref(urlParams.get('message') || (initialRoute.notFound ? `Đường dẫn "${window.location.pathname}" không tồn tại trên hệ thống máy chủ bưu chính VNPT.` : ''));
+            const currentErrorMessage = ref(urlParams.get('message') || (initialRoute.notFound ? `Đường dẫn "${window.location.pathname}" không tồn tại trên hệ thống máy chủ bưu chính Waybill.` : ''));
             const previousTab = ref(null);
             const selectedCustomerForShipment = ref(null);
             const selectedTariffForShipment = ref(null);
@@ -216,7 +400,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
             const isDarkMode = ref(
                 (typeof document !== 'undefined' && (
                     document.documentElement.classList.contains('dark') ||
-                    localStorage.getItem('theme') === 'dark'
+                    (localStorage.getItem('waybill_theme') || localStorage.getItem('theme')) === 'dark'
                 )) ||
                 (window.appStore && window.appStore.isDarkMode === true) ||
                 false
@@ -241,10 +425,12 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                 } else if (typeof document !== 'undefined') {
                     if (nextMode) {
                         document.documentElement.classList.add('dark');
-                        localStorage.setItem('theme', 'dark');
+                        localStorage.setItem('waybill_theme', 'dark');
+                        localStorage.removeItem('theme');
                     } else {
                         document.documentElement.classList.remove('dark');
-                        localStorage.setItem('theme', 'light');
+                        localStorage.setItem('waybill_theme', 'light');
+                        localStorage.removeItem('theme');
                     }
                 }
                 if (typeof window !== 'undefined') {
@@ -642,141 +828,8 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                 }, 300);
             };
 
-            const allNavigationTabs = [
-                { 
-                    id: 'dashboard', 
-                    name: 'Bảng Điều Hành', 
-                    component: 'DashboardView', 
-                    staffOnly: true,
-                    icon: 'M4 5a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10-5a1 1 0 011-1h4a1 1 0 011 1v9a1 1 0 01-1 1h-4a1 1 0 01-1-1v-9z'
-                },
-                { 
-                    id: 'tracking', 
-                    name: 'Tra Cứu Bưu Gửi', 
-                    component: 'TrackingView', 
-                    permission: null,
-                    icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
-                },
-                { 
-                    id: 'shipment', 
-                    name: 'Khởi Tạo Vận Đơn', 
-                    component: 'ShipmentView', 
-                    permission: 'shipment:create',
-                    icon: 'M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
-                },
-                { 
-                    id: 'trips', 
-                    name: 'Quản Lý Chuyến Xe', 
-                    component: 'TripsView', 
-                    permission: 'routing:trip_manage',
-                    icon: 'M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8h4.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h2a1 1 0 001-1'
-                },
-                { 
-                    id: 'fleet', 
-                    name: 'Quản Lý Đội Xe', 
-                    component: 'FleetView', 
-                    permission: 'routing:trip_manage',
-                    icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10'
-                },
-                { 
-                    id: 'post-office', 
-                    name: 'Khai Thác Bưu Cục', 
-                    component: 'PostOfficeOpsView', 
-                    permission: 'tracking:update_post_office',
-                    icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4'
-                },
-                { 
-                    id: 'hub-ops', 
-                    name: 'Khai Thác Hub Chia Chọn', 
-                    component: 'HubOpsView', 
-                    permission: 'tracking:update_hub',
-                    icon: 'M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z'
-                },
-                { 
-                    id: 'shipper', 
-                    name: 'Bưu Tá Phát Hàng', 
-                    component: 'ShipperView', 
-                    permission: 'tracking:update_delivery',
-                    icon: 'M13 10V3L4 14h7v7l9-11h-7z'
-                },
-                { 
-                    id: 'customers', 
-                    name: 'Danh Bạ Khách Hàng', 
-                    component: 'CustomerView', 
-                    permission: 'user:read',
-                    icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z'
-                },
-                {
-                    id: 'shipper-directory',
-                    name: 'Ca Trực & Bưu Tá',
-                    component: 'ShipperDirectoryView',
-                    permission: 'user:assign_role',
-                    icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
-                },
-                { 
-                    id: 'reports', 
-                    name: 'Báo Cáo & Đối Soát', 
-                    component: 'ReportView', 
-                    permission: null,
-                    icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'
-                },
-                { 
-                    id: 'payments', 
-                    name: 'Quản Lý Thanh Toán', 
-                    component: 'PaymentView', 
-                    permission: null,
-                    icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
-                },
-                { 
-                    id: 'rbac', 
-                    name: 'Quản Trị Hệ Thống & RBAC', 
-                    component: 'AdminRbacView', 
-                    permission: 'user:assign_role',
-                    icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z'
-                },
-                { 
-                    id: 'support', 
-                    name: 'Hỗ Trợ & Khiếu Nại', 
-                    component: 'SupportView', 
-                    permission: null,
-                    icon: 'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z'
-                },
-                { 
-                    id: 'profile', 
-                    name: 'Hồ Sơ & Thiết Lập', 
-                    component: 'ProfileView', 
-                    permission: null,
-                    icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
-                }
-            ];
-
-            const publicGuestTabs = [
-                {
-                    id: 'tracking',
-                    name: 'Tra Cứu Bưu Gửi',
-                    icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
-                },
-                {
-                    id: 'calculator',
-                    name: 'Ước Tính Cước',
-                    icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z'
-                },
-                {
-                    id: 'network',
-                    name: 'Mạng Lưới Bưu Cục',
-                    icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z'
-                },
-                {
-                    id: 'guide',
-                    name: 'Cẩm Nang',
-                    icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253'
-                },
-                {
-                    id: 'support',
-                    name: 'CSKH & Khiếu Nại',
-                    icon: 'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z'
-                }
-            ];
+            const allNavigationTabs = ALL_NAVIGATION_TABS;
+            const publicGuestTabs = PUBLIC_GUEST_TABS;
 
             const showPublicMobileMenu = ref(false);
 
@@ -784,9 +837,18 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                 // Reactive dependencies: re-filter when the session/permissions change.
                 void authVersion.value;
                 void currentUser.value;
+                const authenticated = (typeof Auth !== 'undefined' && typeof Auth.isAuthenticated === 'function')
+                    ? Auth.isAuthenticated()
+                    : Boolean(currentUser.value);
+
                 return allNavigationTabs.filter(tab => {
+                    if (isTabAuthRequired(tab) && !authenticated) return false;
                     if (tab.staffOnly) {
                         if (typeof Auth === 'undefined' || !Auth.isInternalStaff()) return false;
+                    }
+                    if (tab.roles) {
+                        if (typeof Auth === 'undefined') return false;
+                        return Auth.hasAnyRole(tab.roles);
                     }
                     if (tab.role) {
                         if (typeof Auth === 'undefined') return false;
@@ -803,7 +865,17 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                     return 'Đăng Nhập';
                 }
                 if (currentTab.value === 'error') {
-                    return currentErrorTitle.value || `Mã Trạng Thái ${currentErrorCode.value}`;
+                    const errorNames = {
+                        400: 'Yêu Cầu Không Hợp Lệ (400)',
+                        401: 'Chưa Xác Thực (401)',
+                        403: 'Truy Cập Bị Chặn (403)',
+                        404: 'Không Tìm Thấy Trang (404)',
+                        429: 'Giới Hạn Tần Suất (429)',
+                        500: 'Lỗi Máy Chủ Nội Bộ (500)',
+                        502: 'Mất Kết Nối Gateway (502)',
+                        503: 'Dịch Vụ Tạm Ngưng (503)'
+                    };
+                    return currentErrorTitle.value || errorNames[currentErrorCode.value] || `Mã Trạng Thái ${currentErrorCode.value}`;
                 }
                 const foundNav = allNavigationTabs.find(t => t.id === currentTab.value);
                 if (foundNav) return foundNav.name;
@@ -854,14 +926,19 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                 const resolved = resolveRoute(urlObj.pathname);
 
                 const targetTab = allNavigationTabs.find(t => t.id === resolved.tab);
-                if (!currentUser.value && targetTab && (targetTab.permission || targetTab.role || targetTab.staffOnly)) {
+                const isAuthRequired = isTabAuthRequired(targetTab);
+                const authenticated = (typeof Auth !== 'undefined' && typeof Auth.isAuthenticated === 'function')
+                    ? Auth.isAuthenticated()
+                    : Boolean(currentUser.value);
+
+                if (!authenticated && isAuthRequired) {
                     try {
                         sessionStorage.setItem('redirectAfterLogin', urlObj.pathname + urlObj.search);
                     } catch (e) {}
                     if (window.Utils && window.Utils.showToast) {
                         window.Utils.showToast(
                             'Yêu Cầu Đăng Nhập',
-                            'Vui lòng đăng nhập để truy cập tính năng ' + targetTab.name + '. Đang chuyển hướng...',
+                            'Vui lòng đăng nhập để truy cập tính năng ' + (targetTab ? targetTab.name : 'này') + '. Đang chuyển hướng...',
                             'info'
                         );
                     }
@@ -871,7 +948,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                     return;
                 }
 
-                if (resolved.tab === 'login' && currentUser.value) {
+                if (resolved.tab === 'login' && authenticated) {
                     navigateTo('/tracking', true);
                     return;
                 }
@@ -879,6 +956,13 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                 if (targetTab && targetTab.staffOnly) {
                     if (typeof Auth === 'undefined' || !Auth.isInternalStaff()) {
                         showError(403, 'Quyền Truy Cập Bị Chặn (403)', 'Chức năng này chỉ dành riêng cho cán bộ nhân viên vận hành nội bộ!');
+                        return;
+                    }
+                }
+
+                if (targetTab && targetTab.roles) {
+                    if (typeof Auth === 'undefined' || !Auth.hasAnyRole(targetTab.roles)) {
+                        showError(403, 'Quyền Truy Cập Bị Chặn (403)', 'Chức năng này chỉ dành riêng cho Quản trị viên hoặc Điều phối viên!');
                         return;
                     }
                 }
@@ -898,14 +982,19 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                 }
 
                 const params = new URLSearchParams(urlObj.search);
-                const code = params.get('code') || params.get('tracking') || resolved.code;
-                if (code) {
-                    currentTrackingCode.value = code.trim();
+                if (resolved.tab !== 'error') {
+                    const code = params.get('code') || params.get('tracking') || resolved.code;
+                    if (code) {
+                        currentTrackingCode.value = code.trim();
+                    }
+                } else {
+                    currentTrackingCode.value = '';
                 }
 
                 const canonicalPath = TAB_ROUTE_MAP[resolved.tab] || urlObj.pathname;
                 let finalUrl = canonicalPath + (urlObj.search || '');
-                if (resolved.tab === 'tracking' && code && !params.get('code')) {
+                if (resolved.tab === 'tracking' && !params.get('code') && (params.get('tracking') || resolved.code)) {
+                    const code = params.get('tracking') || resolved.code;
                     finalUrl = '/tracking?code=' + encodeURIComponent(code.trim());
                 }
                 if (window.location.pathname + window.location.search !== finalUrl) {
@@ -916,8 +1005,13 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                     }
                 }
 
-                if (resolved.notFound) {
-                    showError(404, 'Không Tìm Thấy Trang Yêu Cầu', `Đường dẫn "${urlObj.pathname}" không tồn tại trên hệ thống máy chủ bưu chính VNPT.`);
+                if (resolved.tab === 'error' || resolved.notFound) {
+                    const rawCodeParam = parseInt(params.get('code'), 10);
+                    const validHttpCode = !isNaN(rawCodeParam) && [400, 401, 403, 404, 429, 500, 502, 503].includes(rawCodeParam);
+                    const errorCode = validHttpCode ? rawCodeParam : (resolved.notFound ? 404 : 200);
+                    const errorTitle = params.get('title') || (resolved.notFound ? 'Không Tìm Thấy Trang Yêu Cầu' : '');
+                    const errorMessage = params.get('message') || (resolved.notFound ? `Đường dẫn "${urlObj.pathname}" không tồn tại trên hệ thống máy chủ bưu chính Waybill.` : '');
+                    showError(errorCode, errorTitle, errorMessage);
                 } else {
                     activateTab(resolved.tab);
                     if (['calculator', 'network', 'guide', 'support'].includes(resolved.tab)) {
@@ -926,6 +1020,9 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                 }
             };
             window.navigateTo = navigateTo;
+            window.ALL_NAVIGATION_TABS = ALL_NAVIGATION_TABS;
+            window.isTabAuthRequired = isTabAuthRequired;
+            window.resolveRoute = resolveRoute;
 
             const handleLoginSuccess = (data) => {
                 if (data && data.user) {
@@ -1217,23 +1314,39 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
 
             onMounted(() => {
                 if (typeof Auth !== 'undefined') {
-                    currentUser.value = Auth.getUser();
+                    currentUser.value = Auth.isAuthenticated() ? Auth.getUser() : null;
                 }
 
-                if (!currentUser.value) {
-                    const currentTabObj = allNavigationTabs.find(t => t.id === currentTab.value);
-                    if (currentTabObj && (currentTabObj.permission || currentTabObj.role)) {
+                const authenticated = (typeof Auth !== 'undefined' && typeof Auth.isAuthenticated === 'function')
+                    ? Auth.isAuthenticated()
+                    : Boolean(currentUser.value);
+                const currentTabObj = allNavigationTabs.find(t => t.id === currentTab.value);
+                const isAuthRequired = isTabAuthRequired(currentTabObj);
+
+                if (!authenticated) {
+                    if (isAuthRequired) {
                         try {
                             sessionStorage.setItem('redirectAfterLogin', window.location.pathname + window.location.search);
                         } catch (e) {}
                         navigateTo('/login', true);
+                        return;
                     }
                 } else if (currentTab.value === 'login') {
                     navigateTo('/tracking', true);
-                } else if (currentTab.value !== 'error') {
-                    const currentTabObj = allNavigationTabs.find(t => t.id === currentTab.value);
-                    if (currentTabObj && currentTabObj.permission && !Auth.hasPermission(currentTabObj.permission)) {
-                        navigateTo('/tracking', true);
+                    return;
+                } else if (currentTab.value !== 'error' && currentTabObj) {
+                    if (currentTabObj.staffOnly && !Auth.isInternalStaff()) {
+                        showError(403, 'Quyền Truy Cập Bị Chặn (403)', 'Chức năng này chỉ dành riêng cho cán bộ nhân viên vận hành nội bộ!');
+                        return;
+                    } else if (currentTabObj.roles && !Auth.hasAnyRole(currentTabObj.roles)) {
+                        showError(403, 'Quyền Truy Cập Bị Chặn (403)', 'Chức năng này chỉ dành riêng cho Quản trị viên hoặc Điều phối viên!');
+                        return;
+                    } else if (currentTabObj.role && !Auth.hasRole(currentTabObj.role)) {
+                        showError(403, 'Quyền Truy Cập Bị Chặn (403)', 'Chức năng này chỉ dành riêng cho Quản trị viên hệ thống!');
+                        return;
+                    } else if (currentTabObj.permission && !Auth.hasPermission(currentTabObj.permission)) {
+                        showError(403, 'Truy Cập Bị Chặn (403)', 'Tài khoản của bạn không có quyền truy cập tab này!');
+                        return;
                     }
                 }
 
@@ -1262,13 +1375,57 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
 
                 const handlePopState = () => {
                     const resolved = resolveRoute(window.location.pathname);
-                    const search = new URLSearchParams(window.location.search);
-                    const code = search.get('code') || search.get('tracking');
-                    if (code) {
-                        currentTrackingCode.value = code.trim();
+                    const targetTab = allNavigationTabs.find(t => t.id === resolved.tab);
+                    const isAuthRequired = isTabAuthRequired(targetTab);
+                    const authenticated = (typeof Auth !== 'undefined' && typeof Auth.isAuthenticated === 'function')
+                        ? Auth.isAuthenticated()
+                        : Boolean(currentUser.value);
+
+                    if (!authenticated && isAuthRequired) {
+                        try {
+                            sessionStorage.setItem('redirectAfterLogin', window.location.pathname + window.location.search);
+                        } catch (e) {}
+                        navigateTo('/login', true);
+                        return;
                     }
-                    if (resolved.notFound) {
-                        showError(404, 'Không Tìm Thấy Trang Yêu Cầu', `Đường dẫn "${window.location.pathname}" không tồn tại trên hệ thống máy chủ bưu chính VNPT.`);
+                    if (resolved.tab === 'login' && authenticated) {
+                        navigateTo('/tracking', true);
+                        return;
+                    }
+                    if (targetTab && targetTab.staffOnly && (typeof Auth === 'undefined' || !Auth.isInternalStaff())) {
+                        showError(403, 'Quyền Truy Cập Bị Chặn (403)', 'Chức năng này chỉ dành riêng cho cán bộ nhân viên vận hành nội bộ!');
+                        return;
+                    }
+                    if (targetTab && targetTab.roles && (typeof Auth === 'undefined' || !Auth.hasAnyRole(targetTab.roles))) {
+                        showError(403, 'Quyền Truy Cập Bị Chặn (403)', 'Chức năng này chỉ dành riêng cho Quản trị viên hoặc Điều phối viên!');
+                        return;
+                    }
+                    if (targetTab && targetTab.role && (typeof Auth === 'undefined' || !Auth.hasRole(targetTab.role))) {
+                        showError(403, 'Quyền Truy Cập Bị Chặn (403)', 'Chức năng này chỉ dành riêng cho Quản trị viên hệ thống!');
+                        return;
+                    }
+                    if (targetTab && targetTab.permission && (typeof Auth === 'undefined' || !Auth.hasPermission(targetTab.permission))) {
+                        showError(403, 'Truy Cập Bị Chặn (403)', 'Tài khoản của bạn không có quyền truy cập tab này!');
+                        return;
+                    }
+
+                    const search = new URLSearchParams(window.location.search);
+                    if (resolved.tab !== 'error') {
+                        const code = search.get('code') || search.get('tracking');
+                        if (code) {
+                            currentTrackingCode.value = code.trim();
+                        }
+                    } else {
+                        currentTrackingCode.value = '';
+                    }
+
+                    if (resolved.tab === 'error' || resolved.notFound) {
+                        const rawCodeParam = parseInt(search.get('code'), 10);
+                        const validHttpCode = !isNaN(rawCodeParam) && [400, 401, 403, 404, 429, 500, 502, 503].includes(rawCodeParam);
+                        const errorCode = validHttpCode ? rawCodeParam : (resolved.notFound ? 404 : 200);
+                        const errorTitle = search.get('title') || (resolved.notFound ? 'Không Tìm Thấy Trang Yêu Cầu' : '');
+                        const errorMessage = search.get('message') || (resolved.notFound ? `Đường dẫn "${window.location.pathname}" không tồn tại trên hệ thống máy chủ bưu chính Waybill.` : '');
+                        showError(errorCode, errorTitle, errorMessage);
                     } else {
                         activateTab(resolved.tab);
                         if (['calculator', 'network', 'guide', 'support'].includes(resolved.tab)) {
@@ -1319,7 +1476,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                         const socket = new SockJS(endpoint);
                         bellStomp = Stomp.over(socket);
                         bellStomp.debug = null;
-                        bellStomp.connect({}, () => {
+                        bellStomp.connect((typeof Auth !== 'undefined' && Auth.getToken()) ? { Authorization: `Bearer ${Auth.getToken()}` } : {}, () => {
                             bellSubscription = bellStomp.subscribe('/topic/notifications/broadcast', () => {
                                 fetchNotifications();
                             });
@@ -1492,6 +1649,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
     if (window.ShipperDirectoryView) app.component('ShipperDirectoryView', window.ShipperDirectoryView);
     if (window.CustomerView) app.component('CustomerView', window.CustomerView);
     if (window.AdminRbacView) app.component('AdminRbacView', window.AdminRbacView);
+    if (window.AdminRatingView) app.component('AdminRatingView', window.AdminRatingView);
     if (window.ReportView) app.component('ReportView', window.ReportView);
     if (window.PaymentView) app.component('PaymentView', window.PaymentView);
     if (window.TariffCalculatorView) app.component('TariffCalculatorView', window.TariffCalculatorView);

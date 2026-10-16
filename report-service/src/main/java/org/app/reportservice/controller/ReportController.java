@@ -43,7 +43,7 @@ public class ReportController {
             @RequestHeader(value = "X-User-Id", required = false) String userId
     ) throws IOException {
         byte[] fileBytes = reportService.exportReportToExcel(fromDate, toDate, customerId, status, roles, userId);
-        String filename = "VNPT_BaoCao_VanDon_" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + ".xlsx";
+        String filename = "Waybill_BaoCao_VanDon_" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + ".xlsx";
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))

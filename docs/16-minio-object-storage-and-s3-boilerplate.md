@@ -247,7 +247,7 @@ public class MinioBucketSupport {
     // Trạng thái cờ đánh dấu Bucket đã được thẩm định và sẵn sàng
     private final AtomicBoolean ready = new AtomicBoolean(false);
 
-    public void ensurePublicBucket(MinioClient client, String bucketName) throws Exception {
+    public void ensurePrivateBucket(MinioClient client, String bucketName) throws Exception {
         // Kiểm tra nhanh không cần lock nếu đã sẵn sàng (Tối ưu hiệu năng 99.9% request)
         if (ready.get()) {
             return;
@@ -266,37 +266,20 @@ public class MinioBucketSupport {
                 log.info("Khởi tạo thành công MinIO bucket: {}", bucketName);
             }
 
-            // 2. Thiết lập chính sách AWS S3 Anonymous Download Policy
-            String policy = """
-                    {
-                        "Version": "2012-10-17",
-                        "Statement": [
-                            {
-                                "Effect": "Allow",
-                                "Principal": {"AWS": ["*"]},
-                                "Action": ["s3:GetObject"],
-                                "Resource": ["arn:aws:s3:::%s/*"]
-                            }
-                        ]
-                    }
-                    """.formatted(bucketName);
-
-            client.setBucketPolicy(SetBucketPolicyArgs.builder()
-                    .bucket(bucketName)
-                    .config(policy)
-                    .build());
+            // 2. Xóa bỏ hoàn toàn chính sách công khai (Enforce Strict Private Bucket)
+            client.deleteBucketPolicy(io.minio.DeleteBucketPolicyArgs.builder().bucket(bucketName).build());
 
             ready.set(true);
-            log.info("Bucket {} đã sẵn sàng và kích hoạt chế độ đọc công khai", bucketName);
+            log.info("Bucket {} đã sẵn sàng và kích hoạt chế độ riêng tư (chỉ truy cập có chữ ký Presigned URL)", bucketName);
         }
     }
 }
 ```
 
 *Đặc tính của giải pháp:*
-- **Non-blocking lúc khởi động:** Nếu MinIO chưa online khi Spring Boot bật lên, hệ thống chỉ ghi log cảnh báo và không làm sập ứng dụng.
-- **Tự tạo khi có yêu cầu đầu tiên:** Khi người dùng đầu tiên upload tệp, hàm `ensurePublicBucket` sẽ phát hiện bucket chưa có, tự tạo và cấu hình policy trong runtime.
-- **Hiệu năng cao:** Sau khi đã khởi tạo thành công, biến `ready.get()` trả về `true` ngay lập tức mà không phải tốn thêm bất kỳ cuộc gọi mạng nào kiểm tra lại tới MinIO.
+- **Non-blocking lúc khởi động:** Nếu MinIO chưa online khi Spring Boot bật lên, hệ thống không làm sập ứng dụng.
+- **Tự tạo khi có yêu cầu đầu tiên:** Khi người dùng đầu tiên upload tệp, hàm `ensurePrivateBucket` sẽ phát hiện bucket chưa có, tự tạo và đảm bảo bucket tuyệt đối riêng tư.
+- **Bảo mật tuyệt đối qua Pre-Signed URLs:** Mọi truy xuất đọc ảnh/tệp chỉ được thực hiện qua liên kết có chữ ký tạm thời thời hạn 10 phút (`signedUrl()`), kết hợp kiểm tra Magic Bytes (`verifiedContentType`) chống tải mã độc.
 
 ---
 

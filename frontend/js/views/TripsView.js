@@ -2004,7 +2004,7 @@
                 });
 
                 const roadLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {
-                    attribution: '&copy; Google Bản đồ Việt Nam | Bưu chính VNPT',
+                    attribution: '&copy; Google Bản đồ Việt Nam | Bưu chính Waybill',
                     subdomains: ['0', '1', '2', '3'],
                     maxZoom: 20,
                     keepBuffer: 4,
@@ -2012,7 +2012,7 @@
                 });
 
                 const hybridLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&hl=vi', {
-                    attribution: '&copy; Google Vệ tinh | Bưu chính VNPT',
+                    attribution: '&copy; Google Vệ tinh | Bưu chính Waybill',
                     subdomains: ['0', '1', '2', '3'],
                     maxZoom: 20,
                     keepBuffer: 4,
@@ -2848,7 +2848,7 @@
                     <body>
                         <div style="border-bottom: 2px solid #0066cc; padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: flex-start;">
                             <div>
-                                <div style="font-size: 11px; font-weight: bold; color: #0066cc; text-transform: uppercase; letter-spacing: 0.5px;">BƯU CHÍNH VIỄN THÔNG VNPT - HỆ THỐNG ĐIỀU PHỐI VẬN TẢI</div>
+                                <div style="font-size: 11px; font-weight: bold; color: #0066cc; text-transform: uppercase; letter-spacing: 0.5px;">WAYBILL PLATFORM - HỆ THỐNG ĐIỀU PHỐI VẬN TẢI</div>
                                 <div style="font-size: 18px; font-weight: 800; margin-top: 4px;">BẢNG KÊ VẬN CHUYỂN BƯU PHẨM (TRIP MANIFEST)</div>
                                 <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Mã Chuyến: <strong>${trip.tripCode}</strong> • Tuyến: <strong>${trip.routeName}</strong></div>
                             </div>
@@ -2991,7 +2991,7 @@
                     const socket = new SockJS(endpoint);
                     tripProgressClient = Stomp.over(socket);
                     tripProgressClient.debug = null;
-                    tripProgressClient.connect({}, () => {
+                    tripProgressClient.connect((typeof Auth !== 'undefined' && Auth.getToken()) ? { Authorization: `Bearer ${Auth.getToken()}` } : {}, () => {
                         tripProgressSubscription = tripProgressClient.subscribe('/topic/trips/progress', (message) => {
                             try {
                                 applyTripProgressEvent(JSON.parse(message.body));
@@ -3109,9 +3109,9 @@
                     <div>
                         <div class="flex items-center space-x-2">
                             <span class="px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[11px] font-extrabold uppercase tracking-wider border border-white/20">
-                                TRUNG TÂM ĐIỀU VẬN VNPT
+                                TRUNG TÂM ĐIỀU VẬN WAYBILL
                             </span>
-                            <span class="text-blue-100 text-xs font-medium">Bưu Chính Viễn Thông Việt Nam</span>
+                            <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
                         </div>
                         <h1 class="text-base sm:text-xl font-extrabold tracking-tight mt-1 text-white">
                             Quản Lý &amp; Điều Phối Chuyến Xe Vận Tải

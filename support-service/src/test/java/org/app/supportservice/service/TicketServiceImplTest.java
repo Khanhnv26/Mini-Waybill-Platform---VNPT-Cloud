@@ -51,6 +51,9 @@ class TicketServiceImplTest {
 
     @Mock
     private KafkaTemplate<String, Object> kafkaTemplate;
+    @Mock private TicketAccessService ticketAccess;
+    @Mock private org.app.supportservice.repository.ChatOutboxRepository chatOutbox;
+    @Mock private MinioStorageService storage;
 
     @InjectMocks
     private TicketServiceImpl ticketService;

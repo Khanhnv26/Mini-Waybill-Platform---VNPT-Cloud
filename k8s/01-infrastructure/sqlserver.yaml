@@ -47,16 +47,16 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: waybill-runtime
-                  key: db-password
+                  key: db-admin-password
             - name: MSSQL_SA_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: waybill-runtime
-                  key: db-password
+                  key: db-admin-password
           resources:
             requests:
               memory: "1024Mi"
-              cpu: "300m"
+              cpu: "100m"
             limits:
               memory: "2048Mi"
               cpu: "1500m"

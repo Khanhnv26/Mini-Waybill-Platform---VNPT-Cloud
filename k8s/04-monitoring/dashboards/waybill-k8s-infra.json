@@ -190,7 +190,7 @@
             "uid": "afzs5uxyvgjy8c"
           },
           "editorMode": "code",
-          "expr": "((100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[1m])) * 100)) > bool 90) + (((1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100) > bool 90)",
+          "expr": "((100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[1m])) * 100)) > bool 90) + on() group_left() (((1 - (avg(node_memory_MemAvailable_bytes) / avg(node_memory_MemTotal_bytes))) * 100) > bool 90)",
           "instant": true,
           "legendFormat": "Tài nguyên quá tải",
           "range": false,

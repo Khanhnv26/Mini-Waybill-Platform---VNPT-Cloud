@@ -27,6 +27,10 @@ public class SupportTicket {
     @Column(name = "ticket_code", nullable = false, unique = true, length = 50)
     private String ticketCode;
 
+    @Column(name = "guest_access_hash", length = 64)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private String guestAccessHash;
+
     @Column(name = "tracking_code", length = 50)
     private String trackingCode;
 

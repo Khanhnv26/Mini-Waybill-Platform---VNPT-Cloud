@@ -12,7 +12,7 @@
 
                     <button 
                         @click="openChat"
-                        title="Trò chuyện với Trợ lý ảo VNPT Post 24/7"
+                        title="Trò chuyện với Trợ lý ảo Waybill 24/7"
                         class="group relative flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-tr from-blue-700 via-blue-600 to-blue-500 text-white shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 transform hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none border-2 border-white/60"
                     >
                         <span v-if="unreadCount > 0" class="absolute -top-1 -right-1 flex h-5 w-5">
@@ -67,7 +67,7 @@
 
                             <div>
                                 <div class="flex items-center space-x-1.5">
-                                    <h3 class="font-bold text-sm tracking-tight leading-none">Trợ lý ảo VNPT Post</h3>
+                                    <h3 class="font-bold text-sm tracking-tight leading-none">Trợ lý ảo Waybill</h3>
                                     <span class="text-[9px] bg-white/20 text-white font-semibold px-1.5 py-0.5 rounded border border-white/30">CSKH 24/7</span>
                                 </div>
                                 <p class="text-[11px] text-blue-100 flex items-center space-x-1.5 mt-0.5">
@@ -337,7 +337,7 @@
                         <div class="flex items-center justify-between px-1 text-[10px] text-slate-400">
                             <span class="flex items-center space-x-1">
                                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                <span>Chuyển phát nhanh VNPT Post</span>
+                                <span>Chuyển phát nhanh Waybill</span>
                             </span>
                             <span>Hotline CSKH: <strong class="text-slate-600 hover:text-blue-600 cursor-pointer">1900 54 54 81</strong></span>
                         </div>
@@ -365,6 +365,18 @@
                 inputText: '',
                 isTyping: false,
                 typingMessage: 'Trợ lý AI đang suy nghĩ...',
+                sessionId: (function () {
+                    try {
+                        let sid = sessionStorage.getItem('vnpt_ai_session_id');
+                        if (!sid) {
+                            sid = 'sid_' + Date.now() + '_' + Math.random().toString(36).substr(2, 7);
+                            sessionStorage.setItem('vnpt_ai_session_id', sid);
+                        }
+                        return sid;
+                    } catch (e) {
+                        return 'sid_' + Date.now();
+                    }
+                })(),
                 messages: []
             };
         },
@@ -422,7 +434,7 @@
                         id: 'init_1',
                         sender: 'bot',
                         type: 'text',
-                        html: 'Xin chào Quý khách! Em là <strong>Trợ lý ảo VNPT Post</strong>.<br>' +
+                        html: 'Xin chào Quý khách! Em là <strong>Trợ lý ảo Waybill</strong>.<br>' +
                               'Em có thể hỗ trợ tra cứu bưu gửi, biểu phí cước hoặc tiếp nhận phản ánh sự cố đơn hàng.',
                         time: this.getCurrentTime()
                     }
@@ -437,6 +449,14 @@
                 }
             },
             resetChat() {
+                try {
+                    if (this.sessionId) {
+                        const baseUrl = (['3000', '80', '443', ''].includes(window.location.port) && window.location.protocol.startsWith('http')) ? '' : 'http://localhost:8080';
+                        fetch(`${baseUrl}/api/support/ai/reset?sessionId=${encodeURIComponent(this.sessionId)}`, { method: 'POST' }).catch(() => {});
+                    }
+                    this.sessionId = 'sid_' + Date.now() + '_' + Math.random().toString(36).substr(2, 7);
+                    sessionStorage.setItem('vnpt_ai_session_id', this.sessionId);
+                } catch (e) {}
                 sessionStorage.removeItem('vnpt_waybill_chatbot_messages');
                 this.loadSessionMessages();
                 this.typeBotResponse('Cuộc trò chuyện đã được làm mới. Em có thể hỗ trợ gì tiếp theo cho Quý khách ạ?');
@@ -513,7 +533,7 @@
                     return 'Đang kiểm tra quy trình hỗ trợ bưu gửi...';
                 }
                 if (lower.includes('bưu cục') || lower.includes('chi nhánh') || lower.includes('địa chỉ') || lower.includes('điểm gửi') || lower.includes('gần nhất') || lower.includes('mở cửa') || lower.includes('làm việc')) {
-                    return 'Đang tìm kiếm bưu cục VNPT gần nhất...';
+                    return 'Đang tìm kiếm bưu cục Waybill gần nhất...';
                 }
                 return 'Trợ lý AI đang suy nghĩ...';
             },
@@ -533,8 +553,102 @@
                 this.isTyping = true;
                 this.scrollToBottom();
 
+                const baseUrl = (['3000', '80', '443', ''].includes(window.location.port) && window.location.protocol.startsWith('http')) ? '' : 'http://localhost:8080';
+                const payload = JSON.stringify({ message: text, sessionId: this.sessionId });
+
+                // Thử nhận phản hồi dạng Stream (Server-Sent Events) để chữ tuôn ra tức thì
                 try {
-                    const payload = JSON.stringify({ message: text });
+                    const streamRes = await fetch(`${baseUrl}/api/support/ai/stream`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'text/event-stream',
+                            'ngrok-skip-browser-warning': 'true'
+                        },
+                        body: payload,
+                        signal: AbortSignal.timeout(60000)
+                    });
+
+                    if (streamRes.ok && streamRes.body && typeof streamRes.body.getReader === 'function') {
+                        let botMsg = null;
+                        const reader = streamRes.body.getReader();
+                        const decoder = new TextDecoder();
+                        let accumulatedText = '';
+                        let buffer = '';
+
+                        const ensureBotMsg = () => {
+                            if (!botMsg) {
+                                this.isTyping = false;
+                                botMsg = {
+                                    id: 'bot_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                                    sender: 'bot',
+                                    type: 'text',
+                                    html: '',
+                                    text: '',
+                                    data: null,
+                                    time: this.getCurrentTime()
+                                };
+                                this.messages.push(botMsg);
+                            }
+                        };
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            buffer += decoder.decode(value, { stream: true });
+                            const lines = buffer.split('\n');
+                            buffer = lines.pop();
+
+                            for (const line of lines) {
+                                if (!line || line.startsWith(':')) continue;
+                                let token = line;
+                                if (line.startsWith('data:')) {
+                                    token = line.slice(5);
+                                }
+                                if (token !== '') {
+                                    ensureBotMsg();
+                                    accumulatedText += token;
+                                    botMsg.text = accumulatedText;
+                                    botMsg.html = this.formatMarkdown(accumulatedText);
+                                    this.scrollToBottom();
+                                }
+                            }
+                        }
+                        if (buffer && !buffer.startsWith(':')) {
+                            let token = buffer;
+                            if (buffer.startsWith('data:')) {
+                                token = buffer.slice(5);
+                            }
+                            if (token !== '') {
+                                ensureBotMsg();
+                                accumulatedText += token;
+                                botMsg.text = accumulatedText;
+                                botMsg.html = this.formatMarkdown(accumulatedText);
+                            }
+                        }
+                        this.isTyping = false;
+                        if (!accumulatedText.trim()) {
+                            ensureBotMsg();
+                            botMsg.text = 'Trợ lý AI đang bận. Quý khách vui lòng thử lại sau.';
+                            botMsg.html = this.formatMarkdown(botMsg.text);
+                        }
+                        this.saveSessionMessages();
+                        if (!this.isOpen) {
+                            this.unreadCount++;
+                        }
+                        this.playNotificationSound();
+
+                        if (trackingMatch) {
+                            await this.fetchAndDisplayShipment(trackingMatch[1].toUpperCase());
+                        }
+                        return;
+                    }
+                } catch (streamErr) {
+                    console.warn('[Chatbot] Stream không khả dụng, chuyển sang chế độ chuẩn:', streamErr);
+                }
+
+                // Chế độ dự phòng: Gọi endpoint /chat chuẩn
+                try {
                     let response = null;
                     try {
                         if (typeof Api !== 'undefined' && typeof Api.request === 'function') {
@@ -546,7 +660,6 @@
                                 signal: AbortSignal.timeout(60000)
                             });
                         } else {
-                            const baseUrl = (['3000', '80', ''].includes(window.location.port) && window.location.protocol.startsWith('http')) ? '' : 'http://localhost:8080';
                             response = await fetch(`${baseUrl}/api/support/ai/chat`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
@@ -964,7 +1077,7 @@
                 this.baseTitle = document.title;
                 let showAlert = false;
                 this.titleFlashTimer = setInterval(() => {
-                    document.title = showAlert ? this.baseTitle : 'Tin nhắn mới từ Trợ lý ảo VNPT';
+                    document.title = showAlert ? this.baseTitle : 'Tin nhắn mới từ Trợ lý ảo Waybill';
                     showAlert = !showAlert;
                 }, 900);
                 this.titleFlashTimeout = setTimeout(() => this.stopTitleFlash(), 9000);

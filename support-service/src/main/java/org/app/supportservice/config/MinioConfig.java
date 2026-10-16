@@ -31,7 +31,7 @@ public class MinioConfig {
                 .build();
 
         try {
-            bucketSupport.ensurePublicBucket(client, bucketName);
+            bucketSupport.ensurePrivateBucket(client, bucketName);
         } catch (Exception e) {
             log.error("MinIO chưa sẵn sàng lúc khởi động, bucket sẽ được tạo lại khi có file upload: {}", e.getMessage());
         }

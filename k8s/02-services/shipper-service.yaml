@@ -17,16 +17,21 @@ spec:
     spec:
       containers:
         - name: shipper-service
-          image: khanhnv26/shipper-service:4a6ff24b5a9e31fb29fe466e758894b4faec857f
+          image: khanhnv26/shipper-service:1fd3c6e21f1e0d16986502764152725f1f1b2df5
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8089
           env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xms64m -Xmx200m -XX:+UseSerialGC"
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:sqlserver://sqlserver-replica:1433;databaseName=shipper_db;encrypt=true;trustServerCertificate=true;"
             - name: SPRING_DATASOURCE_USERNAME
-              value: "sa"
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: db-user
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -42,8 +47,8 @@ spec:
               value: "${HOSTNAME}:${server.port}"
           resources:
             requests:
-              memory: "256Mi"
-              cpu: "100m"
+              memory: "128Mi"
+              cpu: "20m"
             limits:
               memory: "512Mi"
               cpu: "500m"

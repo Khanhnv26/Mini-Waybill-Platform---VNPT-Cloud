@@ -6,7 +6,7 @@ metadata:
   labels:
     app: api-gateway
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: api-gateway
@@ -15,23 +15,16 @@ spec:
       labels:
         app: api-gateway
     spec:
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchLabels:
-                    app: api-gateway
-                topologyKey: kubernetes.io/hostname
       containers:
         - name: api-gateway
-          image: khanhnv26/api-gateway:6ae70d07f36cdfe0a7a99ce463f67c8abfb25e22
+          image: khanhnv26/api-gateway:5cc150eeb53390fdacccf815b6c3461fe083bd7b
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8080
           env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xms64m -Xmx200m -XX:+UseSerialGC"
             - name: SERVER_PORT
               value: "8080"
             - name: SPRING_DATA_REDIS_HOST
@@ -49,10 +42,18 @@ spec:
                 secretKeyRef:
                   name: waybill-runtime
                   key: jwt-secret
+            - name: SPRING_DATA_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: waybill-runtime
+                  key: redis-password
+                  optional: true
+            - name: TRUSTED_PROXY_REGEX
+              value: '10\.42\..*|127\.0\.0\.1|::1'
           resources:
             requests:
-              memory: "256Mi"
-              cpu: "100m"
+              memory: "128Mi"
+              cpu: "20m"
             limits:
               memory: "512Mi"
               cpu: "500m"

@@ -1,4 +1,4 @@
-const API_BASE_URL = (['3000', '80', ''].includes(window.location.port) && window.location.protocol.startsWith('http')) ? '' : 'http://localhost:8080';
+const API_BASE_URL = (['3000', '80', '443', ''].includes(window.location.port) && window.location.protocol.startsWith('http')) ? '' : 'http://localhost:8080';
 
 const Api = {
     async request(endpoint, options = {}) {
@@ -57,12 +57,18 @@ const Api = {
             }
 
             if (response.status === 429) {
+                if (options.silent) return response;
                 console.warn('[API 429] Vượt quá giới hạn tần suất yêu cầu (Rate Limiting). Chuyển hướng sang màn hình lỗi 429...');
                 const retryAfter = response.headers.get('Retry-After') || '10';
                 
-                if (!window.location.pathname.includes('error.html')) {
+                if (!window.location.pathname.startsWith('/error') && !window.location.pathname.includes('error.html')) {
                     const fromUrl = encodeURIComponent(window.location.href);
-                    window.location.href = `error.html?code=429&retryAfter=${retryAfter}&from=${fromUrl}`;
+                    const errorPath = `/error?code=429&retryAfter=${retryAfter}&from=${fromUrl}`;
+                    if (typeof window.navigateTo === 'function') {
+                        window.navigateTo(errorPath);
+                    } else {
+                        window.location.href = errorPath;
+                    }
                 }
                 return response;
             }

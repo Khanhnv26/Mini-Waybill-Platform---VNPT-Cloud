@@ -47,10 +47,26 @@ public class ShipmentRating {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "is_hidden", nullable = false)
+    @Builder.Default
+    private Boolean isHidden = false;
+
+    @Column(name = "hidden_reason", length = 500)
+    private String hiddenReason;
+
+    @Column(name = "hidden_by", length = 100)
+    private String hiddenBy;
+
+    @Column(name = "hidden_at")
+    private LocalDateTime hiddenAt;
+
     @PrePersist
     public void onCreate() {
         if (this.createdAt == null) {
             this.createdAt = LocalDateTime.now();
+        }
+        if (this.isHidden == null) {
+            this.isHidden = false;
         }
     }
 

@@ -28,7 +28,7 @@
                                 {{ isStaffUser ? 'Hồ Sơ Cán Bộ & Vị Trí Vận Hành' : 'Hồ Sơ & Thông Tin Shop' }}
                             </h3>
                             <p class="text-[11px] text-blue-100 font-medium">
-                                {{ isStaffUser ? 'Nhân Sự Nội Bộ VNPT Post' : 'Bưu chính Viễn thông VNPT' }}
+                                {{ isStaffUser ? 'Nhân Sự Vận Hành Nội Bộ' : 'Waybill Platform' }}
                             </p>
                         </div>
                     </div>
@@ -84,7 +84,7 @@
                         <div>
                             <div class="text-[10px] uppercase font-bold text-slate-400">Mã Đối Tác / Khách Hàng</div>
                             <div class="text-xs font-mono font-bold text-blue-700 mt-0.5">
-                                {{ userProfile?.customerCode || ('KH-' + (currentUser?.userId || 'VNPT')) }}
+                                {{ userProfile?.customerCode || ('KH-' + (currentUser?.userId || 'WB')) }}
                             </div>
                         </div>
                         <div class="text-right">
