@@ -31,13 +31,13 @@ Trong kiến trúc đơn khối (Monolith), theo dõi log trên 1 máy chủ là
 Hệ thống triển khai 2 trụ cột vận hành tự động:
 1. **Quy Trình GitOps Hoàn Khép Kín (Closed-Loop GitOps với ArgoCD):**
    - GitHub Actions CI/CD khi đóng gói image mới sẽ tự động cập nhật image tag vào file `k8s/02-services/*.yaml`.
-   - ArgoCD Controller liên tục thăm dò (Poll) branch `business`.
+   - ArgoCD Controller liên tục thăm dò (Poll) branch `main`.
    - Khi phát hiện sự khác biệt (Out-of-Sync), ArgoCD kích hoạt quy trình đồng bộ tự động:
      - `prune: true`: Tự động xóa các tài nguyên thừa trên K8s nếu file YAML tương ứng bị xóa trên Git.
      - `selfHeal: true`: Nếu ai đó can thiệp sửa trực tiếp trên K8s, ArgoCD tự động ghi đè và phục hồi về trạng thái chuẩn trên Git.
 2. **Kiến Trúc Giám Sát Phân Tầng (Prometheus & Grafana Stack):**
    - Triển khai toàn bộ trong namespace độc lập `monitor`.
-   - Prometheus cào metrics qua cơ chế Service Discovery nội bộ K8s từ `/actuator/prometheus` của 13 dịch vụ Spring Boot, Node Exporter (Port 9100) và Kube State Metrics (Port 8080).
+   - Prometheus cào metrics qua cơ chế Service Discovery nội bộ K8s từ `/actuator/prometheus` của 14 dịch vụ Spring Boot, Node Exporter (Port 9100) và Kube State Metrics (Port 8080).
    - Grafana tự động nạp (Auto-Provisioning) 3 dashboard thông qua ConfigMap `grafana-dashboards-cm.yaml`:
      - **Dashboard 1 (`dashboard-waybill.json`):** Tổng quan tình trạng nền tảng bưu chính.
      - **Dashboard 2 (`waybill-k8s-infra.json`):** Chi tiết phần cứng K8s (CPU/Memory usage, Network I/O, Pod restarts).
@@ -47,7 +47,7 @@ Hệ thống triển khai 2 trụ cột vận hành tự động:
 flowchart TD
     subgraph GitRepo [" Git Repository (Single Source of Truth) "]
         GitCommit["Lập trình viên Push Code / GitHub Actions Update Tag"]
-        GitBranch["Branch: business (Thư mục: k8s/02-services)"]
+        GitBranch["Branch: main (Thư mục: k8s/02-services)"]
     end
 
     subgraph ArgoCDPlane [" ArgoCD GitOps Engine (Namespace: argocd) "]
@@ -56,9 +56,9 @@ flowchart TD
     end
 
     subgraph K8sCluster [" Kubernetes Cluster (Namespace: waybill) "]
-        subgraph Services [" 13 Microservices Pods "]
+        subgraph Services [" 14 Microservices Pods "]
             SvcPods["Spring Boot Pods (JVM + Micrometer)\nExpose: /actuator/prometheus"]
-            HPA["Horizontal Pod Autoscaler (Max 3 Replicas)"]
+            HPA["Horizontal Pod Autoscaler (Tối ưu RAM theo Node)"]
         end
         subgraph Infra [" Cụm Hạ Tầng HA "]
             KafkaCluster["Kafka KRaft Cluster"]
@@ -102,7 +102,7 @@ spec:
   project: default
   source:
     repoURL: 'https://github.com/Khanhnv26/Mini-Waybill-Platform---VNPT-Cloud.git'
-    targetRevision: business
+    targetRevision: main
     path: k8s/02-services
   destination:
     server: 'https://kubernetes.default.svc'

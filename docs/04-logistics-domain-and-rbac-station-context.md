@@ -1,18 +1,20 @@
 # Cẩm Nang Kỹ Thuật 04: Nghiệp Vụ Logistics Bưu Chính & Phân Quyền Ngữ Cảnh Trạm (Station Context RBAC)
 
-> **Mục tiêu cẩm nang:** Tổng hợp toàn diện logic nghiệp vụ vận tải bưu chính toàn trình (Trips Management, Tải trọng xe, Kho bãi Hub & Bưu cục), máy trạng thái 11 bước và giải pháp bảo mật nâng cao **Station Context Binding** (Ràng buộc ngữ cảnh trạm làm việc) trong môi trường phân tán.
+> **Mục tiêu cẩm nang:** Tổng hợp toàn diện logic nghiệp vụ vận tải bưu chính toàn trình (Trips Management, Tải trọng xe, Kho bãi Hub & Bưu cục), máy trạng thái 13 bước và giải pháp bảo mật nâng cao **Station Context Binding** (Ràng buộc ngữ cảnh trạm làm việc) trong môi trường phân tán.
 
 ---
 
 ## 1. Bản Đồ Nghiệp Vụ Vận Tải Bưu Chính Thực Tế
 
-Khác với các ứng dụng giao đồ ăn đơn chặng (Point-to-point), hệ thống bưu chính quy mô quốc gia (như VNPT Post, Viettel Post, EMS) vận hành theo mô hình mạng lưới **Hub-and-Spoke (Trục nan hoa đa chặng)**:
+Khác với các ứng dụng giao đồ ăn đơn chặng (Point-to-point), hệ thống bưu chính quy mô quốc gia (như VNPT Post, Viettel Post, EMS) vận hành theo mô hình mạng lưới **Hub-and-Spoke (Trục nan hoa đa chặng)** với **5 Kho Tổng (Hubs)** chuẩn hóa trong `database/HubSeed.sql`:
+* **3 Siêu Hub (`SUPER_HUB`):** `HUB-HN-01` (Kho Tổng Hà Nội), `HUB-DN-01` (Kho Tổng Đà Nẵng), `HUB-HCM-01` (Kho Tổng TP. Hồ Chí Minh).
+* **2 Hub Địa Phương (`LOCAL_HUB`):** `HUB-HP-01` (Kho Tổng Hải Phòng), `HUB-CT-01` (Kho Tổng Cần Thơ).
 
 ```mermaid
 flowchart TD
     Sender([Người Gửi Tại Quầy / Shop B2B]) -->|"Gửi hàng"| OriginPO["Bưu Cục Gửi (Origin Post Office)"]
-    OriginPO -->|"Xe gom Feeder"| OriginHub["Siêu Hub Gửi (Origin Mega Hub)"]
-    OriginHub -->|"Xe tải trục liên tỉnh: Trunk Trip"| DestHub["Siêu Hub Nhận (Dest Mega Hub)"]
+    OriginPO -->|"Xe gom Feeder"| OriginHub["Siêu Hub Gửi (HUB-HN-01 / HUB-DN-01 / HUB-HCM-01)"]
+    OriginHub -->|"Xe tải trục liên tỉnh: Trunk Trip"| DestHub["Siêu Hub / Local Hub Nhận (HUB-HCM-01 / HUB-HP-01 / HUB-CT-01)"]
     DestHub -->|"Xe gom Feeder"| DestPO["Bưu Cục Phát (Dest Post Office)"]
     DestPO -->|"Bưu tá xe máy: Last Mile"| Receiver([Người Nhận Tận Nhà])
 
@@ -24,7 +26,8 @@ flowchart TD
 
 ## 2. Quản Lý Chuyến Xe Trục Đa Chặng (Multi-Leg Trips & Manifests)
 
-### 2.1. Kiểm Soát Tải Trọng Phương Tiện (Load Capacity Bar)
+### 2.1. Kiểm Soát Tải Trọng Phương Tiện (Load Capacity Bar) & Cấu Trúc Thực Thể `Trip`
+* Trong `routing-service` (`Trip.java`), mỗi chuyến xe quản lý chặt chẽ các thông tin: tải trọng tối đa và hiện tại tính bằng kg (`maxWeight`, `currentWeight`), biển số và loại phương tiện (`vehiclePlate`, `vehicleType` thông qua `Vehicle`), tài xế phụ trách (`driverName`), trạm xuất phát / trạm đích và hành trình (`originHubCode` / `destHubCode` qua `currentHub` & danh sách `TripStop`), cùng trạng thái vận hành (`status`: `SCHEDULED`, `IN_TRANSIT`, `COMPLETED`, `CANCELLED`).
 * Mỗi phương tiện vận tải có một mức tải trọng cho phép ($W_{\text{max}}$ tính bằng kg) ghi trên đăng kiểm.
 * **Quy tắc an toàn đường bộ:** Khi xếp các bưu kiện lên xe, hệ thống cộng dồn tổng khối lượng:
   $$W_{\text{total}} = \sum_{i=1}^{n} w_i$$
@@ -39,13 +42,13 @@ flowchart TD
 
 ---
 
-## 3. Máy Trạng Thái Bưu Gửi 11 Bước & Tự Động Chuyển Hoàn (Auto-Returning)
+## 3. Máy Trạng Thái Bưu Gửi 13 Bước & Tự Động Chuyển Hoàn (Auto-Returning)
 
 ```mermaid
 stateDiagram-v2
     [*] --> CREATED: Tiếp nhận tại quầy / Shop B2B
     CREATED --> PENDING_ROUTING: Chờ xếp lịch xe
-    CREATED --> CANCELLED: Khách / CS hủy đơn (Trước khi lấy hàng)
+    CREATED --> CANCELLED: Khách / CSKH hủy đơn
     
     PENDING_ROUTING --> ROUTE_ASSIGNED: Đã xác định lộ trình Siêu Hub
     PENDING_ROUTING --> CANCELLED: Hủy trước khi xuất kho
@@ -55,35 +58,42 @@ stateDiagram-v2
     
     PICKED_UP --> IN_TRANSIT: Đóng chuyến xe luân chuyển
     PICKED_UP --> RETURNING: Khách hàng chủ động yêu cầu hoàn
+    PICKED_UP --> CANCELLED: CSKH duyệt hủy / bồi hoàn (Saga Compensation)
     
     IN_TRANSIT --> IN_TRANSIT: Luân chuyển qua các Hub trung gian
     IN_TRANSIT --> ARRIVED_DEST_HUB: Cập bến bưu cục / Hub phát
     IN_TRANSIT --> RETURNING: Khách hàng yêu cầu hoàn giữa đường
+    IN_TRANSIT --> CANCELLED: CSKH duyệt hủy khiếu nại (HOLD_FOR_RETURN)
     
     ARRIVED_DEST_HUB --> OUT_FOR_DELIVERY: Bưu cục phát bàn giao bưu tá
     ARRIVED_DEST_HUB --> RETURNING: Khách hàng yêu cầu hoàn tại trạm phát
+    ARRIVED_DEST_HUB --> CANCELLED: CSKH duyệt hủy khiếu nại
     
     OUT_FOR_DELIVERY --> DELIVERED: Phát thành công & Thu tiền COD
     OUT_FOR_DELIVERY --> DELIVERY_FAILED: Giao thất bại (Khách hẹn / Sai địa chỉ)
     OUT_FOR_DELIVERY --> RETURNING: Khách hàng yêu cầu hoàn
+    OUT_FOR_DELIVERY --> CANCELLED: CSKH duyệt hủy khiếu nại
     
     DELIVERY_FAILED --> OUT_FOR_DELIVERY: Tái phát (< 3 lần / Sau khi đổi SĐT, địa chỉ)
     DELIVERY_FAILED --> RETURNING: Khách chọn hoàn / Hết hạn 24h / Thất bại lần 3
+    DELIVERY_FAILED --> CANCELLED: CSKH duyệt hủy khiếu nại
     
     RETURNING --> OUT_FOR_RETURN: Bưu tá xuất phát giao hoàn tận nơi (DOORSTEP)
     RETURNING --> RETURNED: Khách nhận tại quầy (COUNTER_PICKUP)
+    RETURNING --> CANCELLED: CSKH duyệt hủy từ phiếu khiếu nại
     OUT_FOR_RETURN --> RETURNED: Hoàn bưu gửi thành công về tay người gửi
+    OUT_FOR_RETURN --> CANCELLED: CSKH duyệt hủy từ phiếu khiếu nại
     
     DELIVERED --> [*]
     CANCELLED --> [*]
     RETURNED --> [*]
 ```
 
-### 3.1. Các Mốc Trạng Thái Bất Biến
+### 3.1. Các Mốc Trạng Thái Bất Biến (13 Trạng Thái)
 1. `CREATED`: Đơn vừa tạo tại quầy hoặc trên Web Shop.
 2. `PENDING_ROUTING`: Chờ thuật toán ghép tuyến.
 3. `ROUTE_ASSIGNED`: Đã xác định lộ trình qua các Hub.
-4. `PICKED_UP`: Hub/Bưu cục quét nhận hàng vào kho (bắt đầu quyền sở hữu vật lý, không thể Hủy, chỉ được Yêu cầu hoàn).
+4. `PICKED_UP`: Hub/Bưu cục quét nhận hàng vào kho (bắt đầu quyền sở hữu vật lý; khách hàng chỉ được Yêu cầu hoàn, riêng CSKH có thể kích hoạt hủy bồi hoàn).
 5. `IN_TRANSIT`: Hàng đang di chuyển trên xe tải luân chuyển.
 6. `ARRIVED_DEST_HUB`: Hàng đã cập bến Hub / Bưu cục phát.
 7. `OUT_FOR_DELIVERY`: Bưu tá đã xuất phát đi giao.
@@ -92,7 +102,7 @@ stateDiagram-v2
 10. `RETURNING`: Đang trên đường chuyển hoàn về bưu cục gửi / người gửi.
 11. `OUT_FOR_RETURN`: Bưu tá tiếp nhận bưu phẩm hoàn, xuất phát giao hoàn về tận nhà người gửi.
 12. `RETURNED`: *(Điểm dừng)* Hoàn tất trả hàng cho người gửi (tại quầy hoặc tận nơi).
-13. `CANCELLED`: *(Điểm dừng)* Khách/CS hủy đơn hợp lệ (chỉ áp dụng trước khi bưu cục quét nhận hàng).
+13. `CANCELLED`: *(Điểm dừng)* Đơn hàng bị hủy hợp lệ (cho phép chuyển sang từ bất kỳ trạng thái chưa kết thúc nào: khách tự hủy trước `PICKED_UP`, hoặc hệ thống/CSKH kích hoạt Saga Compensation từ phiếu khiếu nại hư hỏng/thất lạc).
 
 ### 3.2. Chu Trình Chuyển Hoàn Hàng & Quyết Định Xử Lý Giao Thất Bại (Customer Return Flow)
 * **Chủ động yêu cầu hoàn:** Khách hàng (Shop) có thể chủ động bấm *"Yêu cầu hoàn"* từ `PICKED_UP` đến `DELIVERY_FAILED`. Tiền COD được hủy (`0đ`), cước hoàn tính bằng 50% cước gốc (hoặc 0đ nếu lỗi do bưu cục).
@@ -119,13 +129,13 @@ Trong một doanh nghiệp có 500 bưu cục:
 * Nếu chỉ kiểm tra quyền dựa trên `@PreAuthorize("hasRole('POST_OFFICE_STAFF')")`, nhân viên A hoàn toàn có thể vô tình hoặc cố ý quét xuất hàng/nhận hàng của các đơn hàng đang nằm tại TP.HCM!
 
 ### 4.2. Giải Pháp: Station Context Binding
-1. **Gắn trạm vào Token / Profile:** Khi nhân viên đăng nhập, `auth-service` nhúng mã bưu cục/kho làm việc (`stationId`, `stationType`) vào payload của JWT Token.
-2. **Cửa ngõ Gateway trích xuất:** `JwtAuthenticationFilter` giải mã Token, bóc tách và đẩy xuống Header nội bộ:
-   * `X-User-Station-Id`: `PO_HN_HOANKIEM`
-   * `X-User-Station-Type`: `POST_OFFICE`
-3. **Kiểm tra chéo tại Service:** Trước khi cho phép quét mã, microservice so sánh:
+1. **Gắn trạm vào Token / Profile:** Khi nhân viên đăng nhập, `auth-service` nhúng mã bưu cục/kho làm việc (`locationCode`) vào payload của JWT Token.
+2. **Cửa ngõ Gateway trích xuất:** `JwtAuthenticationFilter` giải mã Token, bóc tách và ghi đè xuống Header nội bộ:
+   * `X-User-Location-Code`: `POST-HN-CG` (hoặc `HUB-HN-01`, `HUB-HCM-01`,...)
+   * `X-User-Roles`: `ROLE_POST_OFFICE_STAFF`
+3. **Kiểm tra chéo tại Service:** Trước khi cho phép quét mã, microservice đọc `X-User-Location-Code` và so sánh:
    ```java
-   if (!shipment.getCurrentStationId().equals(currentStaffStationId)) {
+   if (!shipment.getCurrentStationId().equals(currentStaffLocationCode)) {
        throw new ForbiddenException("Bưu phẩm không nằm tại bưu cục bạn đang phụ trách!");
    }
    ```

@@ -181,8 +181,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String authHeader = request.getHeader("Authorization");
 
+        // 1. Phản xạ phòng vệ: Xóa sạch toàn bộ Header danh tính nội bộ giả mạo từ bên ngoài
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
+            filterChain.doFilter(blankIdentityHeaders(request), response);
             return;
         }
 
@@ -194,8 +195,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String userId = String.valueOf(claims.get("userId"));
             String locationCode = String.valueOf(claims.get("locationCode"));
 
-            // 1. KIỂM TRA BLACKLIST REDIS (< 0.5ms)
+            // 2. KIỂM TRA PHIÊN & BLACKLIST TRÊN REDIS (< 0.5ms)
             if (userId != null && !userId.isBlank()) {
+                // 2.1. Kiểm tra Session Version (Hủy phiên ngay khi đổi mật khẩu hoặc đăng xuất)
+                String currentVersion = redisTemplate.opsForValue().get("auth:version:user:" + userId);
+                String tokenVersion = claims.get("authVersion", String.class);
+                if (currentVersion == null || !currentVersion.equals(tokenVersion)) {
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Phiên đăng nhập đã hết hiệu lực");
+                    return;
+                }
+
+                // 2.2. Kiểm tra Role Version (Hủy phiên ngay khi admin tước/thay đổi quyền vai trò)
+                @SuppressWarnings("unchecked")
+                Map<String, String> roleVersions = claims.get("roleVersions", Map.class);
+                @SuppressWarnings("unchecked")
+                List<String> roles = claims.get("roles", List.class);
+                if (roles != null && roleVersions != null) {
+                    for (String role : roles) {
+                        String currentRoleVer = redisTemplate.opsForValue().get("auth:version:role:" + role);
+                        if (currentRoleVer == null || !currentRoleVer.equals(roleVersions.get(role))) {
+                            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Quyền hạn vai trò đã thay đổi");
+                            return;
+                        }
+                    }
+                }
+
+                // 2.3. Kiểm tra Blacklist người dùng
                 String blacklistKey = "auth:blacklist:user:" + userId;
                 Boolean isBanned = redisTemplate.hasKey(blacklistKey);
                 if (Boolean.TRUE.equals(isBanned)) {
@@ -207,7 +232,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
 
-            // 2. TRÍCH XUẤT AUTHORITIES
+            // 3. TRÍCH XUẤT AUTHORITIES
             @SuppressWarnings("unchecked")
             List<String> roles = claims.get("roles", List.class);
             List<SimpleGrantedAuthority> authorities = new ArrayList<>();
@@ -220,8 +245,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     new UsernamePasswordAuthenticationToken(email, null, authorities);
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            // 3. MẤU CHỐT BẢO MẬT: BỌC REQUEST ĐỂ GHI ĐÈ HEADER NỘI BỘ
-            // Tuyệt đối không tin tưởng header do client bên ngoài tự ý đính kèm lên!
+            // 4. MẤU CHỐT BẢO MẬT: BỌC REQUEST ĐỂ GHI ĐÈ HEADER NỘI BỘ X-User-*
             HeaderMapRequestWrapper requestWrapper = new HeaderMapRequestWrapper(request);
             requestWrapper.addHeader("X-User-Id", userId != null ? userId : "");
             requestWrapper.addHeader("X-User-Email", email != null ? email : "");
@@ -233,7 +257,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } catch (Exception e) {
             log.error("Token không hợp lệ hoặc đã hết hạn: {}", e.getMessage());
             SecurityContextHolder.clearContext();
-            filterChain.doFilter(request, response);
+            filterChain.doFilter(blankIdentityHeaders(request), response);
         }
     }
 }

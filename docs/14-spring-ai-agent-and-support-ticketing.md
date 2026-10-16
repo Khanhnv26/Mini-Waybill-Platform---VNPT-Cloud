@@ -1,6 +1,6 @@
 # Cẩm Nang Kỹ Thuật 14: Trợ Lý Ảo GenAI Trong Bưu Chính & Cơ Chế Spring AI Tool Calling Với Ollama (Qwen 2.5)
 
-> **Mục tiêu cẩm nang:** Hướng dẫn toàn diện kiến trúc tích hợp Trí tuệ nhân tạo tạo sinh (Generative AI) trong vi dịch vụ `support-service` (Cổng 8093): Phân tích giải pháp chạy mô hình ngôn ngữ lớn cục bộ (Local LLM) qua **Ollama (`qwen2.5:7b`)**, kết nối qua chuẩn **Spring AI `ChatClient`**, kỹ thuật **Autonomous Tool Calling (Function Calling)** tự động tra cứu vận đơn và tính cước thời gian thực, nghệ thuật **Prompt Engineering** chống ảo giác (Hallucination), cùng bộ **Mã Nguồn Boilerplate Độc Lập** để tích hợp AI Agent vào các hệ thống Microservices doanh nghiệp.
+> **Mục tiêu cẩm nang:** Hướng dẫn toàn diện kiến trúc tích hợp Trí tuệ nhân tạo tạo sinh (Generative AI) trong vi dịch vụ `support-service` (Cổng 8093): Phân tích giải pháp chạy mô hình ngôn ngữ lớn cục bộ (Local LLM) qua **Ollama (`qwen2.5:3b` mặc định, hỗ trợ `7b` qua biến môi trường `AI_MODEL`)**, kết nối qua chuẩn **Spring AI `ChatClient`**, kỹ thuật **Autonomous Tool Calling (Function Calling)** tự động tra cứu vận đơn (bảo vệ thông tin PII) và tính cước thời gian thực, cơ chế **SSE Streaming Chat (`/api/support/ai/stream`)**, nghệ thuật **Prompt Engineering** chống ảo giác (Hallucination), cùng bộ **Mã Nguồn Boilerplate Độc Lập** để tích hợp AI Agent vào các hệ thống Microservices doanh nghiệp.
 
 ---
 
@@ -18,21 +18,21 @@ Trong nhiều năm, các hệ thống bưu chính viễn thông sử dụng Chat
 
 ---
 
-### 1.2. Tại Sao Chọn Ollama Local LLM (`qwen2.5:7b`) Thay Vì Cloud API (OpenAI / Gemini)?
+### 1.2. Tại Sao Chọn Ollama Local LLM (`qwen2.5:3b` / `7b`) Thay Vì Cloud API (OpenAI / Gemini)?
 
 Khi đưa AI vào các tập đoàn bưu chính nhà nước và hạ tầng quốc gia (như VNPT, Bưu điện Việt Nam):
 
 1. **Bảo Mật Tuyệt Đối & Tuân Thủ Dữ Liệu Cá Nhân (PII Data Privacy):**
    * Vận đơn bưu chính chứa các thông tin cực kỳ nhạy cảm: Họ tên, Số điện thoại cá nhân, Địa chỉ nhà riêng, Tiền thu hộ COD và Lịch sử mua sắm.
    * Nếu gửi toàn bộ prompt chứa thông tin này lên các dịch vụ Cloud công cộng (Cloud LLM API), doanh nghiệp đối mặt với nguy cơ rò rỉ dữ liệu (Data Leakage) và vi phạm Nghị định 13/2023/NĐ-CP về bảo vệ dữ liệu cá nhân.
-   * **Giải pháp Ollama:** Chạy hoàn toàn trên máy chủ nội bộ (On-Premise / Intranet), dữ liệu không bao giờ rời khỏi hạ tầng mạng riêng của doanh nghiệp.
+   * **Giải pháp Ollama:** Chạy hoàn toàn trên máy chủ nội bộ (On-Premise / Intranet), dữ liệu không bao giờ rời khỏi hạ tầng mạng riêng của doanh nghiệp. Các công cụ tra cứu tự động (`PostalAiTools`) đều áp dụng chính sách che giấu PII (Masking số điện thoại, địa chỉ chi tiết) trước khi tổng hợp vào ngữ cảnh.
 2. **Chi Phí Dự Toán 0 VNĐ (Zero-Token Cost):**
    * Hệ thống bưu chính phục vụ hàng triệu lượt khách mỗi ngày. Việc trả phí theo từng token (Token-based Pricing) cho OpenAI/Gemini sẽ tạo ra gánh nặng chi phí hàng trăm triệu đồng mỗi tháng.
-   * Chạy mô hình mã nguồn mở trên máy chủ GPU/NPU nội bộ giúp doanh nghiệp làm chủ $100\%$ chi phí vận hành.
+   * Chạy mô hình mã nguồn mở trên máy chủ CPU/GPU nội bộ giúp doanh nghiệp làm chủ $100\%$ chi phí vận hành.
 3. **Triệt Tiêu Hoàn Toàn Lỗi Rate Limit (HTTP 429) & Phụ Thuộc Mạng Quốc Tế:**
    * Không lo bị khóa API Key, không lo đứt cáp quang biển quốc tế làm tê liệt tổng đài hỗ trợ.
-4. **Hiệu Năng Vượt Trội Của Model `qwen2.5:7b`:**
-   * Dòng mô hình Qwen 2.5 (Alibaba Cloud Open Source) được huấn luyện xuất sắc trên ngữ liệu đa ngôn ngữ, đặc biệt là tiếng Việt và khả năng **Reasoning & Tool Calling** đạt độ chính xác tương đương các mô hình thương mại lớn.
+4. **Hiệu Năng Vượt Trội Của Model `qwen2.5:3b` / `qwen2.5:7b`:**
+   * Bản `qwen2.5:3b` (~1.9 GB) siêu nhẹ, chạy ổn định mượt mà trên CPU với tốc độ phản hồi $< 1.5s$, rất phù hợp cho môi trường Cloud K3s tối ưu chi phí. Bản `qwen2.5:7b` mang lại khả năng suy luận chuyên sâu hơn cho máy chủ có tài nguyên bộ nhớ lớn.
 
 ---
 
@@ -50,7 +50,7 @@ Dự án áp dụng một giải pháp kiến trúc cực kỳ thông minh: Sử
     [OpenAI-Compatible Client Layer]
               │
               ▼ (HTTP POST http://localhost:11434/v1/chat/completions)
-    [Ollama Server Engine] ─── Chạy cục bộ mô hình: qwen2.5:7b
+    [Ollama Server Engine] ─── Chạy cục bộ mô hình: qwen2.5:3b (hoặc 7b)
 ```
 
 ### Cấu hình trong `application.properties`:
@@ -58,7 +58,7 @@ Dự án áp dụng một giải pháp kiến trúc cực kỳ thông minh: Sử
 # Sử dụng API tiêu chuẩn OpenAI nhưng trỏ về máy chủ Ollama cục bộ
 spring.ai.openai.base-url=${AI_BASE_URL:http://localhost:11434/v1}
 spring.ai.openai.api-key=${AI_API_KEY:${GEMINI_API_KEY:ollama}}
-spring.ai.openai.chat.options.model=${AI_MODEL:${GEMINI_MODEL:qwen2.5:7b}}
+spring.ai.openai.chat.options.model=${AI_MODEL:${LLM_MODEL:qwen2.5:3b}}
 
 # Temperature = 0.2: Cực kỳ quan trọng! Giữ cho câu trả lời của AI luôn chuẩn mực,
 # dựa trên dữ liệu thật và triệt tiêu tính bịa đặt (Hallucination)

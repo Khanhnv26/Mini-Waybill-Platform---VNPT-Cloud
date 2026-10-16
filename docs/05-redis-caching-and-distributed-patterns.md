@@ -27,17 +27,17 @@ sequenceDiagram
 
     User->>GW: GET /api/tracking/WAYBILL123
     GW->>Svc: Chuyển tiếp Request
-    Svc->>Redis: GET "shipment-status:WAYBILL123"
+    Svc->>Redis: GET "shipment-status:WAYBILL123" / "shipment-history:WAYBILL123"
     
     alt Trường hợp 1: Cache HIT (Chiếm 90% lượt tra cứu)
-        Redis-->>Svc: Trả về JSON trạng thái (Thời gian: ~1ms)
+        Redis-->>Svc: Trả về JSON trạng thái / lịch sử (Thời gian: ~1ms)
         Svc-->>GW: Trả về kết quả ngay tức thì
         GW-->>User: HTTP 200 OK (Phản hồi < 2ms)
     else Trường hợp 2: Cache MISS (Lần đầu tra cứu hoặc Cache hết hạn)
         Redis-->>Svc: Trả về NULL
         Svc->>DB: SELECT * FROM tracking_history WHERE code = 'WAYBILL123'
         DB-->>Svc: Trả về bản ghi từ đĩa cứng
-        Svc->>Redis: SETEX "shipment-status:WAYBILL123" TTL=7days (Nạp lại Cache)
+        Svc->>Redis: SETEX "shipment-status:WAYBILL123" & "shipment-history:WAYBILL123" TTL=7 ngày (Duration.ofDays(7))
         Svc-->>GW: Trả về kết quả
         GW-->>User: HTTP 200 OK
     end
@@ -102,6 +102,16 @@ sequenceDiagram
 
     Shipper2-->>Shipper2: Báo lỗi: "Đơn hàng đang được người khác xử lý!"
 ```
+
+### 2.4. Danh Mục Khóa Redis & Thời Gian Sống (TTL Catalog) Trong Dự Án
+| Mẫu Khóa Redis (Key Pattern) | Dịch Vụ Sử Dụng | Thời Gian Sống (TTL) | Mục Đích Nghiệp Vụ |
+| :--- | :--- | :--- | :--- |
+| `shipment-status:{code}` | `tracking-service` | **7 ngày (`Duration.ofDays(7)`)** | Cache trạng thái hiện tại của vận đơn (`TrackingServiceImpl.java`). |
+| `shipment-history:{code}` | `tracking-service` | **7 ngày (`Duration.ofDays(7)`)** | Cache toàn bộ danh sách lịch sử hành trình JSON của vận đơn (`TrackingServiceImpl.java:112`). |
+| `rate_limit:read:{ip}` | `api-gateway` | **30 giây (`Refill.greedy`)** | Hạn mức đọc (GET): 200 requests / 30 giây theo IP. |
+| `rate_limit:write:{ip}` | `api-gateway` | **30 giây (`Refill.greedy`)** | Hạn mức ghi (POST/PUT/DELETE): 30 requests / 30 giây theo IP. |
+| `rate_limit:global` | `api-gateway` | **60 giây (`Refill.greedy`)** | Hạn mức toàn cục Gateway: 1000 requests / 60 giây (`RateLimitService.java:51`). |
+| `shipment-cancelled:{code}` | `routing-service` | **30 ngày (`Duration.ofDays(30)`)** | Tombstone đánh dấu đơn đã hủy, chặn các sự kiện tạo đơn đến trễ. |
 
 ---
 
@@ -405,11 +415,8 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     }
 
     private String getClientIP(HttpServletRequest request) {
-        String xfHeader = request.getHeader("X-Forwarded-For");
-        if (xfHeader == null || xfHeader.isEmpty()) {
-            return request.getRemoteAddr();
-        }
-        return xfHeader.split(",")[0].trim();
+        // Forwarded headers được xử lý an toàn thông qua Trusted Proxy Valve của Tomcat
+        return request.getRemoteAddr();
     }
 }
 ```

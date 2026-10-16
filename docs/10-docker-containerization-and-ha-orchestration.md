@@ -1,6 +1,6 @@
 # Cẩm Nang 10 - Container Hóa Toàn Trình & Điều Phối Cụm Microservices HA (Docker, Docker Hub & Compose)
 
-Tài liệu này tổng hợp toàn bộ quy trình thực chiến từ đóng gói mã nguồn (Java 21 Spring Boot & Node.js Frontend), quản trị kho ảnh (Docker Hub Registry), điều phối cụm 23 Containers qua Docker Compose, cùng toàn bộ mã nguồn Boilerplate độc lập cho các cụm hạ tầng: **Kafka KRaft 3-Broker**, **Redis In-Memory**, **SQL Server Persistent Volume**, **Eureka Peer-to-Peer HA**, và **Nginx Edge Failover**.
+Tài liệu này tổng hợp toàn bộ quy trình thực chiến từ đóng gói mã nguồn (Java 21 Spring Boot & Node.js Frontend), quản trị kho ảnh (Docker Hub Registry), điều phối cụm 28 Containers qua Docker Compose (14 Microservices, Cụm Kafka KRaft, Redis, RabbitMQ, MinIO, SQL Server, Nginx, Frontend), cùng toàn bộ mã nguồn Boilerplate độc lập cho các cụm hạ tầng: **Kafka KRaft 3-Broker**, **Redis In-Memory**, **RabbitMQ Priority/SLA**, **MinIO S3**, **SQL Server Persistent Volume**, **Eureka Peer-to-Peer HA**, và **Nginx Edge Failover**.
 
 ---
 
@@ -149,7 +149,7 @@ docker system prune -a --volumes
 
 ---
 
-## 3. Sơ Đồ Điều Phối Hạ Tầng Cụm Container (23 Containers)
+## 3. Sơ Đồ Điều Phối Hạ Tầng Cụm Container (28 Containers)
 
 ```mermaid
 flowchart TB
@@ -171,7 +171,7 @@ flowchart TB
 
     GW1 & GW2 -.->|"Lookup Services"| Eureka1 & Eureka2
 
-    subgraph BusinessServices [" 11 Business Microservices "]
+    subgraph BusinessServices [" 12 Business Microservices "]
         Auth["auth-service (8087)"]
         Cust["customer-service (8081)"]
         Ship["shipment-service (8082)"]
@@ -182,6 +182,9 @@ flowchart TB
         Audit["audit-service (8086)"]
         Shipper["shipper-service (8089)"]
         Report["report-service (8091)"]
+        Rating["rating-service (8092)"]
+        Support["support-service (8093)"]
+        Payment["payment-service (8095)"]
     end
 
     GW1 & GW2 --> BusinessServices
@@ -192,12 +195,16 @@ flowchart TB
         Kafka1[("Kafka Broker 1 (9092)")]
         Kafka2[("Kafka Broker 2 (9094)")]
         Kafka3[("Kafka Broker 3 (9096)")]
+        RabbitMQ[("RabbitMQ Broker (5672/15672)")]
+        MinIO[("MinIO S3 Storage (9000/9001)")]
         KafkaUI["Kafka UI (Port 8090)"]
     end
 
     BusinessServices --> SQL
     BusinessServices --> Redis
     BusinessServices --> Kafka1 & Kafka2 & Kafka3
+    BusinessServices --> RabbitMQ
+    BusinessServices --> MinIO
     Kafka1 & Kafka2 & Kafka3 -.-> KafkaUI
 ```
 

@@ -1,6 +1,6 @@
 # Cẩm Nang 12 - Điều Phối Toàn Trình Cụm Microservices Trên Kubernetes (K8s Architecture, Networking, Persistence & Troubleshooting)
 
-Tài liệu này tổng hợp toàn bộ kiến thức lý thuyết chuyên sâu, kiến trúc triển khai, cơ chế mạng, giải pháp lưu trữ bền vững (PVC) và kinh nghiệm xử lý sự cố (Troubleshooting War Stories) khi đưa hệ thống **Mini-Waybill Platform** (12 vi dịch vụ nghiệp vụ Spring Boot, API Gateway, Node.js Frontend, Kafka KRaft, Redis, RabbitMQ, MinIO và SQL Server 2022) từ Docker Compose lên vận hành trên **Kubernetes (K8s)**.
+Tài liệu này tổng hợp toàn bộ kiến thức lý thuyết chuyên sâu, kiến trúc triển khai, cơ chế mạng, giải pháp lưu trữ bền vững (PVC) và kinh nghiệm xử lý sự cố (Troubleshooting War Stories) khi đưa hệ thống **Mini-Waybill Platform** (14 vi dịch vụ Spring Boot gồm 12 Business Services, API Gateway, Eureka Registry, cùng Node.js Frontend, Kafka KRaft, Redis, RabbitMQ, MinIO và SQL Server 2022) từ Docker Compose lên vận hành trên **Kubernetes (K8s)** (hỗ trợ cả Local K8s Docker Desktop lẫn Production Cloud Azure K3s).
 
 ---
 
@@ -645,23 +645,25 @@ Trong quá trình triển khai K8s cho hệ thống Microservices, 4 sự cố p
 
 ---
 
-## 6. Lộ Trình Triển Khai Production Thực Tế (Cloud Migration Roadmap)
+## 6. Lộ Trình & Hiện Thực Hóa Triển Khai Cloud Production (Azure K3s + cert-manager)
 
-Để nâng cấp từ cụm K8s máy tính cá nhân lên cụm Cloud Production doanh nghiệp (VNPT Smart Cloud, AWS EKS, Google GKE), thực hiện theo 6 bước chuẩn hóa:
+Hệ thống đã hiện thực hóa trọn vẹn lộ trình đưa lên Cloud Production mô phỏng thực tế trên **Microsoft Azure (Japan East)** vận hành bởi cụm **Kubernetes K3s siêu nhẹ**:
 
 ```
-[BƯỚC 1: HẠ TẦNG]        Thuê cụm K8s Cloud Managed (2-3 Worker Nodes, mỗi node 4GB-8GB RAM)
+[HẠ TẦNG CLOUD]           Azure VM Standard_E2as_v4 (2 vCPU, 16GB RAM) chạy cụm K3s (Single-Node, SQLite embedded)
        │
-[BƯỚC 2: DATABASE]       Chuyển SQL Server sang Cloud Managed DB (AWS RDS / VNPT Cloud DB Multi-AZ)
+[SSL TỰ ĐỘNG HÓA]         Traefik Ingress Controller + cert-manager v1.14 (Let's Encrypt ACME HTTP-01)
        │
-[BƯỚC 3: REGISTRY]       Đẩy Docker Images có gắn thẻ version (v1.0.0) lên Harbor / AWS ECR
+[TỐI ƯU HÓA JVM]          Ép giới hạn -Xms64m -Xmx200m -XX:+UseSerialGC cho toàn bộ 14 microservices (~4.5GB RAM)
        │
-[BƯỚC 4: INGRESS & SSL]  Cài đặt NGINX Ingress Controller + Cert-Manager (Cấp chứng chỉ HTTPS tự động)
+[AI ENGINE ON CLOUD]      Ollama qwen2.5:3b (~1.9GB) chạy trực tiếp trên host qua systemd (Port 11434)
        │
-[BƯỚC 5: BẢO MẬT]        Chuyển toàn bộ mật khẩu, chuỗi kết nối vào Kubernetes Secrets mã hóa
+[QUẢN TRỊ BÍ MẬT SECRETS] Nạp Secret waybill-runtime và compose.env tự động từ script prepare-runtime-secrets.ps1
        │
-[BƯỚC 6: CI/CD]          Thiết lập GitHub Actions tự động kiểm thử, đóng gói và Rolling Deploy qua GitOps
+[GITOPS CONTINUOUS]       ArgoCD Application theo dõi Git Repository nhánh main (tự động đồng bộ & self-healing)
 ```
+
+> 🌐 **Domain Cloud Trực Tiếp:** [https://waybill-express.japaneast.cloudapp.azure.com](https://waybill-express.japaneast.cloudapp.azure.com) (Chứng chỉ Let's Encrypt SSL/TLS toàn cầu).
 
 ---
 

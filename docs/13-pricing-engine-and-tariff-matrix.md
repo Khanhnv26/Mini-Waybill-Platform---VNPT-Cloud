@@ -1,6 +1,6 @@
 # Cẩm Nang Kỹ Thuật 13: Động Cơ Định Giá Cước Phí & Ma Trận Cước Bưu Chính (Pricing Engine & Tariff Matrix)
 
-> **Mục tiêu cẩm nang:** Tài liệu chuyên sâu phân tích nguyên lý tính cước bưu chính hiện đại trong vi dịch vụ `pricing-service` (Cổng 8092): Công thức quy đổi khối lượng thể tích ($L \times W \times H / 5000$), phân vùng địa lý (Nội tỉnh vs Liên miền), 3 gói cước phân tầng (`ECO`, `STANDARD`, `EXPRESS`), cơ chế phụ phí (Xăng dầu 6%, Thu hộ COD 1%, Bảo hiểm 0.5%), kèm **sơ đồ luồng toàn trình** và **bộ mã nguồn Boilerplate Bảng cước động lưu CSDL (Dynamic Database-Driven Tariff Matrix)** chuẩn Production.
+> **Mục tiêu cẩm nang:** Tài liệu chuyên sâu phân tích nguyên lý tính cước bưu chính hiện đại trong module Định giá của `shipment-service` (Cổng 8082, routing `/api/pricing/**`): Công thức quy đổi khối lượng thể tích ($L \times W \times H / 5000$), phân vùng địa lý (Nội tỉnh vs Liên miền), 3 gói cước phân tầng (`ECO`, `STANDARD`, `EXPRESS`), cơ chế phụ phí (Xăng dầu 6%, Thu hộ COD 1%, Bảo hiểm 0.5%), kèm **sơ đồ luồng toàn trình** và **bộ mã nguồn Boilerplate Bảng cước động** chuẩn Production.
 
 ---
 
@@ -61,44 +61,42 @@ Hệ thống cung cấp 3 phân tầng dịch vụ đáp ứng các nhu cầu v�
 
 ## 3. Sơ Đồ Trình Tự Thực Thi & Tích Hợp Microservices (Sequence Diagram)
 
-`pricing-service` hoạt động như một microservice tính toán độc lập (Stateless Calculation Engine), phục vụ cả Frontend Web Portal, nhân viên quầy POS và các microservice nội bộ:
+Động cơ tính cước hoạt động như một module tính toán độc lập nằm trong `shipment-service` (Cổng 8082), phục vụ cả Frontend Web Portal, bưu tá/POS, các service nội bộ và Trợ lý ảo AI:
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Client as Khách Hàng / POS Scanner
     participant Gateway as API Gateway (Port 8080)
-    participant ShipSvc as shipment-service (Port 8082)
-    participant PriceSvc as pricing-service (Port 8092)
+    participant ShipSvc as shipment-service: Pricing (Port 8082)
     participant Redis as Redis Cache (Port 6379)
+    participant SupportAI as support-service: AI Tools (Port 8093)
 
     alt Luồng 1: Khách tra cứu bảng giá trên Web Portal
         Client->>Gateway: POST /api/pricing/calculate
-        Gateway->>PriceSvc: Chuyển tiếp Request
-        PriceSvc->>Redis: Kiểm tra Cache bảng giá: "pricing:route:{hash}"
+        Gateway->>ShipSvc: Chuyển tiếp Request
+        ShipSvc->>Redis: Kiểm tra Cache bảng giá: "pricing:route:{hash}"
         alt Cache HIT
-            Redis-->>PriceSvc: Trả về JSON 3 gói cước (0.5ms)
+            Redis-->>ShipSvc: Trả về JSON 3 gói cước (0.5ms)
         else Cache MISS
-            PriceSvc->>PriceSvc: 1. Tính Khối lượng quy đổi (L*W*H / 5000)<br/>2. So sánh max(W_actual, W_vol)<br/>3. Phân vùng Nội tỉnh / Liên miền<br/>4. Cộng phụ phí xăng dầu, COD, bảo hiểm
-            PriceSvc->>Redis: Lưu Cache 24h
+            ShipSvc->>ShipSvc: 1. Tính Khối lượng quy đổi (L*W*H / 5000)<br/>2. So sánh max(W_actual, W_vol)<br/>3. Phân vùng Nội tỉnh / Liên miền<br/>4. Cộng phụ phí xăng dầu, COD, bảo hiểm
+            ShipSvc->>Redis: Lưu Cache
         end
-        PriceSvc-->>Gateway: Trả về TariffCalculationResponse (3 gói cước)
+        ShipSvc-->>Gateway: Trả về TariffCalculationResponse (3 gói cước)
         Gateway-->>Client: Hiển thị 3 thẻ cước phí ECO, STANDARD, EXPRESS
-    else Luồng 2: Tạo đơn hàng tự động từ shipment-service
-        Client->>ShipSvc: POST /api/shipments (Tạo đơn hàng)
-        ShipSvc->>PriceSvc: Feign Client: calculateTariff(TariffRequest)
-        PriceSvc-->>ShipSvc: Trả về cước chính xác theo gói đã chọn
-        ShipSvc->>ShipSvc: Lưu đơn hàng kèm cước phí vào Database
+    else Luồng 2: Trợ lý AI gọi tra cứu cước tự động
+        SupportAI->>ShipSvc: Feign Client (PricingAiClient) -> /api/pricing/calculate
+        ShipSvc-->>SupportAI: Trả về bảng giá chi tiết
     end
 ```
 
 ---
 
-## 4. Mã Nguồn Thực Tế Trong Dự Án (`pricing-service`)
+## 4. Mã Nguồn Thực Tế Trong Dự Án (`shipment-service/pricing`)
 
 ### 4.1. DTO Yêu Cầu Tính Cước (`CalculateTariffRequest.java`)
 ```java
-package org.app.pricingservice.dto;
+package org.app.shipmentservice.pricing.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
