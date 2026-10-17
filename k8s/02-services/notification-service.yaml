@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: notification-service
-          image: khanhnv26/notification-service:dda35ed0db5ce134903bf625e6a47db3c3b61a88
+          image: khanhnv26/notification-service:ef4cb40f55eb171d20471498bf0ee720a2c98f10
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
