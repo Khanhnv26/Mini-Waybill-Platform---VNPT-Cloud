@@ -98,8 +98,12 @@ public class PaymentSuccessConsumer {
                 log.warn("[SHIPMENT-SERVICE] Lỗi gửi tracking-status-events DELIVERED: {}", ex.getMessage());
             }
         } else if ("SHIPPING_FEE".equalsIgnoreCase(event.getPaymentType())) {
+            LocalDateTime settledAt = event.getPaidAt() != null ? event.getPaidAt() : LocalDateTime.now();
+            shipment.setCodSettlementStatus(CodSettlementStatus.SETTLED);
+            shipment.setCodSettledAt(settledAt);
+            shipment.setCodSettledBy("VIETQR_GATEWAY");
             shipmentRepository.save(shipment);
-            log.info("[SHIPMENT-SERVICE] Đã ghi nhận thanh toán cước phí vận chuyển thành công cho đơn {}", event.getTrackingCode());
+            log.info("[SHIPMENT-SERVICE] Đã ghi nhận thanh toán cước phí vận chuyển (SETTLED) thành công cho đơn {}", event.getTrackingCode());
         } else if ("RETURN_FEE".equalsIgnoreCase(event.getPaymentType())) {
             Optional<ReturnRequest> returnOpt = returnRequestRepository.findByTrackingCode(event.getTrackingCode());
             if (returnOpt.isPresent()) {

@@ -31,6 +31,8 @@ public class CreateShipmentRequest {
     @Size(min = 8, max = 255, message = "Địa chỉ người gửi phải từ 8 đến 255 ký tự")
     private String senderAddress;
 
+    private String senderProvince;
+
     @DecimalMin(value = "-90.0", message = "Vĩ độ người gửi không hợp lệ")
     @DecimalMax(value = "90.0", message = "Vĩ độ người gửi không hợp lệ")
     private Double senderLatitude;
@@ -50,6 +52,8 @@ public class CreateShipmentRequest {
     @NotBlank(message = "Địa chỉ người nhận không được để trống")
     @Size(min = 8, max = 255, message = "Địa chỉ người nhận phải từ 8 đến 255 ký tự")
     private String receiverAddress;
+
+    private String receiverProvince;
 
     @DecimalMin(value = "-90.0", message = "Vĩ độ người nhận không hợp lệ")
     @DecimalMax(value = "90.0", message = "Vĩ độ người nhận không hợp lệ")

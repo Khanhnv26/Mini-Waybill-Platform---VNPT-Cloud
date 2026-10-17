@@ -22,6 +22,8 @@ public interface DeliveryFailureDecisionRepository extends JpaRepository<Deliver
     List<DeliveryFailureDecision> findByDecisionAndDecisionDeadlineBefore(
             FailureDecisionType decision, LocalDateTime deadline);
 
+    List<DeliveryFailureDecision> findByDecisionOrderByCreatedAtDesc(FailureDecisionType decision);
+
     Optional<DeliveryFailureDecision> findByTrackingCodeAndDecision(
             String trackingCode, FailureDecisionType decision);
 }

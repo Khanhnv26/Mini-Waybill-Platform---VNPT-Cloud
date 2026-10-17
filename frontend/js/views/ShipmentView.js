@@ -158,6 +158,175 @@
                 return defaultProvince;
             };
 
+            const normalizeSearchText = (str) => {
+                if (!str) return '';
+                return String(str)
+                    .toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/đ/g, 'd')
+                    .replace(/[^a-z0-9\s]/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            };
+
+            const VIETNAM_DIGITAL_MAP_GAZETTEER = [
+                // Hà Nội - Cầu Giấy
+                { display_name: 'Số 165 Cầu Giấy, Phường Dịch Vọng, Quận Cầu Giấy, Hà Nội', lat: '21.0362', lon: '105.7906', province: 'Hà Nội', postOfficeCode: 'POST-HN-CG', postOfficeName: 'Bưu Cục Cầu Giấy' },
+                { display_name: 'Phố Duy Tân, Phường Dịch Vọng Hậu, Quận Cầu Giấy, Hà Nội', lat: '21.0308', lon: '105.7829', province: 'Hà Nội', postOfficeCode: 'POST-HN-CG', postOfficeName: 'Bưu Cục Cầu Giấy' },
+                { display_name: 'Số 144 Xuân Thủy, Phường Dịch Vọng Hậu, Quận Cầu Giấy, Hà Nội', lat: '21.0368', lon: '105.7821', province: 'Hà Nội', postOfficeCode: 'POST-HN-CG', postOfficeName: 'Bưu Cục Cầu Giấy' },
+                { display_name: 'Đường Trần Thái Tông, Phường Dịch Vọng, Quận Cầu Giấy, Hà Nội', lat: '21.0321', lon: '105.7885', province: 'Hà Nội', postOfficeCode: 'POST-HN-CG', postOfficeName: 'Bưu Cục Cầu Giấy' },
+                { display_name: 'Đường Trung Kính, Phường Trung Hòa, Quận Cầu Giấy, Hà Nội', lat: '21.0165', lon: '105.7938', province: 'Hà Nội', postOfficeCode: 'POST-HN-CG', postOfficeName: 'Bưu Cục Cầu Giấy' },
+                { display_name: 'Đường Hoàng Quốc Việt, Phường Nghĩa Đô, Quận Cầu Giấy, Hà Nội', lat: '21.0461', lon: '105.7952', province: 'Hà Nội', postOfficeCode: 'POST-HN-CG', postOfficeName: 'Bưu Cục Cầu Giấy' },
+                { display_name: 'Phường Mai Dịch, Quận Cầu Giấy, Hà Nội', lat: '21.0412', lon: '105.7764', province: 'Hà Nội', postOfficeCode: 'POST-HN-CG', postOfficeName: 'Bưu Cục Cầu Giấy' },
+                { display_name: 'Phường Yên Hòa, Quận Cầu Giấy, Hà Nội', lat: '21.0225', lon: '105.7914', province: 'Hà Nội', postOfficeCode: 'POST-HN-CG', postOfficeName: 'Bưu Cục Cầu Giấy' },
+                // Hà Nội - Các quận trọng điểm
+                { display_name: 'Số 57 Huỳnh Thúc Kháng, Phường Láng Hạ, Quận Đống Đa, Hà Nội', lat: '21.0168', lon: '105.8115', province: 'Hà Nội', postOfficeCode: 'POST-HN-DDA', postOfficeName: 'Bưu Cục Đống Đa' },
+                { display_name: 'Số 36 Tây Sơn, Phường Quang Trung, Quận Đống Đa, Hà Nội', lat: '21.0181', lon: '105.8299', province: 'Hà Nội', postOfficeCode: 'POST-HN-DDA', postOfficeName: 'Bưu Cục Đống Đa' },
+                { display_name: 'Số 236 Lạc Trung, Phường Vĩnh Tuy, Quận Hai Bà Trưng, Hà Nội', lat: '21.0069', lon: '105.8524', province: 'Hà Nội', postOfficeCode: 'POST-HN-HBT', postOfficeName: 'Bưu Cục Hai Bà Trưng' },
+                { display_name: 'Số 191 Bà Triệu, Phường Lê Đại Hành, Quận Hai Bà Trưng, Hà Nội', lat: '21.0114', lon: '105.8492', province: 'Hà Nội', postOfficeCode: 'POST-HN-HBT', postOfficeName: 'Bưu Cục Hai Bà Trưng' },
+                { display_name: 'Số 18 Nguyễn Trãi, Phường Thượng Đình, Quận Thanh Xuân, Hà Nội', lat: '20.9937', lon: '105.8078', province: 'Hà Nội', postOfficeCode: 'POST-HN-TX', postOfficeName: 'Bưu Cục Thanh Xuân' },
+                { display_name: 'Số 4 Quang Trung, Phường Yết Kiêu, Quận Hà Đông, Hà Nội', lat: '20.9712', lon: '105.7766', province: 'Hà Nội', postOfficeCode: 'POST-HN-HD', postOfficeName: 'Bưu Cục Hà Đông' },
+                { display_name: 'Số 75 Đinh Tiên Hoàng, Phường Tràng Tiền, Quận Hoàn Kiếm, Hà Nội', lat: '21.0285', lon: '105.8542', province: 'Hà Nội', postOfficeCode: 'POST-HN-DDA', postOfficeName: 'Bưu Cục Trung Tâm HN' },
+                { display_name: 'Đường Đội Cấn, Phường Đội Cấn, Quận Ba Đình, Hà Nội', lat: '21.0352', lon: '105.8188', province: 'Hà Nội', postOfficeCode: 'POST-HN-CG', postOfficeName: 'Bưu Cục Ba Đình' },
+                { display_name: 'Đường Phạm Hùng, Phường Mỹ Đình 2, Quận Nam Từ Liêm, Hà Nội', lat: '21.0288', lon: '105.7795', province: 'Hà Nội', postOfficeCode: 'POST-HN-CG', postOfficeName: 'Bưu Cục Mỹ Đình' },
+                { display_name: 'KCN Minh Khai, Phường Minh Khai, Quận Bắc Từ Liêm, Hà Nội', lat: '21.0521', lon: '105.7482', province: 'Hà Nội', postOfficeCode: 'HUB-HN-01', postOfficeName: 'Kho Tổng Hà Nội' },
+                { display_name: 'Đường Nguyễn Văn Cừ, Phường Ngọc Lâm, Quận Long Biên, Hà Nội', lat: '21.0456', lon: '105.8752', province: 'Hà Nội', postOfficeCode: 'POST-HN-HBT', postOfficeName: 'Bưu Cục Long Biên' },
+                { display_name: 'Đường Giải Phóng, Phường Giáp Bát, Quận Hoàng Mai, Hà Nội', lat: '20.9815', lon: '105.8416', province: 'Hà Nội', postOfficeCode: 'POST-HN-TX', postOfficeName: 'Bưu Cục Hoàng Mai' },
+                // TP. Hồ Chí Minh
+                { display_name: 'Số 2 Công Xã Paris, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh', lat: '10.7798', lon: '106.6990', province: 'Hồ Chí Minh', postOfficeCode: 'POST-HCM-Q1', postOfficeName: 'Bưu Cục Bến Nghé (Quận 1)' },
+                { display_name: 'Số 121 Pasteur, Phường Võ Thị Sáu, Quận 3, TP. Hồ Chí Minh', lat: '10.7815', lon: '106.6928', province: 'Hồ Chí Minh', postOfficeCode: 'POST-HCM-Q1', postOfficeName: 'Bưu Cục Quận 3' },
+                { display_name: 'Số 288 Hoàng Văn Thụ, Phường 4, Quận Tân Bình, TP. Hồ Chí Minh', lat: '10.7992', lon: '106.6534', province: 'Hồ Chí Minh', postOfficeCode: 'POST-HCM-TB', postOfficeName: 'Bưu Cục Tân Bình' },
+                { display_name: 'Số 270 Lý Thường Kiệt, Phường 6, Quận Tân Bình, TP. Hồ Chí Minh', lat: '10.8231', lon: '106.6297', province: 'Hồ Chí Minh', postOfficeCode: 'HUB-HCM-01', postOfficeName: 'Kho Tổng TP. Hồ Chí Minh' },
+                { display_name: 'Số 364 Bạch Đằng, Phường 14, Quận Bình Thạnh, TP. Hồ Chí Minh', lat: '10.8106', lon: '106.6961', province: 'Hồ Chí Minh', postOfficeCode: 'POST-HCM-BT', postOfficeName: 'Bưu Cục Bình Thạnh' },
+                { display_name: 'Số 128 Võ Văn Ngân, Phường Linh Chiểu, TP. Thủ Đức, TP. Hồ Chí Minh', lat: '10.8494', lon: '106.7717', province: 'Hồ Chí Minh', postOfficeCode: 'POST-HCM-TD', postOfficeName: 'Bưu Cục TP. Thủ Đức' },
+                { display_name: 'Số 1441 Huỳnh Tấn Phát, Phường Phú Mỹ, Quận 7, TP. Hồ Chí Minh', lat: '10.7324', lon: '106.7082', province: 'Hồ Chí Minh', postOfficeCode: 'POST-HCM-Q7', postOfficeName: 'Bưu Cục Tân Phong (Quận 7)' },
+                { display_name: 'Đường Quang Trung, Phường 10, Quận Gò Vấp, TP. Hồ Chí Minh', lat: '10.8326', lon: '106.6654', province: 'Hồ Chí Minh', postOfficeCode: 'POST-HCM-TB', postOfficeName: 'Bưu Cục Gò Vấp' },
+                { display_name: 'Đường Ba Tháng Hai, Phường 12, Quận 10, TP. Hồ Chí Minh', lat: '10.7712', lon: '106.6698', province: 'Hồ Chí Minh', postOfficeCode: 'POST-HCM-Q1', postOfficeName: 'Bưu Cục Quận 10' },
+                // Đà Nẵng
+                { display_name: 'Số 4 Lê Duẩn, Phường Hải Châu 1, Quận Hải Châu, Đà Nẵng', lat: '16.0678', lon: '108.2208', province: 'Đà Nẵng', postOfficeCode: 'POST-DN-HC', postOfficeName: 'Bưu Cục Hải Châu' },
+                { display_name: 'Số 251 Điện Biên Phủ, Phường Chính Gián, Quận Thanh Khê, Đà Nẵng', lat: '16.0613', lon: '108.1812', province: 'Đà Nẵng', postOfficeCode: 'POST-DN-TK', postOfficeName: 'Bưu Cục Thanh Khê' },
+                { display_name: 'Số 1 Ngô Quyền, Phường Thọ Quang, Quận Sơn Trà, Đà Nẵng', lat: '16.0825', lon: '108.2431', province: 'Đà Nẵng', postOfficeCode: 'POST-DN-ST', postOfficeName: 'Bưu Cục Sơn Trà' },
+                { display_name: 'KCN Hòa Khánh, Phường Hòa Khánh Bắc, Quận Liên Chiểu, Đà Nẵng', lat: '16.0544', lon: '108.2022', province: 'Đà Nẵng', postOfficeCode: 'HUB-DN-01', postOfficeName: 'Kho Tổng Đà Nẵng' },
+                // Hải Phòng
+                { display_name: 'Số 147 Lương Khánh Thiện, Phường Cầu Đất, Quận Ngô Quyền, Hải Phòng', lat: '20.8561', lon: '106.6997', province: 'Hải Phòng', postOfficeCode: 'POST-HP-NQ', postOfficeName: 'Bưu Cục Ngô Quyền' },
+                { display_name: 'Số 5 Nguyễn Tri Phương, Phường Minh Khai, Quận Hồng Bàng, Hải Phòng', lat: '20.8653', lon: '106.6712', province: 'Hải Phòng', postOfficeCode: 'POST-HP-HB', postOfficeName: 'Bưu Cục Hồng Bàng' },
+                { display_name: 'Số 5 Lê Hồng Phong, Phường Đằng Lâm, Quận Hải An, Hải Phòng', lat: '20.8449', lon: '106.6881', province: 'Hải Phòng', postOfficeCode: 'HUB-HP-01', postOfficeName: 'Kho Tổng Hải Phòng' },
+                // Cần Thơ
+                { display_name: 'Số 2 Đại lộ Hòa Bình, Phường Tân An, Quận Ninh Kiều, Cần Thơ', lat: '10.0342', lon: '105.7797', province: 'Cần Thơ', postOfficeCode: 'POST-CT-NK', postOfficeName: 'Bưu Cục Ninh Kiều' },
+                { display_name: 'Số 321 Quốc Lộ 1A, Phường Lê Bình, Quận Cái Răng, Cần Thơ', lat: '10.0039', lon: '105.7533', province: 'Cần Thơ', postOfficeCode: 'POST-CT-CR', postOfficeName: 'Bưu Cục Cái Răng' }
+            ];
+
+            const searchLocalGazetteer = (rawQuery, preferredProvince = '') => {
+                const qNorm = normalizeSearchText(rawQuery);
+                if (!qNorm) return [];
+                const tokens = qNorm.split(' ').filter(Boolean);
+
+                // Combine static gazetteer with any runtime stations from MapManager
+                const pool = [...VIETNAM_DIGITAL_MAP_GAZETTEER];
+                if (typeof window !== 'undefined' && window.MapManager?.hubCoordinates) {
+                    for (const [code, h] of Object.entries(window.MapManager.hubCoordinates)) {
+                        if (h.address && h.lat && h.lng) {
+                            const exists = pool.some(item => item.postOfficeCode === code || item.display_name === h.address);
+                            if (!exists) {
+                                pool.push({
+                                    display_name: h.address,
+                                    lat: String(h.lat),
+                                    lon: String(h.lng),
+                                    province: h.province || 'Hà Nội',
+                                    postOfficeCode: code,
+                                    postOfficeName: h.name || code
+                                });
+                            }
+                        }
+                    }
+                }
+
+                const scored = [];
+                for (const entry of pool) {
+                    const haystack = normalizeSearchText(`${entry.display_name} ${entry.postOfficeName || ''} ${entry.postOfficeCode || ''} ${entry.province || ''}`);
+                    let score = 0;
+                    if (haystack.includes(qNorm)) {
+                        score += 50;
+                    }
+                    const matchedTokens = tokens.filter(t => haystack.includes(t)).length;
+                    if (matchedTokens === tokens.length) {
+                        score += 30;
+                    } else if (matchedTokens > 0 && tokens.length > 1 && matchedTokens >= tokens.length - 1) {
+                        score += 10;
+                    }
+                    if (score > 0) {
+                        if (preferredProvince && entry.province === preferredProvince) {
+                            score += 5;
+                        }
+                        scored.push({ entry, score });
+                    }
+                }
+
+                scored.sort((a, b) => b.score - a.score);
+                const results = scored.slice(0, 6).map(s => s.entry);
+
+                // Nếu người dùng nhập địa chỉ số nhà cụ thể (VD: "120 Cầu Giấy") chưa có nguyên văn trong danh bạ,
+                // tạo thêm 1 gợi ý khớp chính xác số nhà + khu vực đã nhận diện
+                if (results.length > 0 && rawQuery.trim().length >= 4) {
+                    const top = results[0];
+                    const rawLower = normalizeSearchText(rawQuery);
+                    const topLower = normalizeSearchText(top.display_name);
+                    if (!topLower.startsWith(rawLower)) {
+                        const districtSuffix = top.display_name.includes(',')
+                            ? top.display_name.split(',').slice(1).join(',').trim()
+                            : top.province;
+                        const customDisplay = rawQuery.includes(',')
+                            ? `${rawQuery.trim()}, ${top.province}`
+                            : `${rawQuery.trim()}, ${districtSuffix}`;
+                        if (normalizeSearchText(customDisplay) !== topLower) {
+                            results.unshift({
+                                ...top,
+                                display_name: customDisplay,
+                                isCustomPin: true
+                            });
+                        }
+                    }
+                }
+
+                return results.slice(0, 6);
+            };
+
+            const fetchNominatimWithTimeout = async (q) => {
+                const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+                const timer = controller ? setTimeout(() => controller.abort(), 2200) : null;
+                try {
+                    const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=vn&addressdetails=1&limit=5&q=${encodeURIComponent(q)}`;
+                    const res = await fetch(url, {
+                        headers: { 'Accept-Language': 'vi' },
+                        signal: controller ? controller.signal : undefined
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        return Array.isArray(data) ? data : [];
+                    }
+                } catch (_) {
+                    // Fallback gracefully to local gazetteer when offline or rate-limited
+                } finally {
+                    if (timer) clearTimeout(timer);
+                }
+                return [];
+            };
+
+            const mergeAddressResults = (localResults, remoteResults) => {
+                const merged = [...localResults];
+                const seen = new Set(localResults.map(x => normalizeSearchText(x.display_name)));
+                for (const item of remoteResults) {
+                    const norm = normalizeSearchText(item.display_name);
+                    if (norm && !seen.has(norm)) {
+                        seen.add(norm);
+                        merged.push(item);
+                    }
+                    if (merged.length >= 7) break;
+                }
+                return merged;
+            };
+
             const receiverAddressQuery = ref('');
             const addressSuggestions = ref([]);
             const isSearchingAddress = ref(false);
@@ -169,51 +338,57 @@
             const onAddressInput = () => {
                 if (addressSearchTimeout) clearTimeout(addressSearchTimeout);
                 const q = receiverAddressQuery.value.trim();
-                if (q.length < 3) {
+                if (q.length < 2) {
                     addressSuggestions.value = [];
                     showAddressDropdown.value = false;
+                    isSearchingAddress.value = false;
                     return;
                 }
+                // 1. Phản hồi tức thì từ Bản Đồ Số Nội Địa (0ms)
+                const localMatches = searchLocalGazetteer(q, form.receiverProvince);
+                if (localMatches.length > 0) {
+                    addressSuggestions.value = localMatches;
+                    showAddressDropdown.value = true;
+                }
+                // 2. Bổ sung dữ liệu OpenStreetMap nếu khả dụng
                 isSearchingAddress.value = true;
                 addressSearchTimeout = setTimeout(async () => {
                     try {
-                        const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=vn&addressdetails=1&limit=5&q=${encodeURIComponent(q)}`;
-                        const res = await fetch(url, { headers: { 'Accept-Language': 'vi' } });
-                        if (res.ok) {
-                            const data = await res.json();
-                            addressSuggestions.value = Array.isArray(data) ? data : [];
-                            showAddressDropdown.value = addressSuggestions.value.length > 0;
-                        }
-                    } catch (e) {
-                        addressSuggestions.value = [];
+                        const remote = await fetchNominatimWithTimeout(q);
+                        addressSuggestions.value = mergeAddressResults(localMatches, remote);
+                        showAddressDropdown.value = addressSuggestions.value.length > 0;
                     } finally {
                         isSearchingAddress.value = false;
                     }
-                }, 350);
+                }, 280);
             };
 
             const selectAddressSuggestion = (item) => {
+                if (!item) return;
                 verifiedAddress.value = {
                     displayName: item.display_name,
                     lat: item.lat,
-                    lon: item.lon
+                    lon: item.lon,
+                    postOfficeCode: item.postOfficeCode || null,
+                    postOfficeName: item.postOfficeName || null
                 };
                 receiverAddressQuery.value = item.display_name;
                 showAddressDropdown.value = false;
                 manualReceiverProvinceMode.value = false;
 
-                form.receiverProvince = detectHubProvince(item, form.receiverProvince || 'Hồ Chí Minh');
+                form.receiverProvince = item.province || detectHubProvince(item, form.receiverProvince || 'Hồ Chí Minh');
 
                 let detail = item.display_name;
                 const parts = detail.split(',').map(p => p.trim());
                 const filteredParts = parts.filter(p => !p.toLowerCase().includes('việt nam') && !/^\d{5,6}$/.test(p));
                 form.receiverDetail = filteredParts.join(', ');
-                Utils.showToast('Định Vị Thành Công', `Đã xác thực địa chỉ: ${form.receiverProvince}`, 'success');
+                Utils.showToast('Định Vị Thành Công', `Đã xác thực địa chỉ nhận: ${form.receiverProvince}`, 'success');
             };
 
             const clearVerifiedAddress = () => {
                 verifiedAddress.value = null;
                 receiverAddressQuery.value = '';
+                addressSuggestions.value = [];
                 showAddressDropdown.value = false;
                 manualReceiverProvinceMode.value = false;
             };
@@ -229,40 +404,45 @@
             const onSenderAddressInput = () => {
                 if (senderAddressSearchTimeout) clearTimeout(senderAddressSearchTimeout);
                 const q = senderAddressQuery.value.trim();
-                if (q.length < 3) {
+                if (q.length < 2) {
                     senderAddressSuggestions.value = [];
                     showSenderAddressDropdown.value = false;
+                    isSearchingSenderAddress.value = false;
                     return;
                 }
+                // 1. Phản hồi tức thì từ Bản Đồ Số Nội Địa (0ms)
+                const localMatches = searchLocalGazetteer(q, form.senderProvince);
+                if (localMatches.length > 0) {
+                    senderAddressSuggestions.value = localMatches;
+                    showSenderAddressDropdown.value = true;
+                }
+                // 2. Bổ sung dữ liệu OpenStreetMap nếu khả dụng
                 isSearchingSenderAddress.value = true;
                 senderAddressSearchTimeout = setTimeout(async () => {
                     try {
-                        const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=vn&addressdetails=1&limit=5&q=${encodeURIComponent(q)}`;
-                        const res = await fetch(url, { headers: { 'Accept-Language': 'vi' } });
-                        if (res.ok) {
-                            const data = await res.json();
-                            senderAddressSuggestions.value = Array.isArray(data) ? data : [];
-                            showSenderAddressDropdown.value = senderAddressSuggestions.value.length > 0;
-                        }
-                    } catch (e) {
-                        senderAddressSuggestions.value = [];
+                        const remote = await fetchNominatimWithTimeout(q);
+                        senderAddressSuggestions.value = mergeAddressResults(localMatches, remote);
+                        showSenderAddressDropdown.value = senderAddressSuggestions.value.length > 0;
                     } finally {
                         isSearchingSenderAddress.value = false;
                     }
-                }, 350);
+                }, 280);
             };
 
             const selectSenderAddressSuggestion = (item) => {
+                if (!item) return;
                 verifiedSenderAddress.value = {
                     displayName: item.display_name,
                     lat: item.lat,
-                    lon: item.lon
+                    lon: item.lon,
+                    postOfficeCode: item.postOfficeCode || null,
+                    postOfficeName: item.postOfficeName || null
                 };
                 senderAddressQuery.value = item.display_name;
                 showSenderAddressDropdown.value = false;
                 manualSenderProvinceMode.value = false;
 
-                form.senderProvince = detectHubProvince(item, form.senderProvince || 'Hà Nội');
+                form.senderProvince = item.province || detectHubProvince(item, form.senderProvince || 'Hà Nội');
 
                 let detail = item.display_name;
                 const parts = detail.split(',').map(p => p.trim());
@@ -274,6 +454,7 @@
             const clearVerifiedSenderAddress = () => {
                 verifiedSenderAddress.value = null;
                 senderAddressQuery.value = '';
+                senderAddressSuggestions.value = [];
                 showSenderAddressDropdown.value = false;
                 manualSenderProvinceMode.value = false;
             };
@@ -708,10 +889,10 @@
                 isSubmittingUpdateInfo.value = true;
                 try {
                     await ShipmentService.submitFailureDecision(code, {
-                        decisionType: 'UPDATE_INFO',
+                        decision: 'UPDATE_RECEIVER',
                         newReceiverPhone: updateInfoForm.newReceiverPhone.trim(),
                         newReceiverAddress: updateInfoForm.newReceiverAddress.trim(),
-                        notes: updateInfoForm.notes ? updateInfoForm.notes.trim() : 'Shop đã cập nhật thông tin người nhận mới'
+                        decisionNote: updateInfoForm.notes ? updateInfoForm.notes.trim() : 'Shop đã cập nhật thông tin người nhận mới'
                     });
                     Utils.showToast('Cập Nhật Thành Công', `Đã đổi thông tin người nhận cho vận đơn ${code} và lên lịch giao lại.`);
                     showUpdateInfoModal.value = false;
@@ -729,8 +910,8 @@
                 const code = decision.trackingCode;
                 try {
                     await ShipmentService.submitFailureDecision(code, {
-                        decisionType: 'REDELIVER',
-                        notes: 'Shop yêu cầu giao lại không đổi thông tin'
+                        decision: 'REDELIVER',
+                        decisionNote: 'Shop yêu cầu giao lại không đổi thông tin'
                     });
                     Utils.showToast('Yêu Cầu Giao Lại', `Đã ghi nhận yêu cầu giao lại cho đơn hàng ${code}. Bưu tá sẽ đi phát lại trong ca tiếp theo.`);
                     await loadPendingDecisions();
@@ -764,7 +945,7 @@
                 try {
                     await ShipmentService.updatePostalFault(code, {
                         postalFault: true,
-                        reason: postalFaultReason.value
+                        note: postalFaultReason.value
                     });
                     Utils.showToast('Đã Xác Nhận Lỗi Bưu Chính', `Vận đơn ${code} đã được miễn toàn bộ cước hoàn (0 VNĐ).`);
                     showPostalFaultModal.value = false;
@@ -798,6 +979,8 @@
                     list = list.filter(r => 
                         (r.trackingCode && r.trackingCode.toLowerCase().includes(q)) ||
                         (r.reason && r.reason.toLowerCase().includes(q)) ||
+                        (r.reasonNote && r.reasonNote.toLowerCase().includes(q)) ||
+                        (r.reasonCode && r.reasonCode.toLowerCase().includes(q)) ||
                         (r.notes && r.notes.toLowerCase().includes(q))
                     );
                 }
@@ -1027,11 +1210,13 @@
                         senderName: form.senderName.trim(),
                         senderPhone: cleanSenderPhone,
                         senderAddress: senderAddress,
+                        senderProvince: form.senderProvince || '',
                         senderLatitude: verifiedSenderAddress.value ? Number(verifiedSenderAddress.value.lat) : null,
                         senderLongitude: verifiedSenderAddress.value ? Number(verifiedSenderAddress.value.lon) : null,
                         receiverName: form.receiverName.trim(),
                         receiverPhone: cleanReceiverPhone,
                         receiverAddress: receiverAddress,
+                        receiverProvince: form.receiverProvince || '',
                         receiverLatitude: verifiedAddress.value ? Number(verifiedAddress.value.lat) : null,
                         receiverLongitude: verifiedAddress.value ? Number(verifiedAddress.value.lon) : null,
                         serviceType: form.serviceType,
@@ -1053,7 +1238,7 @@
                         receiverAddress: payload.receiverAddress,
                         shippingFee: res.shippingFee || res.totalFee || totalEstimatedFee.value || 35000,
                         totalFee: res.totalFee || res.shippingFee || totalEstimatedFee.value || 35000,
-                        senderName: (senderMode.value === 'B2B' ? (customersList.value.find(c => c.id === form.customerId)?.fullName || 'Đối Tác Ký Gửi') : (myProfile.value?.fullName || 'Khách Gửi Tại Quầy')),
+                        senderName: payload.senderName || (senderMode.value === 'B2B' ? (customersList.value.find(c => c.id === form.customerId)?.fullName || 'Đối Tác Ký Gửi') : (myProfile.value?.fullName || 'Khách Gửi Tại Quầy')),
                         weight: payload.weight,
                         serviceType: payload.serviceType
                     };
@@ -1062,6 +1247,14 @@
                     form.receiverPhone = '';
                     form.receiverDetail = '';
                     clearVerifiedAddress();
+
+                    if (canCreateForOthers.value && senderMode.value === 'RETAIL') {
+                        form.senderName = '';
+                        form.senderPhone = '';
+                        form.senderDetail = '';
+                        senderAddressQuery.value = '';
+                        clearVerifiedSenderAddress();
+                    }
 
                     showOrderSuccessPrompt.value = true;
                     await loadShipments();
@@ -1074,7 +1267,6 @@
 
             const viewTracking = (trackingCode) => {
                 emit('view-tracking', trackingCode, 'shipment');
-                emit('created-shipment', trackingCode);
             };
 
             const showCheckoutModal = ref(false);
@@ -1504,18 +1696,18 @@
                             </p>
                         </div>
 
-                        <div class="flex items-center space-x-2 self-start sm:self-auto">
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[68px]">
+                        <div class="grid grid-cols-3 sm:flex sm:items-stretch gap-2 w-full sm:w-auto">
+                            <div class="flex flex-col justify-center px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[78px]">
                                 <div class="text-sm sm:text-base font-bold leading-tight">{{ hubsList.length }}</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Kho Tổng Hub</div>
+                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5 whitespace-nowrap">Kho Tổng Hub</div>
                             </div>
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[72px]">
+                            <div class="flex flex-col justify-center px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[78px]">
                                 <div class="text-sm sm:text-base font-bold leading-tight font-mono text-amber-300">{{ shipmentsList.length }}</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Bưu Gửi</div>
+                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5 whitespace-nowrap">Bưu Gửi</div>
                             </div>
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[80px]">
-                                <div class="text-sm sm:text-base font-bold leading-tight text-emerald-300">{{ Utils.formatCurrency(stats.totalCod) }}</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">COD Ký Gửi</div>
+                            <div class="flex flex-col justify-center px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[92px]">
+                                <div class="text-xs sm:text-sm font-bold leading-tight font-mono text-emerald-300">{{ Utils.formatCurrency(stats.totalCod) }}</div>
+                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5 whitespace-nowrap">COD Ký Gửi</div>
                             </div>
                         </div>
                     </div>
@@ -1927,23 +2119,43 @@
                                                 <input 
                                                     v-model="senderAddressQuery"
                                                     @input="onSenderAddressInput"
+                                                    @focus="onSenderAddressInput"
+                                                    @keydown.enter.prevent="senderAddressSuggestions.length > 0 && selectSenderAddressSuggestion(senderAddressSuggestions[0])"
+                                                    @keydown.escape="showSenderAddressDropdown = false"
                                                     type="text" 
                                                     maxlength="255"
-                                                    placeholder="Gõ số nhà, tên đường, quận/huyện kho gửi..." 
-                                                    class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 bg-slate-50/70 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
+                                                    placeholder="Gõ số nhà, tên đường, quận/huyện kho gửi (VD: Cầu Giấy)..." 
+                                                    class="w-full px-3 pr-8 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 bg-slate-50/70 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
                                                 />
                                                 <span v-if="isSearchingSenderAddress" class="absolute right-3 top-2 w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
+                                                <button
+                                                    v-else-if="senderAddressQuery && !verifiedSenderAddress"
+                                                    type="button"
+                                                    @click="onSenderAddressInput"
+                                                    title="Định vị địa chỉ"
+                                                    class="absolute right-2.5 top-1.5 text-blue-600 hover:text-blue-800 p-0.5 cursor-pointer"
+                                                >
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                                </button>
                                             </div>
 
-                                            <div v-if="showSenderAddressDropdown && senderAddressSuggestions.length > 0" class="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto divide-y divide-slate-100 text-xs">
+                                            <div v-if="showSenderAddressDropdown && senderAddressSuggestions.length > 0" class="absolute z-30 left-0 right-0 mt-1 bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                                                 <div 
                                                     v-for="(item, idx) in senderAddressSuggestions" 
                                                     :key="idx"
-                                                    @click="selectSenderAddressSuggestion(item)"
-                                                    class="p-2.5 hover:bg-blue-50 cursor-pointer transition text-left"
+                                                    @mousedown.prevent="selectSenderAddressSuggestion(item)"
+                                                    class="p-2.5 hover:bg-blue-50 dark:hover:bg-[#19264c] cursor-pointer transition text-left"
                                                 >
-                                                    <div class="font-medium text-slate-800 leading-snug">{{ item.display_name }}</div>
-                                                    <div class="text-[10px] text-slate-400 font-mono mt-0.5" v-if="item.lat">Tọa độ: {{ Number(item.lat).toFixed(4) }}, {{ Number(item.lon).toFixed(4) }}</div>
+                                                    <div class="font-semibold text-slate-800 dark:text-slate-100 leading-snug flex items-start justify-between gap-2">
+                                                        <span>{{ item.display_name }}</span>
+                                                        <span v-if="item.postOfficeCode" class="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 font-mono text-[9.5px] font-bold shrink-0">
+                                                            {{ item.postOfficeCode }}
+                                                        </span>
+                                                    </div>
+                                                    <div class="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center justify-between" v-if="item.lat">
+                                                        <span>GPS: {{ Number(item.lat).toFixed(4) }}, {{ Number(item.lon).toFixed(4) }}</span>
+                                                        <span v-if="item.postOfficeName" class="text-emerald-600 dark:text-emerald-400 font-sans font-semibold">{{ item.postOfficeName }}</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -2055,23 +2267,43 @@
                                                 <input 
                                                     v-model="receiverAddressQuery"
                                                     @input="onAddressInput"
+                                                    @focus="onAddressInput"
+                                                    @keydown.enter.prevent="addressSuggestions.length > 0 && selectAddressSuggestion(addressSuggestions[0])"
+                                                    @keydown.escape="showAddressDropdown = false"
                                                     type="text" 
                                                     maxlength="255"
                                                     placeholder="Gõ số nhà, tên đường, quận/huyện để gợi ý..." 
-                                                    class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 bg-slate-50/70 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
+                                                    class="w-full px-3 pr-8 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 bg-slate-50/70 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
                                                 />
                                                 <span v-if="isSearchingAddress" class="absolute right-3 top-2 w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
+                                                <button
+                                                    v-else-if="receiverAddressQuery && !verifiedAddress"
+                                                    type="button"
+                                                    @click="onAddressInput"
+                                                    title="Định vị địa chỉ"
+                                                    class="absolute right-2.5 top-1.5 text-blue-600 hover:text-blue-800 p-0.5 cursor-pointer"
+                                                >
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                                </button>
                                             </div>
 
-                                            <div v-if="showAddressDropdown && addressSuggestions.length > 0" class="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto divide-y divide-slate-100 text-xs">
+                                            <div v-if="showAddressDropdown && addressSuggestions.length > 0" class="absolute z-30 left-0 right-0 mt-1 bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                                                 <div 
                                                     v-for="(item, idx) in addressSuggestions" 
                                                     :key="idx"
-                                                    @click="selectAddressSuggestion(item)"
-                                                    class="p-2.5 hover:bg-blue-50 cursor-pointer transition text-left"
+                                                    @mousedown.prevent="selectAddressSuggestion(item)"
+                                                    class="p-2.5 hover:bg-blue-50 dark:hover:bg-[#19264c] cursor-pointer transition text-left"
                                                 >
-                                                    <div class="font-medium text-slate-800 leading-snug">{{ item.display_name }}</div>
-                                                    <div class="text-[10px] text-slate-400 font-mono mt-0.5" v-if="item.lat">Tọa độ: {{ Number(item.lat).toFixed(4) }}, {{ Number(item.lon).toFixed(4) }}</div>
+                                                    <div class="font-semibold text-slate-800 dark:text-slate-100 leading-snug flex items-start justify-between gap-2">
+                                                        <span>{{ item.display_name }}</span>
+                                                        <span v-if="item.postOfficeCode" class="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 font-mono text-[9.5px] font-bold shrink-0">
+                                                            {{ item.postOfficeCode }}
+                                                        </span>
+                                                    </div>
+                                                    <div class="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center justify-between" v-if="item.lat">
+                                                        <span>GPS: {{ Number(item.lat).toFixed(4) }}, {{ Number(item.lon).toFixed(4) }}</span>
+                                                        <span v-if="item.postOfficeName" class="text-emerald-600 dark:text-emerald-400 font-sans font-semibold">{{ item.postOfficeName }}</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -2222,6 +2454,22 @@
                                 </p>
                             </div>
                         </div>
+
+                        <!-- Mobile Sticky Bottom Action Bar (< 1024px) -->
+                        <div class="lg:hidden sticky bottom-2 z-30 bg-white/95 dark:bg-[#131e3a]/95 backdrop-blur-md border border-blue-200 dark:border-blue-800/80 rounded-2xl p-3 shadow-xl flex items-center justify-between gap-3">
+                            <div>
+                                <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Tổng cước ước tính</div>
+                                <div class="text-base font-black font-mono text-blue-700 dark:text-blue-300">{{ Utils.formatCurrency(totalEstimatedFee) }}</div>
+                            </div>
+                            <button
+                                type="submit"
+                                :disabled="isSubmitting"
+                                class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 shadow-md shadow-blue-500/20 flex items-center justify-center space-x-2 shrink-0"
+                            >
+                                <span v-if="isSubmitting" class="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></span>
+                                <span>{{ isSubmitting ? 'Đang Xử Lý...' : 'Xuất Vận Đơn' }}</span>
+                            </button>
+                        </div>
                     </form>
                 </div>
 
@@ -2276,7 +2524,7 @@
                                     v-if="hasReadAllPermission && customersList.length > 0"
                                     v-model="selectedCustomerFilter"
                                     @change="loadShipments"
-                                    class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
+                                    class="flex-1 sm:flex-none px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                                 >
                                     <option value="">Tất cả khách hàng</option>
                                     <option v-for="c in customersList" :key="c.id" :value="c.id">
@@ -2286,7 +2534,7 @@
 
                                 <select 
                                     v-model="selectedStatusFilter"
-                                    class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
+                                    class="flex-1 sm:flex-none px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                                 >
                                     <option value="ALL">Tất cả trạng thái ({{ shipmentsList.length }})</option>
                                     <option value="PENDING_ROUTING">Chờ định tuyến bưu cục</option>
@@ -2305,7 +2553,7 @@
                                 <button 
                                     type="button"
                                     @click="switchSubtab('create')"
-                                    class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-sm shadow-blue-500/20 whitespace-nowrap"
+                                    class="w-full sm:w-auto px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-sm shadow-blue-500/20 whitespace-nowrap"
                                 >
                                     + Tạo Đơn Mới
                                 </button>
@@ -2335,7 +2583,112 @@
                             </div>
                         </div>
 
-                        <div v-else class="overflow-x-auto">
+                        <template v-else>
+                            <!-- Mobile Card List (< 768px) -->
+                            <div class="md:hidden divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                                <div v-for="s in paginatedShipments" :key="'mob-ship-' + s.id" class="p-3.5 space-y-2.5">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div>
+                                            <div class="flex items-center gap-1.5">
+                                                <button
+                                                    type="button"
+                                                    @click="viewTracking(s.trackingCode)"
+                                                    class="font-mono font-bold text-blue-700 hover:underline text-xs"
+                                                >
+                                                    {{ s.trackingCode }}
+                                                </button>
+                                                <span
+                                                    :class="s.serviceType === 'EXPRESS' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-700 border-slate-200'"
+                                                    class="px-1.5 py-0.5 rounded text-[9px] font-bold border"
+                                                >
+                                                    {{ s.serviceType === 'EXPRESS' ? 'HỎA TỐC' : 'TIÊU CHUẨN' }}
+                                                </span>
+                                            </div>
+                                            <div class="text-[10px] font-mono text-slate-400 mt-0.5">
+                                                {{ Utils.formatTime(s.createdAt) }}
+                                            </div>
+                                        </div>
+                                        <span :class="['inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0', Utils.getStatusBadgeClass(s.currentStatus)]">
+                                            <span class="w-1.5 h-1.5 rounded-full mr-1 bg-current opacity-80"></span>
+                                            {{ Utils.formatStatusText(s.currentStatus) }}
+                                        </span>
+                                    </div>
+
+                                    <div class="bg-slate-50 dark:bg-slate-900/60 rounded-lg p-2.5 border border-slate-200/70 dark:border-slate-800 space-y-1">
+                                        <div class="flex items-center justify-between gap-2 text-xs">
+                                            <div class="font-bold text-slate-800 dark:text-slate-100 truncate">
+                                                <span>{{ s.senderName }}</span>
+                                                <span class="text-slate-400 mx-1">&rarr;</span>
+                                                <span class="text-blue-700 dark:text-blue-300">{{ s.receiverName }}</span>
+                                            </div>
+                                            <a
+                                                v-if="s.receiverPhone"
+                                                :href="'tel:' + s.receiverPhone"
+                                                class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono font-bold text-[10.5px] shrink-0"
+                                            >
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                                                <span>{{ s.receiverPhone }}</span>
+                                            </a>
+                                        </div>
+                                        <div class="text-[11px] text-slate-500 truncate">
+                                            {{ s.receiverAddress || 'Chưa cập nhật địa chỉ nhận' }}
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center justify-between pt-0.5">
+                                        <div class="flex items-center gap-3">
+                                            <div>
+                                                <span class="text-[10px] text-slate-400 block">Thu hộ COD</span>
+                                                <span class="font-mono font-bold text-xs" :class="s.codAmount > 0 ? 'text-emerald-600' : 'text-slate-500'">
+                                                    {{ Utils.formatCurrency(s.codAmount) }}
+                                                </span>
+                                            </div>
+                                            <div class="text-[11px] font-mono text-slate-500 border-l border-slate-200 pl-3">
+                                                KL: <strong class="text-slate-700">{{ s.weight }} kg</strong>
+                                            </div>
+                                        </div>
+
+                                        <div class="inline-flex items-center gap-1.5">
+                                            <button
+                                                v-if="s.currentStatus !== 'CANCELLED' && !isShipmentPaid(s)"
+                                                type="button"
+                                                @click="openCheckoutModal(s)"
+                                                class="px-2.5 py-1.5 bg-emerald-600 text-white rounded-lg text-[11px] font-bold transition shadow-xs"
+                                            >
+                                                Trả Cước
+                                            </button>
+                                            <button
+                                                v-else-if="s.currentStatus !== 'CANCELLED'"
+                                                type="button"
+                                                @click="openCheckoutModal(s)"
+                                                class="px-2 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg text-[11px] font-bold"
+                                            >
+                                                Đã Thu
+                                            </button>
+                                            <button
+                                                type="button"
+                                                @click="viewTracking(s.trackingCode)"
+                                                class="p-1.5 bg-blue-50 text-blue-700 rounded-lg border border-blue-200"
+                                                title="Hành trình"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+                                            </button>
+                                            <button
+                                                v-if="canCancelShipment(s)"
+                                                type="button"
+                                                @click="openCancelModal(s)"
+                                                class="p-1.5 bg-rose-50 text-rose-700 rounded-lg border border-rose-200"
+                                                title="Hủy đơn"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Desktop Table (>= 768px) -->
+                            <div class="hidden md:block overflow-x-auto">
                             <table class="w-full text-left border-collapse table-auto">
                                 <thead>
                                     <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-extrabold text-slate-600 uppercase tracking-wider">
@@ -2496,7 +2849,8 @@
                                     </tr>
                                 </tbody>
                             </table>
-                        </div>
+                            </div>
+                        </template>
 
                         <div v-if="filteredShipments.length > 0" class="p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
                             <div>
@@ -2574,7 +2928,7 @@
                             v-for="d in pendingDecisions" 
                             :key="d.id"
                             class="b2b-card bg-white border rounded-xl p-4 shadow-sm space-y-3 transition-all hover:shadow-md"
-                            :class="isDecisionUrgent(d.deadline) ? 'border-rose-300 ring-1 ring-rose-300/50' : 'border-slate-200 hover:border-blue-300'"
+                            :class="isDecisionUrgent(d.decisionDeadline || d.deadline) ? 'border-rose-300 ring-1 ring-rose-300/50' : 'border-slate-200 hover:border-blue-300'"
                         >
                             <!-- Card Header -->
                             <div class="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
@@ -2597,8 +2951,8 @@
                                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                                         </button>
                                     </div>
-                                    <span class="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold" :class="d.failureCount >= 2 ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-amber-100 text-amber-800 border border-amber-200'">
-                                        Giao thất bại lần {{ d.failureCount }}/3
+                                    <span class="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold" :class="(d.attemptNo || d.failureCount || 1) >= 2 ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-amber-100 text-amber-800 border border-amber-200'">
+                                        Giao thất bại lần {{ d.attemptNo || d.failureCount || 1 }}/3
                                     </span>
                                 </div>
 
@@ -2606,10 +2960,10 @@
                                 <div class="text-right">
                                     <div 
                                         class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold shadow-2xs border"
-                                        :class="isDecisionUrgent(d.deadline) ? 'bg-rose-50 text-rose-700 border-rose-300 animate-pulse' : 'bg-amber-50 text-amber-800 border-amber-200'"
+                                        :class="isDecisionUrgent(d.decisionDeadline || d.deadline) ? 'bg-rose-50 text-rose-700 border-rose-300 animate-pulse' : 'bg-amber-50 text-amber-800 border-amber-200'"
                                     >
                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                        <span>{{ formatRemainingTime(d.deadline) }}</span>
+                                        <span>{{ formatRemainingTime(d.decisionDeadline || d.deadline) }}</span>
                                     </div>
                                     <div class="text-[9.5px] text-slate-400 mt-0.5 font-medium">Hạn tự động giao lại</div>
                                 </div>
@@ -2622,21 +2976,21 @@
                                     <span>Lý do shipper báo:</span>
                                 </div>
                                 <div class="text-slate-800 font-medium text-[11.5px] pl-5">
-                                    {{ d.reason || 'Khách không nghe máy / Thuê bao' }}
+                                    {{ d.failureReason || d.reason || 'Khách không nghe máy / Thuê bao' }}
                                 </div>
-                                <div v-if="d.notes" class="text-slate-500 text-[10.5px] italic pl-5">
-                                    "{{ d.notes }}"
+                                <div v-if="d.decisionNote || d.notes" class="text-slate-500 text-[10.5px] italic pl-5">
+                                    "{{ d.decisionNote || d.notes }}"
                                 </div>
                             </div>
 
                             <!-- Receiver info -->
                             <div class="text-xs space-y-1 text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-200/60">
                                 <div class="flex items-center justify-between">
-                                    <span class="font-bold text-slate-800 text-[11.5px]">{{ d.shipment?.receiverName || 'Người nhận' }}</span>
-                                    <span class="font-mono text-slate-700 font-bold text-[11px]">{{ d.shipment?.receiverPhone || 'N/A' }}</span>
+                                    <span class="font-bold text-slate-800 text-[11.5px]">{{ d.receiverName || d.shipment?.receiverName || 'Người nhận' }}</span>
+                                    <span class="font-mono text-slate-700 font-bold text-[11px]">{{ d.receiverPhone || d.shipment?.receiverPhone || 'N/A' }}</span>
                                 </div>
-                                <div class="text-[10.5px] text-slate-500 line-clamp-2" :title="d.shipment?.receiverAddress">
-                                    {{ d.shipment?.receiverAddress || 'N/A' }}
+                                <div class="text-[10.5px] text-slate-500 line-clamp-2" :title="d.receiverAddress || d.shipment?.receiverAddress">
+                                    {{ d.receiverAddress || d.shipment?.receiverAddress || 'N/A' }}
                                 </div>
                             </div>
 
@@ -2731,13 +3085,14 @@
                                     class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                                 >
                                     <option value="ALL">Tất cả trạng thái ({{ returnRequestsList.length }})</option>
-                                    <option value="CONFIRMED">Đã xác nhận hoàn</option>
-                                    <option value="PROCESSING">Đang xử lý hoàn</option>
+                                    <option value="APPROVED">Đã xác nhận hoàn</option>
                                     <option value="COMPLETED">Đã hoàn tất</option>
+                                    <option value="REJECTED">Bị từ chối</option>
                                     <option value="DOORSTEP">Phát hoàn tận nơi</option>
                                     <option value="COUNTER_PICKUP">Nhận tại bưu cục</option>
                                     <option value="PREPAID">Đã trả trước cước</option>
-                                    <option value="PAY_ON_RECEIPT">Thu cước khi nhận</option>
+                                    <option value="UNPAID">Chưa thanh toán</option>
+                                    <option value="PAID_ON_RETURN">Đã thu khi hoàn</option>
                                     <option value="WAIVED">Miễn cước (Lỗi bưu chính)</option>
                                 </select>
 
@@ -2806,13 +3161,13 @@
                                             <div class="flex items-center space-x-1.5">
                                                 <span 
                                                     class="px-1.5 py-0.2 rounded text-[9.5px] font-bold"
-                                                    :class="r.initiator === 'CUSTOMER' ? 'bg-blue-50 text-blue-700 border border-blue-200' : (r.initiator === 'SYSTEM' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-purple-50 text-purple-700 border border-purple-200')"
+                                                    :class="r.initiator === 'CUSTOMER' ? 'bg-blue-50 text-blue-700 border border-blue-200' : ((r.initiator === 'SYSTEM' || r.initiator === 'AUTO_MAX_FAILED' || r.initiator === 'RECEIVER_REFUSED') ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-purple-50 text-purple-700 border border-purple-200')"
                                                 >
-                                                    {{ r.initiator === 'CUSTOMER' ? 'Shop yêu cầu' : (r.initiator === 'SYSTEM' ? 'Tự động (3 lần)' : 'CSKH điều phối') }}
+                                                    {{ r.initiator === 'CUSTOMER' ? 'Shop yêu cầu' : ((r.initiator === 'SYSTEM' || r.initiator === 'AUTO_MAX_FAILED') ? 'Tự động (3 lần)' : (r.initiator === 'RECEIVER_REFUSED' ? 'Khách từ chối nhận' : 'CSKH điều phối')) }}
                                                 </span>
                                             </div>
-                                            <div class="text-[11px] text-slate-700 font-medium truncate mt-0.5" :title="r.reason">
-                                                {{ r.reason || 'N/A' }}
+                                            <div class="text-[11px] text-slate-700 font-medium truncate mt-0.5" :title="r.reasonNote || r.reasonCode || r.reason">
+                                                {{ r.reasonNote || r.reasonCode || r.reason || 'N/A' }}
                                             </div>
                                         </td>
 
@@ -2852,10 +3207,16 @@
                                                     Miễn phí (Lỗi BC)
                                                 </span>
                                                 <span 
+                                                    v-else-if="r.feePaymentStatus === 'PAID_ON_RETURN'" 
+                                                    class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                                >
+                                                    Đã thu khi hoàn
+                                                </span>
+                                                <span 
                                                     v-else 
                                                     class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-slate-100 text-slate-600 border border-slate-200"
                                                 >
-                                                    Thu khi nhận
+                                                    Chưa thanh toán
                                                 </span>
                                             </div>
                                         </td>
@@ -2863,9 +3224,9 @@
                                         <td class="py-3 px-3.5 whitespace-nowrap">
                                             <span 
                                                 class="px-2 py-0.5 rounded-full text-[10.5px] font-bold border"
-                                                :class="r.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'"
+                                                :class="r.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : (r.status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-800 border-amber-200')"
                                             >
-                                                {{ r.status === 'COMPLETED' ? 'Đã hoàn tất' : (r.status === 'PROCESSING' ? 'Đang luân chuyển' : 'Đã xác nhận') }}
+                                                {{ r.status === 'COMPLETED' ? 'Đã hoàn tất' : (r.status === 'APPROVED' ? 'Đã duyệt hoàn' : (r.status === 'REJECTED' ? 'Bị từ chối' : r.status)) }}
                                             </span>
                                         </td>
 
@@ -3235,7 +3596,7 @@
                                     </div>
                                     <div class="flex justify-between items-center">
                                         <span class="text-slate-500">Gói cước:</span>
-                                        <span class="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-[10.5px]">{{ checkoutTargetShipment?.serviceType === 'EXPRESS' ? 'Waybill Hỏa Tốc' : 'Waybill Tiêu Chuẩn' }}</span>
+                                        <span class="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-[10.5px]">{{ checkoutTargetShipment?.serviceType === 'EXPRESS' ? 'Waybill Hỏa Tốc' : (checkoutTargetShipment?.serviceType === 'ECO' ? 'Waybill Tiết Kiệm' : 'Waybill Tiêu Chuẩn') }}</span>
                                     </div>
                                 </div>
 
@@ -3328,7 +3689,7 @@
                                             </div>
                                             <div class="flex justify-between items-center border-t border-slate-100 pt-1.5">
                                                 <span class="text-slate-500">Nội dung:</span>
-                                                <span class="font-mono font-bold text-blue-700">CUOC {{ checkoutTargetShipment?.trackingCode }}</span>
+                                                <span class="font-mono font-bold text-blue-700">{{ checkoutTargetShipment?._isReturnFee ? 'HOAN ' : 'CUOC ' }}{{ checkoutTargetShipment?.trackingCode }}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -3524,10 +3885,10 @@
                                 <div class="flex items-center justify-between border-b border-slate-200/70 pb-2">
                                     <div>
                                         <div class="font-bold text-slate-800 text-[11.5px]">Phí Chuyển Hoàn Bưu Gửi:</div>
-                                        <div v-if="returnQuoteData?.postalFault" class="text-[10px] text-purple-600 font-bold">Miễn phí hoàn do lỗi bưu chính</div>
+                                        <div v-if="returnQuoteData?.isPostalFault || returnQuoteData?.postalFault" class="text-[10px] text-purple-600 font-bold">Miễn phí hoàn do lỗi bưu chính</div>
                                     </div>
-                                    <div class="font-mono text-base font-extrabold" :class="returnQuoteData?.postalFault ? 'text-purple-600' : 'text-blue-700'">
-                                        {{ Utils.formatCurrency(returnQuoteData?.returnFee || 17500) }}
+                                    <div class="font-mono text-base font-extrabold" :class="(returnQuoteData?.isPostalFault || returnQuoteData?.postalFault) ? 'text-purple-600' : 'text-blue-700'">
+                                        {{ Utils.formatCurrency(returnQuoteData?.estimatedReturnFee ?? returnQuoteData?.returnFee ?? 17500) }}
                                     </div>
                                 </div>
 

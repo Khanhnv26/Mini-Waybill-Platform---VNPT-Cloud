@@ -95,10 +95,10 @@
                     <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] rounded-full bg-indigo-600/10 blur-[140px]"></div>
                 </div>
 
-                <div class="relative z-10 max-w-5xl w-full bg-white rounded-3xl shadow-2xl shadow-black/40 border border-slate-700/20 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[640px] card-entrance">
+                <div class="relative z-10 max-w-5xl w-full bg-white rounded-3xl shadow-2xl shadow-black/40 border border-slate-700/20 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-0 lg:min-h-[640px] card-entrance">
                     
                     <!-- Left Column: Branding & Value Proposition -->
-                    <div class="lg:col-span-5 vnpt-gradient text-white p-8 sm:p-10 flex flex-col justify-between relative overflow-hidden border-r border-blue-900/30">
+                    <div class="lg:col-span-5 vnpt-gradient text-white p-5 sm:p-8 lg:p-10 flex flex-col justify-between relative overflow-hidden border-b lg:border-b-0 lg:border-r border-blue-900/30">
                         <div class="absolute inset-0 opacity-10 pointer-events-none grid-pulse" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 20px 20px;"></div>
                         <div class="absolute -right-20 -top-20 w-64 h-64 bg-blue-400/20 rounded-full blur-3xl pointer-events-none"></div>
 
@@ -117,7 +117,7 @@
                             </div>
                         </div>
 
-                        <div class="relative z-10 my-8 space-y-4 stagger-2">
+                        <div class="hidden lg:block relative z-10 my-8 space-y-4 stagger-2">
                             <div>
                                 <span class="text-[10px] uppercase tracking-widest font-mono font-semibold text-blue-200">Hệ sinh thái số toàn trình</span>
                                 <h2 class="text-xl sm:text-2xl font-bold text-white mt-1 leading-snug">
@@ -140,14 +140,14 @@
                             </div>
                         </div>
 
-                        <div class="relative z-10 pt-4 border-t border-white/15 flex items-center justify-between text-[11px] text-blue-100/70 stagger-3">
+                        <div class="hidden lg:flex relative z-10 pt-4 border-t border-white/15 items-center justify-between text-[11px] text-blue-100/70 stagger-3">
                             <span>HỆ THỐNG ĐIỀU PHỐI VẬN ĐƠN BƯU CHÍNH</span>
                             <span class="font-mono text-[10px]">WAYBILL 2026</span>
                         </div>
                     </div>
 
                     <!-- Right Column: Authentication Forms -->
-                    <div class="lg:col-span-7 p-8 sm:p-12 flex flex-col justify-between bg-white">
+                    <div class="lg:col-span-7 p-6 sm:p-10 lg:p-12 flex flex-col justify-between bg-white">
                         <div>
                             <!-- Tab Switcher -->
                             <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-6 stagger-1">
@@ -265,7 +265,7 @@
                                                 placeholder="khachhang@company.com" 
                                                 class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-vnpt-500 input-glow-focus transition-all" />
                                         </div>
-                                        <div class="grid grid-cols-2 gap-2.5">
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                                             <div>
                                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Mật khẩu (≥ 6 ký tự)</label>
                                                 <input 
@@ -397,7 +397,7 @@
                                             </div>
                                         </div>
 
-                                        <div class="grid grid-cols-2 gap-2.5">
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                                             <div>
                                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Mật khẩu mới (≥ 6 ký tự)</label>
                                                 <input 

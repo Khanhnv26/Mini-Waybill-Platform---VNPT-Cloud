@@ -12,8 +12,18 @@
             const isActionRunning = ref(false);
 
             const shipmentsList = ref([]);
+            const paidTrackingCodes = ref(new Set());
             const searchQuery = ref('');
             const selectedStatusFilter = ref('ALL');
+
+            const isShipmentPaidOnline = (shipment) => {
+                if (!shipment) return false;
+                const code = shipment.trackingCode ? String(shipment.trackingCode).trim() : '';
+                if (code && paidTrackingCodes.value.has(code)) return true;
+                if (shipment.isPaid === true || shipment.paymentStatus === 'PAID') return true;
+                if (shipment.codSettlementStatus === 'SETTLED' && shipment.codSettledBy === 'VIETQR_GATEWAY') return true;
+                return false;
+            };
 
             const currentPage = ref(1);
             const pageSize = ref(10);
@@ -420,7 +430,23 @@
             const loadShipmentsData = async (silent = false) => {
                 if (!silent) isLoading.value = true;
                 try {
-                    const data = await ShipmentService.getAll();
+                    const [dataRes, paidCodesRes] = await Promise.allSettled([
+                        ShipmentService.getAll(),
+                        typeof PaymentService !== 'undefined' && typeof PaymentService.getPaidTrackingCodes === 'function'
+                            ? PaymentService.getPaidTrackingCodes()
+                            : Promise.resolve([])
+                    ]);
+                    if (paidCodesRes.status === 'fulfilled' && Array.isArray(paidCodesRes.value)) {
+                        const nextSet = new Set(paidTrackingCodes.value);
+                        paidCodesRes.value.forEach(c => {
+                            if (c && String(c).trim()) nextSet.add(String(c).trim());
+                        });
+                        paidTrackingCodes.value = nextSet;
+                    }
+                    if (dataRes.status === 'rejected') {
+                        throw dataRes.reason;
+                    }
+                    const data = dataRes.value;
                     if (Array.isArray(data)) {
                         // Bảo vệ trạng thái vừa cập nhật lạc quan trong vòng 4s phòng trường hợp Kafka consumer chưa commit kịp
                         shipmentsList.value = data.map(newItem => {
@@ -453,12 +479,40 @@
                 }
             };
 
+            const isAdmin = computed(() => {
+                try {
+                    return typeof Auth !== 'undefined' && typeof Auth.hasRole === 'function'
+                        && (Auth.hasRole('ROLE_ADMIN') || Auth.hasRole('ADMIN'));
+                } catch (e) {
+                    return false;
+                }
+            });
+
+            const userStation = computed(() => {
+                try {
+                    const user = typeof Auth !== 'undefined' && typeof Auth.getUser === 'function' ? Auth.getUser() : null;
+                    const loc = (typeof Auth !== 'undefined' && typeof Auth.getLocationCode === 'function' ? Auth.getLocationCode() : '')
+                        || user?.locationCode || user?.postOfficeCode || '';
+                    return loc ? String(loc).trim().toUpperCase() : '';
+                } catch (e) {
+                    return '';
+                }
+            });
+
             const deliveryShipments = computed(() => {
                 const finalMileStatuses = new Set([
                     'ARRIVED_DEST_HUB', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED',
                     'DELIVERED', 'RETURNING', 'OUT_FOR_RETURN', 'RETURNED'
                 ]);
-                return shipmentsList.value.filter(item => finalMileStatuses.has(getShipmentStatus(item)));
+                let items = shipmentsList.value.filter(item => finalMileStatuses.has(getShipmentStatus(item)));
+                if (userStation.value && !isAdmin.value) {
+                    items = items.filter(item => {
+                        const dest = getDestinationPostOfficeInfo(item, null, true);
+                        const loc = normalizeLocationCode(item.locationCode);
+                        return dest.code === userStation.value || loc === userStation.value;
+                    });
+                }
+                return items;
             });
 
             // 3. Lọc theo trạng thái + tìm kiếm. "Chờ nhận đi phát" chỉ gồm kiện đã
@@ -505,31 +559,31 @@
             });
 
             const kpiAwaitingDispatch = computed(() => {
-                return shipmentsList.value.filter(s => getShipmentStatus(s) === 'ARRIVED_DEST_HUB' && isAtDestinationPostOffice(s)).length;
+                return deliveryShipments.value.filter(s => getShipmentStatus(s) === 'ARRIVED_DEST_HUB' && isAtDestinationPostOffice(s)).length;
             });
 
             const kpiOutForDelivery = computed(() => {
-                return shipmentsList.value.filter(s => getShipmentStatus(s) === 'OUT_FOR_DELIVERY').length;
+                return deliveryShipments.value.filter(s => getShipmentStatus(s) === 'OUT_FOR_DELIVERY').length;
             });
 
             const kpiDeliveredCount = computed(() => {
-                return shipmentsList.value.filter(s => getShipmentStatus(s) === 'DELIVERED').length;
+                return deliveryShipments.value.filter(s => getShipmentStatus(s) === 'DELIVERED').length;
             });
 
             const kpiTotalDeliveredCod = computed(() => {
-                return shipmentsList.value
+                return deliveryShipments.value
                     .filter(s => getShipmentStatus(s) === 'DELIVERED')
                     .reduce((acc, cur) => acc + (cur.codAmount || 0), 0);
             });
 
             const kpiPendingCod = computed(() => {
-                return shipmentsList.value
+                return deliveryShipments.value
                     .filter(s => getShipmentStatus(s) === 'OUT_FOR_DELIVERY')
                     .reduce((acc, cur) => acc + (cur.codAmount || 0), 0);
             });
 
             const kpiReturningCount = computed(() => {
-                return shipmentsList.value.filter(s => getShipmentStatus(s) === 'RETURNING' || getShipmentStatus(s) === 'OUT_FOR_RETURN').length;
+                return deliveryShipments.value.filter(s => getShipmentStatus(s) === 'RETURNING' || getShipmentStatus(s) === 'OUT_FOR_RETURN').length;
             });
 
             const updateOptimisticShipment = (trackingCode, status, locationCode = null) => {
@@ -695,7 +749,7 @@
                 }
             };
 
-            const openDeliveryActionModal = (shipment) => {
+            const openDeliveryActionModal = async (shipment) => {
                 if (!canShowDeliveryActions(shipment)) {
                     Utils.showToast('Chưa Thể Phát', 'Bưu gửi chưa có xác nhận đang ở bưu cục phát hoặc trạng thái đã thay đổi. Vui lòng làm mới dữ liệu.', 'warning');
                     loadRoutingProjection(shipment, true).catch(() => null);
@@ -715,6 +769,18 @@
                 if (qrInterval) clearInterval(qrInterval);
                 if (qrPollInterval) clearInterval(qrPollInterval);
                 showDeliveryActionModal.value = true;
+
+                // Kiểm tra thời gian thực trạng thái thanh toán đơn từ PaymentService
+                if (shipment?.trackingCode && typeof PaymentService !== 'undefined' && typeof PaymentService.getPaymentByTracking === 'function') {
+                    try {
+                        const tx = await PaymentService.getPaymentByTracking(shipment.trackingCode);
+                        if (tx && (tx.status === 'SUCCESS' || tx.paymentStatus === 'SUCCESS')) {
+                            const nextSet = new Set(paidTrackingCodes.value);
+                            nextSet.add(String(shipment.trackingCode).trim());
+                            paidTrackingCodes.value = nextSet;
+                        }
+                    } catch (e) {}
+                }
             };
 
             const submitDeliverySuccess = async (isCash = true) => {
@@ -730,9 +796,12 @@
                 isActionRunning.value = true;
                 try {
                     const locationCode = getLastMileLocation(shipment) || 'DELIVERY_OFFICE';
-                    const defaultNote = shipment.codAmount && shipment.codAmount > 0 && isCash
-                        ? `Bưu tá phát thành công tận nơi cho ${shipment.receiverName || 'người nhận'} (đã thu tiền mặt COD ${Utils.formatCurrency(shipment.codAmount)})`
-                        : `Bưu tá phát thành công tận nơi cho ${shipment.receiverName || 'người nhận'}`;
+                    const paidOnline = isShipmentPaidOnline(shipment);
+                    const defaultNote = paidOnline
+                        ? `Bưu tá phát thành công tận nơi cho ${shipment.receiverName || 'người nhận'} (đơn hàng đã thanh toán trước trên hệ thống)`
+                        : (shipment.codAmount && shipment.codAmount > 0 && isCash
+                            ? `Bưu tá phát thành công tận nơi cho ${shipment.receiverName || 'người nhận'} (đã thu tiền mặt COD ${Utils.formatCurrency(shipment.codAmount)})`
+                            : `Bưu tá phát thành công tận nơi cho ${shipment.receiverName || 'người nhận'}`);
                     const noteText = deliverySuccessNote.value && deliverySuccessNote.value.trim()
                         ? `${defaultNote} - Ghi chú: ${deliverySuccessNote.value.trim()}`
                         : defaultNote;
@@ -1184,7 +1253,7 @@
             const showSettlementModal = ref(false);
 
             const deliveredCodShipments = computed(() => {
-                return shipmentsList.value.filter(s => {
+                return deliveryShipments.value.filter(s => {
                     const status = getShipmentStatus(s);
                     const cod = Number(s.codAmount) || 0;
                     return status === 'DELIVERED' && cod > 0;
@@ -1193,17 +1262,18 @@
 
             const unsettledCodShipments = computed(() => {
                 return deliveredCodShipments.value.filter(s => {
+                    if (isShipmentPaidOnline(s)) return false;
                     const st = s.codSettlementStatus || 'UNSETTLED';
                     return st === 'UNSETTLED';
                 });
             });
 
             const pendingCodShipments = computed(() => {
-                return deliveredCodShipments.value.filter(s => s.codSettlementStatus === 'PENDING_SETTLEMENT');
+                return deliveredCodShipments.value.filter(s => !isShipmentPaidOnline(s) && s.codSettlementStatus === 'PENDING_SETTLEMENT');
             });
 
             const settledCodShipments = computed(() => {
-                return deliveredCodShipments.value.filter(s => s.codSettlementStatus === 'SETTLED');
+                return deliveredCodShipments.value.filter(s => s.codSettlementStatus === 'SETTLED' || isShipmentPaidOnline(s));
             });
 
             const kpiSettledCodAmount = computed(() => {
@@ -1242,7 +1312,7 @@
             };
 
             const selectedCodTotalAmount = computed(() => {
-                return shipmentsList.value
+                return deliveryShipments.value
                     .filter(s => selectedCodCodes.value.includes(s.trackingCode))
                     .reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0);
             });
@@ -1304,7 +1374,14 @@
                 }
             };
 
-            const getCodSettlementVisuals = (status) => {
+            const getCodSettlementVisuals = (status, item = null) => {
+                if (item && isShipmentPaidOnline(item)) {
+                    return {
+                        label: 'Đã Thanh Toán Online',
+                        badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                        isPulse: false
+                    };
+                }
                 const s = (status || 'UNSETTLED').toUpperCase();
                 if (s === 'SETTLED') {
                     return {
@@ -1356,6 +1433,8 @@
             });
 
             return {
+                isAdmin,
+                userStation,
                 currentSubtab,
                 shipperForecast,
                 isForecastLoading,
@@ -1363,6 +1442,8 @@
                 isLoading,
                 isActionRunning,
                 shipmentsList,
+                paidTrackingCodes,
+                isShipmentPaidOnline,
                 searchQuery,
                 selectedStatusFilter,
                 currentPage,
@@ -1468,26 +1549,26 @@
                         </p>
                     </div>
 
-                    <div class="flex items-center space-x-2 self-start sm:self-auto">
-                        <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[76px]">
+                    <div class="grid grid-cols-2 sm:flex sm:items-stretch gap-2 w-full sm:w-auto">
+                        <div class="flex flex-col justify-center px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[88px]">
                             <div class="text-sm sm:text-base font-bold leading-tight text-amber-300">{{ kpiAwaitingDispatch }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Chờ Bàn Giao Phát</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5 whitespace-nowrap">Chờ Bàn Giao Phát</div>
                         </div>
-                        <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[76px]">
+                        <div class="flex flex-col justify-center px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[88px]">
                             <div class="text-sm sm:text-base font-bold leading-tight">{{ kpiOutForDelivery }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Đang Phát Tận Nơi</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5 whitespace-nowrap">Đang Phát Tận Nơi</div>
                         </div>
-                        <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[76px]">
+                        <div class="flex flex-col justify-center px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[84px]">
                             <div class="text-sm sm:text-base font-bold leading-tight text-orange-300">{{ kpiReturningCount }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Chuyển Hoàn</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5 whitespace-nowrap">Chuyển Hoàn</div>
                         </div>
-                        <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[76px]">
+                        <div class="flex flex-col justify-center px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[88px]">
                             <div class="text-sm sm:text-base font-bold leading-tight">{{ kpiDeliveredCount }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Phát Thành Công</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5 whitespace-nowrap">Phát Thành Công</div>
                         </div>
-                        <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[84px]">
+                        <div class="col-span-2 sm:col-span-1 flex flex-col justify-center px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[96px]">
                             <div class="text-xs sm:text-sm font-bold leading-tight font-mono text-emerald-300">{{ Utils.formatCurrency(kpiTotalDeliveredCod) }}</div>
-                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">COD Đã Thu</div>
+                            <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5 whitespace-nowrap">COD Đã Thu</div>
                         </div>
                     </div>
                 </div>
@@ -1495,13 +1576,13 @@
 
             <!-- Sub-Banner Action Bar: Compact Segmented Pill Bar -->
             <div class="bg-white/95 backdrop-blur-md text-slate-700 rounded-2xl shadow-xs border border-slate-200/90 p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
-                <div class="bg-slate-100/90 p-1 rounded-xl border border-slate-200/70 inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
+                <div class="bg-slate-100/90 p-1 rounded-xl border border-slate-200/70 inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full flex-1 sm:flex-none">
                     <!-- Bưu Gửi Phát Tab Button -->
                     <button
                         type="button"
                         @click="currentSubtab = 'active'"
                         :class="[
-                            'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                            'flex-1 sm:flex-none justify-center px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                             currentSubtab === 'active'
                                 ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
                                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
@@ -1521,7 +1602,7 @@
                         type="button"
                         @click="currentSubtab = 'cod'"
                         :class="[
-                            'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                            'flex-1 sm:flex-none justify-center px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                             currentSubtab === 'cod'
                                 ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
                                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
@@ -1568,7 +1649,7 @@
                                     </svg>
                                 </div>
                                 <div>
-                                    <div class="flex items-center space-x-2">
+                                    <div class="flex flex-wrap items-center gap-1.5">
                                         <h2 class="text-xs font-bold text-slate-900 uppercase tracking-tight">Kế Hoạch Dự Kiến Ca Mai</h2>
                                         <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 font-mono">{{ shipperForecast.forecastDate || 'Ngày mai' }}</span>
                                         <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
@@ -1632,9 +1713,9 @@
                         </div>
                     </div>
 
-                    <div class="b2b-card bg-white border border-slate-200 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2.5 shadow-sm text-xs">
-                    <div class="flex flex-wrap items-center gap-2 flex-1">
-                        <div class="relative w-56 sm:w-64">
+                    <div class="b2b-card bg-white border border-slate-200 rounded-xl p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm text-xs">
+                    <div class="flex flex-wrap items-center gap-2 flex-1 w-full">
+                        <div class="relative w-full sm:w-64">
                             <input 
                                 v-model="searchQuery"
                                 type="text" 
@@ -1646,7 +1727,7 @@
 
                         <select 
                             v-model="selectedStatusFilter"
-                            class="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:border-blue-600 outline-none transition"
+                            class="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:border-blue-600 outline-none transition"
                         >
                             <option value="ALL">Tất cả trạng thái</option>
                             <option value="ARRIVED_DEST_HUB">Chờ Bàn Giao Phát</option>
@@ -1668,7 +1749,7 @@
                         </select>
                     </div>
 
-                    <div class="text-[11px] text-slate-500 font-medium">
+                    <div class="text-[11px] text-slate-500 font-medium self-end sm:self-auto">
                         Tổng số: <strong class="text-slate-800">{{ filteredShipments.length }}</strong> bưu gửi
                     </div>
                 </div>
@@ -1683,7 +1764,115 @@
                         <span>Không tìm thấy bưu gửi nào cần xử lý.</span>
                     </div>
 
-                    <div v-else class="overflow-x-auto">
+                    <template v-else>
+                        <!-- Mobile Card List (< 768px) -->
+                        <div class="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+                            <div v-for="item in paginatedShipments" :key="'mob-' + item.id" class="p-3.5 space-y-2.5">
+                                <div class="flex items-start justify-between gap-2">
+                                    <button
+                                        type="button"
+                                        @click="viewTrackingDetail(item.trackingCode)"
+                                        class="font-mono font-bold text-blue-700 hover:underline text-xs inline-flex items-center gap-1"
+                                    >
+                                        <span>{{ item.trackingCode }}</span>
+                                    </button>
+                                    <span :class="['px-2 py-0.5 rounded-md text-[10px] font-bold border inline-flex items-center whitespace-nowrap', getShipmentStatusBadgeClass(getShipmentStatus(item))]">
+                                        {{ formatShipmentStatus(getShipmentStatus(item)) }}
+                                    </span>
+                                </div>
+
+                                <div class="bg-slate-50 dark:bg-slate-900/60 rounded-lg p-2.5 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="font-bold text-slate-800 dark:text-slate-100 text-xs truncate">
+                                            <span v-if="['RETURNING', 'OUT_FOR_RETURN', 'RETURNED'].includes(getShipmentStatus(item))" class="text-[9.5px] px-1 py-0.2 bg-amber-100 text-amber-800 rounded font-bold mr-1">Người gửi</span>
+                                            {{ (['RETURNING', 'OUT_FOR_RETURN', 'RETURNED'].includes(getShipmentStatus(item)) ? item.senderName : item.receiverName) || 'Chưa cập nhật' }}
+                                        </div>
+                                        <a
+                                            v-if="(['RETURNING', 'OUT_FOR_RETURN', 'RETURNED'].includes(getShipmentStatus(item)) ? item.senderPhone : item.receiverPhone)"
+                                            :href="'tel:' + (['RETURNING', 'OUT_FOR_RETURN', 'RETURNED'].includes(getShipmentStatus(item)) ? item.senderPhone : item.receiverPhone)"
+                                            class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono font-bold text-[11px] shrink-0 active:scale-95"
+                                        >
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                                            <span>{{ ['RETURNING', 'OUT_FOR_RETURN', 'RETURNED'].includes(getShipmentStatus(item)) ? item.senderPhone : item.receiverPhone }}</span>
+                                        </a>
+                                    </div>
+                                    <div class="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">
+                                        {{ (['RETURNING', 'OUT_FOR_RETURN', 'RETURNED'].includes(getShipmentStatus(item)) ? item.senderAddress : item.receiverAddress) || 'Chưa có địa chỉ' }}
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center justify-between pt-0.5">
+                                    <div>
+                                        <span class="text-[10px] text-slate-400 uppercase font-semibold block">
+                                            {{ ['RETURNING', 'OUT_FOR_RETURN', 'RETURNED'].includes(getShipmentStatus(item)) ? 'Cước hoàn (50%)' : 'Tiền thu hộ COD' }}
+                                        </span>
+                                        <div class="flex items-center gap-1.5 flex-wrap">
+                                            <span class="font-mono font-extrabold text-sm" :class="['RETURNING', 'OUT_FOR_RETURN', 'RETURNED'].includes(getShipmentStatus(item)) ? 'text-orange-700' : 'text-emerald-700'">
+                                                {{ Utils.formatCurrency(['RETURNING', 'OUT_FOR_RETURN', 'RETURNED'].includes(getShipmentStatus(item)) ? getReturnFee(item) : item.codAmount) }}
+                                            </span>
+                                            <span v-if="!['RETURNING', 'OUT_FOR_RETURN', 'RETURNED'].includes(getShipmentStatus(item)) && isShipmentPaidOnline(item)" class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
+                                                Đã thanh toán
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <template v-if="getShipmentStatus(item) === 'OUT_FOR_DELIVERY' && canShowDeliveryActions(item)">
+                                            <button
+                                                @click="openDeliveryActionModal(item)"
+                                                :disabled="isActionRunning"
+                                                class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg font-bold text-xs inline-flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+                                            >
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                                <span>Xử Lý Giao Hàng</span>
+                                            </button>
+                                        </template>
+                                        <template v-else-if="getShipmentStatus(item) === 'ARRIVED_DEST_HUB' && isReadyForCourierHandoff(item)">
+                                            <button
+                                                @click="handleReDispatch(item)"
+                                                :disabled="isActionRunning"
+                                                class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs transition shadow-sm"
+                                            >
+                                                Tiếp Nhận Đi Phát
+                                            </button>
+                                        </template>
+                                        <template v-else-if="getShipmentStatus(item) === 'DELIVERY_FAILED' && canRetryDelivery(item)">
+                                            <button
+                                                @click="handleReDispatch(item)"
+                                                :disabled="isActionRunning"
+                                                class="px-3.5 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg font-bold text-xs transition"
+                                            >
+                                                Tiếp Nhận Tái Phát
+                                            </button>
+                                        </template>
+                                        <template v-else-if="getShipmentStatus(item) === 'RETURNING'">
+                                            <button
+                                                @click="handleAcceptReturnDelivery(item)"
+                                                :disabled="isActionRunning"
+                                                class="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs inline-flex items-center gap-1.5 shadow-sm transition"
+                                            >
+                                                <span>Nhận Phát Hoàn</span>
+                                            </button>
+                                        </template>
+                                        <template v-else-if="getShipmentStatus(item) === 'OUT_FOR_RETURN'">
+                                            <button
+                                                @click="openReturnActionModal(item)"
+                                                :disabled="isActionRunning"
+                                                class="px-3.5 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-bold text-xs inline-flex items-center gap-1.5 shadow-sm transition"
+                                            >
+                                                <span>Xử Lý Hoàn</span>
+                                            </button>
+                                        </template>
+                                        <span v-else class="text-[11px] font-semibold text-slate-500">
+                                            {{ formatShipmentStatus(getShipmentStatus(item)) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Desktop Table (>= 768px) -->
+                        <div class="hidden md:block overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-slate-50/70 text-slate-600 font-bold border-b border-slate-200 text-[11px] uppercase tracking-wider">
@@ -1734,6 +1923,9 @@
                                             <div class="font-mono font-bold text-emerald-700">
                                                 {{ Utils.formatCurrency(item.codAmount) }}
                                             </div>
+                                            <span v-if="isShipmentPaidOnline(item)" class="mt-0.5 inline-flex items-center px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9.5px] font-bold">
+                                                Đã thanh toán
+                                            </span>
                                         </template>
                                     </td>
                                     <td class="py-2.5 px-3 whitespace-nowrap">
@@ -1751,7 +1943,7 @@
                                             >
                                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                                                 <span>Xử lý giao</span>
-                                                <span v-if="item.codAmount && item.codAmount > 0" class="text-[9.5px] bg-blue-800/80 px-1 py-0.2 rounded font-mono">COD</span>
+                                                <span v-if="item.codAmount && item.codAmount > 0 && !isShipmentPaidOnline(item)" class="text-[9.5px] bg-blue-800/80 px-1 py-0.2 rounded font-mono">COD</span>
                                             </button>
                                         </template>
                                         <template v-else-if="getShipmentStatus(item) === 'OUT_FOR_DELIVERY'">
@@ -1842,7 +2034,8 @@
                                 </tr>
                             </tbody>
                         </table>
-                    </div>
+                        </div>
+                    </template>
 
                     <div class="px-4 py-2.5 bg-slate-50/50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                         <div class="text-slate-500">
@@ -1972,6 +2165,66 @@
                 </div>
 
                 <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden text-xs">
+                    <!-- Mobile Card List (< 768px) -->
+                    <div class="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+                        <div v-if="deliveredCodShipments.length === 0" class="py-10 px-4 text-center text-slate-400">
+                            Chưa có đơn hàng nào phát thành công có tiền COD trong ca để quyết toán.
+                        </div>
+                        <div v-for="item in deliveredCodShipments" :key="'mob-cod-' + item.id" class="p-3.5 space-y-2.5">
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <input
+                                        v-if="(!item.codSettlementStatus || item.codSettlementStatus === 'UNSETTLED') && !isShipmentPaidOnline(item)"
+                                        type="checkbox"
+                                        :checked="selectedCodCodes.includes(item.trackingCode)"
+                                        @change="toggleSelectCod(item.trackingCode)"
+                                        class="rounded border-slate-300 dark:border-slate-700 dark:bg-slate-900 text-blue-600 focus:ring-blue-500 cursor-pointer w-4 h-4"
+                                    />
+                                    <button
+                                        type="button"
+                                        @click="viewTrackingDetail(item.trackingCode)"
+                                        class="font-mono font-bold text-blue-700 hover:underline text-xs"
+                                    >
+                                        {{ item.trackingCode }}
+                                    </button>
+                                </div>
+                                <span :class="['px-2 py-0.5 rounded-md text-[10px] font-bold border inline-flex items-center', getCodSettlementVisuals(item.codSettlementStatus, item).badgeClass]">
+                                    <span v-if="getCodSettlementVisuals(item.codSettlementStatus, item).isPulse" class="live-pulse-dot mr-1.5 inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                                    {{ getCodSettlementVisuals(item.codSettlementStatus, item).label }}
+                                </span>
+                            </div>
+
+                            <div class="text-xs text-slate-700 dark:text-slate-300">
+                                <div class="font-bold text-slate-800 dark:text-slate-100">{{ item.receiverName }}</div>
+                                <div class="text-[11px] text-slate-500 truncate mt-0.5">{{ item.receiverAddress }}</div>
+                            </div>
+
+                            <div class="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800">
+                                <div class="font-mono font-extrabold text-emerald-700 text-sm">
+                                    {{ Utils.formatCurrency(item.codAmount) }}
+                                </div>
+                                <div>
+                                    <button
+                                        v-if="(!item.codSettlementStatus || item.codSettlementStatus === 'UNSETTLED') && !isShipmentPaidOnline(item)"
+                                        @click="selectedCodCodes = [item.trackingCode]; openSettlementConfirmModal();"
+                                        class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold transition text-xs shadow-xs"
+                                    >
+                                        Nộp Ngay
+                                    </button>
+                                    <span v-else-if="item.codSettlementStatus === 'PENDING_SETTLEMENT' && !isShipmentPaidOnline(item)" class="text-blue-600 text-[11px] font-semibold">
+                                        Chờ thủ quỹ nhận
+                                    </span>
+                                    <span v-else-if="item.codSettlementStatus === 'SETTLED' || isShipmentPaidOnline(item)" class="text-emerald-600 text-[11px] font-semibold inline-flex items-center">
+                                        <svg class="w-3.5 h-3.5 mr-1 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                        {{ isShipmentPaidOnline(item) ? 'Đã TT Online' : 'Đã hoàn tất' }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Desktop Table (>= 768px) -->
+                    <div class="hidden md:block overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-50/70 text-slate-600 font-bold border-b border-slate-200 text-[11px] uppercase tracking-wider">
@@ -1996,7 +2249,7 @@
                             <tr v-for="item in deliveredCodShipments" :key="item.id" class="hover:bg-blue-50/30 transition-colors">
                                 <td class="py-2.5 px-3 text-center">
                                     <input 
-                                        v-if="!item.codSettlementStatus || item.codSettlementStatus === 'UNSETTLED'"
+                                        v-if="(!item.codSettlementStatus || item.codSettlementStatus === 'UNSETTLED') && !isShipmentPaidOnline(item)"
                                         type="checkbox" 
                                         :checked="selectedCodCodes.includes(item.trackingCode)" 
                                         @change="toggleSelectCod(item.trackingCode)"
@@ -2020,25 +2273,25 @@
                                     {{ Utils.formatCurrency(item.codAmount) }}
                                 </td>
                                 <td class="py-2.5 px-3 text-center">
-                                    <span :class="['px-2.5 py-1 rounded-md text-[10.5px] font-bold border inline-flex items-center', getCodSettlementVisuals(item.codSettlementStatus).badgeClass]">
-                                        <span v-if="getCodSettlementVisuals(item.codSettlementStatus).isPulse" class="live-pulse-dot mr-1.5 inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                                        {{ getCodSettlementVisuals(item.codSettlementStatus).label }}
+                                    <span :class="['px-2.5 py-1 rounded-md text-[10.5px] font-bold border inline-flex items-center', getCodSettlementVisuals(item.codSettlementStatus, item).badgeClass]">
+                                        <span v-if="getCodSettlementVisuals(item.codSettlementStatus, item).isPulse" class="live-pulse-dot mr-1.5 inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                                        {{ getCodSettlementVisuals(item.codSettlementStatus, item).label }}
                                     </span>
                                 </td>
                                 <td class="py-2.5 px-3 text-right">
                                     <button 
-                                        v-if="!item.codSettlementStatus || item.codSettlementStatus === 'UNSETTLED'"
+                                        v-if="(!item.codSettlementStatus || item.codSettlementStatus === 'UNSETTLED') && !isShipmentPaidOnline(item)"
                                         @click="selectedCodCodes = [item.trackingCode]; openSettlementConfirmModal();"
                                         class="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold border border-blue-200 transition text-[11px]"
                                     >
                                         Nộp Ngay
                                     </button>
-                                    <span v-else-if="item.codSettlementStatus === 'PENDING_SETTLEMENT'" class="text-blue-600 text-[11px] font-semibold">
+                                    <span v-else-if="item.codSettlementStatus === 'PENDING_SETTLEMENT' && !isShipmentPaidOnline(item)" class="text-blue-600 text-[11px] font-semibold">
                                         Chờ thủ quỹ nhận
                                     </span>
-                                    <span v-else-if="item.codSettlementStatus === 'SETTLED'" class="text-emerald-600 text-[11px] font-semibold inline-flex items-center">
+                                    <span v-else-if="item.codSettlementStatus === 'SETTLED' || isShipmentPaidOnline(item)" class="text-emerald-600 text-[11px] font-semibold inline-flex items-center">
                                         <svg class="w-3.5 h-3.5 mr-1 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                                        Đã hoàn tất
+                                        {{ isShipmentPaidOnline(item) ? 'Đã TT Online' : 'Đã hoàn tất' }}
                                     </span>
                                 </td>
                             </tr>
@@ -2049,6 +2302,7 @@
                             </tr>
                         </tbody>
                     </table>
+                    </div>
                 </div>
             </div>
             </transition>
@@ -2057,8 +2311,8 @@
 
             <teleport to="body">
             <Transition name="modal">
-            <div v-if="showSettlementModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-                <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-5 space-y-4 text-xs">
+            <div v-if="showSettlementModal" class="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
+                <div class="bg-white rounded-t-2xl sm:rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-5 space-y-4 text-xs max-h-[90vh] overflow-y-auto">
                     <div class="border-b border-slate-100 pb-3 flex justify-between items-center">
                         <div class="flex items-center space-x-2">
                             <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
@@ -2089,10 +2343,10 @@
                     </div>
 
                     <div class="border-t border-slate-100 pt-3 flex justify-end space-x-2">
-                        <button @click="showSettlementModal = false" :disabled="isSubmittingSettlement" class="px-3.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold transition">
+                        <button @click="showSettlementModal = false" :disabled="isSubmittingSettlement" class="px-3.5 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold transition">
                             Hủy Bỏ
                         </button>
-                        <button @click="executeCodSettlement()" :disabled="isSubmittingSettlement" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm transition disabled:opacity-50 inline-flex items-center justify-center min-w-[150px]">
+                        <button @click="executeCodSettlement()" :disabled="isSubmittingSettlement" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm transition disabled:opacity-50 inline-flex items-center justify-center min-w-[150px]">
                             <span>{{ isSubmittingSettlement ? 'Đang Xử Lý...' : 'Xác Nhận Nộp Quỹ' }}</span>
                         </button>
                     </div>
@@ -2103,8 +2357,8 @@
 
             <teleport to="body">
             <Transition name="modal">
-            <div v-if="showDeliveryActionModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-                <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden text-xs animate-in fade-in zoom-in duration-150">
+            <div v-if="showDeliveryActionModal" class="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
+                <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden text-xs animate-in fade-in zoom-in duration-150 max-h-[92vh] overflow-y-auto">
                     <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
                         <div class="flex items-center gap-2.5">
                             <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-sm">
@@ -2164,7 +2418,41 @@
                         </div>
 
                         <div v-if="deliveryActiveTab === 'SUCCESS'" class="space-y-3.5">
-                            <template v-if="deliveryTargetShipment?.codAmount && deliveryTargetShipment.codAmount > 0">
+                            <template v-if="isShipmentPaidOnline(deliveryTargetShipment)">
+                                <div class="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-3.5 space-y-2">
+                                    <div class="flex items-center justify-between">
+                                        <span class="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider">
+                                            Đã Thanh Toán Trước
+                                        </span>
+                                        <span class="font-mono font-extrabold text-sm text-emerald-700">
+                                            {{ Utils.formatCurrency(deliveryTargetShipment?.codAmount || deliveryTargetShipment?.shippingFee || 0) }}
+                                        </span>
+                                    </div>
+                                    <div class="text-xs font-bold text-emerald-900 flex items-start gap-2">
+                                        <svg class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        <span>Đơn hàng đã được thanh toán trước trên hệ thống — Bưu tá không thu thêm tiền khi giao kiện.</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-medium text-slate-600 mb-1">Ghi chú phát (tùy chọn):</label>
+                                    <input v-model="deliverySuccessNote" type="text" placeholder="Người nhận trực tiếp / gửi người thân..." class="w-full text-xs px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <button
+                                    type="button"
+                                    @click="submitDeliverySuccess(false)"
+                                    :disabled="isActionRunning"
+                                    class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl font-bold text-xs transition shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                    <span>Xác Nhận Giao Hàng Thành Công</span>
+                                </button>
+                            </template>
+
+                            <template v-else-if="deliveryTargetShipment?.codAmount && deliveryTargetShipment.codAmount > 0">
                                 <div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between">
                                     <div>
                                         <span class="text-[11px] font-bold uppercase tracking-wider text-amber-800">Tiền thu hộ COD:</span>

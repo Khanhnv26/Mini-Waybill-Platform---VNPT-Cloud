@@ -201,9 +201,12 @@ public class ShipmentServiceImpl implements ShipmentService {
         BigDecimal totalFee;
 
         try {
+            String senderProv = extractProvince(request.getSenderProvince(), request.getSenderAddress());
+            String receiverProv = extractProvince(request.getReceiverProvince(), request.getReceiverAddress());
+
             CalculateTariffRequest tariffRequest = CalculateTariffRequest.builder()
-                    .senderProvince(request.getSenderAddress())
-                    .receiverProvince(request.getReceiverAddress())
+                    .senderProvince(senderProv)
+                    .receiverProvince(receiverProv)
                     .weightGram(weight * 1000.0)
                     .codAmount(request.getCodAmount())
                     .build();
@@ -641,6 +644,14 @@ public class ShipmentServiceImpl implements ShipmentService {
         for (String code : trackingCodes) {
             shipmentRepository.findShipmentByTrackingCode(code).ifPresent(s -> {
                 if (s.getCodAmount() != null && s.getCodAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    if (s.getCodSettlementStatus() == CodSettlementStatus.SETTLED) {
+                        log.warn("[SHIPMENT-COD] Đơn {} đã quyết toán xong (SETTLED), bỏ qua nộp quỹ lại", code);
+                        return;
+                    }
+                    if (s.getCurrentStatus() != null && s.getCurrentStatus() != ShipmentStatus.DELIVERED) {
+                        log.warn("[SHIPMENT-COD] Đơn {} chưa giao thành công (status={}), không thể nộp quỹ COD", code, s.getCurrentStatus());
+                        return;
+                    }
                     s.setCodSettlementStatus(CodSettlementStatus.PENDING_SETTLEMENT);
                     Shipment saved = shipmentRepository.save(s);
                     updatedList.add(saved);
@@ -670,31 +681,67 @@ public class ShipmentServiceImpl implements ShipmentService {
         List<Shipment> updatedList = new ArrayList<>();
         for (String code : trackingCodes) {
             shipmentRepository.findShipmentByTrackingCode(code).ifPresent(s -> {
-                s.setCodSettlementStatus(CodSettlementStatus.SETTLED);
-                s.setCodSettledAt(LocalDateTime.now());
-                s.setCodSettledBy(officerId != null && !officerId.isBlank() ? officerId : "Thủ quỹ bưu cục");
-                Shipment saved = shipmentRepository.save(s);
-                updatedList.add(saved);
+                if (s.getCodAmount() != null && s.getCodAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    if (s.getCodSettlementStatus() == CodSettlementStatus.SETTLED) {
+                        return; // Đã duyệt trước đó
+                    }
+                    s.setCodSettlementStatus(CodSettlementStatus.SETTLED);
+                    s.setCodSettledAt(LocalDateTime.now());
+                    s.setCodSettledBy(officerId != null && !officerId.isBlank() ? officerId : "Thủ quỹ bưu cục");
+                    Shipment saved = shipmentRepository.save(s);
+                    updatedList.add(saved);
 
-                ShipmentStatusUpdatedEvent event = ShipmentStatusUpdatedEvent.builder()
-                        .trackingCode(saved.getTrackingCode())
-                        .status(saved.getCurrentStatus() != null ? saved.getCurrentStatus().name() : "DELIVERED")
-                        .codSettlementStatus(CodSettlementStatus.SETTLED.name())
-                        .locationCode(officerId != null && !officerId.isBlank() ? officerId : "Thủ quỹ bưu cục")
-                        .note("Bưu cục đã xác nhận thu tiền quỹ COD")
-                        .updateAt(LocalDateTime.now())
-                        .build();
-                kafkaTemplate.send("tracking-status-events", saved.getTrackingCode(), event);
+                    ShipmentStatusUpdatedEvent event = ShipmentStatusUpdatedEvent.builder()
+                            .trackingCode(saved.getTrackingCode())
+                            .status(saved.getCurrentStatus() != null ? saved.getCurrentStatus().name() : "DELIVERED")
+                            .codSettlementStatus(CodSettlementStatus.SETTLED.name())
+                            .locationCode(officerId != null && !officerId.isBlank() ? officerId : "Thủ quỹ bưu cục")
+                            .note("Bưu cục đã xác nhận thu tiền quỹ COD")
+                            .updateAt(LocalDateTime.now())
+                            .build();
+                    kafkaTemplate.send("tracking-status-events", saved.getTrackingCode(), event);
+                }
             });
         }
         log.info("[SHIPMENT-COD] Thủ quỹ {} đã duyệt nộp quỹ thành công {} vận đơn", officerId, updatedList.size());
         return updatedList;
     }
 
-    private String resolveHubCode(String address, String
-            defaultHub) {
-        if (address == null || address.isBlank()) return
-                defaultHub;
+    private String extractProvince(String province, String address) {
+        if (province != null && !province.isBlank()) {
+            return province.trim();
+        }
+        if (address == null || address.isBlank()) {
+            return "";
+        }
+        String lower = address.toLowerCase();
+        if (lower.contains("hồ chí minh") || lower.contains("ho chi minh") || lower.contains("sài gòn") || lower.contains("sai gon") || lower.contains("tp.hcm") || lower.contains("tphcm")) {
+            return "Hồ Chí Minh";
+        }
+        if (lower.contains("hà nội") || lower.contains("ha noi")) {
+            return "Hà Nội";
+        }
+        if (lower.contains("đà nẵng") || lower.contains("da nang")) {
+            return "Đà Nẵng";
+        }
+        if (lower.contains("hải phòng") || lower.contains("hai phong")) {
+            return "Hải Phòng";
+        }
+        if (lower.contains("cần thơ") || lower.contains("can tho")) {
+            return "Cần Thơ";
+        }
+        if (address.contains(",")) {
+            String[] parts = address.split(",");
+            String last = parts[parts.length - 1].trim();
+            if (!last.isBlank()) {
+                return last;
+            }
+        }
+        return address.trim();
+    }
+
+    private String resolveHubCode(String address, String defaultHub) {
+        if (address == null || address.isBlank()) return defaultHub;
         String lower = address.toLowerCase();
         if (lower.contains("hà nội") || lower.contains("ha noi") || lower.contains("hn")) return "HUB-HN-01";
         if (lower.contains("đà nẵng") || lower.contains("da nang") || lower.contains("dn")) return "HUB-DN-01";

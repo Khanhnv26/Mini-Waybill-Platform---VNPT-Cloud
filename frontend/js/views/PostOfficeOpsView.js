@@ -11,6 +11,14 @@
 
             const shipmentsList = ref([]);
             const scanInputCode = ref('');
+            const scanInputRef = ref(null);
+            const focusScanInput = () => {
+                setTimeout(() => {
+                    if (scanInputRef.value && typeof scanInputRef.value.focus === 'function') {
+                        scanInputRef.value.focus();
+                    }
+                }, 80);
+            };
             const selectedStatusFilter = ref('ALL');
             const normalizeCode = (value) => typeof value === 'string' ? value.trim() : '';
             const searchQuery = ref('');
@@ -1156,7 +1164,7 @@
                             // Receiving at the origin counter is the public transition
                             // from ROUTE_ASSIGNED/PENDING_ROUTING to PICKED_UP.
                             const receiveStatus = operationName === 'receiveAtLocation'
-                                && ['ROUTE_ASSIGNED', 'PENDING_ROUTING'].includes(currentStatus)
+                                && ['ROUTE_ASSIGNED', 'PENDING_ROUTING', 'CREATED'].includes(currentStatus)
                                 ? 'PICKED_UP'
                                 : currentStatus;
                             const validOperationalStatuses = new Set(['PICKED_UP', 'IN_TRANSIT', 'ARRIVED_DEST_HUB']);
@@ -1290,6 +1298,7 @@
                     }
                 } finally {
                     isActionRunning.value = false;
+                    focusScanInput();
                 }
             };
 
@@ -1684,7 +1693,7 @@
                             : `post-office-${Date.now()}`;
                         const currentStatus = normalizeCode(first.currentStatus || first.status).toUpperCase();
                         const receiveStatus = group.operationName === 'receiveAtLocation'
-                            && ['ROUTE_ASSIGNED', 'PENDING_ROUTING'].includes(currentStatus)
+                            && ['ROUTE_ASSIGNED', 'PENDING_ROUTING', 'CREATED'].includes(currentStatus)
                             ? 'PICKED_UP'
                             : currentStatus;
                         const validOperationalStatuses = new Set(['PICKED_UP', 'IN_TRANSIT', 'ARRIVED_DEST_HUB']);
@@ -1730,11 +1739,14 @@
                 }
                 loadShipmentsData();
                 loadShippers(true);
+                focusScanInput();
             });
 
             const isDockCollapsed = ref(false);
 
             return {
+                scanInputRef,
+                focusScanInput,
                 currentSubtab,
                 isForecastExpanded,
                 stationForecast,
@@ -2212,6 +2224,7 @@
                 </div>
                 <div class="flex items-center gap-2 border-t lg:border-t-0 pt-2 lg:pt-0 border-slate-100">
                     <input
+                        ref="scanInputRef"
                         v-model="scanInputCode"
                         @keyup.enter="handleQuickScan()"
                         type="text"

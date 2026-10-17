@@ -31,9 +31,11 @@ public class TariffPricingServiceImpl implements TariffPricingService {
         double chargeableGram = Math.max(actualGram, volumetricGram);
         double chargeableKg = chargeableGram / 1000.0;
 
-        boolean isIntraProvince = request.getSenderProvince() != null
-                && request.getReceiverProvince() != null
-                && request.getSenderProvince().trim().equalsIgnoreCase(request.getReceiverProvince().trim());
+        String normSender = normalizeProvince(request.getSenderProvince());
+        String normReceiver = normalizeProvince(request.getReceiverProvince());
+        boolean isIntraProvince = !normSender.isEmpty()
+                && !normReceiver.isEmpty()
+                && normSender.equalsIgnoreCase(normReceiver);
 
         String zoneType = isIntraProvince ? "INTRA_PROVINCE" : "INTER_REGION";
 
@@ -132,5 +134,18 @@ public class TariffPricingServiceImpl implements TariffPricingService {
                 .insuranceFee(insuranceFee)
                 .totalFee(totalFee)
                 .build();
+    }
+
+    private String normalizeProvince(String prov) {
+        if (prov == null) return "";
+        String s = prov.trim().toLowerCase();
+        s = s.replaceAll("^(tỉnh|thành phố|tp\\.?)\\s+", "");
+        s = s.replaceAll("\\s+", " ").trim();
+        if (s.equals("hcm") || s.equals("tp hcm") || s.equals("sai gon") || s.equals("sài gòn") || s.contains("hồ chí minh")) return "hồ chí minh";
+        if (s.equals("hn") || s.equals("ha noi") || s.contains("hà nội")) return "hà nội";
+        if (s.equals("dn") || s.equals("da nang") || s.contains("đà nẵng")) return "đà nẵng";
+        if (s.equals("hp") || s.equals("hai phong") || s.contains("hải phòng")) return "hải phòng";
+        if (s.equals("ct") || s.equals("can tho") || s.contains("cần thơ")) return "cần thơ";
+        return s;
     }
 }

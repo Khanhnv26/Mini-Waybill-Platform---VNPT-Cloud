@@ -212,14 +212,22 @@ public class TrackingServiceImpl implements TrackingService {
             throw new InvalidStateTransitionException(currentStatus, newStatus);
         }
 
-        //chan phat thai bai qua 3 lan se tra ve cho khach hang
+        // Xử lý khi phát không thành công hoặc người nhận từ chối nhận hàng
         if (newStatus == ShipmentStatus.DELIVERY_FAILED) {
             long failedCount = trackingHistoryRepository.countByTrackingCodeAndStatus(trackingCode, ShipmentStatus.DELIVERY_FAILED.name());
+            boolean receiverRefused = request.getNote() != null
+                    && (request.getNote().contains("TU_CHOI_NHAN")
+                        || request.getNote().toLowerCase().contains("từ chối")
+                        || request.getNote().toLowerCase().contains("không nhận"));
 
-            if (failedCount >= 2) {
+            if (receiverRefused || failedCount >= 2) {
                 newStatus = ShipmentStatus.RETURNING;
                 request.setStatus(ShipmentStatus.RETURNING.name());
-                request.setNote("Giao thất bại lần 3 - Hệ thống tự động chuyển hoàn về người gửi");
+                if (receiverRefused) {
+                    request.setNote(request.getNote() != null ? request.getNote() : "Người nhận từ chối nhận hàng - Hệ thống chuyển hoàn về người gửi");
+                } else {
+                    request.setNote("Giao thất bại lần 3 - Hệ thống tự động chuyển hoàn về người gửi");
+                }
             }
         }
 

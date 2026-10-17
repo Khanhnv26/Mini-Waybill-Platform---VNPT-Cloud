@@ -36,8 +36,6 @@
             const isSavingProfile = ref(false);
             const isSavingPassword = ref(false);
             const isSavingSettings = ref(false);
-            const showAvatarModal = ref(false);
-            const avatarInputUrl = ref('');
 
             const profileForm = reactive({
                 fullName: '',
@@ -295,38 +293,6 @@
                 }
             };
 
-            const saveAvatarFromUrl = async () => {
-                const url = avatarInputUrl.value.trim();
-                if (!url) return;
-                try {
-                    await window.Auth.updateMyProfile({
-                        fullName: profileForm.fullName || currentUser.value.fullName,
-                        avatarUrl: url
-                    });
-                    currentUser.value.avatarUrl = url;
-                    showAvatarModal.value = false;
-                    avatarInputUrl.value = '';
-                    if (window.Utils) {
-                        window.Utils.showToast('Thành Công', 'Đã cập nhật ảnh đại diện mới');
-                    }
-                    emit('user-updated', currentUser.value);
-                } catch (err) {
-                    if (window.Utils) {
-                        window.Utils.showToast('Lỗi', err.message || 'Không thể lưu ảnh đại diện', 'error');
-                    }
-                }
-            };
-
-            const selectPresetColor = async (bgClass) => {
-                showAvatarModal.value = false;
-                currentUser.value.avatarBg = bgClass;
-                const userId = currentUser.value.userId || currentUser.value.id || 'default';
-                localStorage.setItem('waybill_avatar_bg_' + userId, bgClass);
-                if (window.Utils) {
-                    window.Utils.showToast('Cập Nhật', 'Đã thay đổi phong cách hiển thị avatar');
-                }
-            };
-
             onMounted(() => {
                 if (!window.Auth || !window.Auth.isAuthenticated()) {
                     try {
@@ -360,13 +326,9 @@
                 isSavingProfile,
                 isSavingPassword,
                 isSavingSettings,
-                showAvatarModal,
-                avatarInputUrl,
                 handleSaveProfile,
                 handleChangePassword,
-                handleSaveShopSettings,
-                saveAvatarFromUrl,
-                selectPresetColor
+                handleSaveShopSettings
             };
         },
         template: `
@@ -376,8 +338,8 @@
 
                     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
                         <div class="flex items-center space-x-4">
-                            <div class="relative group cursor-pointer" @click="showAvatarModal = true" title="Bấm để đổi ảnh đại diện">
-                                <div class="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl overflow-hidden bg-white/15 border-2 border-white/30 shadow-inner flex items-center justify-center font-black text-xl text-white transition-transform duration-200 group-hover:scale-105">
+                            <div class="relative">
+                                <div class="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl overflow-hidden bg-white/15 border-2 border-white/30 shadow-inner flex items-center justify-center font-black text-xl text-white">
                                     <img 
                                         v-if="currentUser?.avatarUrl" 
                                         :src="currentUser.avatarUrl" 
@@ -389,10 +351,6 @@
                                     <span v-else>
                                         {{ (profileForm.fullName || currentUser?.fullName || 'U').charAt(0).toUpperCase() }}
                                     </span>
-                                </div>
-                                <div class="absolute inset-0 bg-slate-900/50 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center text-[10px] font-bold text-white backdrop-blur-[1px]">
-                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                    Đổi ảnh
                                 </div>
                                 <span class="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-xs" title="Tài khoản đang kết nối trực tuyến"></span>
                             </div>
@@ -735,13 +693,13 @@
 
                 <div v-show="currentSubTab === 'operations'" class="space-y-4">
                     <div v-if="isStaffUser" class="space-y-4">
-                        <div class="b2b-card p-5 sm:p-6 space-y-3.5">
-                            <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
+                        <div class="b2b-card p-4 sm:p-6 space-y-3.5">
+                            <div class="border-b border-slate-100 pb-3 flex flex-wrap items-center justify-between gap-2">
                                 <div>
                                     <h3 class="text-xs sm:text-sm font-bold text-slate-800">Bảng Tra Cứu Quyền Hạn Nghiệp Vụ (Permissions Matrix)</h3>
                                     <p class="text-[11px] text-slate-500">Danh sách các quyền hạn được phân bổ trong Token xác thực của tài khoản này</p>
                                 </div>
-                                <span class="px-2.5 py-0.5 rounded text-[10.5px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                <span class="px-2.5 py-0.5 rounded text-[10.5px] font-bold bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
                                     {{ parsedPermissions.length }} Quyền Được Phép
                                 </span>
                             </div>
@@ -753,13 +711,13 @@
                                 <div 
                                     v-for="perm in parsedPermissions" 
                                     :key="perm.code" 
-                                    class="py-2.5 flex items-center justify-between hover:bg-slate-50/50 px-2 rounded-lg transition"
+                                    class="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 hover:bg-slate-50 dark:hover:bg-[#19264c] px-2.5 rounded-lg transition"
                                 >
-                                    <div class="flex items-center space-x-3">
-                                        <span class="font-mono font-bold text-blue-700">{{ perm.code }}</span>
-                                        <span class="text-slate-600">{{ perm.desc }}</span>
+                                    <div class="flex flex-col sm:flex-row sm:items-center sm:space-x-3 gap-0.5 sm:gap-0 min-w-0">
+                                        <span class="font-mono font-bold text-blue-700 shrink-0">{{ perm.code }}</span>
+                                        <span class="text-slate-600 break-words">{{ perm.desc }}</span>
                                     </div>
-                                    <span class="px-2 py-0.5 text-[10px] font-semibold rounded bg-emerald-50 text-emerald-700 border border-emerald-200">Kích hoạt</span>
+                                    <span class="px-2 py-0.5 text-[10px] font-semibold rounded bg-emerald-50 text-emerald-700 border border-emerald-200 self-start sm:self-auto shrink-0 whitespace-nowrap">Kích hoạt</span>
                                 </div>
                             </div>
                         </div>
@@ -876,39 +834,6 @@
                     </div>
                 </div>
 
-                <teleport to="body">
-                    <div v-if="showAvatarModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-                        <div class="bg-white rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-2xl border border-slate-200">
-                            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                                <h4 class="font-bold text-xs text-slate-800 uppercase tracking-wide">Cập Nhật Ảnh Đại Diện</h4>
-                                <button @click="showAvatarModal = false" class="w-6 h-6 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center text-sm font-bold cursor-pointer">&times;</button>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 mb-1">Dán liên kết ảnh trực tuyến (URL):</label>
-                                <input 
-                                    v-model="avatarInputUrl" 
-                                    type="url" 
-                                    maxlength="500" 
-                                    placeholder="https://domain.com/avatar.jpg" 
-                                    class="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 outline-none focus:border-blue-600" 
-                                />
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 mb-1.5">Hoặc chọn phong cách nhận diện màu sắc:</label>
-                                <div class="grid grid-cols-4 gap-2">
-                                    <div @click="selectPresetColor('bg-blue-600')" class="h-10 rounded-lg bg-blue-600 cursor-pointer flex items-center justify-center text-white text-xs font-bold hover:scale-105 transition shadow-xs">Xanh</div>
-                                    <div @click="selectPresetColor('bg-slate-800')" class="h-10 rounded-lg bg-slate-800 cursor-pointer flex items-center justify-center text-white text-xs font-bold hover:scale-105 transition shadow-xs">Đen</div>
-                                    <div @click="selectPresetColor('bg-emerald-600')" class="h-10 rounded-lg bg-emerald-600 cursor-pointer flex items-center justify-center text-white text-xs font-bold hover:scale-105 transition shadow-xs">Lá</div>
-                                    <div @click="selectPresetColor('bg-indigo-600')" class="h-10 rounded-lg bg-indigo-600 cursor-pointer flex items-center justify-center text-white text-xs font-bold hover:scale-105 transition shadow-xs">Tím</div>
-                                </div>
-                            </div>
-                            <div class="pt-2 flex justify-end space-x-2">
-                                <button @click="showAvatarModal = false" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer">Đóng</button>
-                                <button @click="saveAvatarFromUrl" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer">Áp Dụng</button>
-                            </div>
-                        </div>
-                    </div>
-                </teleport>
             </div>
         `
     };

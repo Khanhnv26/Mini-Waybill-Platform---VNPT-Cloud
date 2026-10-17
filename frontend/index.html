@@ -180,6 +180,13 @@
             @trigger-google-link="triggerGoogleLink"
         ></user-profile-modal>
 
+        <shipment-detail-modal
+            :show="showShipmentDetailModal"
+            :tracking-code="selectedTrackingCodeForModal"
+            @close="closeShipmentDetailModal"
+            @open-full-tracking="openFullTrackingFromModal"
+        ></shipment-detail-modal>
+
         <div 
             v-if="showNotificationDetailModal && activeNotificationDetail" 
             class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"

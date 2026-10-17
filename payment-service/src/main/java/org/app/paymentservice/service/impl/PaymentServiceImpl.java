@@ -147,8 +147,13 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public List<String> getPaidTrackingCodes() {
-        return paymentRepo.findByStatusAndPaymentType(PaymentStatus.SUCCESS, PaymentType.SHIPPING_FEE)
-                .stream()
+        List<PaymentTransaction> paidTransactions = new java.util.ArrayList<>(
+                paymentRepo.findByStatusAndPaymentType(PaymentStatus.SUCCESS, PaymentType.SHIPPING_FEE)
+        );
+        paidTransactions.addAll(
+                paymentRepo.findByStatusAndPaymentType(PaymentStatus.SUCCESS, PaymentType.COD)
+        );
+        return paidTransactions.stream()
                 .map(PaymentTransaction::getTrackingCode)
                 .filter(code -> code != null && !code.isBlank())
                 .distinct()

@@ -2,18 +2,18 @@
     const ChatbotWidget = {
         name: 'ChatbotWidget',
         template: `
-            <div v-if="shouldDisplay" id="vnpt-chatbot-widget" class="fixed bottom-6 right-6 z-[9999] font-sans antialiased">
+            <div v-if="shouldDisplay" id="vnpt-chatbot-widget" class="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-[9999] font-sans antialiased">
                 <div 
                     v-show="!isOpen" 
                     class="relative flex items-center justify-center animate-chatbot-float select-none"
                 >
-                    <span class="absolute w-14 h-14 rounded-full bg-blue-400 pointer-events-none animate-chatbot-radar-1"></span>
-                    <span class="absolute w-14 h-14 rounded-full bg-blue-500 pointer-events-none animate-chatbot-radar-2"></span>
+                    <span class="absolute w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-blue-400 pointer-events-none animate-chatbot-radar-1"></span>
+                    <span class="absolute w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-blue-500 pointer-events-none animate-chatbot-radar-2"></span>
 
                     <button 
                         @click="openChat"
                         title="Trò chuyện với Trợ lý ảo Waybill 24/7"
-                        class="group relative flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-tr from-blue-700 via-blue-600 to-blue-500 text-white shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 transform hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none border-2 border-white/60"
+                        class="group relative flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-blue-700 via-blue-600 to-blue-500 text-white shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 transform hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none border-2 border-white/60"
                     >
                         <span v-if="unreadCount > 0" class="absolute -top-1 -right-1 flex h-5 w-5">
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
@@ -22,7 +22,7 @@
                             </span>
                         </span>
 
-                        <div class="w-8 h-8 flex items-center justify-center transform group-hover:rotate-12 transition-transform duration-300">
+                        <div class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center transform group-hover:rotate-12 transition-transform duration-300">
                             <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-sm">
                                 <defs>
                                     <linearGradient id="vnptGlobeGradBtn" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -48,7 +48,7 @@
                 <div 
                     v-show="isOpen"
                     :class="[
-                        'w-[380px] sm:w-[420px] h-[600px] max-h-[85vh] bg-white rounded-2xl shadow-2xl border border-slate-200/90 flex flex-col overflow-hidden origin-bottom-right chatbot-spring-transition transform',
+                        'w-[calc(100vw-1.5rem)] sm:w-[420px] h-[520px] sm:h-[600px] max-h-[82vh] bg-white rounded-2xl shadow-2xl border border-slate-200/90 flex flex-col overflow-hidden origin-bottom-right chatbot-spring-transition transform',
                         isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-0 opacity-0 translate-y-4 pointer-events-none'
                     ]"
                 >
