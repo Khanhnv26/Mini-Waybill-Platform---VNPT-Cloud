@@ -578,7 +578,7 @@
                                 <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                                     <th class="py-2.5 px-3.5 w-60">MÃ &amp; HỌ TÊN BƯU TÁ</th>
                                     <th class="py-2.5 px-3.5">BƯU CỤC TUYẾN PHÁT</th>
-                                    <th class="py-2.5 px-3.5 text-center w-40">TRẠNG THÁI CA TRỰC</th>
+                                    <th class="py-2.5 px-3.5 text-center w-36 whitespace-nowrap">TRẠNG THÁI CA TRỰC</th>
                                     <th class="py-2.5 px-3.5 w-44">TẢI ĐƠN TRONG CA</th>
                                     <th class="py-2.5 px-3.5 text-center w-28">ĐÁNH GIÁ</th>
                                     <th class="py-2.5 px-3.5 text-center w-32">TELEGRAM BOT</th>
@@ -618,18 +618,18 @@
                                     </td>
 
                                     <!-- TRẠNG THÁI CA TRỰC (INTERACTIVE BUTTON) -->
-                                    <td class="py-2.5 px-3.5 text-center">
+                                    <td class="py-2.5 px-3.5 text-center whitespace-nowrap">
                                         <button 
                                             type="button"
                                             @click="toggleShiftStatus(item)"
-                                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-bold cursor-pointer transition border shadow-xs"
+                                            class="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold cursor-pointer transition border shadow-2xs whitespace-nowrap"
                                             :class="item.shiftStatus === 'ON_DUTY' 
-                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' 
-                                                : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'"
-                                            :title="item.shiftStatus === 'ON_DUTY' ? 'Bấm để chuyển sang Nghỉ Ca' : 'Bấm để Bật Ca Trực'"
+                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800' 
+                                                : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'"
+                                            :title="item.shiftStatus === 'ON_DUTY' ? 'Đang trực ca (Bấm để chuyển sang Nghỉ Ca)' : 'Đang nghỉ ca (Bấm để Bật Ca Trực)'"
                                         >
-                                            <span class="w-1.5 h-1.5 rounded-full" :class="item.shiftStatus === 'ON_DUTY' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'"></span>
-                                            <span>{{ item.shiftStatus === 'ON_DUTY' ? 'BẬT CA (ON_DUTY)' : 'NGHỈ CA (OFF_DUTY)' }}</span>
+                                            <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="item.shiftStatus === 'ON_DUTY' ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+                                            <span>{{ item.shiftStatus === 'ON_DUTY' ? 'Đang Trực Ca' : 'Nghỉ Ca' }}</span>
                                         </button>
                                     </td>
 

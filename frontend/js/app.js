@@ -33,6 +33,7 @@ import './components/layout/PublicHeader.js';
 import './components/layout/PublicFooter.js';
 import './components/common/ToastContainer.js';
 import './components/common/UserProfileModal.js';
+import './components/common/ShipmentDetailModal.js';
 import './layouts/InternalLayout.js';
 import './layouts/PublicLayout.js';
 
@@ -659,6 +660,8 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
             };
 
             const showUserProfileModal = ref(false);
+            const showShipmentDetailModal = ref(false);
+            const selectedTrackingCodeForModal = ref('');
             const userProfile = ref(null);
             const isLoadingUserProfile = ref(false);
             const isSavingUserProfile = ref(false);
@@ -1063,19 +1066,52 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                 navigateTo(cleanPath);
             };
 
-            const handleViewTracking = (trackingCode, sourceTabId = null) => {
+            const openShipmentDetailModal = (trackingCode) => {
                 if (!trackingCode) return;
-                const srcId = sourceTabId || currentTab.value;
-                const srcObj = allNavigationTabs.find(t => t.id === srcId);
-                previousTab.value = srcObj ? { id: srcObj.id, name: srcObj.name } : null;
-                currentTrackingCode.value = trackingCode.trim();
+                selectedTrackingCodeForModal.value = trackingCode.trim();
+                showShipmentDetailModal.value = true;
+            };
+            window.openShipmentDetailModal = openShipmentDetailModal;
+
+            const closeShipmentDetailModal = () => {
+                showShipmentDetailModal.value = false;
+            };
+
+            const openFullTrackingFromModal = (trackingCode) => {
+                closeShipmentDetailModal();
+                if (!trackingCode) return;
+                const code = trackingCode.trim();
+                currentTrackingCode.value = code;
                 selectedCustomerForShipment.value = null;
                 selectedTariffForShipment.value = null;
                 activateTab('tracking');
-                const newPath = '/tracking?code=' + encodeURIComponent(trackingCode.trim());
+                const newPath = '/tracking?code=' + encodeURIComponent(code);
                 if (window.location.pathname + window.location.search !== newPath) {
                     window.history.pushState({ tab: 'tracking' }, '', newPath);
                 }
+            };
+
+            const handleViewTracking = (trackingCode, sourceTabId = null) => {
+                if (!trackingCode) return;
+                const code = trackingCode.trim();
+
+                // If currently already on the public tracking tab (/tracking), perform search directly in TrackingView
+                if (currentTab.value === 'tracking') {
+                    const srcId = sourceTabId || currentTab.value;
+                    const srcObj = allNavigationTabs.find(t => t.id === srcId);
+                    previousTab.value = srcObj ? { id: srcObj.id, name: srcObj.name } : null;
+                    currentTrackingCode.value = code;
+                    selectedCustomerForShipment.value = null;
+                    selectedTariffForShipment.value = null;
+                    const newPath = '/tracking?code=' + encodeURIComponent(code);
+                    if (window.location.pathname + window.location.search !== newPath) {
+                        window.history.pushState({ tab: 'tracking' }, '', newPath);
+                    }
+                    return;
+                }
+
+                // In all internal workspace views, open the popup modal directly over current view!
+                openShipmentDetailModal(code);
             };
 
             const handleBackToPreviousTab = () => {
@@ -1090,7 +1126,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                 selectedTariffForShipment.value = null;
                 fetchNotifications();
                 setTimeout(fetchNotifications, 1500);
-                handleViewTracking(trackingCode, 'shipment');
+                openShipmentDetailModal(trackingCode);
             };
 
             const handleCreateShipmentFor = (customer) => {
@@ -1583,6 +1619,11 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                 profileFormData,
                 isStaffUser,
                 getRoleTitle,
+                showShipmentDetailModal,
+                selectedTrackingCodeForModal,
+                openShipmentDetailModal,
+                closeShipmentDetailModal,
+                openFullTrackingFromModal,
                 openUserProfileModal,
                 closeUserProfileModal,
                 saveUserProfile,
@@ -1624,6 +1665,10 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
     if (window.UserProfileModal) {
         app.component('UserProfileModal', window.UserProfileModal);
         app.component('user-profile-modal', window.UserProfileModal);
+    }
+    if (window.ShipmentDetailModal) {
+        app.component('ShipmentDetailModal', window.ShipmentDetailModal);
+        app.component('shipment-detail-modal', window.ShipmentDetailModal);
     }
     if (window.InternalLayout) {
         app.component('InternalLayout', window.InternalLayout);

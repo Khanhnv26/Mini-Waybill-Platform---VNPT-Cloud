@@ -1267,7 +1267,6 @@
 
             const viewTracking = (trackingCode) => {
                 emit('view-tracking', trackingCode, 'shipment');
-                emit('created-shipment', trackingCode);
             };
 
             const showCheckoutModal = ref(false);

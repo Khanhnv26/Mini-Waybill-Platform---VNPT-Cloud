@@ -57,7 +57,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.addEndpoint("/ws", "/api/notifications/ws")
                 .setAllowedOriginPatterns(origins)
                 .withSockJS()
-                .setSuppressCors(false);
+                .setSuppressCors(true);
     }
 
 
