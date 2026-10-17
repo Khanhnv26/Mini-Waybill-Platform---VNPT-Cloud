@@ -1890,7 +1890,7 @@
                     >
                         <div class="hero-spotlight"></div>
                         <div class="max-w-4xl mx-auto text-center space-y-3 mb-8 relative z-10">
-                            <div class="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-xs font-semibold text-blue-100 shadow-xs whitespace-nowrap">
+                            <div class="inline-flex items-center space-x-2 px-3 sm:px-3.5 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-[11px] sm:text-xs font-semibold text-blue-100 shadow-xs sm:whitespace-nowrap">
                                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0"></span>
                                 <span>Mạng lưới phân loại &amp; vận chuyển toàn quốc 63 tỉnh thành</span>
                             </div>
@@ -2014,7 +2014,7 @@
                                                 <input v-model.number="quickQuote.weightGram" type="number" step="100" min="50" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors" />
                                             </div>
                                         </div>
-                                        <div class="mt-3 flex items-center justify-between pt-2.5 border-t border-slate-100">
+                                        <div class="mt-3 flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-slate-100">
                                             <span class="text-xs text-slate-500 whitespace-nowrap">Ước tính cước: <strong class="text-blue-700 font-bold font-mono text-sm">{{ Number(quickQuote.estimatedFee).toLocaleString('vi-VN') }} đ</strong> (1-2 ngày)</span>
                                             <button type="button" @click="$emit('switch-tab', 'calculator')" class="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors flex items-center space-x-1 whitespace-nowrap cursor-pointer">
                                                 <span>Bảng tính chi tiết</span>
@@ -2054,46 +2054,46 @@
                     </div>
                     <div v-if="!currentShipment && !isNotFound" class="space-y-6">
                         <div>
-                            <div class="flex items-center justify-between mb-3 px-1">
-                                <span class="text-xs font-extrabold uppercase tracking-wider text-slate-500 whitespace-nowrap">
+                            <div class="flex flex-wrap items-center justify-between gap-1 mb-3 px-1">
+                                <span class="text-xs font-extrabold uppercase tracking-wider text-slate-500">
                                     Chỉ Số Năng Lực Vận Hành Toàn Mạng
                                 </span>
                                 <span class="text-[11px] text-slate-400 font-medium whitespace-nowrap">Thống kê thời gian thực</span>
                             </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <div class="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-1.5 hover:border-blue-300 transition duration-200">
-                                    <div class="text-[11px] font-bold text-blue-600 uppercase tracking-wider whitespace-nowrap">Hạ Tầng Khai Thác</div>
-                                    <div class="text-3xl font-black text-slate-900 tracking-tight font-mono">{{ counterHubs || '03' }}</div>
+                            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                                <div class="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-sm space-y-1.5 hover:border-blue-300 transition duration-200">
+                                    <div class="text-[10.5px] sm:text-[11px] font-bold text-blue-600 uppercase tracking-wider whitespace-nowrap">Hạ Tầng Khai Thác</div>
+                                    <div class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-mono">{{ counterHubs || '03' }}</div>
                                     <div class="text-xs font-bold text-slate-800 whitespace-nowrap">Siêu Hub Trọng Điểm</div>
-                                    <div class="text-[11px] font-semibold text-slate-500 whitespace-nowrap">Hà Nội • Đà Nẵng • TP.HCM</div>
-                                    <p class="text-[11.5px] text-slate-400 leading-relaxed pt-1 border-t border-slate-100">
+                                    <div class="text-[11px] font-semibold text-slate-500 truncate">Hà Nội • Đà Nẵng • TP.HCM</div>
+                                    <p class="hidden sm:block text-[11.5px] text-slate-400 leading-relaxed pt-1 border-t border-slate-100">
                                         Diện tích &gt; 90.000m², trang bị dây chuyền chia chọn tự động Cross-Belt Matrix.
                                     </p>
                                 </div>
-                                <div class="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-1.5 hover:border-blue-300 transition duration-200">
-                                    <div class="text-[11px] font-bold text-emerald-600 uppercase tracking-wider whitespace-nowrap">Công Suất Xử Lý</div>
-                                    <div class="text-3xl font-black text-slate-900 tracking-tight font-mono">{{ counterVolume || '500K+' }}</div>
+                                <div class="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-sm space-y-1.5 hover:border-blue-300 transition duration-200">
+                                    <div class="text-[10.5px] sm:text-[11px] font-bold text-emerald-600 uppercase tracking-wider whitespace-nowrap">Công Suất Xử Lý</div>
+                                    <div class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-mono">{{ counterVolume || '500K+' }}</div>
                                     <div class="text-xs font-bold text-slate-800 whitespace-nowrap">Kiện Hàng / Ngày</div>
                                     <div class="text-[11px] font-semibold text-slate-500 whitespace-nowrap">Tốc Độ Xử Lý 24/7</div>
-                                    <p class="text-[11.5px] text-slate-400 leading-relaxed pt-1 border-t border-slate-100">
+                                    <p class="hidden sm:block text-[11.5px] text-slate-400 leading-relaxed pt-1 border-t border-slate-100">
                                         Dữ liệu hành trình cập nhật tức thì qua hạ tầng vi dịch vụ phân tán chịu tải cao.
                                     </p>
                                 </div>
-                                <div class="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-1.5 hover:border-blue-300 transition duration-200">
-                                    <div class="text-[11px] font-bold text-purple-600 uppercase tracking-wider whitespace-nowrap">Mạng Lưới Phục Vụ</div>
-                                    <div class="text-3xl font-black text-slate-900 tracking-tight font-mono">{{ counterProvinces || '63' }}</div>
+                                <div class="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-sm space-y-1.5 hover:border-blue-300 transition duration-200">
+                                    <div class="text-[10.5px] sm:text-[11px] font-bold text-purple-600 uppercase tracking-wider whitespace-nowrap">Mạng Lưới Phục Vụ</div>
+                                    <div class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-mono">{{ counterProvinces || '63' }}</div>
                                     <div class="text-xs font-bold text-slate-800 whitespace-nowrap">Tỉnh Thành Toàn Quốc</div>
                                     <div class="text-[11px] font-semibold text-slate-500 whitespace-nowrap">10.000+ Điểm Phục Vụ</div>
-                                    <p class="text-[11.5px] text-slate-400 leading-relaxed pt-1 border-t border-slate-100">
+                                    <p class="hidden sm:block text-[11.5px] text-slate-400 leading-relaxed pt-1 border-t border-slate-100">
                                         Phủ kín 100% quận, huyện, thị xã đến tận thôn xóm, xã đảo vùng sâu biên giới.
                                     </p>
                                 </div>
-                                <div class="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-1.5 hover:border-blue-300 transition duration-200">
-                                    <div class="text-[11px] font-bold text-amber-600 uppercase tracking-wider whitespace-nowrap">Bảo Hiểm Bưu Gửi</div>
-                                    <div class="text-3xl font-black text-slate-900 tracking-tight font-mono">{{ counterInsurance || '100%' }}</div>
+                                <div class="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-sm space-y-1.5 hover:border-blue-300 transition duration-200">
+                                    <div class="text-[10.5px] sm:text-[11px] font-bold text-amber-600 uppercase tracking-wider whitespace-nowrap">Bảo Hiểm Bưu Gửi</div>
+                                    <div class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-mono">{{ counterInsurance || '100%' }}</div>
                                     <div class="text-xs font-bold text-slate-800 whitespace-nowrap">Bảo Toàn Giá Trị</div>
                                     <div class="text-[11px] font-semibold text-slate-500 whitespace-nowrap">Bồi Thường Nhanh Chóng</div>
-                                    <p class="text-[11.5px] text-slate-400 leading-relaxed pt-1 border-t border-slate-100">
+                                    <p class="hidden sm:block text-[11.5px] text-slate-400 leading-relaxed pt-1 border-t border-slate-100">
                                         Quy trình đối soát tự động, cam kết đền bù minh bạch khi phát sinh sự cố hư hao.
                                     </p>
                                 </div>

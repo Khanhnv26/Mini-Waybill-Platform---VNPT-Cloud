@@ -693,13 +693,13 @@
 
                 <div v-show="currentSubTab === 'operations'" class="space-y-4">
                     <div v-if="isStaffUser" class="space-y-4">
-                        <div class="b2b-card p-5 sm:p-6 space-y-3.5">
-                            <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
+                        <div class="b2b-card p-4 sm:p-6 space-y-3.5">
+                            <div class="border-b border-slate-100 pb-3 flex flex-wrap items-center justify-between gap-2">
                                 <div>
                                     <h3 class="text-xs sm:text-sm font-bold text-slate-800">Bảng Tra Cứu Quyền Hạn Nghiệp Vụ (Permissions Matrix)</h3>
                                     <p class="text-[11px] text-slate-500">Danh sách các quyền hạn được phân bổ trong Token xác thực của tài khoản này</p>
                                 </div>
-                                <span class="px-2.5 py-0.5 rounded text-[10.5px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                <span class="px-2.5 py-0.5 rounded text-[10.5px] font-bold bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
                                     {{ parsedPermissions.length }} Quyền Được Phép
                                 </span>
                             </div>
@@ -711,13 +711,13 @@
                                 <div 
                                     v-for="perm in parsedPermissions" 
                                     :key="perm.code" 
-                                    class="py-2.5 flex items-center justify-between hover:bg-slate-50/50 px-2 rounded-lg transition"
+                                    class="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 hover:bg-slate-50 dark:hover:bg-[#19264c] px-2.5 rounded-lg transition"
                                 >
-                                    <div class="flex items-center space-x-3">
-                                        <span class="font-mono font-bold text-blue-700">{{ perm.code }}</span>
-                                        <span class="text-slate-600">{{ perm.desc }}</span>
+                                    <div class="flex flex-col sm:flex-row sm:items-center sm:space-x-3 gap-0.5 sm:gap-0 min-w-0">
+                                        <span class="font-mono font-bold text-blue-700 shrink-0">{{ perm.code }}</span>
+                                        <span class="text-slate-600 break-words">{{ perm.desc }}</span>
                                     </div>
-                                    <span class="px-2 py-0.5 text-[10px] font-semibold rounded bg-emerald-50 text-emerald-700 border border-emerald-200">Kích hoạt</span>
+                                    <span class="px-2 py-0.5 text-[10px] font-semibold rounded bg-emerald-50 text-emerald-700 border border-emerald-200 self-start sm:self-auto shrink-0 whitespace-nowrap">Kích hoạt</span>
                                 </div>
                             </div>
                         </div>

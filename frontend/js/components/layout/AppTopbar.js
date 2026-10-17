@@ -1,18 +1,30 @@
 (function () {
     const { ref, computed, watch, onBeforeUnmount } = Vue;
     const template = `
-    <header class="h-16 bg-white dark:bg-[#0f1a38] border-b border-slate-200 dark:border-slate-800 pl-8 pr-6 flex items-center justify-between flex-shrink-0 relative z-20 transition-colors duration-200">
-        <div class="flex items-center space-x-2 text-xs min-w-0 mr-3">
-            <span class="text-slate-400 dark:text-slate-400 flex-shrink-0">Nền Tảng</span>
-            <span class="text-slate-300 dark:text-slate-600 flex-shrink-0">/</span>
-            <span class="font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/50 px-2 py-0.5 rounded-md flex-shrink-0">
+    <header class="h-14 sm:h-16 bg-white dark:bg-[#0f1a38] border-b border-slate-200 dark:border-slate-800 px-3 sm:pl-8 sm:pr-6 flex items-center justify-between flex-shrink-0 relative z-20 transition-colors duration-200">
+        <div class="flex items-center space-x-2 text-xs min-w-0 mr-2">
+            <!-- Mobile Hamburger Button (< 768px) -->
+            <button
+                type="button"
+                @click="$emit('open-mobile-drawer')"
+                class="md:hidden p-2 -ml-1 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer flex-shrink-0"
+                aria-label="Mở menu điều hướng"
+            >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+
+            <span class="hidden sm:inline text-slate-400 dark:text-slate-400 flex-shrink-0">Nền Tảng</span>
+            <span class="hidden sm:inline text-slate-300 dark:text-slate-600 flex-shrink-0">/</span>
+            <span class="font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/50 px-2 py-0.5 rounded-md truncate max-w-[160px] sm:max-w-none">
                 {{ currentTabTitle }}
             </span>
             <span v-if="currentTrackingCode" class="text-slate-300 dark:text-slate-600 flex-shrink-0">/</span>
-            <span v-if="currentTrackingCode" :title="currentTrackingCode" class="font-mono text-slate-500 dark:text-slate-400 font-semibold truncate max-w-[140px] sm:max-w-[240px]">{{ currentTrackingCode }}</span>
+            <span v-if="currentTrackingCode" :title="currentTrackingCode" class="font-mono text-slate-500 dark:text-slate-400 font-semibold truncate max-w-[100px] sm:max-w-[240px]">{{ currentTrackingCode }}</span>
         </div>
 
-        <div class="flex items-center space-x-3">
+        <div class="flex items-center space-x-2 sm:space-x-3">
             <a href="tel:1900545481" class="hidden sm:flex text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 items-center space-x-1.5 transition">
                 <svg class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -116,7 +128,7 @@
                 <Transition name="dropdown">
                     <div 
                         v-if="showNotificationDropdown"
-                        class="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50 text-slate-800"
+                        class="fixed sm:absolute right-3 sm:right-0 top-14 sm:top-auto sm:mt-2 w-[calc(100vw-1.5rem)] sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50 text-slate-800"
                     >
                         <div class="p-3.5 px-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
                             <div class="flex items-center space-x-2">
@@ -193,7 +205,7 @@
             notifications: { type: Array, default: () => [] },
             unreadNotificationsCount: { type: Number, default: 0 }
         },
-        emits: ['toggle-notifications', 'mark-all-read', 'notification-click', 'toggle-dark-mode'],
+        emits: ['open-mobile-drawer', 'toggle-notifications', 'mark-all-read', 'notification-click', 'toggle-dark-mode'],
         setup(props, { emit }) {
             // Reactive local theme state
             const detectInitialDark = () => {
