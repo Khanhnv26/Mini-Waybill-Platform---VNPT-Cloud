@@ -1,8 +1,9 @@
+import { createViewLoader } from './viewLoader.js?v=3.8.0';
 // ==========================================
 // 1. Core Utilities & Auth
 // ==========================================
 import './auth.js';
-import './utils.js';
+import './utils.js?v=3.7.1';
 import './api.js';
 import './map.js';
 
@@ -19,6 +20,7 @@ import './services/adminService.js';
 import './services/reportService.js';
 import './services/pricingService.js';
 import './services/supportService.js';
+import './services/supportChatRuntime.js?v=3.7.1';
 import './services/shipperService.js';
 import './services/ratingService.js';
 import './services/paymentService.js?v=3.6.6';
@@ -27,50 +29,20 @@ import './services/paymentService.js?v=3.6.6';
 // 3. Layout Components
 // ==========================================
 import './components/layout/AppSidebar.js';
-import './components/layout/AppTopbar.js';
+import './components/layout/AppTopbar.js?v=3.7.6';
 import './components/layout/InternalFooter.js';
-import './components/layout/PublicHeader.js';
+import './components/layout/PublicHeader.js?v=3.7.6';
 import './components/layout/PublicFooter.js';
 import './components/common/ToastContainer.js';
-import './components/common/UserProfileModal.js';
+import './components/common/UserProfileModal.js?v=3.7.1';
 import './components/common/ShipmentDetailModal.js';
 import './layouts/InternalLayout.js';
 import './layouts/PublicLayout.js';
 
 // ==========================================
-// 4. Feature Subcomponents
+// 4. Global assistant (feature subcomponents load with their parent views)
 // ==========================================
-import './views/tracking/TrackingRecentSearches.js';
-import './views/shipment/ShipmentSmartPasteCard.js';
-import './views/shipment/ShipmentPrintModal.js';
-import './views/trips/TripManifestModal.js';
-
-// ==========================================
-// 5. Business Views
-// ==========================================
-import './views/LoginView.js';
-import './views/TrackingView.js?v=3.6.2';
-import './views/ShipmentView.js';
-import './views/DashboardView.js';
-import './views/PostOfficeOpsView.js';
-import './views/TripsView.js';
-import './views/FleetView.js?v=3.6.7';
-import './views/HubOpsView.js';
-import './views/ShipperView.js';
-import './views/ShipperDirectoryView.js';
-import './views/CustomerView.js';
-import './views/AdminRbacView.js?v=3.6.7';
-import './views/AdminRatingView.js';
-import './views/ReportView.js?v=3.6.5';
-import './views/PaymentView.js?v=3.6.7';
-import './views/TariffCalculatorView.js';
-import './views/NetworkView.js';
-import './views/GuideView.js';
-import './views/SupportView.js';
-import './views/UnderDevelopmentView.js';
-import './views/ErrorView.js';
-import './views/ProfileView.js';
-import './components/ChatbotWidget.js';
+import './components/ChatbotWidget.js?v=3.7.1';
 
 // ==========================================
 // 6. Reactive State Stores
@@ -80,7 +52,7 @@ window.authStore = authStore;
 window.appStore = appStore;
 window.notificationStore = notificationStore;
 
-const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
+const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } = Vue;
 
     const ROUTE_TAB_MAP = {
         '/': 'tracking',
@@ -423,6 +395,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                 isDarkMode.value = nextMode;
                 if (appStore?.setDarkMode) {
                     appStore.setDarkMode(nextMode, origin);
+                    return;
                 } else if (typeof document !== 'undefined') {
                     if (nextMode) {
                         document.documentElement.classList.add('dark');
@@ -568,16 +541,16 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
             };
 
             const fetchNotifications = async () => {
-                const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+                const token = window.Auth?.getToken();
                 if (!token) {
-                    notifications.value = [];
+                    notifications.value = notifications.value.filter(item => item.isChat);
                     return;
                 }
                 if (typeof NotificationService === 'undefined' || !NotificationService.getMyNotifications) return;
                 try {
                     const list = await NotificationService.getMyNotifications();
                     if (Array.isArray(list)) {
-                        notifications.value = list.map(item => {
+                        notifications.value = [...notifications.value.filter(item => item.isChat), ...list.map(item => {
                             const visuals = getNotificationVisuals(item.title, item.message);
                             const isTrip = isTripNotification(item);
                             return {
@@ -592,7 +565,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                                 isTrip,
                                 trackingLabel: isTrip ? 'Mã chuyến xe:' : 'Mã bưu gửi:'
                             };
-                        });
+                        })];
                     }
                 } catch (err) {
                     console.warn('[Notifications] Lỗi khi tải thông báo thực tế:', err);
@@ -613,11 +586,22 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
             };
 
             const markAllNotificationsAsRead = async () => {
+                const latestByTicket = new Map();
+                for (const item of notifications.value.filter(item => item.isChat)) {
+                    if (!latestByTicket.has(item.ticketId) || item.messageId > latestByTicket.get(item.ticketId).id) {
+                        latestByTicket.set(item.ticketId, { ticketId: item.ticketId, id: item.messageId });
+                    }
+                }
+                const results = await Promise.allSettled([...latestByTicket.values()].map(item => window.SupportChatRuntime.dismiss(item)));
                 notifications.value.forEach(item => {
-                    item.isRead = true;
+                    if (!item.isChat) item.isRead = true;
                 });
-                if (typeof NotificationService !== 'undefined' && NotificationService.markAllAsRead) {
+                if (window.Auth?.getToken() && typeof NotificationService !== 'undefined' && NotificationService.markAllAsRead) {
                     NotificationService.markAllAsRead();
+                }
+                if (results.some(result => result.status === 'rejected')) {
+                    window.Utils?.showToast('Chưa đồng bộ', 'Một số thông báo chưa được đánh dấu đã xem. Vui lòng thử lại.', 'warning');
+                    return;
                 }
                 if (window.Utils && window.Utils.showToast) {
                     window.Utils.showToast('Thông Báo', 'Đã đánh dấu tất cả thông báo là đã đọc!', 'success');
@@ -625,6 +609,12 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
             };
 
             const handleNotificationClick = async (item) => {
+                if (item.isChat) {
+                    window.SupportChatRuntime.dismiss({ ticketId: item.ticketId, id: item.messageId }).catch(() => {});
+                    showNotificationDropdown.value = false;
+                    window.SupportChatRuntime.open(item.ticketCode);
+                    return;
+                }
                 item.isRead = true;
                 if (typeof NotificationService !== 'undefined' && NotificationService.markAsRead) {
                     NotificationService.markAsRead(item.id);
@@ -1028,6 +1018,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
             window.resolveRoute = resolveRoute;
 
             const handleLoginSuccess = (data) => {
+                const releasePreloader = window.WaybillPreloader?.show();
                 if (data && data.user) {
                     currentUser.value = data.user;
                 } else if (typeof Auth !== 'undefined') {
@@ -1038,6 +1029,13 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                 const target = sessionStorage.getItem('redirectAfterLogin') || defaultTarget;
                 sessionStorage.removeItem('redirectAfterLogin');
                 navigateTo(target, true);
+                const destination = activeComponent.value;
+                const destinationLoader = viewLoaders[destination];
+                Promise.resolve(destinationLoader ? destinationLoader() : undefined)
+                    .then(() => nextTick(() => releasePreloader?.()), error => {
+                        console.error('LOGIN_VIEW_LOAD_ERROR:', error);
+                        releasePreloader?.();
+                    });
             };
 
             const handleGuestTabClick = (tab, param = null) => {
@@ -1349,6 +1347,18 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
             };
 
             onMounted(() => {
+                const handleChatNotifications = event => {
+                    const chatItems = (event.detail || []).map(item => ({
+                        id: `chat-${item.id}`, messageId: item.id, ticketId: item.ticketId, ticketCode: item.ticketCode,
+                        title: `Tin nhắn hỗ trợ · ${item.ticketCode}`, message: `${item.senderName || 'Đối phương'}: ${item.content || '[Tệp đính kèm]'}`,
+                        time: formatNotificationTime(item.createdAt), isRead: !!item.isRead, isChat: true,
+                        icon: getNotificationVisuals('Tin nhắn', '').icon, iconBg: 'bg-blue-100 text-blue-700',
+                        trackingCode: item.ticketCode, trackingLabel: 'Phiếu hỗ trợ:'
+                    }));
+                    notifications.value = [...chatItems, ...notifications.value.filter(item => !item.isChat)];
+                };
+                window.addEventListener('support:notifications', handleChatNotifications);
+                window.SupportChatRuntime.start();
                 if (typeof Auth !== 'undefined') {
                     currentUser.value = Auth.isAuthenticated() ? Auth.getUser() : null;
                 }
@@ -1545,12 +1555,18 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
                 window.addEventListener('navigate-to-tracking', handleNavigateToTracking);
 
                 const handleNavigateToSupport = (e) => {
+                    if (e.detail?.ticketCode) {
+                        switchTab('support');
+                        return;
+                    }
                     const code = e.detail && e.detail.trackingCode ? e.detail.trackingCode : null;
                     switchTab('support', code);
                 };
                 window.addEventListener('navigate-to-support', handleNavigateToSupport);
 
                 onUnmounted(() => {
+                    window.removeEventListener('support:notifications', handleChatNotifications);
+                    window.SupportChatRuntime.stop();
                     window.removeEventListener('popstate', handlePopState);
                     document.removeEventListener('click', handleDocumentClick);
                     window.removeEventListener('system-notification-created', handleSystemNotificationEvent);
@@ -1679,31 +1695,37 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
         app.component('public-layout', window.PublicLayout);
     }
 
-    if (window.LoginView) {
-        app.component('LoginView', window.LoginView);
-        app.component('login-view', window.LoginView);
+    const viewLoaders = {
+        LoginView: createViewLoader('LoginView', () => import('./views/LoginView.js?v=3.7.7'), []),
+        TrackingView: createViewLoader('TrackingView', () => import('./views/TrackingView.js?v=3.8.0'), [() => import('./views/tracking/TrackingRecentSearches.js')]),
+        ShipmentView: createViewLoader('ShipmentView', () => import('./views/ShipmentView.js?v=3.8.0'), [() => import('./views/shipment/ShipmentSmartPasteCard.js'), () => import('./views/shipment/ShipmentPrintModal.js')]),
+        DashboardView: createViewLoader('DashboardView', () => import('./views/DashboardView.js?v=3.8.0'), []),
+        PostOfficeOpsView: createViewLoader('PostOfficeOpsView', () => import('./views/PostOfficeOpsView.js?v=3.7.1'), []),
+        TripsView: createViewLoader('TripsView', () => import('./views/TripsView.js?v=3.8.0'), [() => import('./views/trips/TripManifestModal.js')]),
+        FleetView: createViewLoader('FleetView', () => import('./views/FleetView.js?v=3.6.7'), []),
+        HubOpsView: createViewLoader('HubOpsView', () => import('./views/HubOpsView.js?v=3.7.1'), []),
+        ShipperView: createViewLoader('ShipperView', () => import('./views/ShipperView.js?v=3.7.1'), []),
+        ShipperDirectoryView: createViewLoader('ShipperDirectoryView', () => import('./views/ShipperDirectoryView.js'), []),
+        CustomerView: createViewLoader('CustomerView', () => import('./views/CustomerView.js'), []),
+        AdminRbacView: createViewLoader('AdminRbacView', () => import('./views/AdminRbacView.js?v=3.7.1'), []),
+        AdminRatingView: createViewLoader('AdminRatingView', () => import('./views/AdminRatingView.js?v=3.7.1'), []),
+        ReportView: createViewLoader('ReportView', () => import('./views/ReportView.js?v=3.7.1'), []),
+        PaymentView: createViewLoader('PaymentView', () => import('./views/PaymentView.js?v=3.7.1'), []),
+        TariffCalculatorView: createViewLoader('TariffCalculatorView', () => import('./views/TariffCalculatorView.js?v=3.7.1'), []),
+        NetworkView: createViewLoader('NetworkView', () => import('./views/NetworkView.js'), []),
+        GuideView: createViewLoader('GuideView', () => import('./views/GuideView.js'), []),
+        SupportView: createViewLoader('SupportView', () => import('./views/SupportView.js?v=3.7.1'), []),
+        UnderDevelopmentView: createViewLoader('UnderDevelopmentView', () => import('./views/UnderDevelopmentView.js'), []),
+        ErrorView: createViewLoader('ErrorView', () => import('./views/ErrorView.js'), []),
+        ProfileView: createViewLoader('ProfileView', () => import('./views/ProfileView.js?v=3.7.1'), []),
+    };
+    const viewLoading = { template: `<div class="p-6 text-sm text-slate-500" role="status">Đang tải giao diện…</div>` };
+    const viewError = { template: `<div class="p-6 text-sm text-rose-600" role="alert">Không thể tải giao diện. Vui lòng tải lại trang.</div>` };
+    for (const [name, loader] of Object.entries(viewLoaders)) {
+        const component = Vue.defineAsyncComponent({ loader, loadingComponent: viewLoading, errorComponent: viewError, delay: 150, timeout: 30000 });
+        app.component(name, component);
+        if (name === 'LoginView') app.component('login-view', component);
     }
-    if (window.TrackingView) app.component('TrackingView', window.TrackingView);
-    if (window.DashboardView) app.component('DashboardView', window.DashboardView);
-    if (window.ShipmentView) app.component('ShipmentView', window.ShipmentView);
-    if (window.PostOfficeOpsView) app.component('PostOfficeOpsView', window.PostOfficeOpsView);
-    if (window.HubOpsView) app.component('HubOpsView', window.HubOpsView);
-    if (window.TripsView) app.component('TripsView', window.TripsView);
-    if (window.FleetView) app.component('FleetView', window.FleetView);
-    if (window.ShipperView) app.component('ShipperView', window.ShipperView);
-    if (window.ShipperDirectoryView) app.component('ShipperDirectoryView', window.ShipperDirectoryView);
-    if (window.CustomerView) app.component('CustomerView', window.CustomerView);
-    if (window.AdminRbacView) app.component('AdminRbacView', window.AdminRbacView);
-    if (window.AdminRatingView) app.component('AdminRatingView', window.AdminRatingView);
-    if (window.ReportView) app.component('ReportView', window.ReportView);
-    if (window.PaymentView) app.component('PaymentView', window.PaymentView);
-    if (window.TariffCalculatorView) app.component('TariffCalculatorView', window.TariffCalculatorView);
-    if (window.NetworkView) app.component('NetworkView', window.NetworkView);
-    if (window.GuideView) app.component('GuideView', window.GuideView);
-    if (window.SupportView) app.component('SupportView', window.SupportView);
-    if (window.UnderDevelopmentView) app.component('UnderDevelopmentView', window.UnderDevelopmentView);
-    if (window.ErrorView) app.component('ErrorView', window.ErrorView);
-    if (window.ProfileView) app.component('ProfileView', window.ProfileView);
     if (window.ChatbotWidget) {
         app.component('ChatbotWidget', window.ChatbotWidget);
         app.component('chatbot-widget', window.ChatbotWidget);
@@ -1729,4 +1751,9 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted } = Vue;
         console.error('VUE_APP_ERROR:', err, err ? err.stack : '', info);
     };
 
-    app.mount('#app');
+    const mountedApp = app.mount('#app');
+    const initialComponent = mountedApp.activeComponent;
+    const initialView = viewLoaders[initialComponent];
+    Promise.resolve(initialView ? initialView() : undefined)
+        .then(() => nextTick(), error => { console.error('INITIAL_VIEW_LOAD_ERROR:', error); })
+        .finally(() => window.WaybillPreloader?.ready());

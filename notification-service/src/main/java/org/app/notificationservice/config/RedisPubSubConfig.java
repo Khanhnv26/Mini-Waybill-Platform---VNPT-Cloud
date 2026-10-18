@@ -1,6 +1,6 @@
 package org.app.notificationservice.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.app.notificationservice.dto.event.ShipmentStatusUpdatedEvent;
 import org.springframework.context.annotation.Bean;
@@ -40,5 +40,21 @@ public class RedisPubSubConfig {
                 log.error("[WEBSOCKET-CLUSTER] Lỗi parse/broadcast tin nhắn từ Redis: {}", e.getMessage(), e);
             }
         };
+    }
+
+    @Bean
+    public org.springframework.beans.factory.SmartInitializingSingleton registerChatListener(
+            RedisMessageListenerContainer container, SimpMessagingTemplate messaging, ObjectMapper mapper) {
+        return () -> container.addMessageListener((message, pattern) -> {
+            try {
+                var event = mapper.readValue(message.getBody(), org.app.sharedevents.entity.TicketChatMessageEvent.class);
+                if (event.getTicketId() != null) messaging.convertAndSend("/topic/tickets/" + event.getTicketId(), event);
+                if (event.getTicketCode() != null) messaging.convertAndSend("/topic/tickets/code/" + event.getTicketCode(), event);
+                String audience = event.getAudienceKey();
+                if (audience != null && "MESSAGE".equals(event.getEventType())) {
+                    messaging.convertAndSend("/topic/chat/inbox/" + audience.replace(':', '/'), event);
+                }
+            } catch (Exception error) { log.warn("Cannot fan out chat event", error); }
+        }, new ChannelTopic(org.app.notificationservice.service.ChatRealtimeFanout.CHANNEL));
     }
 }

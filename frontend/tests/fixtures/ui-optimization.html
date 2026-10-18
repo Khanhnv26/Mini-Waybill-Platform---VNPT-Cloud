@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>UI optimization QA</title>
+    <link rel="stylesheet" href="/css/tailwind.prod.css?v=3.7.5">
+    <link rel="stylesheet" href="/css/style.css?v=3.7.12">
+    <style>
+        body { margin: 0; padding: 24px; font-family: system-ui, sans-serif; background: #f8fafc; color: #0f172a; }
+        h1 { font-size: 22px; margin-bottom: 12px; } h2 { font-size: 16px; margin-bottom: 12px; }
+        .samples { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 20px 0; }
+        .sample { padding: 20px; border: 1px solid #cbd5e1; border-radius: 12px; }
+        .dark { background: #0b1329; color: #e2e8f0; }
+        .badges { display: flex; flex-wrap: wrap; gap: 10px; }
+        iframe { width: 100%; height: 310px; border: 1px solid #cbd5e1; border-radius: 12px; }
+        button { margin: 12px 0; padding: 8px 12px; border: 1px solid #94a3b8; border-radius: 8px; }
+        output { display: block; margin-bottom: 8px; }
+        @media (max-width: 600px) { body { padding: 16px; } .samples { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <h1>Kiểm tra startup và badge</h1>
+    <p>Fixture độc lập, không gọi backend. Giao diện giả lập sẵn sàng sau 100 ms; preload hiển thị tối thiểu 1.500 ms. Không phải chỉ số tải toàn ứng dụng.</p>
+    <output id="startup-results" aria-live="polite">Đang đo…</output>
+    <output id="motion-results" aria-live="polite">Đang kiểm tra chuyển động…</output>
+    <div class="samples">
+        <section class="sample"><h2>Giao diện sáng</h2><div class="badges" id="light-badges"></div></section>
+        <section class="sample dark"><h2>Giao diện tối</h2><div class="badges" id="dark-badges"></div></section>
+    </div>
+    <button id="preview" type="button">Xem cảnh khởi động (tự ẩn sau 8 giây)</button>
+    <button id="login-preview" type="button">Giả lập đăng nhập thành công (dữ liệu 4,5 giây)</button>
+    <output id="login-results" aria-live="polite">Chưa chạy mô phỏng đăng nhập.</output>
+    <iframe id="scene" title="Cảnh xe tải dùng chung"></iframe>
+    <script src="/js/libs/vue.global.js"></script>
+    <script src="/js/utils.js?v=3.7.1"></script>
+    <script>
+        window.addEventListener('message', event => {
+            if (event.source !== document.getElementById('scene').contentWindow) return;
+            if (event.data?.loginQA) {
+                document.getElementById('login-results').textContent = event.data.complete
+                    ? 'Dashboard giả lập đã sẵn sàng; preload đã đóng.'
+                    : 'Đang hiện lại preload, chờ dữ liệu dashboard giả lập…';
+                return;
+            }
+            if (event.data?.motionQA) {
+                document.getElementById('motion-results').textContent = `Giảm chuyển động: ${event.data.reducedMotion} · Animation xe: ${event.data.animationName} · Xe đang chuyển động: ${event.data.moving}`;
+                return;
+            }
+            if (!event.data?.startupQA) return;
+            document.getElementById('startup-results').textContent = `Preload đã hiển thị ${event.data.ms} ms (mount giả lập 100 ms, tối thiểu 1.500 ms)`;
+        });
+        const frameDocument = (preview = false) => `<!doctype html><html lang="vi"><head>
+            <link rel="stylesheet" href="/css/tailwind.prod.css?v=3.7.5">
+            <link rel="stylesheet" href="/css/components/preloader.css?v=3.7.12">
+            <style>body{margin:0;font-family:system-ui;background:#f8fafc;color:#0f172a}#ready{padding:24px}</style></head><body${preview ? ' data-testid="preload-preview"' : ''}>
+            <div id="waybill-preloader" hidden></div><div id="ready" hidden>Giao diện đã sẵn sàng, không chờ API.</div>
+            <script src="/js/components/preloader.js?v=3.7.12"><\/script>
+            <script>const start=performance.now();
+            const host=document.getElementById('waybill-preloader');
+            window.addEventListener('message',event=>{
+                if(event.source!==parent||event.data?.action!=='login-preview')return;
+                const release=WaybillPreloader.show();
+                const data=new Promise(resolve=>setTimeout(resolve,4500));
+                WaybillPreloader.waitFor(data);
+                release();
+                parent.postMessage({loginQA:true,complete:false},parent.location.origin);
+                const completed=new MutationObserver(()=>{if(!host.hidden)return;completed.disconnect();
+                    parent.postMessage({loginQA:true,complete:true},parent.location.origin)});
+                completed.observe(host,{attributes:true,attributeFilter:['hidden']});
+            });
+            const truck=host.querySelector('.animate-truck-body');
+            const initialTransform=getComputedStyle(truck).transform;
+            setTimeout(()=>parent.postMessage({motionQA:true,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,
+                animationName:getComputedStyle(truck).animationName,moving:getComputedStyle(truck).transform!==initialTransform},parent.location.origin),250);
+            const observer=new MutationObserver(()=>{if(!host.hidden)return;observer.disconnect();
+                document.getElementById('ready').hidden=false;
+                parent.postMessage({startupQA:true,ms:Math.round(performance.now()-start)},parent.location.origin)});
+            observer.observe(host,{attributes:true,attributeFilter:['hidden']});
+            ${preview ? '' : 'setTimeout(()=>WaybillPreloader.ready(),100);'}<\/script></body></html>`;
+        document.getElementById('scene').srcdoc = frameDocument();
+        document.getElementById('preview').addEventListener('click', () => {
+            document.getElementById('scene').srcdoc = frameDocument(true);
+        });
+        document.getElementById('login-preview').addEventListener('click', () => {
+            document.getElementById('scene').contentWindow.postMessage({action:'login-preview'},location.origin);
+        });
+        for (const id of ['light-badges', 'dark-badges']) {
+            for (const status of ['CREATED', 'IN_TRANSIT', 'DELIVERED', 'DELIVERY_FAILED', 'RETURNING', 'CANCELLED']) {
+                const badge = document.createElement('span');
+                badge.className = `status-indicator ${Utils.getStatusIndicatorClass(status)}`;
+                badge.textContent = Utils.formatStatusText(status);
+                document.getElementById(id).append(badge);
+            }
+        }
+    </script>
+</body>
+</html>
+

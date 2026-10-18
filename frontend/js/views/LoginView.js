@@ -548,16 +548,7 @@
             function finishLoginSuccess(data) {
                 Auth.setSession(data.accessToken, data);
                 showAlert('Đăng nhập thành công! Đang chuyển tiếp...', true);
-                setTimeout(() => {
-                    emit('login-success', data);
-                    const target = sessionStorage.getItem('redirectAfterLogin') || '/';
-                    sessionStorage.removeItem('redirectAfterLogin');
-                    if (window.navigateTo) {
-                        window.navigateTo(target);
-                    } else {
-                        window.location.href = target;
-                    }
-                }, 800);
+                emit('login-success', data);
             }
 
             async function handleEmailLogin() {
@@ -748,7 +739,19 @@
                 }
             }
 
+            const themeBackgrounds = [];
             onMounted(() => {
+                // Warm both CSS backgrounds here, without blocking mount or fetching them on other pages.
+                if (typeof window.Image === 'function') {
+                    for (const src of ['/images/my-bg.jpg', '/images/login-dark-bg.jpg?v=2']) {
+                        const image = new window.Image();
+                        image.decoding = 'async';
+                        image.fetchPriority = 'low';
+                        image.src = src;
+                        themeBackgrounds.push(image);
+                        image.decode?.().catch(() => {});
+                    }
+                }
                 if (!renderGoogleButton()) {
                     let attempts = 0;
                     const pollGoogle = setInterval(() => {
@@ -762,6 +765,7 @@
 
             onUnmounted(() => {
                 if (timerInterval) clearInterval(timerInterval);
+                themeBackgrounds.length = 0;
             });
 
             // Reactive local theme state
@@ -831,28 +835,9 @@
             }));
 
             const handleToggle = (targetMode, origin) => {
-                const nextMode = typeof targetMode === 'boolean'
-                    ? targetMode
-                    : !isDarkMode.value;
+                const nextMode = typeof targetMode === 'boolean' ? targetMode : !isDarkMode.value;
                 isDarkMode.value = nextMode;
-                if (window.appStore?.setDarkMode) {
-                    window.appStore.setDarkMode(nextMode, origin);
-                } else if (typeof document !== 'undefined') {
-                    if (nextMode) {
-                        document.documentElement.classList.add('dark');
-                        localStorage.setItem('waybill_theme', 'dark');
-                        localStorage.removeItem('theme');
-                    } else {
-                        document.documentElement.classList.remove('dark');
-                        localStorage.setItem('waybill_theme', 'light');
-                        localStorage.removeItem('theme');
-                    }
-                }
-                if (typeof window !== 'undefined') {
-                    window.dispatchEvent(new CustomEvent('theme-changed', {
-                        detail: { isDark: nextMode }
-                    }));
-                }
+                // The root handler is the only owner of the store update and theme event.
                 emit('toggle-dark-mode', nextMode, origin);
             };
 

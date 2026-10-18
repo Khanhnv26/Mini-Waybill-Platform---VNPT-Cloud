@@ -282,11 +282,8 @@
 
                     <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
-                            <div class="flex items-center space-x-2">
-                                <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
-                                    CRM Directory
-                                </span>
-                                <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
+                            <div class="text-xs font-medium text-blue-100">
+                                Hệ Thống Quản Lý Khách Hàng (CRM)
                             </div>
                             <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
                                 Quản Lý Danh Bạ &amp; Hồ Sơ Khách Hàng Bưu Chính
@@ -395,14 +392,8 @@
                                                     <span class="font-bold text-slate-900 leading-tight truncate" :title="c.fullName">
                                                         {{ c.fullName }}
                                                     </span>
-                                                    <span v-if="c.customerCode === 'CUS_RETAIL'" class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
-                                                        Vãng Lai
-                                                    </span>
-                                                    <span v-else-if="isCorporate(c)" class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
-                                                        Doanh Nghiệp
-                                                    </span>
-                                                    <span v-else class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
-                                                        Thành Viên
+                                                    <span class="text-[11px] text-slate-400 font-normal shrink-0">
+                                                        • {{ c.customerCode === 'CUS_RETAIL' ? 'Vãng lai' : (isCorporate(c) ? 'Doanh nghiệp' : 'Cá nhân') }}
                                                     </span>
                                                 </div>
                                                 <div class="text-[10px] text-blue-700 font-mono font-bold mt-0.5 truncate">
@@ -425,16 +416,9 @@
                                     </td>
 
                                     <td class="py-2.5 px-3.5 text-center">
-                                        <span 
-                                            :class="[
-                                                'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-bold border shadow-xs',
-                                                c.status === 'ACTIVE' 
-                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                                                    : 'bg-slate-100 text-slate-500 border-slate-200'
-                                            ]"
-                                        >
-                                            <span class="w-1.5 h-1.5 rounded-full" :class="c.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-slate-400'"></span>
-                                            <span>{{ c.status === 'ACTIVE' ? 'Hoạt Động' : 'Tạm Dừng' }}</span>
+                                        <span class="status-indicator" :class="c.status === 'ACTIVE' ? 'status-indicator-emerald' : 'status-indicator-slate'">
+                                            <span class="status-dot" :class="c.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+                                            <span>{{ c.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm dừng' }}</span>
                                         </span>
                                     </td>
 

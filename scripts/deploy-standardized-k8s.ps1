@@ -79,7 +79,7 @@ try {
     Invoke-Kubectl -Arguments @("apply", "-f", "k8s/01-infrastructure/")
 
     Write-Host "4. Ap dung cac microservices nghiep vu (13 services + frontend)..." -ForegroundColor Green
-    Invoke-Kubectl -Arguments @("apply", "-f", "k8s/02-services/")
+    Invoke-Kubectl -Arguments @("apply", "-k", "k8s/02-services")
 
     Write-Host "5. Ap dung quy tac Ingress..." -ForegroundColor Green
     Invoke-Kubectl -Arguments @("apply", "-f", "k8s/03-ingress/")

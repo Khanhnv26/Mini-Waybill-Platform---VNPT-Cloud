@@ -38,7 +38,7 @@ spec:
                   name: waybill-runtime
                   key: db-password
             - name: SPRING_JPA_HIBERNATE_DDL_AUTO
-              value: "update"
+              value: "validate"
             - name: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
               value: "http://eureka-peer1:8761/eureka/"
             - name: EUREKA_INSTANCE_PREFER_IP_ADDRESS

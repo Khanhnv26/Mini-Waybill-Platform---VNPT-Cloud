@@ -365,13 +365,10 @@
                                     </span>
                                 </div>
                                 <p class="text-xs text-blue-100 font-mono">{{ currentUser?.email }}</p>
-                                <div class="flex flex-wrap items-center gap-2 pt-0.5">
-                                    <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-white text-blue-800 shadow-xs">
-                                        {{ roleTitle }}
-                                    </span>
-                                    <span class="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold bg-blue-900/60 text-blue-200 border border-blue-400/30">
-                                        {{ uniqueCode }}
-                                    </span>
+                                <div class="flex flex-wrap items-center gap-1.5 pt-0.5 text-xs text-blue-100">
+                                    <span class="font-semibold text-white">{{ roleTitle }}</span>
+                                    <span class="text-blue-300">•</span>
+                                    <span class="font-mono text-blue-200">{{ uniqueCode }}</span>
                                 </div>
                             </div>
                         </div>
@@ -563,7 +560,7 @@
                             <h3 class="text-xs sm:text-sm font-bold text-slate-800">Đổi Mật Khẩu Đăng Nhập</h3>
                             <p class="text-[11px] text-slate-500">Mật khẩu được mã hóa bảo vệ theo tiêu chuẩn bảo mật BCrypt</p>
                         </div>
-                        <span class="text-[10.5px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-100">
+                        <span class="text-[11px] font-medium text-slate-500">
                             Tối thiểu 6 ký tự
                         </span>
                     </div>
@@ -662,11 +659,9 @@
                         <div class="p-3.5 rounded-xl border border-slate-200 bg-white space-y-1.5">
                             <div class="flex items-center justify-between">
                                 <div class="font-bold text-slate-800">Liên Kết Google SSO</div>
-                                <span v-if="currentUser?.googleLinked" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    Đã Liên Kết
-                                </span>
-                                <span v-else class="px-2 py-0.5 rounded text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200">
-                                    Chưa Liên Kết
+                                <span class="status-indicator font-medium text-slate-700 status-indicator-slate">
+                                    <span class="status-dot" :class="currentUser?.googleLinked ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+                                    <span>{{ currentUser?.googleLinked ? 'Đã liên kết' : 'Chưa liên kết' }}</span>
                                 </span>
                             </div>
                             <p v-if="currentUser?.googleLinked" class="text-[11px] text-slate-500 leading-relaxed">
@@ -680,8 +675,9 @@
                         <div class="p-3.5 rounded-xl border border-slate-200 bg-white space-y-1.5">
                             <div class="flex items-center justify-between">
                                 <div class="font-bold text-slate-800">Phiên Đăng Nhập Hiện Tại</div>
-                                <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700">
-                                    ACTIVE
+                                <span class="status-indicator font-medium text-slate-700 status-indicator-slate">
+                                    <span class="status-dot bg-emerald-500"></span>
+                                    <span>Đang hoạt động</span>
                                 </span>
                             </div>
                             <p class="text-[11px] text-slate-500 leading-relaxed font-mono">
@@ -699,8 +695,8 @@
                                     <h3 class="text-xs sm:text-sm font-bold text-slate-800">Bảng Tra Cứu Quyền Hạn Nghiệp Vụ (Permissions Matrix)</h3>
                                     <p class="text-[11px] text-slate-500">Danh sách các quyền hạn được phân bổ trong Token xác thực của tài khoản này</p>
                                 </div>
-                                <span class="px-2.5 py-0.5 rounded text-[10.5px] font-bold bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
-                                    {{ parsedPermissions.length }} Quyền Được Phép
+                                <span class="text-xs font-semibold text-slate-500 whitespace-nowrap">
+                                    {{ parsedPermissions.length }} quyền được cấp
                                 </span>
                             </div>
 
@@ -717,7 +713,10 @@
                                         <span class="font-mono font-bold text-blue-700 shrink-0">{{ perm.code }}</span>
                                         <span class="text-slate-600 break-words">{{ perm.desc }}</span>
                                     </div>
-                                    <span class="px-2 py-0.5 text-[10px] font-semibold rounded bg-emerald-50 text-emerald-700 border border-emerald-200 self-start sm:self-auto shrink-0 whitespace-nowrap">Kích hoạt</span>
+                                    <span class="status-indicator font-medium text-slate-600 self-start sm:self-auto shrink-0 whitespace-nowrap status-indicator-slate">
+                                        <span class="status-dot bg-emerald-500"></span>
+                                        <span>Kích hoạt</span>
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -738,11 +737,9 @@
                                     <h3 class="text-xs sm:text-sm font-bold text-slate-800">Tài Khoản Ngân Hàng Nhận Tiền Thu Hộ COD</h3>
                                     <p class="text-[11px] text-slate-500">Waybill tự động đối soát và thanh toán tiền thu hộ vào tài khoản này</p>
                                 </div>
-                                <span v-if="shopSettings.bankAccount" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    Đã Cấu Hình
-                                </span>
-                                <span v-else class="px-2 py-0.5 rounded text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200">
-                                    Chưa Cài Đặt
+                                <span class="status-indicator font-medium text-slate-700 status-indicator-slate">
+                                    <span class="status-dot" :class="shopSettings.bankAccount ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+                                    <span>{{ shopSettings.bankAccount ? 'Đã cấu hình' : 'Chưa cài đặt' }}</span>
                                 </span>
                             </div>
 

@@ -14,6 +14,12 @@ public class TicketChatMessageEvent {
     private Long ticketId;
     private String ticketCode;
     private Long messageId;
+    private String clientMessageId;
+    private String audienceKey;
+    private String eventType;
+    private String readerKey;
+    private Boolean staffReader;
+    private Long lastReadMessageId;
     private Long senderId;
     private String senderName;
     private String senderRole;

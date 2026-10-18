@@ -21,6 +21,15 @@ public class TicketMessage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "client_message_id", length = 64)
+    private String clientMessageId;
+
+    @Column(name = "sender_key", length = 80)
+    private String senderKey;
+
+    @Column(name = "audience_key", length = 80)
+    private String audienceKey;
+
     @Column(name = "sender_id", nullable = false)
     private Long senderId;
 

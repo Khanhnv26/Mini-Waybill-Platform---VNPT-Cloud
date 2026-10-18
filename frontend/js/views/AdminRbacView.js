@@ -381,9 +381,10 @@
                 <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                         <div class="flex items-center space-x-2">
-                            <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
+                            <span class="text-xs font-semibold text-blue-100 uppercase tracking-wide">
                                 IAM Security
                             </span>
+                            <span class="text-blue-100/60 text-xs">•</span>
                             <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
                         </div>
                         <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
@@ -420,14 +421,14 @@
                             'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                             currentSubtab === 'matrix'
                                 ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
-                                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-medium'
                         ]"
                     >
                         <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'matrix' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                         </svg>
                         <span class="truncate">Ma Trận RBAC</span>
-                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'matrix' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
+                        <span class="subtab-counter font-mono" :class="currentSubtab === 'matrix' ? 'subtab-counter-blue' : 'subtab-counter-slate'">
                             {{ rolesList.length }}
                         </span>
                     </button>
@@ -439,14 +440,14 @@
                             'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                             currentSubtab === 'users'
                                 ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
-                                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-semibold'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-medium'
                         ]"
                     >
                         <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'users' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                         </svg>
                         <span class="truncate">Người Dùng</span>
-                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'users' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
+                        <span class="subtab-counter font-mono" :class="currentSubtab === 'users' ? 'subtab-counter-blue' : 'subtab-counter-slate'">
                             {{ usersList.length }}
                         </span>
                     </button>
@@ -525,12 +526,7 @@
                                     <th class="min-w-[220px] sm:min-w-[260px] py-2.5 px-3 text-xs font-bold tracking-wider text-slate-600">ĐẶC QUYỀN NGHIỆP VỤ</th>
                                     <th v-for="role in rolesList" :key="role.id" class="text-center min-w-[110px] py-2.5 px-2">
                                         <div class="flex flex-col items-center">
-                                            <span 
-                                                :class="[
-                                                    'px-2 py-0.5 rounded-md text-xs font-bold border tracking-tight',
-                                                    Utils.getRoleBadgeInfo(role.name).class
-                                                ]"
-                                            >
+                                            <span class="text-xs font-semibold text-slate-700">
                                                 {{ Utils.getRoleBadgeInfo(role.name).label }}
                                             </span>
                                         </div>
@@ -678,37 +674,24 @@
                                     </td>
 
                                     <td class="py-2.5 px-3 whitespace-nowrap">
-                                        <span 
-                                            :class="[
-                                                'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide inline-flex items-center space-x-1 border',
-                                                user.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
-                                            ]"
-                                        >
-                                            <span class="w-1.5 h-1.5 rounded-full" :class="user.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-rose-500'"></span>
+                                        <span class="status-indicator" :class="user.status === 'ACTIVE' ? 'status-indicator-emerald' : 'status-indicator-rose'">
+                                            <span class="status-dot" :class="user.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-rose-500'"></span>
                                             <span>{{ user.status === 'ACTIVE' ? 'Hoạt Động' : 'Đình Chỉ' }}</span>
                                         </span>
                                     </td>
 
-                                    <td class="py-2.5 px-3 whitespace-nowrap">
-                                        <span
-                                            :class="[
-                                                'px-2 py-0.5 rounded-md text-[10px] font-mono font-bold border inline-flex items-center',
-                                                user.locationCode ? 'bg-cyan-50 text-cyan-700 border-cyan-200' : 'bg-slate-50 text-slate-400 border-slate-200'
-                                            ]"
-                                        >
+                                    <td class="py-2.5 px-3 whitespace-nowrap font-mono text-xs">
+                                        <span :class="user.locationCode ? 'text-slate-800 font-semibold' : 'text-slate-400 italic'">
                                             {{ user.locationCode || 'Chưa phân công' }}
                                         </span>
                                     </td>
 
                                     <td class="py-2.5 px-3">
-                                        <div class="flex flex-wrap gap-1">
+                                        <div class="flex flex-wrap gap-1.5">
                                             <span
                                                 v-for="role in (user.roles || [])"
                                                 :key="role"
-                                                :class="[
-                                                    'px-2 py-0.5 rounded-md text-[10px] font-semibold border tracking-tight',
-                                                    Utils.getRoleBadgeInfo(role).class
-                                                ]"
+                                                class="text-xs text-slate-600 font-medium"
                                             >
                                                 {{ Utils.getRoleBadgeInfo(role).label }}
                                             </span>
@@ -856,7 +839,7 @@
                         >
                             <div>
                                 <div class="flex items-center space-x-2">
-                                    <span :class="['px-2 py-0.5 rounded-md text-xs font-bold border tracking-tight', Utils.getRoleBadgeInfo(role.name).class]">
+                                    <span class="text-xs font-semibold text-slate-800">
                                         {{ Utils.getRoleBadgeInfo(role.name).label }}
                                     </span>
                                 </div>

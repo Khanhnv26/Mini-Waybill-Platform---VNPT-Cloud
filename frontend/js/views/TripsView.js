@@ -2789,6 +2789,32 @@
                 return 'bg-slate-50 text-slate-700 border border-slate-200';
             };
 
+            const getTripStatusDotClass = (trip) => {
+                if (!trip) return 'bg-slate-400';
+                if (trip.status === 'IN_TRANSIT') return 'bg-blue-500 status-dot-pulse';
+                if (trip.status === 'COMPLETED') return 'bg-emerald-500';
+                if (trip.status === 'CANCELLED') return 'bg-slate-400';
+                if (trip.status === 'SCHEDULED') {
+                    if (isTripOverdue(trip)) return 'bg-rose-500 status-dot-pulse';
+                    if (trip.readyToDepart || (trip.weightPercentage || 0) >= 80) return 'bg-amber-500 status-dot-pulse';
+                    return 'bg-blue-500 status-dot-pulse';
+                }
+                return 'bg-slate-400';
+            };
+
+            const getTripStatusIndicatorClass = (trip) => {
+                if (!trip) return 'status-indicator-slate';
+                if (trip.status === 'IN_TRANSIT') return 'status-indicator-blue';
+                if (trip.status === 'COMPLETED') return 'status-indicator-emerald';
+                if (trip.status === 'CANCELLED') return 'status-indicator-slate';
+                if (trip.status === 'SCHEDULED') {
+                    if (isTripOverdue(trip)) return 'status-indicator-rose';
+                    if (trip.readyToDepart || (trip.weightPercentage || 0) >= 80) return 'status-indicator-amber';
+                    return 'status-indicator-blue';
+                }
+                return 'status-indicator-slate';
+            };
+
             const getExpressCount = (manifests) => {
                 if (!Array.isArray(manifests)) return 0;
                 return manifests.filter(m => m.serviceType === 'EXPRESS').length;
@@ -3069,7 +3095,7 @@
                 getStatusBadge, getWeightColor,
                 getTripLoadInfo, tripLoadInfos, activeTripLoadInfo,
                 formatDateTime, getCountdownText, getCountdownBadgeClass, getCalculatedCutoffText,
-                getTripStatusLabel, getStopStatusLabel, getTripStatusBadgeClass, getTripTypeLabel, getTripLocationLabel,
+                getTripStatusLabel, getStopStatusLabel, getTripStatusBadgeClass, getTripStatusDotClass, getTripStatusIndicatorClass, getTripTypeLabel, getTripLocationLabel,
                 getTripEndpoint, getTransportLegLabel, formatProgress,
                 getExpressCount, getStandardCount, printTripManifest,
                 isReadyForDeparture,
@@ -3107,13 +3133,8 @@
 
                 <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                        <div class="flex items-center space-x-2">
-                            <span class="px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[11px] font-extrabold uppercase tracking-wider border border-white/20">
-                                TRUNG TÂM ĐIỀU VẬN WAYBILL
-                            </span>
-                            <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
-                        </div>
-                        <h1 class="text-base sm:text-xl font-extrabold tracking-tight mt-1 text-white">
+                        <div class="text-xs text-blue-100 font-medium mb-1">Trung tâm điều vận bưu chính</div>
+                        <h1 class="text-base sm:text-xl font-extrabold tracking-tight text-white">
                             Quản Lý &amp; Điều Phối Chuyến Xe Vận Tải
                         </h1>
                         <p class="text-xs text-blue-100/90 mt-0.5 leading-normal max-w-2xl">
@@ -3160,8 +3181,8 @@
                     </div>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center justify-between">
-                            <div class="font-bold text-[11px] uppercase tracking-wider text-slate-500">Chặng Gom Hàng</div>
-                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                            <div class="font-medium text-xs text-slate-500">Chặng gom hàng</div>
+                            <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                 {{ pendingFeederItems.length }} kiện
                             </span>
                         </div>
@@ -3185,8 +3206,8 @@
                     </div>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center justify-between">
-                            <div class="font-bold text-[11px] uppercase tracking-wider text-slate-500">Trục Quốc Lộ 1A</div>
-                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
+                            <div class="font-medium text-xs text-slate-500">Trục Quốc Lộ 1A</div>
+                            <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                 {{ linehaulTrips.length }} xe
                             </span>
                         </div>
@@ -3210,8 +3231,8 @@
                     </div>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center justify-between">
-                            <div class="font-bold text-[11px] uppercase tracking-wider text-slate-500">Chặng Phát Hàng</div>
-                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                            <div class="font-medium text-xs text-slate-500">Chặng phát hàng</div>
+                            <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                 {{ incomingFeederItems.length }} kiện
                             </span>
                         </div>
@@ -3233,7 +3254,7 @@
                             class="px-3 py-1.5 rounded-md transition flex items-center space-x-1.5 cursor-pointer"
                         >
                             <span>1. Kiện Hàng Chờ Xe Gom</span>
-                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 text-amber-800 font-mono">{{ pendingFeederItems.length }}</span>
+                            <span class="subtab-counter text-xs font-normal" :class="feederSubtab === 'pending' ? 'subtab-counter-blue' : 'subtab-counter-slate'">{{ pendingFeederItems.length }}</span>
                         </button>
                         <button 
                             type="button"
@@ -3242,7 +3263,7 @@
                             class="px-3 py-1.5 rounded-md transition flex items-center space-x-1.5 cursor-pointer"
                         >
                             <span>2. Chuyến Xe Gom Vận Hành</span>
-                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-blue-100 text-blue-800 font-mono">{{ filteredOriginFeederTrips.length }}</span>
+                            <span class="subtab-counter text-xs font-normal" :class="feederSubtab === 'trips' ? 'subtab-counter-blue' : 'subtab-counter-slate'">{{ filteredOriginFeederTrips.length }}</span>
                         </button>
                     </div>
 
@@ -3420,8 +3441,9 @@
                                         <div class="text-[10px] text-slate-400">Vị trí: {{ getTripLocationLabel(trip) }}</div>
                                     </td>
                                     <td class="py-3 px-3.5 whitespace-nowrap">
-                                        <span :class="getTripStatusBadgeClass(trip)" class="px-2 py-0.5 rounded text-[10.5px] font-semibold border inline-flex items-center whitespace-nowrap">
-                                            {{ getTripStatusLabel(trip) }}
+                                        <span class="status-indicator whitespace-nowrap" :class="getTripStatusIndicatorClass(trip)">
+                                            <span class="status-dot" :class="getTripStatusDotClass(trip)"></span>
+                                            <span>{{ getTripStatusLabel(trip) }}</span>
                                         </span>
                                     </td>
                                     <td class="py-3 px-3.5 text-right whitespace-nowrap space-x-1.5">
@@ -3468,7 +3490,7 @@
                             class="px-3 py-1.5 rounded-md transition flex items-center space-x-1.5 cursor-pointer"
                         >
                             <span>Xe Xuất Bến (Đi)</span>
-                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-blue-50 text-blue-700 font-bold font-mono">{{ kpiStats.outboundCount }}</span>
+                            <span class="subtab-counter text-xs font-normal" :class="tripDirectionTab === 'OUTBOUND' ? 'subtab-counter-blue' : 'subtab-counter-slate'">{{ kpiStats.outboundCount }}</span>
                         </button>
                         <button 
                             type="button"
@@ -3477,7 +3499,7 @@
                             class="px-3 py-1.5 rounded-md transition flex items-center space-x-1.5 cursor-pointer"
                         >
                             <span>Xe Cập Bến &amp; Dỡ Hàng (Đến)</span>
-                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-50 text-emerald-700 font-bold font-mono">{{ kpiStats.inboundCount }}</span>
+                            <span class="subtab-counter text-xs font-normal" :class="tripDirectionTab === 'INBOUND' ? 'text-emerald-600 font-medium' : 'subtab-counter-slate'">{{ kpiStats.inboundCount }}</span>
                         </button>
                     </div>
 
@@ -3594,8 +3616,9 @@
                                         </div>
                                     </td>
                                     <td class="py-3 px-3.5 whitespace-nowrap">
-                                        <span :class="getTripStatusBadgeClass(trip)" class="px-2 py-0.5 rounded text-[10.5px] font-semibold border inline-flex items-center whitespace-nowrap">
-                                            {{ getTripStatusLabel(trip) }}
+                                        <span class="status-indicator whitespace-nowrap" :class="getTripStatusIndicatorClass(trip)">
+                                            <span class="status-dot" :class="getTripStatusDotClass(trip)"></span>
+                                            <span>{{ getTripStatusLabel(trip) }}</span>
                                         </span>
                                     </td>
                                     <td class="py-3 px-3.5 text-right whitespace-nowrap space-x-1.5">
@@ -3855,8 +3878,9 @@
                                         <div class="text-[10px] text-slate-400">Vị trí: {{ getTripLocationLabel(trip) }}</div>
                                     </td>
                                     <td class="py-3 px-3.5 whitespace-nowrap">
-                                        <span :class="getTripStatusBadgeClass(trip)" class="px-2 py-0.5 rounded text-[10.5px] font-semibold border inline-flex items-center whitespace-nowrap">
-                                            {{ getTripStatusLabel(trip) }}
+                                        <span class="status-indicator whitespace-nowrap" :class="getTripStatusIndicatorClass(trip)">
+                                            <span class="status-dot" :class="getTripStatusDotClass(trip)"></span>
+                                            <span>{{ getTripStatusLabel(trip) }}</span>
                                         </span>
                                     </td>
                                     <td class="py-3 px-3.5 text-right whitespace-nowrap space-x-1.5">
@@ -4762,5 +4786,6 @@
         `
     };
 
+    TripsView.components = { ...TripsView.components, TripManifestModal: window.TripManifestModal };
     window.TripsView = TripsView;
 })();

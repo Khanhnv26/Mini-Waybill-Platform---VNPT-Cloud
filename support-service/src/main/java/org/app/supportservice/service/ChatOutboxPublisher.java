@@ -28,6 +28,7 @@ public class ChatOutboxPublisher {
             TicketChatMessageEvent event = TicketChatMessageEvent.builder()
                     .ticketId(message.getTicket().getId()).ticketCode(message.getTicket().getTicketCode())
                     .messageId(message.getId()).senderId(message.getSenderId()).senderName(message.getSenderName())
+                    .clientMessageId(message.getClientMessageId()).audienceKey(message.getAudienceKey()).eventType("MESSAGE")
                     .senderRole(message.getSenderRole()).content(message.getContent())
                     .attachmentUrls(message.getAttachmentUrls()).createdAt(message.getCreatedAt()).build();
             try {

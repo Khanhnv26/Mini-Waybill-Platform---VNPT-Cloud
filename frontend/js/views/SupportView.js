@@ -1,6 +1,6 @@
 
 (function () {
-    const { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
+    const { ref, reactive, computed, watch, onMounted, onUnmounted, onActivated, onDeactivated, nextTick } = Vue;
 
     const SupportView = {
         name: 'SupportView',
@@ -16,8 +16,12 @@
         },
         emits: ['navigate-tab'],
         setup(props, { emit }) {
-            const currentUser = computed(() => (typeof Auth !== 'undefined' ? Auth.getUser() : null));
+            const currentUser = computed(() => {
+                window.SupportChatRuntime.state.identityVersion;
+                return typeof Auth !== 'undefined' ? Auth.getUser() : null;
+            });
             const isStaffUser = computed(() => {
+                window.SupportChatRuntime.state.identityVersion;
                 if (typeof Auth === 'undefined') return false;
                 return Auth.hasRole('ROLE_CS') || Auth.hasRole('ROLE_ADMIN');
             });
@@ -187,8 +191,14 @@
                 }
 
                 isUploadingAttachment.value = true;
+                const targetId = activeTicket.value?.id;
                 try {
-                    const result = await SupportService.uploadAttachment(file, activeTicket.value?.id);
+                    const result = await SupportService.uploadAttachment(file, targetId);
+                    if (activeTicket.value?.id !== targetId || chatDestroyed) {
+                        const draft = chatRuntime.drafts.get(targetId) || {};
+                        chatRuntime.drafts.set(targetId, { ...draft, key: result.objectKey, url: result.url });
+                        return;
+                    }
                     selectedAttachmentUrl.value = result.url;
                     selectedAttachmentKey.value = result.objectKey;
                     if (window.Utils?.showToast) {
@@ -237,6 +247,7 @@
                 try {
                     let list = guestHistory.value.filter(t => t.ticketCode !== ticket.ticketCode);
                     list.unshift({
+                        id: ticket.id,
                         ticketCode: ticket.ticketCode,
                         trackingCode: ticket.trackingCode,
                         title: ticket.title,
@@ -296,7 +307,8 @@
                 }
             };
 
-            const isWsConnected = ref(false);
+            const chatRuntime = window.SupportChatRuntime;
+            const isWsConnected = computed(() => chatRuntime.state.connected);
             const isRefreshingChat = ref(false);
             const opsViewMode = ref('table');
 
@@ -330,213 +342,200 @@
                 return 'Nhập tin nhắn trao đổi với CSKH... (nhấn Enter để gửi)';
             });
 
-            const getWsEndpoint = () => {
-                const host = window.location.hostname || 'localhost';
-                const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-                if (typeof API_BASE_URL !== 'undefined' && API_BASE_URL.startsWith('http')) {
-                    return `${API_BASE_URL}/api/notifications/ws`;
-                }
-                const port = window.location.port;
-                if (!port || port === '80' || port === '443') {
-                    return `${protocol}//${host}/api/notifications/ws`;
-                }
-                return `${protocol}//${host}:8080/api/notifications/ws`;
-            };
-
-            let chatConnection = null;
             let chatDestroyed = false;
-            const disconnectTicketWs = () => { if (chatConnection) chatConnection.subscribe(null); };
-            const subscribeTicketTopics = (ticket) => {
-                if (!chatConnection) initWebSocket();
-                if (chatConnection) chatConnection.subscribe(ticket);
+            let viewActive = true;
+            const presence = ref(null);
+            const readState = ref({ lastReadMessageId: 0, counterpartReadMessageId: 0 });
+            const hasOlderMessages = ref(false);
+            const loadingHistory = ref(false);
+            const historyError = ref('');
+            const newMessagesBelow = ref(false);
+            const pendingMessages = computed(() => chatRuntime.state.pending[activeTicket.value?.id] || []);
+            const unreadFor = ticket => chatRuntime.state.unread[ticket?.id] || 0;
+            const soundEnabled = computed(() => chatRuntime.state.sound);
+            const presenceText = computed(() => !activeTicket.value ? 'Chưa chọn cuộc trò chuyện'
+                : !presence.value ? 'Chưa xác định'
+                : !isStaffUser.value && !presence.value.assigned ? 'Chưa có nhân viên tiếp nhận'
+                : (isStaffUser.value ? presence.value.customerOnline : presence.value.staffOnline) ? 'Đang online' : 'Offline');
+            const counterpartOnline = computed(() => !!presence.value &&
+                (isStaffUser.value ? presence.value.customerOnline : presence.value.staffOnline));
+            const feed = () => ['chatMessagesFeedModal', 'chatMessagesFeedDesk', 'chatMessagesFeed']
+                .map(id => document.getElementById(id)).find(el => el && el.getClientRects().length);
+            const nearBottom = () => {
+                const el = feed();
+                return !!el && el.scrollHeight - el.scrollTop - el.clientHeight < 64;
             };
-
-            const handleIncomingWsMessage = (frame) => {
+            let readBusy = false;
+            const markVisibleRead = async () => {
+                if (!viewActive || document.hidden || !activeTicket.value || readBusy) return;
+                const el = feed();
+                if (!el) return;
+                const bounds = el.getBoundingClientRect();
+                const visible = [...el.querySelectorAll('[data-message-id]')].filter(node => {
+                    const rect = node.getBoundingClientRect();
+                    return rect.bottom > bounds.top && rect.top < bounds.bottom;
+                }).map(node => Number(node.dataset.messageId)).filter(Number.isFinite);
+                const last = Math.max(0, ...visible);
+                if (last <= readState.value.lastReadMessageId) return;
+                readBusy = true;
+                const id = activeTicket.value.id;
                 try {
-                    const data = JSON.parse(frame.body);
-                    if (data.attachmentUrls) refreshActiveTicketMessagesSilently();
-                    if (!data || !activeTicket.value) return;
-                    if (data.ticketId !== activeTicket.value.id && data.ticketCode !== activeTicket.value.ticketCode) return;
-
-                    if (!activeTicket.value.messages) activeTicket.value.messages = [];
-                    const exists = activeTicket.value.messages.some(m => 
-                        (m.id && data.messageId && m.id === data.messageId) ||
-                        (m.content === data.content && m.createdAt === data.createdAt)
-                    );
-                    if (!exists) {
-                        activeTicket.value.messages.push({
-                            id: data.messageId,
-                            senderId: data.senderId,
-                            senderName: data.senderName,
-                            senderRole: data.senderRole,
-                            content: data.content,
-                            attachmentUrls: /^https?:\/\//.test(data.attachmentUrls || '') ? data.attachmentUrls : null,
-                            createdAt: data.createdAt
-                        });
-                        scrollToBottom();
-
-                        if (opsTickets.value && opsTickets.value.length) {
-                            const targetOps = opsTickets.value.find(t => t.id === activeTicket.value.id);
-                            if (targetOps) {
-                                if (!targetOps.messages) targetOps.messages = [];
-                                if (!targetOps.messages.some(m => m.id === data.messageId)) {
-                                    targetOps.messages.push({ ...data, id: data.messageId });
-                                }
-                            }
-                        }
-
-                        const isFromMe = isMyMessage(data);
-                        if (!isFromMe && window.Utils?.showToast) {
-                            window.Utils.showToast('Tin Nhắn Mới', `${data.senderName || 'Đối phương'}: ${data.content || '[Ảnh đính kèm]'}`, 'info');
-                        }
+                    const result = await chatRuntime.read(id, last);
+                    if (activeTicket.value?.id === id) readState.value = result;
+                } catch {} finally { readBusy = false; }
+            };
+            const onChatScroll = () => { if (nearBottom()) newMessagesBelow.value = false; markVisibleRead(); };
+            const scrollToBottom = (force = true) => {
+                nextTick(() => {
+                    const el = feed();
+                    if (el && (force || nearBottom())) {
+                        el.scrollTop = el.scrollHeight; newMessagesBelow.value = false;
                     }
-                } catch (e) {
-                    console.warn('[Support WebSocket] Lỗi xử lý tin nhắn:', e);
+                    markVisibleRead();
+                });
+            };
+            const mergeMessages = (target, incoming) => {
+                const merged = new Map((target.messages || []).map(message => [message.id, message]));
+                for (const message of incoming) merged.set(message.id, { ...merged.get(message.id), ...message });
+                target.messages = [...merged.values()].sort((a, b) => a.id - b.id);
+            };
+            let presenceBusy = false;
+            const refreshPresence = async () => {
+                const id = activeTicket.value?.id;
+                if (!id || presenceBusy) return;
+                presenceBusy = true;
+                try {
+                    const snapshot = await SupportService.getPresence(id);
+                    if (activeTicket.value?.id === id && !chatDestroyed) presence.value = snapshot;
+                } catch { if (activeTicket.value?.id === id) presence.value = null; }
+                finally { presenceBusy = false; }
+            };
+            let reconciledCursor = 0;
+            let messageSelectionVersion = 0;
+            let pollInFlight = false;
+            const syncMessages = async (initial = false) => {
+                const target = activeTicket.value;
+                const selection = messageSelectionVersion;
+                if (!viewActive || !target || pollInFlight || chatDestroyed) return;
+                pollInFlight = true;
+                const stick = initial || nearBottom();
+                try {
+                    let after = initial ? null : reconciledCursor;
+                    let page;
+                    do {
+                        page = await SupportService.getMessages(target.id, after == null ? {} : { afterId: after });
+                        if (chatDestroyed || selection !== messageSelectionVersion || activeTicket.value?.id !== target.id) return;
+                        if (initial) {
+                            const newest = Math.max(0, ...page.messages.map(message => message.id));
+                            const live = (target.messages || []).filter(message => message.id > newest);
+                            target.messages = page.messages; mergeMessages(target, live); hasOlderMessages.value = page.hasMore;
+                        }
+                        else mergeMessages(target, page.messages);
+                        target.status = page.status;
+                        target.assignedToName = page.assignedToName; target.assignedToUserId = page.assignedToUserId;
+                        reconciledCursor = Math.max(initial ? 0 : reconciledCursor, ...page.messages.map(m => m.id));
+                        readState.value = page.read;
+                        historyError.value = '';
+                        if (!initial && !stick && page.messages.length) newMessagesBelow.value = true;
+                        if (initial || !page.hasMore) break;
+                        after = page.nextCursor;
+                    } while (after != null);
+                    if (stick) scrollToBottom(); else await nextTick().then(markVisibleRead);
+                } catch (error) { historyError.value = error.message; }
+                finally {
+                    pollInFlight = false;
+                    if (!chatDestroyed && activeTicket.value && selection !== messageSelectionVersion) syncMessages(true);
                 }
             };
-
-            const initWebSocket = () => {
-                if (chatDestroyed || chatConnection) return;
-                chatConnection = new window.SupportChatConnection({
-                    url: getWsEndpoint(),
-                    onConnect: () => { isWsConnected.value = true; startSmartPolling(); refreshActiveTicketMessagesSilently(); },
-                    onDisconnect: () => { isWsConnected.value = false; startSmartPolling(); },
-                    onMessage: handleIncomingWsMessage
-                });
-                chatConnection.subscribe(activeTicket.value);
-                chatConnection.start();
+            const loadOlderMessages = async () => {
+                const target = activeTicket.value;
+                if (!target?.messages?.length || loadingHistory.value) return;
+                loadingHistory.value = true;
+                const el = feed(), height = el?.scrollHeight || 0, top = el?.scrollTop || 0;
+                try {
+                    const page = await SupportService.getMessages(target.id, { beforeId: target.messages[0].id });
+                    if (activeTicket.value?.id !== target.id || chatDestroyed) return;
+                    mergeMessages(target, page.messages); hasOlderMessages.value = page.hasMore;
+                    await nextTick();
+                    if (el) el.scrollTop = top + el.scrollHeight - height;
+                } catch (error) { historyError.value = error.message; }
+                finally { loadingHistory.value = false; }
             };
-
+            const attachmentRefreshes = new Map();
+            const refreshMessageAttachment = async message => {
+                const id = activeTicket.value?.id;
+                if (!id || Date.now() - (attachmentRefreshes.get(message.id) || 0) < 30000) return;
+                attachmentRefreshes.set(message.id, Date.now());
+                try {
+                    const page = await SupportService.getMessages(id, { beforeId: message.id + 1, limit: 1 });
+                    if (activeTicket.value?.id === id && !chatDestroyed) mergeMessages(activeTicket.value, page.messages);
+                } catch {}
+            };
+            const messageStatus = message => message.id <= readState.value.counterpartReadMessageId ? 'Đã đọc' : 'Đã gửi';
+            const handleIncomingWsMessage = event => {
+                const data = event.detail;
+                if (!viewActive || !data || !activeTicket.value || data.ticketId !== activeTicket.value.id) return;
+                if (data.eventType === 'PRESENCE') { refreshPresence(); return; }
+                if (data.eventType === 'READ') {
+                    if (data.staffReader !== isStaffUser.value) readState.value.counterpartReadMessageId = Math.max(
+                        readState.value.counterpartReadMessageId, data.lastReadMessageId || 0);
+                    return;
+                }
+                const stick = nearBottom();
+                const exists = activeTicket.value.messages?.some(message => message.id === data.messageId);
+                if (!exists) mergeMessages(activeTicket.value, [{ id: data.messageId, clientMessageId: data.clientMessageId,
+                    senderId: data.senderId, senderName: data.senderName, senderRole: data.senderRole,
+                    content: data.content, createdAt: data.createdAt, attachmentUrls: null }]);
+                if (data.attachmentUrls) refreshActiveTicketMessagesSilently();
+                if (stick) scrollToBottom(); else if (!exists) newMessagesBelow.value = true;
+                // Fetch from the last reconciled cursor, including missed events, on the next sync.
+                refreshActiveTicketMessagesSilently();
+            };
+            const handleSent = event => {
+                if (activeTicket.value?.id !== event.detail.ticketId) return;
+                mergeMessages(activeTicket.value, [event.detail.message]); scrollToBottom();
+            };
+            const disconnected = () => { presence.value = null; if (viewActive) startSmartPolling(); };
+            const connected = () => { if (viewActive && !document.hidden) { startSmartPolling(); syncMessages(); refreshPresence(); } };
+            const subscribeTicketTopics = ticket => { if (viewActive) chatRuntime.select(ticket, nearBottom); };
+            const initWebSocket = () => { chatRuntime.start(); subscribeTicketTopics(activeTicket.value); };
+            const refreshActiveTicketMessagesSilently = () => syncMessages();
+            const manualRefreshChat = async () => {
+                isRefreshingChat.value = true;
+                try { await syncMessages(); await refreshPresence(); }
+                finally { isRefreshingChat.value = false; }
+            };
             let pollTimer = null;
             const startSmartPolling = () => {
-                stopSmartPolling();
-                pollTimer = setInterval(async () => {
-                    if (!activeTicket.value || document.hidden) return;
-                    await refreshActiveTicketMessagesSilently();
+                clearInterval(pollTimer);
+                pollTimer = setInterval(() => {
+                    if (viewActive && !document.hidden) { syncMessages(); refreshPresence(); }
                 }, isWsConnected.value ? 15000 : 3500);
             };
-
-            const stopSmartPolling = () => {
-                if (pollTimer) {
-                    clearInterval(pollTimer);
-                    pollTimer = null;
-                }
-            };
-
-            let pollInFlight = false;
-            const refreshActiveTicketMessagesSilently = async () => {
-                const target = activeTicket.value;
-                if (!target || pollInFlight || chatDestroyed) return;
-                pollInFlight = true;
-                try {
-                    const fresh = target.ticketCode ? await SupportService.getTicketByCode(target.ticketCode) : await SupportService.getTicketById(target.id);
-                    if (chatDestroyed || activeTicket.value?.id !== target.id) return;
-                    const messages = new Map((activeTicket.value.messages || []).map(m => [m.id, m]));
-                    for (const m of fresh.messages || []) messages.set(m.id, m);
-                    activeTicket.value.messages = [...messages.values()].sort((a,b) => new Date(a.createdAt) - new Date(b.createdAt) || a.id - b.id);
-                    activeTicket.value.status = fresh.status;
-                    activeTicket.value.resolutionNote = fresh.resolutionNote;
-                    scrollToBottom();
-                } catch {} finally {
-                    pollInFlight = false;
-                    if (!chatDestroyed && activeTicket.value && activeTicket.value.id !== target.id) {
-                        refreshActiveTicketMessagesSilently();
-                    }
-                }
-            };
-
-            const manualRefreshChat = async () => {
-                if (!activeTicket.value) return;
-                const target = activeTicket.value;
-                isRefreshingChat.value = true;
-                try {
-                    let refreshed = null;
-                    if (activeTicket.value.ticketCode) {
-                        refreshed = await SupportService.getTicketByCode(activeTicket.value.ticketCode);
-                    } else if (activeTicket.value.id) {
-                        refreshed = await SupportService.getTicketById(activeTicket.value.id);
-                    }
-                    if (refreshed && activeTicket.value?.id === target.id && !chatDestroyed) {
-                        activeTicket.value = refreshed;
-                        scrollToBottom();
-                        if (window.Utils?.showToast) {
-                            window.Utils.showToast('Đã Đồng Bộ', 'Đã tải tin nhắn mới nhất thành công.', 'success');
-                        }
-                    }
-                } catch (e) {
-                    if (window.Utils?.showToast) {
-                        window.Utils.showToast('Lỗi Đồng Bộ', e.message, 'warning');
-                    }
-                } finally {
-                    setTimeout(() => { isRefreshingChat.value = false; }, 300);
-                }
-            };
-
-            const selectActiveTicket = async (ticket) => {
+            const stopSmartPolling = () => clearInterval(pollTimer);
+            const selectActiveTicket = async ticket => {
                 if (!ticket) return;
-                const selection = ++ticketSelectionVersion;
-                isSearching.value = false;
-                activeTicket.value = ticket;
-                try {
-                    if (ticket.ticketCode) {
-                        const refreshed = await SupportService.getTicketByCode(ticket.ticketCode);
-                        if (selection === ticketSelectionVersion && !chatDestroyed) activeTicket.value = refreshed;
-                    } else if (ticket.id) {
-                        const refreshed = await SupportService.getTicketById(ticket.id);
-                        if (selection === ticketSelectionVersion && !chatDestroyed) activeTicket.value = refreshed;
-                    } else {
-                        activeTicket.value = ticket;
-                    }
-                } catch {
-                    if (selection === ticketSelectionVersion && !chatDestroyed) activeTicket.value = ticket;
-                }
-                if (selection !== ticketSelectionVersion || chatDestroyed) return;
-                subscribeTicketTopics(activeTicket.value);
-                scrollToBottom();
+                ++ticketSelectionVersion;
+                activeTicket.value = ticket; isSearching.value = false;
+                subscribeTicketTopics(ticket);
+                await syncMessages(true); await refreshPresence();
             };
-
-            const openDeskChatForTicket = async (ticket) => {
-                if (!ticket) return;
+            const openDeskChatForTicket = async ticket => {
+                opsViewMode.value = 'desk'; currentSubTab.value = 'ops';
                 await selectActiveTicket(ticket);
-                opsViewMode.value = 'desk';
-                currentSubTab.value = 'ops';
-                scrollToBottom();
             };
-
-            const sendMessage = async (presetText = null) => {
-                const text = (presetText || chatInput.value).trim();
+            const sendMessage = (presetText = null) => {
+                const target = activeTicket.value;
+                const text = (typeof presetText === 'string' ? presetText : chatInput.value).trim();
                 const attachment = selectedAttachmentKey.value || selectedAttachmentUrl.value;
-                if ((!text && !attachment) || !activeTicket.value) return;
-
-                isSendingMessage.value = true;
-                try {
-                    const payload = {
-                        content: text || (attachment ? 'Đã gửi một hình ảnh đính kèm.' : ''),
-                        attachmentUrls: attachment,
-                        senderName: currentSenderName()
-                    };
-                    const newMsg = await SupportService.addMessage(activeTicket.value.id, payload);
-                    if (!activeTicket.value.messages) activeTicket.value.messages = [];
-                    if (!activeTicket.value.messages.some(m => m.id === newMsg.id)) {
-                        activeTicket.value.messages.push(newMsg);
-                    }
-                    chatInput.value = '';
-                    selectedAttachmentUrl.value = null; selectedAttachmentKey.value = null;
-                    scrollToBottom();
-                } catch (err) {
-                    if (window.Utils?.showToast) window.Utils.showToast('Lỗi Chat', err.message, 'error');
-                } finally {
-                    isSendingMessage.value = false;
+                if ((!text && !attachment) || !target) return;
+                if (['RESOLVED', 'CLOSED'].includes(target.status)) {
+                    window.Utils?.showToast('Phiếu đã đóng', 'Không thể gửi thêm tin nhắn vào phiếu này.', 'warning'); return;
                 }
-            };
-
-            const scrollToBottom = () => {
-                nextTick(() => {
-                    const el = document.getElementById('chatMessagesFeed');
-                    if (el) el.scrollTop = el.scrollHeight;
-                    const deskEl = document.getElementById('chatMessagesFeedDesk');
-                    if (deskEl) deskEl.scrollTop = deskEl.scrollHeight;
-                });
+                chatRuntime.send(target.id, { content: text || 'Đã gửi một hình ảnh đính kèm.',
+                    attachmentUrls: attachment, senderName: currentSenderName() });
+                chatInput.value = ''; selectedAttachmentKey.value = null; selectedAttachmentUrl.value = null;
+                scrollToBottom();
             };
 
             const opsTickets = ref([]);
@@ -582,6 +581,12 @@
                 try {
                     const csName = currentUser.value?.fullName || 'Chuyên viên CSKH';
                     const updated = await SupportService.assignTicket(ticket.id, csName);
+                    if (activeTicket.value?.id === ticket.id) {
+                        activeTicket.value.assignedToUserId = updated.assignedToUserId;
+                        activeTicket.value.assignedToName = updated.assignedToName;
+                        activeTicket.value.status = updated.status;
+                        refreshPresence();
+                    }
                     if (window.Utils?.showToast) {
                         window.Utils.showToast('Đã Tiếp Nhận', `Vé ${updated.ticketCode} đã được gán cho bạn xử lý.`, 'success');
                     }
@@ -593,6 +598,7 @@
             };
 
             const openResolveModal = (ticket) => {
+                selectActiveTicket(ticket);
                 modalTicket.value = ticket;
                 modalCompensation.value = ticket.compensationAmount || 0;
                 modalNote.value = ticket.resolutionNote || 'Đã xác minh trách nhiệm giao hàng. Duyệt phương án giải quyết.';
@@ -631,8 +637,10 @@
                 }
 
                 isUploadingModalAttachment.value = true;
+                const targetId = modalTicket.value?.id;
                 try {
-                    const result = await SupportService.uploadAttachment(file, modalTicket.value?.id);
+                    const result = await SupportService.uploadAttachment(file, targetId);
+                    if (modalTicket.value?.id !== targetId || chatDestroyed) return;
                     modalAttachmentUrl.value = result.url;
                     modalAttachmentKey.value = result.objectKey;
                     if (window.Utils?.showToast) {
@@ -652,24 +660,15 @@
                 modalAttachmentUrl.value = null; modalAttachmentKey.value = null;
             };
 
-            const handleSendCsMessageInModal = async () => {
+            const handleSendCsMessageInModal = () => {
+                const target = modalTicket.value;
+                if (['RESOLVED', 'CLOSED'].includes(target?.status)) return;
                 const text = modalCsReply.value.trim();
                 const attachment = modalAttachmentKey.value || modalAttachmentUrl.value;
-                if ((!text && !attachment) || !modalTicket.value) return;
-                try {
-                    const payload = {
-                        content: text || (attachment ? 'Đã gửi hình ảnh/biên bản giải quyết.' : ''),
-                        attachmentUrls: attachment,
-                        senderName: currentSenderName()
-                    };
-                    const newMsg = await SupportService.addMessage(modalTicket.value.id, payload);
-                    if (!modalTicket.value.messages) modalTicket.value.messages = [];
-                    modalTicket.value.messages.push(newMsg);
-                    modalCsReply.value = '';
-                    modalAttachmentUrl.value = null; modalAttachmentKey.value = null;
-                } catch (err) {
-                    if (window.Utils?.showToast) window.Utils.showToast('Lỗi', err.message, 'error');
-                }
+                if (!target || (!text && !attachment)) return;
+                chatRuntime.send(target.id, { content: text || 'Đã gửi hình ảnh/biên bản giải quyết.',
+                    attachmentUrls: attachment, senderName: currentSenderName() });
+                modalCsReply.value = ''; modalAttachmentUrl.value = null; modalAttachmentKey.value = null;
             };
 
             const submitResolveTicket = async () => {
@@ -681,6 +680,7 @@
                         resolutionNote: modalNote.value.trim()
                     };
                     const resolved = await SupportService.resolveTicket(modalTicket.value.id, payload);
+                    if (activeTicket.value?.id === resolved.id) activeTicket.value.status = resolved.status;
                     if (window.Utils?.showToast) {
                         window.Utils.showToast(
                             'Đã Đóng Khiếu Nại',
@@ -772,6 +772,37 @@
                 return 'bg-slate-100 text-slate-700 border-slate-200';
             };
 
+            const getTicketStatusDotClass = (s) => {
+                if (s === 'OPEN') return 'bg-blue-500';
+                if (s === 'ESCALATED') return 'bg-rose-500';
+                if (s === 'IN_PROGRESS') return 'bg-amber-500';
+                if (s === 'RESOLVED') return 'bg-emerald-500';
+                if (s === 'REJECTED') return 'bg-rose-500';
+                return 'bg-slate-400';
+            };
+
+            const getTicketStatusIndicatorClass = (s) => {
+                if (s === 'ESCALATED' || s === 'REJECTED') return 'status-indicator-rose';
+                if (s === 'IN_PROGRESS') return 'status-indicator-amber';
+                if (s === 'RESOLVED') return 'status-indicator-slate';
+                if (s === 'OPEN') return 'status-indicator-blue';
+                return 'status-indicator-slate';
+            };
+
+            const getShipmentStatusDotClass = (s) => {
+                if (window.Utils && typeof window.Utils.getStatusDotClass === 'function') {
+                    return window.Utils.getStatusDotClass(s);
+                }
+                return getTicketStatusDotClass(s);
+            };
+
+            const getShipmentStatusIndicatorClass = (s) => {
+                if (window.Utils && typeof window.Utils.getStatusIndicatorClass === 'function') {
+                    return window.Utils.getStatusIndicatorClass(s);
+                }
+                return getTicketStatusIndicatorClass(s);
+            };
+
             const formatStatusText = (s) => {
                 if (s === 'OPEN') return 'Mới Tiếp Nhận';
                 if (s === 'ESCALATED') return 'Quá Hạn SLA';
@@ -816,7 +847,34 @@
                 }
             });
 
+            const openRequestedTicket = async () => {
+                const code = chatRuntime.state.openTicketCode;
+                if (!code) return;
+                chatRuntime.state.openTicketCode = null;
+                try {
+                    const ticket = await SupportService.getTicketByCode(code);
+                    if (chatDestroyed) return;
+                    currentSubTab.value = isStaffUser.value ? 'ops' : 'lookup'; opsViewMode.value = 'desk';
+                    await selectActiveTicket(ticket);
+                } catch (error) { window.Utils?.showToast('Không mở được phiếu', error.message, 'warning'); }
+            };
+            const identityChanged = () => { activeTicket.value = null; myTickets.value = []; opsTickets.value = []; };
+            watch(() => chatRuntime.state.openTicketCode, openRequestedTicket);
+            onActivated(() => {
+                viewActive = true; subscribeTicketTopics(activeTicket.value); startSmartPolling();
+                connected(); openRequestedTicket();
+            });
+            onDeactivated(() => {
+                viewActive = false; stopSmartPolling(); chatRuntime.select(null, null);
+            });
             onMounted(async () => {
+                window.addEventListener('support:event', handleIncomingWsMessage);
+                window.addEventListener('support:sent', handleSent);
+                window.addEventListener('support:connected', connected);
+                window.addEventListener('support:disconnected', disconnected);
+                window.addEventListener('support:identity-changed', identityChanged);
+                document.addEventListener('visibilitychange', connected);
+                await openRequestedTicket();
                 syncUserDataToForm();
                 loadGuestHistory();
                 initWebSocket();
@@ -845,13 +903,29 @@
             });
 
             onUnmounted(() => {
+                if (activeTicket.value) chatRuntime.drafts.set(activeTicket.value.id, { text: chatInput.value,
+                    key: selectedAttachmentKey.value, url: selectedAttachmentUrl.value });
+                window.removeEventListener('support:event', handleIncomingWsMessage);
+                window.removeEventListener('support:sent', handleSent);
+                window.removeEventListener('support:connected', connected);
+                window.removeEventListener('support:disconnected', disconnected);
+                window.removeEventListener('support:identity-changed', identityChanged);
+                document.removeEventListener('visibilitychange', connected);
                 chatDestroyed = true;
                 stopSmartPolling();
-                chatConnection?.stop();
-                chatConnection = null;
+                chatRuntime.select(null, null);
             });
 
-            watch(() => activeTicket.value?.id, () => subscribeTicketTopics(activeTicket.value));
+            watch(() => activeTicket.value?.id, (id, oldId) => {
+                ++messageSelectionVersion;
+                if (oldId) chatRuntime.drafts.set(oldId, { text: chatInput.value, key: selectedAttachmentKey.value, url: selectedAttachmentUrl.value });
+                const draft = chatRuntime.drafts.get(id) || {};
+                chatInput.value = draft.text || ''; selectedAttachmentKey.value = draft.key || null; selectedAttachmentUrl.value = draft.url || null;
+                presence.value = null; readState.value = { lastReadMessageId: 0, counterpartReadMessageId: 0 };
+                reconciledCursor = 0; hasOlderMessages.value = false; newMessagesBelow.value = false;
+                subscribeTicketTopics(activeTicket.value);
+                syncMessages(true); refreshPresence();
+            }, { flush: 'sync' });
 
             watch(() => props.trackingCode, (newCode) => {
                 if (newCode && newCode !== formData.trackingCode) {
@@ -874,7 +948,10 @@
                 isStaffUser,
                 currentSubTab,
                 opsViewMode,
-                isWsConnected,
+                isWsConnected, presenceText, counterpartOnline, pendingMessages, readState,
+                hasOlderMessages, loadingHistory, historyError, newMessagesBelow, soundEnabled,
+                loadOlderMessages, onChatScroll, scrollToBottom, messageStatus, unreadFor, refreshMessageAttachment,
+                retryMessage: pending => chatRuntime.retry(pending), toggleChatSound: () => chatRuntime.toggleSound(),
                 isRefreshingChat,
                 isMyMessage,
                 quickReplies,
@@ -929,6 +1006,10 @@
                 formatCategory,
                 formatPriorityBadge,
                 formatStatusBadge,
+                getTicketStatusDotClass,
+                getTicketStatusIndicatorClass,
+                getShipmentStatusDotClass,
+                getShipmentStatusIndicatorClass,
                 formatShipmentBadge,
                 formatStatusText,
                 formatCurrency,
@@ -981,9 +1062,10 @@
                     <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
                             <div class="flex items-center space-x-2">
-                                <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
+                                <span class="text-xs font-semibold text-blue-100 uppercase tracking-wide">
                                     CSKH &amp; Helpdesk
                                 </span>
+                                <span class="text-blue-100/60 text-xs">•</span>
                                 <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
                             </div>
                             <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
@@ -1017,30 +1099,29 @@
 
                 <div class="b2b-card rounded-xl p-1.5 shadow-sm flex items-center justify-between overflow-x-auto">
                     <div class="flex items-center space-x-1.5">
-                        
+
                         <button 
                             type="button"
                             @click="currentSubTab = 'create'" 
                             :class="[
-                                'btn-press px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5',
+                                'btn-press px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5',
                                 currentSubTab === 'create' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                             ]"
                         >
                             <span>Gửi Khiếu Nại Bưu Gửi</span>
-                            <span class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-white/20 text-white" v-if="currentSubTab === 'create'">Soạn vé</span>
                         </button>
 
                         <button 
                             type="button"
                             @click="currentSubTab = 'lookup'" 
                             :class="[
-                                'btn-press px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5',
+                                'btn-press px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5',
                                 currentSubTab === 'lookup' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                             ]"
                         >
                             <span>{{ currentUser ? 'Hồ Sơ Của Tôi & Tra Cứu' : 'Tra Cứu Hồ Sơ & Tiến Độ' }}</span>
-                            <span v-if="currentUser && myTickets.length" class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-blue-100 text-blue-700">
-                                {{ myTickets.length }} hồ sơ
+                            <span v-if="currentUser && myTickets.length" class="subtab-counter" :class="currentSubTab === 'lookup' ? 'subtab-counter-blue' : 'subtab-counter-slate'">
+                                {{ myTickets.length }}
                             </span>
                         </button>
 
@@ -1049,13 +1130,13 @@
                             type="button"
                             @click="currentSubTab = 'ops'; loadOpsTickets();" 
                             :class="[
-                                'btn-press px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5',
+                                'btn-press px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5',
                                 currentSubTab === 'ops' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                             ]"
                         >
                             <span>Tác Nghiệp CSKH</span>
-                            <span class="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 text-[10px] font-bold">
-                                {{ stats.open }} chờ
+                            <span v-if="stats.open" class="subtab-counter" :class="currentSubTab === 'ops' ? 'subtab-counter-amber' : 'subtab-counter-amber'">
+                                {{ stats.open }}
                             </span>
                         </button>
                     </div>
@@ -1066,22 +1147,22 @@
                 </div>
 
                 <div v-if="currentSubTab === 'create'" class="tab-content-enter grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-                    
+
                     <div class="lg:col-span-7 b2b-card rounded-xl p-4 sm:p-5 shadow-sm space-y-4">
                         <div class="border-b border-slate-100 pb-2.5 flex items-center justify-between">
                             <div class="flex items-center space-x-2">
                                 <h2 class="text-xs font-bold text-slate-900 uppercase tracking-wide">
                                     Thông Tin Phiếu Khiếu Nại Bưu Phẩm
                                 </h2>
-                                <span class="px-2 py-0.5 rounded text-[10px] font-bold" :class="currentUser ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-slate-100 text-slate-600 border border-slate-200'">
-                                    {{ currentUser ? 'Tài Khoản Đăng Nhập' : 'Khách Vãng Lai (Nhập Thủ Công)' }}
+                                <span class="text-xs text-slate-400">
+                                    • {{ currentUser ? 'Tài Khoản Đăng Nhập' : 'Khách Vãng Lai' }}
                                 </span>
                             </div>
                             <span class="text-[11px] text-slate-500 font-medium">Cam kết phản hồi trong 2 giờ</span>
                         </div>
 
                         <form class="space-y-3.5 text-xs" @submit.prevent="submitTicket">
-                            
+
                             <div>
                                 <label class="block font-semibold text-slate-700 mb-1">Mã Vận Đơn Bưu Chính (Tracking Code) <span class="text-rose-500">*</span>:</label>
                                 <div class="flex items-center space-x-2 min-w-0">
@@ -1111,8 +1192,9 @@
                                         <span class="font-mono font-bold text-blue-700 truncate max-w-[140px]" :title="shipmentInfo.trackingCode">{{ shipmentInfo.trackingCode }}</span>
                                         <span class="text-slate-500 shrink-0">Bưu gửi bưu chính</span>
                                     </div>
-                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0" :class="formatShipmentBadge(shipmentInfo.status)">
-                                        {{ formatStatusText(shipmentInfo.status) }}
+                                    <span class="status-indicator shrink-0" :class="getShipmentStatusIndicatorClass(shipmentInfo.status)">
+                                        <span class="status-dot" :class="getShipmentStatusDotClass(shipmentInfo.status)"></span>
+                                        <span>{{ formatStatusText(shipmentInfo.status) }}</span>
                                     </span>
                                 </div>
                                 <div v-if="shipmentInfo.senderName || shipmentInfo.receiverName || shipmentInfo.codAmount" class="grid grid-cols-2 gap-2 text-slate-600 pt-1 border-t border-slate-200/60 mt-1">
@@ -1249,9 +1331,9 @@
                 </div>
 
                 <div v-if="currentSubTab === 'lookup'" class="tab-content-enter grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch w-full max-w-full min-w-0">
-                    
+
                     <div class="lg:col-span-5 min-w-0 flex flex-col space-y-3">
-                        
+
                         <div class="b2b-card rounded-xl p-3.5 shadow-xs space-y-2">
                             <div class="flex items-center justify-between">
                                 <span class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center space-x-1.5">
@@ -1306,9 +1388,13 @@
                                         ]"
                                     >
                                         <div class="flex items-center justify-between">
-                                            <span class="font-mono font-bold text-blue-700 text-xs">{{ t.ticketCode }}</span>
-                                            <span class="px-2 py-0.2 rounded-full text-[9.5px] font-bold border" :class="formatStatusBadge(t.status)">
-                                                {{ formatStatusText(t.status) }}
+                                            <div class="flex items-center space-x-1.5 min-w-0">
+                                                <span class="font-mono font-bold text-blue-700 text-xs">{{ t.ticketCode }}</span>
+                                                <span v-if="unreadFor(t)" class="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[9.5px] font-bold leading-none bg-blue-600 text-white shadow-2xs shrink-0" :aria-label="unreadFor(t) + ' tin chưa đọc'">{{ unreadFor(t) }}</span>
+                                            </div>
+                                            <span class="status-indicator text-[11px] shrink-0" :class="getTicketStatusIndicatorClass(t.status)">
+                                                <span class="status-dot" :class="getTicketStatusDotClass(t.status)"></span>
+                                                <span>{{ formatStatusText(t.status) }}</span>
                                             </span>
                                         </div>
                                         <p class="text-[11.5px] font-semibold text-slate-800 mt-1 truncate">{{ t.title }}</p>
@@ -1330,9 +1416,13 @@
                                         ]"
                                     >
                                         <div class="flex items-center justify-between">
-                                            <span class="font-mono font-bold text-blue-700 text-xs">{{ t.ticketCode }}</span>
-                                            <span class="px-2 py-0.2 rounded-full text-[9.5px] font-bold border" :class="formatStatusBadge(t.status)">
-                                                {{ formatStatusText(t.status) }}
+                                            <div class="flex items-center space-x-1.5 min-w-0">
+                                                <span class="font-mono font-bold text-blue-700 text-xs">{{ t.ticketCode }}</span>
+                                                <span v-if="unreadFor(t)" class="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[9.5px] font-bold leading-none bg-blue-600 text-white shadow-2xs shrink-0" :aria-label="unreadFor(t) + ' tin chưa đọc'">{{ unreadFor(t) }}</span>
+                                            </div>
+                                            <span class="status-indicator text-[11px] shrink-0" :class="getTicketStatusIndicatorClass(t.status)">
+                                                <span class="status-dot" :class="getTicketStatusDotClass(t.status)"></span>
+                                                <span>{{ formatStatusText(t.status) }}</span>
                                             </span>
                                         </div>
                                         <p class="text-[11.5px] font-semibold text-slate-800 mt-1 truncate">{{ t.title }}</p>
@@ -1355,8 +1445,9 @@
                                     <div class="text-[10px] text-slate-400 font-semibold uppercase">Tiến Độ Xử Lý Khiếu Nại</div>
                                     <div class="font-mono font-bold text-blue-700 text-xs">{{ activeTicket.ticketCode }}</div>
                                 </div>
-                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border" :class="formatStatusBadge(activeTicket.status)">
-                                    {{ formatStatusText(activeTicket.status) }}
+                                <span class="status-indicator text-[11px]" :class="getTicketStatusIndicatorClass(activeTicket.status)">
+                                    <span class="status-dot" :class="getTicketStatusDotClass(activeTicket.status)"></span>
+                                    <span>{{ formatStatusText(activeTicket.status) }}</span>
                                 </span>
                             </div>
 
@@ -1375,7 +1466,7 @@
                                     </div>
 
                                     <div class="relative z-10 grid grid-cols-4">
-                                        
+
                                         <div class="flex flex-col items-center text-center">
                                             <div 
                                                 class="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs transition-all duration-300 bg-blue-600 text-white"
@@ -1471,7 +1562,7 @@
                                         </span>
                                     </div>
                                 </div>
-                                
+
                                 <div v-if="activeTicket.resolutionNote" class="pt-1 border-t border-slate-200/50 text-[10.5px] leading-relaxed flex items-start space-x-1 text-slate-500">
                                     <span class="font-semibold text-slate-600 flex-shrink-0">Kết luận:</span>
                                     <span>{{ activeTicket.resolutionNote }}</span>
@@ -1482,7 +1573,7 @@
                     </div>
 
                     <div class="lg:col-span-7 min-w-0 b2b-card rounded-xl shadow-xs overflow-hidden bg-white flex flex-col border border-slate-200 h-[620px] lg:h-[680px]">
-                        
+
                         <div class="bg-white px-3.5 py-2.5 border-b border-slate-200 flex items-center justify-between shrink-0">
                             <div class="flex items-center space-x-2.5 min-w-0">
                                 <div class="relative shrink-0">
@@ -1491,7 +1582,7 @@
                                         {{ isStaffUser ? 'KH' : 'CS' }}
                                     </div>
                                     <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white"
-                                        :class="isWsConnected ? 'bg-emerald-500 animate-pulse' : 'bg-blue-400'"></span>
+                                        :class="counterpartOnline ? 'bg-emerald-500' : 'bg-slate-400'"></span>
                                 </div>
                                 <div class="min-w-0">
                                     <div class="flex items-center space-x-1.5 flex-wrap">
@@ -1527,14 +1618,22 @@
 
                                 <span class="inline-flex items-center text-[10px] font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
                                     <span class="w-1.5 h-1.5 rounded-full mr-1.5" :class="isWsConnected ? 'bg-emerald-500 animate-pulse' : 'bg-blue-400'"></span>
-                                    <span>{{ isWsConnected ? 'Trực tiếp' : 'Tự động' }}</span>
+                                    <span>{{ isWsConnected ? 'Đã kết nối' : 'Đang kết nối lại' }}</span>
                                 </span>
                             </div>
                         </div>
 
                         <div v-if="!currentUser && activeTicket?.accessToken" class="px-3 py-2 text-xs break-all bg-slate-50">Lưu mã truy cập này để mở lại phiếu trên thiết bị khác: <code>{{ activeTicket.accessToken }}</code></div>
-                        <div id="chatMessagesFeed" class="p-3.5 space-y-3 flex-1 overflow-y-auto overflow-x-hidden min-h-0 bg-[#f8fafc]">
-                            
+                        <div class="px-3 py-2 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2 text-xs bg-white" aria-live="polite">
+    <span class="inline-flex items-center gap-1.5 text-slate-700"><span class="w-2 h-2 rounded-full" :class="counterpartOnline ? 'bg-emerald-500' : 'bg-slate-400'" aria-hidden="true"></span>{{ presenceText }}</span>
+    <button type="button" @click="toggleChatSound" :aria-pressed="soundEnabled" class="px-2 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-600">{{ soundEnabled ? 'Âm báo: Bật' : 'Âm báo: Tắt' }}</button>
+</div>
+<button v-if="newMessagesBelow" type="button" @click="scrollToBottom()" class="px-3 py-2 text-sm font-semibold text-blue-700 bg-blue-50">Có tin nhắn mới · Xem tin mới nhất</button>
+<div id="chatMessagesFeed" @scroll.passive="onChatScroll" role="log" aria-label="Tin nhắn hỗ trợ" class="p-3.5 space-y-3 flex-1 overflow-y-auto overflow-x-hidden min-h-0 bg-[#f8fafc]">
+<div v-if="hasOlderMessages" class="text-center"><button type="button" @click="loadOlderMessages" :disabled="loadingHistory" class="px-3 py-2 text-sm text-blue-700 hover:underline disabled:opacity-50">{{ loadingHistory ? 'Đang tải…' : 'Tải tin nhắn cũ' }}</button></div>
+<div v-if="historyError" role="status" class="text-sm text-rose-700">{{ historyError }} <button type="button" @click="manualRefreshChat" class="underline">Thử đồng bộ lại</button></div>
+
+
                             <template v-if="activeTicket">
                                 <div class="flex justify-center">
                                     <span class="px-3 py-1 rounded-full bg-slate-200/80 text-slate-600 text-[10px] font-medium border border-slate-300/40 text-center">
@@ -1543,14 +1642,14 @@
                                 </div>
 
                                 <template v-for="msg in activeTicket.messages" :key="msg.id">
-                                    
-                                    <div v-if="isMyMessage(msg)" class="flex justify-end chat-bubble-in">
+
+                                    <div v-if="isMyMessage(msg)" :data-message-id="msg.id" class="flex justify-end chat-bubble-in">
                                         <div class="max-w-[85%] sm:max-w-[75%] min-w-0 space-y-1">
                                             <div class="bg-blue-600 text-white rounded-2xl rounded-tr-xs p-3 shadow-xs text-xs leading-relaxed space-y-2 chat-bubble-wrap break-words break-all">
                                                 <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
                                                 <div v-if="msg.attachmentUrls" class="pt-1.5 border-t border-blue-400/40">
                                                     <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-white/20 bg-blue-700/50 hover:bg-blue-700 transition">
-                                                        <img :src="msg.attachmentUrls" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
+                                                        <img :src="msg.attachmentUrls" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
                                                         <div class="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-xs text-white rounded text-[9px] flex items-center space-x-1 opacity-90 group-hover:opacity-100 transition">
                                                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                                                             <span>Xem ảnh gốc</span>
@@ -1559,12 +1658,12 @@
                                                 </div>
                                             </div>
                                             <div class="text-right text-[10px] text-slate-400 font-mono pr-1">
-                                                {{ isStaffUser ? 'Bạn (CSKH)' : 'Bạn' }} • {{ formatTime(msg.createdAt) }} • Đã gửi ✓✓
+                                                {{ isStaffUser ? 'Bạn (CSKH)' : 'Bạn' }} • {{ formatTime(msg.createdAt) }} • {{ messageStatus(msg) }}
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div v-else class="flex items-start space-x-2 chat-bubble-in">
+                                    <div v-else :data-message-id="msg.id" class="flex items-start space-x-2 chat-bubble-in">
                                         <div class="w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 border mt-1"
                                             :class="isStaffUser ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-blue-100 text-blue-700 border-blue-200'">
                                             {{ isStaffUser ? 'KH' : 'CS' }}
@@ -1577,7 +1676,7 @@
                                                 <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
                                                 <div v-if="msg.attachmentUrls" class="pt-1.5 border-t border-slate-100">
                                                     <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition">
-                                                        <img :src="msg.attachmentUrls" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
+                                                        <img :src="msg.attachmentUrls" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
                                                         <div class="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-xs text-white rounded text-[9px] flex items-center space-x-1 opacity-90 group-hover:opacity-100 transition">
                                                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                                                             <span>Xem ảnh gốc</span>
@@ -1629,7 +1728,18 @@
                                 <span>Vui lòng chọn hoặc tra cứu một mã hồ sơ để mở cuộc hội thoại.</span>
                             </div>
 
-                        </div>
+
+<div v-for="pending in pendingMessages" :key="pending.clientMessageId" class="flex justify-end">
+    <div class="max-w-[85%] space-y-1 text-sm">
+        <div class="bg-blue-50 border border-blue-200 text-slate-800 rounded-xl p-3 break-words">{{ pending.content }}</div>
+        <div role="status" class="text-xs text-right" :class="pending.status === 'failed' ? 'text-rose-700' : 'text-slate-600'">
+            {{ pending.status === 'failed' ? 'Gửi thất bại' : 'Đang gửi…' }}
+            <span v-if="pending.status === 'failed'"> · {{ pending.error }}</span>
+            <button v-if="pending.status === 'failed'" type="button" @click="retryMessage(pending)" class="underline font-semibold ml-2">Thử lại</button>
+        </div>
+    </div>
+</div>
+</div>
 
                         <div v-if="activeTicket && activeTicket.status !== 'RESOLVED' && activeTicket.status !== 'CLOSED' && activeTicket.status !== 'REJECTED'" class="px-3.5 py-2 bg-slate-100/70 border-t border-slate-200/60 flex flex-wrap items-center gap-1.5 text-[11px] shrink-0">
                             <span class="text-slate-400 text-[10px] font-medium shrink-0">{{ isStaffUser ? 'Mẫu phản hồi CSKH:' : 'Gợi ý nhanh:' }}</span>
@@ -1711,7 +1821,7 @@
                 </div>
 
                 <div v-if="currentSubTab === 'ops' && isStaffUser" class="tab-content-enter space-y-3.5">
-                    
+
                     <!-- Top control bar: Search, Status filter, Mode Switcher -->
                     <div class="b2b-card rounded-xl p-3 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
                         <div class="flex flex-wrap items-center gap-2 flex-1">
@@ -1787,20 +1897,23 @@
                                 </thead>
                                 <tbody class="divide-y divide-slate-100">
                                     <tr v-for="t in filteredOpsTickets" :key="t.id" class="hover:bg-slate-50/80 transition-colors">
-                                        <td class="px-4 py-3 font-mono font-bold text-slate-900 truncate max-w-[130px]" :title="t.ticketCode">{{ t.ticketCode }}</td>
+                                        <td class="px-4 py-3 font-mono font-bold text-slate-900 max-w-[160px]" :title="t.ticketCode">
+                                            <span class="block truncate">{{ t.ticketCode }}</span>
+                                            <span v-if="unreadFor(t)" class="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-600 text-white">{{ unreadFor(t) }} chưa đọc</span>
+                                        </td>
                                         <td class="px-4 py-3 font-mono font-bold text-blue-700 truncate max-w-[140px]" :title="t.trackingCode">{{ t.trackingCode }}</td>
                                         <td class="px-4 py-3 max-w-[160px]">
                                             <div class="font-semibold text-slate-800 truncate" :title="t.creatorName">{{ t.creatorName }}</div>
                                             <div class="text-[10px] text-slate-400 font-mono">{{ t.creatorPhone }}</div>
                                         </td>
                                         <td class="px-4 py-3">
-                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border" :class="formatPriorityBadge(t.priority)">
+                                            <span class="text-xs text-slate-700 font-medium">
                                                 {{ formatCategory(t.category) }}
                                             </span>
                                         </td>
                                         <td class="px-4 py-3">
-                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border inline-flex items-center gap-1" :class="formatStatusBadge(t.status)">
-                                                <span v-if="t.status === 'OPEN'" class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                            <span class="status-indicator" :class="getTicketStatusIndicatorClass(t.status)">
+                                                <span class="status-dot" :class="getTicketStatusDotClass(t.status)"></span>
                                                 <span>{{ formatStatusText(t.status) }}</span>
                                             </span>
                                         </td>
@@ -1865,7 +1978,7 @@
 
                     <!-- MODE 2: TRỰC CHAT CSKH (2 CỘT) -->
                     <div v-else class="tab-content-enter grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch w-full max-w-full min-w-0">
-                        
+
                         <!-- Cột Trái: Danh Sách Phiếu Chờ Xử Lý (col-span-5) -->
                         <div class="lg:col-span-5 min-w-0 flex flex-col space-y-3">
                             <div class="b2b-card rounded-xl p-3 shadow-xs space-y-2">
@@ -1874,8 +1987,9 @@
                                         <svg class="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                                         <span>Danh Sách Hồ Sơ Cần Hỗ Trợ ({{ filteredOpsTickets.length }})</span>
                                     </span>
-                                    <span class="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
-                                        Trực Tuyến
+                                    <span class="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                        <span>Trực Tuyến</span>
                                     </span>
                                 </div>
 
@@ -1892,12 +2006,14 @@
                                         <div class="flex items-center justify-between">
                                             <div class="flex items-center space-x-1.5 min-w-0">
                                                 <span class="font-mono font-bold text-blue-700 truncate text-xs">{{ t.ticketCode }}</span>
-                                                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold border" :class="formatPriorityBadge(t.priority)">
+                                                <span v-if="unreadFor(t)" class="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[9.5px] font-bold leading-none bg-blue-600 text-white shadow-2xs shrink-0" :aria-label="unreadFor(t) + ' tin chưa đọc'">{{ unreadFor(t) }}</span>
+                                                <span class="text-[10px] text-slate-500 font-medium truncate max-w-[100px]">
                                                     {{ formatCategory(t.category) }}
                                                 </span>
                                             </div>
-                                            <span class="px-2 py-0.2 rounded-full text-[9px] font-bold border shrink-0" :class="formatStatusBadge(t.status)">
-                                                {{ formatStatusText(t.status) }}
+                                            <span class="status-indicator text-[11px] shrink-0" :class="getTicketStatusIndicatorClass(t.status)">
+                                                <span class="status-dot" :class="getTicketStatusDotClass(t.status)"></span>
+                                                <span>{{ formatStatusText(t.status) }}</span>
                                             </span>
                                         </div>
 
@@ -1926,7 +2042,7 @@
 
                         <!-- Cột Phải: Khung Hội Thoại Nghiệp Vụ CSKH (col-span-7) -->
                         <div class="lg:col-span-7 min-w-0 b2b-card rounded-xl shadow-xs overflow-hidden bg-white flex flex-col border border-slate-200 h-[620px] lg:h-[680px]">
-                            
+
                             <!-- Header thông tin khách hàng & thao tác CSKH -->
                             <div class="bg-white px-3.5 py-2.5 border-b border-slate-200 flex items-center justify-between shrink-0">
                                 <div class="flex items-center space-x-2.5 min-w-0">
@@ -1935,18 +2051,19 @@
                                             KH
                                         </div>
                                         <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white"
-                                            :class="isWsConnected ? 'bg-emerald-500 animate-pulse' : 'bg-blue-400'"></span>
+                                            :class="counterpartOnline ? 'bg-emerald-500' : 'bg-slate-400'"></span>
                                     </div>
                                     <div class="min-w-0">
                                         <div class="flex items-center space-x-1.5 flex-wrap">
                                             <span class="font-bold text-slate-800 text-xs truncate max-w-[180px]">
                                                 {{ activeTicket?.creatorName || 'Khách Hàng' }}
                                             </span>
-                                            <span v-if="activeTicket?.creatorPhone" class="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                                {{ activeTicket.creatorPhone }}
+                                            <span v-if="activeTicket?.creatorPhone" class="text-xs font-mono text-slate-400">
+                                                ({{ activeTicket.creatorPhone }})
                                             </span>
-                                            <span v-if="activeTicket" class="px-2 py-0.2 rounded-full text-[9.5px] font-bold border" :class="formatStatusBadge(activeTicket.status)">
-                                                {{ formatStatusText(activeTicket.status) }}
+                                            <span v-if="activeTicket" class="status-indicator text-[11px]" :class="getTicketStatusIndicatorClass(activeTicket.status)">
+                                                <span class="status-dot" :class="getTicketStatusDotClass(activeTicket.status)"></span>
+                                                <span>{{ formatStatusText(activeTicket.status) }}</span>
                                             </span>
                                         </div>
                                         <div class="text-[10px] text-slate-400 truncate">
@@ -1977,13 +2094,21 @@
 
                                     <span class="inline-flex items-center text-[10px] font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
                                         <span class="w-1.5 h-1.5 rounded-full mr-1.5" :class="isWsConnected ? 'bg-emerald-500 animate-pulse' : 'bg-blue-400'"></span>
-                                        <span>{{ isWsConnected ? 'Trực tiếp' : 'Tự động' }}</span>
+                                        <span>{{ isWsConnected ? 'Đã kết nối' : 'Đang kết nối lại' }}</span>
                                     </span>
                                 </div>
                             </div>
 
                             <!-- Feed tin nhắn Live Desk -->
-                            <div id="chatMessagesFeedDesk" class="p-3.5 space-y-3 flex-1 overflow-y-auto overflow-x-hidden min-h-0 bg-[#f8fafc]">
+                            <div class="px-3 py-2 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2 text-xs bg-white" aria-live="polite">
+    <span class="inline-flex items-center gap-1.5 text-slate-700"><span class="w-2 h-2 rounded-full" :class="counterpartOnline ? 'bg-emerald-500' : 'bg-slate-400'" aria-hidden="true"></span>{{ presenceText }}</span>
+    <button type="button" @click="toggleChatSound" :aria-pressed="soundEnabled" class="px-2 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-600">{{ soundEnabled ? 'Âm báo: Bật' : 'Âm báo: Tắt' }}</button>
+</div>
+<button v-if="newMessagesBelow" type="button" @click="scrollToBottom()" class="px-3 py-2 text-sm font-semibold text-blue-700 bg-blue-50">Có tin nhắn mới · Xem tin mới nhất</button>
+<div id="chatMessagesFeedDesk" @scroll.passive="onChatScroll" role="log" aria-label="Tin nhắn hỗ trợ" class="p-3.5 space-y-3 flex-1 overflow-y-auto overflow-x-hidden min-h-0 bg-[#f8fafc]">
+<div v-if="hasOlderMessages" class="text-center"><button type="button" @click="loadOlderMessages" :disabled="loadingHistory" class="px-3 py-2 text-sm text-blue-700 hover:underline disabled:opacity-50">{{ loadingHistory ? 'Đang tải…' : 'Tải tin nhắn cũ' }}</button></div>
+<div v-if="historyError" role="status" class="text-sm text-rose-700">{{ historyError }} <button type="button" @click="manualRefreshChat" class="underline">Thử đồng bộ lại</button></div>
+
                                 <template v-if="activeTicket">
                                     <div class="flex justify-center">
                                         <span class="px-3 py-1 rounded-full bg-slate-200/80 text-slate-600 text-[10px] font-medium border border-slate-300/40 text-center">
@@ -1992,15 +2117,15 @@
                                     </div>
 
                                     <template v-for="msg in activeTicket.messages" :key="msg.id">
-                                        
+
                                         <!-- CSKH gửi (bên phải, màu xanh) -->
-                                        <div v-if="isMyMessage(msg)" class="flex justify-end chat-bubble-in">
+                                        <div v-if="isMyMessage(msg)" :data-message-id="msg.id" class="flex justify-end chat-bubble-in">
                                             <div class="max-w-[85%] sm:max-w-[75%] min-w-0 space-y-1">
                                                 <div class="bg-blue-600 text-white rounded-2xl rounded-tr-xs p-3 shadow-xs text-xs leading-relaxed space-y-2 chat-bubble-wrap break-words break-all">
                                                     <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
                                                     <div v-if="msg.attachmentUrls" class="pt-1.5 border-t border-blue-400/40">
                                                         <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-white/20 bg-blue-700/50 hover:bg-blue-700 transition">
-                                                            <img :src="msg.attachmentUrls" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
+                                                            <img :src="msg.attachmentUrls" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
                                                             <div class="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-xs text-white rounded text-[9px] flex items-center space-x-1 opacity-90 group-hover:opacity-100 transition">
                                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                                                                 <span>Xem ảnh gốc</span>
@@ -2009,13 +2134,13 @@
                                                     </div>
                                                 </div>
                                                 <div class="text-right text-[10px] text-slate-400 font-mono pr-1">
-                                                    Bạn (CSKH) • {{ formatTime(msg.createdAt) }} • Đã gửi ✓✓
+                                                    Bạn (CSKH) • {{ formatTime(msg.createdAt) }} • {{ messageStatus(msg) }}
                                                 </div>
                                             </div>
                                         </div>
 
                                         <!-- Khách hàng gửi (bên trái, màu trắng với avatar KH) -->
-                                        <div v-else class="flex items-start space-x-2 chat-bubble-in">
+                                        <div v-else :data-message-id="msg.id" class="flex items-start space-x-2 chat-bubble-in">
                                             <div class="w-7 h-7 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-[10px] shrink-0 border border-amber-200 mt-1">
                                                 KH
                                             </div>
@@ -2027,7 +2152,7 @@
                                                     <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
                                                     <div v-if="msg.attachmentUrls" class="pt-1.5 border-t border-slate-100">
                                                         <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition">
-                                                            <img :src="msg.attachmentUrls" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
+                                                            <img :src="msg.attachmentUrls" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
                                                             <div class="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-xs text-white rounded text-[9px] flex items-center space-x-1 opacity-90 group-hover:opacity-100 transition">
                                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                                                                 <span>Xem ảnh gốc</span>
@@ -2059,7 +2184,18 @@
                                     <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                                     <span>Vui lòng chọn một hồ sơ khiếu nại trong danh sách bên trái để mở hội thoại.</span>
                                 </div>
-                            </div>
+
+<div v-for="pending in pendingMessages" :key="pending.clientMessageId" class="flex justify-end">
+    <div class="max-w-[85%] space-y-1 text-sm">
+        <div class="bg-blue-50 border border-blue-200 text-slate-800 rounded-xl p-3 break-words">{{ pending.content }}</div>
+        <div role="status" class="text-xs text-right" :class="pending.status === 'failed' ? 'text-rose-700' : 'text-slate-600'">
+            {{ pending.status === 'failed' ? 'Gửi thất bại' : 'Đang gửi…' }}
+            <span v-if="pending.status === 'failed'"> · {{ pending.error }}</span>
+            <button v-if="pending.status === 'failed'" type="button" @click="retryMessage(pending)" class="underline font-semibold ml-2">Thử lại</button>
+        </div>
+    </div>
+</div>
+</div>
 
                             <!-- Mẫu phản hồi nhanh CSKH -->
                             <div v-if="activeTicket && activeTicket.status !== 'RESOLVED' && activeTicket.status !== 'CLOSED' && activeTicket.status !== 'REJECTED'" class="px-3.5 py-2 bg-slate-100/70 border-t border-slate-200/60 flex flex-wrap items-center gap-1.5 text-[11px] shrink-0">
@@ -2202,9 +2338,19 @@
                                     <span class="text-[10px] text-slate-400">{{ modalTicket.creatorName }}</span>
                                 </div>
 
-                                <div class="h-60 overflow-y-auto overflow-x-hidden min-w-0 p-3 space-y-3 bg-[#f8fafc]">
+                                <div class="px-3 py-2 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2 text-xs bg-white" aria-live="polite">
+    <span class="inline-flex items-center gap-1.5 text-slate-700"><span class="w-2 h-2 rounded-full" :class="counterpartOnline ? 'bg-emerald-500' : 'bg-slate-400'" aria-hidden="true"></span>{{ presenceText }}</span>
+    <button type="button" @click="toggleChatSound" :aria-pressed="soundEnabled" class="px-2 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-600">{{ soundEnabled ? 'Âm báo: Bật' : 'Âm báo: Tắt' }}</button>
+</div>
+<button v-if="newMessagesBelow" type="button" @click="scrollToBottom()" class="px-3 py-2 text-sm font-semibold text-blue-700 bg-blue-50">Có tin nhắn mới · Xem tin mới nhất</button>
+<div id="chatMessagesFeedModal" @scroll.passive="onChatScroll" role="log" aria-label="Tin nhắn với khách hàng" class="h-60 overflow-y-auto overflow-x-hidden min-w-0 p-3 space-y-3 bg-[#f8fafc]">
+<div v-if="hasOlderMessages" class="text-center"><button type="button" @click="loadOlderMessages" :disabled="loadingHistory" class="px-3 py-2 text-sm text-blue-700 hover:underline disabled:opacity-50">{{ loadingHistory ? 'Đang tải…' : 'Tải tin nhắn cũ' }}</button></div>
+<div v-if="historyError" role="status" class="text-sm text-rose-700">{{ historyError }} <button type="button" @click="manualRefreshChat" class="underline">Thử đồng bộ lại</button></div>
+
+
+
                                     <template v-for="msg in modalTicket.messages" :key="msg.id">
-                                        <div v-if="msg.senderRole === 'CUSTOMER'" class="flex items-start space-x-2 chat-bubble-in">
+                                        <div v-if="msg.senderRole === 'CUSTOMER'" :data-message-id="msg.id" class="flex items-start space-x-2 chat-bubble-in">
                                             <div class="w-6 h-6 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">
                                                 KH
                                             </div>
@@ -2214,28 +2360,38 @@
                                                     <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
                                                     <div v-if="msg.attachmentUrls" class="pt-1 border-t border-slate-100">
                                                         <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
-                                                            <img :src="msg.attachmentUrls" alt="Ảnh đính kèm" class="max-w-full max-h-40 rounded-lg object-contain mx-auto" loading="lazy" />
+                                                            <img :src="msg.attachmentUrls" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-40 rounded-lg object-contain mx-auto" loading="lazy" />
                                                         </a>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div v-else class="flex justify-end chat-bubble-in">
+                                        <div v-else :data-message-id="msg.id" class="flex justify-end chat-bubble-in">
                                             <div class="max-w-[80%] min-w-0 space-y-0.5 text-right">
-                                                <div class="text-[10px] text-slate-400">Bạn (CSKH) • {{ formatTime(msg.createdAt) }}</div>
+                                                <div class="text-[10px] text-slate-400">Bạn (CSKH) • {{ formatTime(msg.createdAt) }} • {{ messageStatus(msg) }}</div>
                                                 <div class="p-2.5 bg-blue-600 text-white rounded-2xl rounded-tr-xs shadow-xs text-[11px] text-left leading-relaxed space-y-1.5 chat-bubble-wrap break-words break-all">
                                                     <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
                                                     <div v-if="msg.attachmentUrls" class="pt-1 border-t border-blue-400/40">
                                                         <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-white/20 bg-blue-700/50">
-                                                            <img :src="msg.attachmentUrls" alt="Ảnh đính kèm" class="max-w-full max-h-40 rounded-lg object-contain mx-auto" loading="lazy" />
+                                                            <img :src="msg.attachmentUrls" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-40 rounded-lg object-contain mx-auto" loading="lazy" />
                                                         </a>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </template>
-                                </div>
+                                <div v-for="pending in pendingMessages" :key="pending.clientMessageId" class="flex justify-end">
+    <div class="max-w-[85%] space-y-1 text-sm">
+        <div class="bg-blue-50 border border-blue-200 text-slate-800 rounded-xl p-3 break-words">{{ pending.content }}</div>
+        <div role="status" class="text-xs text-right" :class="pending.status === 'failed' ? 'text-rose-700' : 'text-slate-600'">
+            {{ pending.status === 'failed' ? 'Gửi thất bại' : 'Đang gửi…' }}
+            <span v-if="pending.status === 'failed'"> · {{ pending.error }}</span>
+            <button v-if="pending.status === 'failed'" type="button" @click="retryMessage(pending)" class="underline font-semibold ml-2">Thử lại</button>
+        </div>
+    </div>
+</div>
+</div>
 
                                 <div v-if="modalAttachmentUrl" class="px-2.5 py-1.5 bg-blue-50 border-t border-blue-100 flex items-center justify-between shrink-0">
                                     <div class="flex items-center space-x-2">

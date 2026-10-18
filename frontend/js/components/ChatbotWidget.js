@@ -156,8 +156,8 @@
                                             <svg class="w-4 h-4 text-blue-600 inline-block flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                                             <span class="font-bold text-slate-800 text-[12px]">Mã: <span class="font-mono text-blue-600">{{ msg.data.trackingCode }}</span></span>
                                         </div>
-                                        <span :class="['text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center space-x-1', msg.data.badgeClass]">
-                                            <span class="w-1.5 h-1.5 rounded-full" :class="msg.data.dotClass"></span>
+                                        <span class="status-indicator font-medium text-slate-700 text-xs status-indicator-slate">
+                                            <span class="status-dot" :class="msg.data.dotClass"></span>
                                             <span>{{ msg.data.statusLabel }}</span>
                                         </span>
                                     </div>
@@ -805,8 +805,8 @@
                     case 'RECEIVED':
                     case 'CREATED':
                         return {
-                            label: 'ĐÃ TIẾP NHẬN',
-                            badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+                            label: 'Đã tiếp nhận',
+                            badgeClass: '',
                             dotClass: 'bg-blue-600',
                             step: 1,
                             percent: 25
@@ -815,16 +815,16 @@
                     case 'ROUTED':
                     case 'CONSOLIDATED':
                         return {
-                            label: 'ĐÃ GOM TUYẾN',
-                            badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                            label: 'Đã gom tuyến',
+                            badgeClass: '',
                             dotClass: 'bg-indigo-600',
                             step: 2,
                             percent: 50
                         };
                     case 'PENDING_ROUTING':
                         return {
-                            label: 'CHỜ XẾP TUYẾN',
-                            badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+                            label: 'Chờ xếp tuyến',
+                            badgeClass: '',
                             dotClass: 'bg-blue-600',
                             step: 1,
                             percent: 30
@@ -833,8 +833,8 @@
                     case 'PICKED_UP':
                     case 'ARRIVED_DEST_HUB':
                         return {
-                            label: status === 'PICKED_UP' ? 'ĐÃ LẤY HÀNG' : (status === 'ARRIVED_DEST_HUB' ? 'ĐÃ ĐẾN KHO ĐÍCH' : 'ĐÃ XẾP TUYẾN'),
-                            badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                            label: status === 'PICKED_UP' ? 'Đã lấy hàng' : (status === 'ARRIVED_DEST_HUB' ? 'Đã đến kho đích' : 'Đã xếp tuyến'),
+                            badgeClass: '',
                             dotClass: 'bg-indigo-600',
                             step: 2,
                             percent: status === 'ARRIVED_DEST_HUB' ? 65 : (status === 'PICKED_UP' ? 55 : 45)
@@ -843,48 +843,48 @@
                     case 'DELIVERING':
                     case 'OUT_FOR_DELIVERY':
                         return {
-                            label: 'ĐANG PHÁT HÀNG',
-                            badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
-                            dotClass: 'bg-amber-600 animate-ping',
+                            label: 'Đang phát hàng',
+                            badgeClass: '',
+                            dotClass: 'bg-amber-600',
                             step: 3,
                             percent: 75
                         };
                     case 'DELIVERY_FAILED':
                         return {
-                            label: 'PHÁT KHÔNG THÀNH',
-                            badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
+                            label: 'Giao không thành công',
+                            badgeClass: '',
                             dotClass: 'bg-rose-600',
                             step: 3,
                             percent: 70
                         };
                     case 'DELIVERED':
                         return {
-                            label: 'GIAO THÀNH CÔNG',
-                            badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                            label: 'Giao thành công',
+                            badgeClass: '',
                             dotClass: 'bg-emerald-600',
                             step: 4,
                             percent: 100
                         };
                     case 'RETURNING':
                         return {
-                            label: 'ĐANG HOÀN',
-                            badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
-                            dotClass: 'bg-rose-600 animate-ping',
+                            label: 'Đang chuyển hoàn',
+                            badgeClass: '',
+                            dotClass: 'bg-rose-600',
                             step: 2,
                             percent: 40
                         };
                     case 'RETURNED':
                         return {
-                            label: 'ĐÃ HOÀN',
-                            badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
+                            label: 'Đã chuyển hoàn',
+                            badgeClass: '',
                             dotClass: 'bg-rose-600',
                             step: 2,
                             percent: 100
                         };
                     case 'CANCELLED':
                         return {
-                            label: 'ĐÃ HỦY',
-                            badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
+                            label: 'Đã hủy',
+                            badgeClass: '',
                             dotClass: 'bg-rose-600',
                             step: 1,
                             percent: 20
@@ -892,7 +892,7 @@
                     default:
                         return {
                             label: status,
-                            badgeClass: 'bg-slate-50 text-slate-700 border-slate-200',
+                            badgeClass: '',
                             dotClass: 'bg-slate-600',
                             step: 2,
                             percent: 50

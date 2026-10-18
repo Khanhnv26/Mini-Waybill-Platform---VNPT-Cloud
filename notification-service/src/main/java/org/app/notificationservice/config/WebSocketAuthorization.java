@@ -81,10 +81,32 @@ public class WebSocketAuthorization implements ChannelInterceptor {
 
     private String version(String key) { String value = redis.opsForValue().get(key); return value == null ? "" : value; }
 
+    public Identity authenticate(String authorization) {
+        if (authorization == null || authorization.isBlank()) return new Identity("", "", null);
+        try {
+            if (!authorization.startsWith("Bearer ")) throw new IllegalArgumentException();
+            Claims claims = Jwts.parser().verifyWith(signingKey).build().parseSignedClaims(authorization.substring(7)).getPayload();
+            List<?> roles = claims.get("roles", List.class);
+            Identity identity = new Identity(String.valueOf(claims.get("userId")),
+                    roles == null ? "" : String.join(",", roles.stream().map(Object::toString).toList()), claims);
+            if (!valid(identity)) throw new IllegalArgumentException();
+            return identity;
+        } catch (RuntimeException error) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED);
+        }
+    }
+
     private void authorize(String destination, Identity identity, String token, Message<?> message) {
         if (destination == null) throw denied(message);
         String guestToken = token == null ? "" : token;
-        if (destination.matches("/topic/tickets/\\d+")) {
+        if (!identity.id().isEmpty() && destination.equals("/topic/chat/inbox/user/" + identity.id())) {
+            // Personal inbox; a user cannot subscribe using another account's id.
+        } else if (destination.equals("/topic/chat/inbox/staff") && RoleAccess.hasAny(identity.roles(), "CS", "ADMIN")) {
+            // Only messages addressed to the unassigned support queue.
+        } else if (destination.matches("/topic/chat/inbox/guest/\\d+")) {
+            if (!identity.id().isEmpty()) throw denied(message);
+            tickets.checkId(Long.parseLong(destination.substring("/topic/chat/inbox/guest/".length())), "", "", guestToken);
+        } else if (destination.matches("/topic/tickets/\\d+")) {
             tickets.checkId(Long.parseLong(destination.substring("/topic/tickets/".length())), identity.id(), identity.roles(), guestToken);
         } else if (destination.matches("/topic/tickets/code/[A-Za-z0-9_-]{1,80}")) {
             tickets.checkCode(destination.substring("/topic/tickets/code/".length()), identity.id(), identity.roles(), guestToken);

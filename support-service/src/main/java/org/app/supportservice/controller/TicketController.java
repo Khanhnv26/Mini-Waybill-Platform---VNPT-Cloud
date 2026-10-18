@@ -26,6 +26,7 @@ public class TicketController {
     private final TicketService ticketService;
     private final MinioStorageService minioStorageService;
     private final org.app.supportservice.service.TicketAccessService ticketAccess;
+    private final org.app.supportservice.service.TicketChatService chat;
 
     @PostMapping
     public ResponseEntity<TicketResponse> createTicket(
@@ -80,19 +81,25 @@ public class TicketController {
 
     @GetMapping("/{id}")
     public ResponseEntity<TicketResponse> getTicketById(@PathVariable Long id,
+            @RequestParam(defaultValue = "true") boolean includeMessages,
             @RequestHeader(value = "X-User-Id", required = false) String userId,
             @RequestHeader(value = "X-User-Roles", required = false) String roles,
             @RequestHeader(value = "X-Ticket-Access-Token", required = false) String guestToken) {
         ticketAccess.check(id, parseUserId(userId), roles, guestToken);
+        if (!includeMessages) return ResponseEntity.ok(chat.metadata(id, null,
+                new org.app.supportservice.service.TicketChatService.Caller(parseUserId(userId), roles, guestToken)));
         return ResponseEntity.ok(ticketService.getTicketById(id));
     }
 
     @GetMapping("/code/{ticketCode}")
     public ResponseEntity<TicketResponse> getTicketByCode(@PathVariable String ticketCode,
+            @RequestParam(defaultValue = "true") boolean includeMessages,
             @RequestHeader(value = "X-User-Id", required = false) String userId,
             @RequestHeader(value = "X-User-Roles", required = false) String roles,
             @RequestHeader(value = "X-Ticket-Access-Token", required = false) String guestToken) {
         ticketAccess.checkCode(ticketCode, parseUserId(userId), roles, guestToken);
+        if (!includeMessages) return ResponseEntity.ok(chat.metadata(null, ticketCode,
+                new org.app.supportservice.service.TicketChatService.Caller(parseUserId(userId), roles, guestToken)));
         return ResponseEntity.ok(ticketService.getTicketByCode(ticketCode));
     }
 

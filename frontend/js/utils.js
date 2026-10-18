@@ -37,57 +37,57 @@
                 return {
                     label: 'Quản Trị Hệ Thống',
                     code: 'ADMIN',
-                    class: 'bg-rose-50 text-rose-700 border-rose-200',
-                    dotClass: 'bg-rose-500'
+                    class: 'text-slate-700 dark:text-slate-300 font-medium',
+                    dotClass: 'bg-slate-400 dark:bg-slate-500'
                 };
             case 'ROLE_CS':
                 return {
                     label: 'Điều Hành & CSKH',
                     code: 'CSKH',
-                    class: 'bg-purple-50 text-purple-700 border-purple-200',
-                    dotClass: 'bg-purple-500'
+                    class: 'text-slate-700 dark:text-slate-300 font-medium',
+                    dotClass: 'bg-slate-400 dark:bg-slate-500'
                 };
             case 'ROLE_HUB_OPERATOR':
                 return {
                     label: 'Thủ Kho / Điều Phối Kho Tổng',
                     code: 'KHO TỔNG',
-                    class: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-                    dotClass: 'bg-indigo-500'
+                    class: 'text-slate-700 dark:text-slate-300 font-medium',
+                    dotClass: 'bg-slate-400 dark:bg-slate-500'
                 };
             case 'ROLE_POST_OFFICE_OPERATOR':
                 return {
                     label: 'Giao Dịch Viên Bưu Cục',
                     code: 'BƯU CỤC',
-                    class: 'bg-cyan-50 text-cyan-700 border-cyan-200',
-                    dotClass: 'bg-cyan-500'
+                    class: 'text-slate-700 dark:text-slate-300 font-medium',
+                    dotClass: 'bg-slate-400 dark:bg-slate-500'
                 };
             case 'ROLE_DISPATCHER':
                 return {
                     label: 'Điều Phối Viên Vận Tải',
                     code: 'ĐIỀU PHỐI XE',
-                    class: 'bg-orange-50 text-orange-700 border-orange-200',
-                    dotClass: 'bg-orange-500'
+                    class: 'text-slate-700 dark:text-slate-300 font-medium',
+                    dotClass: 'bg-slate-400 dark:bg-slate-500'
                 };
             case 'ROLE_SHIPPER':
                 return {
                     label: 'Bưu Tá Phát Hàng',
                     code: 'BƯU TÁ',
-                    class: 'bg-amber-50 text-amber-700 border-amber-200',
-                    dotClass: 'bg-amber-500'
+                    class: 'text-slate-700 dark:text-slate-300 font-medium',
+                    dotClass: 'bg-slate-400 dark:bg-slate-500'
                 };
             case 'ROLE_CUSTOMER':
                 return {
                     label: 'Chủ Hàng / Ký Gửi',
                     code: 'CHỦ HÀNG',
-                    class: 'bg-blue-50 text-blue-700 border-blue-200',
-                    dotClass: 'bg-blue-500'
+                    class: 'text-slate-700 dark:text-slate-300 font-medium',
+                    dotClass: 'bg-slate-400 dark:bg-slate-500'
                 };
             default:
                 return {
-                    label: roleName ? roleName.replace('ROLE_', '') : 'KHÁCH VÃNG LAI',
+                    label: roleName ? roleName.replace('ROLE_', '') : 'Khách vãng lai',
                     code: roleName || 'GUEST',
-                    class: 'bg-slate-50 text-slate-600 border-slate-200',
-                    dotClass: 'bg-slate-400'
+                    class: 'text-slate-600 dark:text-slate-400 font-normal',
+                    dotClass: 'bg-slate-400 dark:bg-slate-500'
                 };
         }
     };
@@ -103,123 +103,108 @@
         }
     };
 
+    // One source for shipment labels and visual tones. Existing helpers remain compatible.
+    const STATUS_TONES = {
+        slate: { dot: 'bg-slate-400 dark:bg-slate-500', text: 'text-slate-700 dark:text-slate-300 font-medium', badge: 'bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700' },
+        blue: { dot: 'bg-blue-500 status-dot-pulse', text: 'text-blue-700 dark:text-blue-400 font-medium', badge: 'bg-blue-50/70 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200/80 dark:border-blue-900/60' },
+        emerald: { dot: 'bg-emerald-500', text: 'text-emerald-700 dark:text-emerald-400 font-medium', badge: 'bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200/80 dark:border-emerald-900/60' },
+        rose: { dot: 'bg-rose-500', text: 'text-rose-700 dark:text-rose-400 font-medium', badge: 'bg-rose-50/70 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200/80 dark:border-rose-900/60' },
+        amber: { dot: 'bg-amber-500 status-dot-pulse', text: 'text-amber-700 dark:text-amber-400 font-medium', badge: 'bg-amber-50/70 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/80 dark:border-amber-900/60' }
+    };
+    const mutedText = 'text-slate-600 dark:text-slate-400 font-medium';
+    const neutralBadge = 'bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700';
+    const STATUS_CONFIG = {
+        CREATED: { label: 'Tiếp Nhận Đơn', tone: 'slate', badge: neutralBadge },
+        PENDING_ROUTING: { label: 'Chờ Định Tuyến', tone: 'slate', badge: neutralBadge },
+        ROUTE_ASSIGNED: { label: 'Đã Định Tuyến', tone: 'blue' },
+        PICKED_UP: { label: 'Đã Tiếp Nhận', tone: 'blue' },
+        STORED: { label: loc => String(loc || '').toUpperCase().startsWith('POST-') ? 'Đã Lưu Bưu Cục' : 'Đã Lưu Kho', tone: 'blue' },
+        IN_TRANSIT: { label: 'Đang Vận Chuyển', tone: 'blue' },
+        ARRIVED_DEST_HUB: { label: loc => String(loc || '').toUpperCase().startsWith('POST-') ? 'Đến Bưu Cục Phát' : 'Đến Kho Đích', tone: 'blue' },
+        OUT_FOR_DELIVERY: { label: 'Đang Phát Hàng', tone: 'blue' },
+        DELIVERED: { label: 'Phát Thành Công', tone: 'emerald' },
+        COMPLETED: { tone: 'emerald', badge: STATUS_TONES.slate.badge },
+        ACTIVE: { tone: 'emerald', badge: STATUS_TONES.slate.badge },
+        FAILED: { label: 'Phát Thất Bại', tone: 'rose' },
+        DELIVERY_FAILED: { label: 'Phát Thất Bại', tone: 'rose' },
+        RETURNING: { label: 'Đang Chuyển Hoàn', tone: 'amber' },
+        OUT_FOR_RETURN: { label: 'Đang Phát Hoàn', tone: 'amber' },
+        RETURNED: { label: 'Đã Hoàn Hàng', tone: 'slate', text: mutedText },
+        CANCELLED: { label: 'Đã Hủy Đơn', tone: 'slate', text: mutedText },
+        INACTIVE: { tone: 'slate', text: mutedText }
+    };
+    const statusConfig = status => Object.hasOwn(STATUS_CONFIG, status) ? STATUS_CONFIG[status] : { tone: 'slate' };
     const formatStatusText = (status, locationCode) => {
-        switch (status) {
-            case 'CREATED': return 'Tiếp nhận đơn hàng';
-            case 'PENDING_ROUTING': return 'Chờ định tuyến bưu cục';
-            case 'ROUTE_ASSIGNED': return 'Đã định tuyến / Chờ chấp nhận';
-            case 'PICKED_UP': return 'Đã tiếp nhận tại quầy giao dịch';
-            case 'STORED': {
-                const loc = String(locationCode || '').toUpperCase();
-                if (loc.startsWith('POST-')) {
-                    return 'Đã lưu kho bưu cục';
-                }
-                return 'Đã lưu kho';
-            }
-            case 'IN_TRANSIT': return 'Đang vận chuyển trung chuyển';
-            case 'ARRIVED_DEST_HUB': {
-                const loc = String(locationCode || '').toUpperCase();
-                if (loc.startsWith('POST-')) {
-                    return 'Đã đến bưu cục phát / Chờ bàn giao';
-                }
-                return 'Đã đến trung tâm khai thác đích';
-            }
-            case 'OUT_FOR_DELIVERY': return 'Đang phát tận nơi';
-            case 'DELIVERED': return 'Phát thành công';
-            case 'FAILED':
-            case 'DELIVERY_FAILED': return 'Phát không thành công';
-            case 'RETURNING': return 'Đang chuyển hoàn về người gửi';
-            case 'OUT_FOR_RETURN': return 'Đang phát hoàn cho người gửi';
-            case 'RETURNED': return 'Đã hoàn trả người gửi';
-            case 'CANCELLED': return 'Đã hủy bưu gửi';
-            default: return status || 'N/A';
-        }
+        const label = statusConfig(status).label;
+        return typeof label === 'function' ? label(locationCode) : (label || status || '—');
     };
-
-    const getStatusBadgeClass = (status) => {
-        switch (status) {
-            case 'CREATED':
-            case 'PENDING_ROUTING':
-                return 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800';
-            case 'ROUTE_ASSIGNED':
-            case 'PICKED_UP':
-            case 'STORED':
-            case 'IN_TRANSIT':
-                return 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800';
-            case 'ARRIVED_DEST_HUB':
-                return 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 font-semibold';
-            case 'OUT_FOR_DELIVERY':
-                return 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800';
-            case 'DELIVERED':
-                return 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
-            case 'FAILED':
-            case 'DELIVERY_FAILED':
-                return 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800';
-            case 'RETURNING':
-                return 'bg-orange-50 dark:bg-orange-950/60 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-800';
-            case 'OUT_FOR_RETURN':
-                return 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800 font-semibold';
-            case 'RETURNED':
-                return 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700';
-            case 'CANCELLED':
-                return 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700';
-            default:
-                return 'bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700';
-        }
+    const getStatusDotClass = status => STATUS_TONES[statusConfig(status).tone].dot;
+    const getStatusIndicatorClass = status => 'status-indicator-' + statusConfig(status).tone;
+    const getStatusTextClass = status => {
+        const config = statusConfig(status);
+        return config.text || STATUS_TONES[config.tone].text;
     };
+    const getStatusBadgeClass = status => {
+        const config = statusConfig(status);
+        return config.badge || STATUS_TONES[config.tone].badge;
+    };
+    const formatStatusMeta = (status, locationCode) => ({
+        text: formatStatusText(status, locationCode), dotClass: getStatusDotClass(status),
+        textClass: getStatusTextClass(status), indicatorClass: getStatusIndicatorClass(status)
+    });
 
     const OPERATION_TYPE_LABELS = {
-        SHIPMENT_CREATED: 'Đã tạo bưu gửi',
-        ROUTE_ASSIGNED: 'Đã phân tuyến',
-        RECEIVED_AT_POST_OFFICE: 'Đã tiếp nhận tại bưu cục',
-        STORED: 'Đã nhập kho',
-        RESERVED_FOR_TRIP: 'Đã giữ chỗ trên chuyến',
-        LOADED: 'Đã xếp lên xe',
-        DEPARTED: 'Đã xuất bến',
-        ARRIVED: 'Đã cập bến',
-        UNLOADED: 'Đã dỡ hàng',
-        STORED_AT_HUB: 'Đã nhập kho tổng',
-        HANDED_TO_COURIER: 'Đã bàn giao bưu tá',
-        DELIVERED: 'Phát thành công',
-        DELIVERY_FAILED: 'Phát không thành công',
-        CANCELLED: 'Đã hủy',
-        RETURNING: 'Đang hoàn hàng',
-        RETURNED: 'Đã hoàn hàng'
+        SHIPMENT_CREATED: 'Đã Tạo Đơn',
+        ROUTE_ASSIGNED: 'Đã Phân Tuyến',
+        RECEIVED_AT_POST_OFFICE: 'Đã Tiếp Nhận Bưu Cục',
+        STORED: 'Đã Lưu Kho',
+        RESERVED_FOR_TRIP: 'Đã Giữ Chỗ Chuyến Xe',
+        LOADED: 'Đã Xếp Lên Xe',
+        DEPARTED: 'Đã Xuất Bến',
+        ARRIVED: 'Đã Cập Bến',
+        UNLOADED: 'Đã Dỡ Hàng',
+        STORED_AT_HUB: 'Đã Lưu Kho Tổng',
+        HANDED_TO_COURIER: 'Đã Bàn Giao Bưu Tá',
+        DELIVERED: 'Phát Thành Công',
+        DELIVERY_FAILED: 'Phát Thất Bại',
+        CANCELLED: 'Đã Hủy Đơn',
+        RETURNING: 'Đang Chuyển Hoàn',
+        RETURNED: 'Đã Hoàn Hàng'
     };
 
     const INVENTORY_STATUS_LABELS = {
-        RECEIVED: 'Đã tiếp nhận',
-        STORED: 'Đang lưu kho',
-        RESERVED: 'Đã giữ chỗ trên chuyến',
-        LOADED: 'Đã xếp lên xe',
-        HANDED_TO_COURIER: 'Đã bàn giao bưu tá'
+        RECEIVED: 'Đã Tiếp Nhận',
+        STORED: 'Đã Lưu Kho',
+        RESERVED: 'Đã Giữ Chỗ',
+        LOADED: 'Đã Xếp Lên Xe',
+        HANDED_TO_COURIER: 'Đã Bàn Giao Bưu Tá'
     };
 
     const TRANSPORT_LEG_LABELS = {
-        ORIGIN_FEEDER: 'Xe gom đầu nguồn',
-        LINEHAUL: 'Xe trục liên tỉnh',
-        DESTINATION_FEEDER: 'Xe trung chuyển về bưu cục phát',
-        LAST_MILE: 'Chặng phát cuối'
+        ORIGIN_FEEDER: 'Xe Gom Đầu Nguồn',
+        LINEHAUL: 'Xe Trục Liên Tỉnh',
+        DESTINATION_FEEDER: 'Xe Trung Chuyển Phát',
+        LAST_MILE: 'Chặng Phát Cuối'
     };
 
     const TRIP_TYPE_LABELS = {
-        ORIGIN_FEEDER: 'Xe gom đầu nguồn',
-        LINEHAUL: 'Xe trục liên tỉnh',
-        DESTINATION_FEEDER: 'Xe trung chuyển về bưu cục phát',
-        FEEDER: 'Xe trung chuyển'
+        ORIGIN_FEEDER: 'Xe Gom Đầu Nguồn',
+        LINEHAUL: 'Xe Trục Liên Tỉnh',
+        DESTINATION_FEEDER: 'Xe Trung Chuyển Phát',
+        FEEDER: 'Xe Trung Chuyển'
     };
 
     const TRIP_STATUS_LABELS = {
-        SCHEDULED: 'Đã lập chuyến',
-        IN_TRANSIT: 'Đang chạy tuyến',
-        COMPLETED: 'Đã hoàn thành',
-        CANCELLED: 'Đã hủy'
+        SCHEDULED: 'Đã Lập Chuyến',
+        IN_TRANSIT: 'Đang Chạy Tuyến',
+        COMPLETED: 'Đã Hoàn Thành',
+        CANCELLED: 'Đã Hủy Chuyến'
     };
 
     const STOP_STATUS_LABELS = {
-        PENDING: 'Chờ cập bến',
-        ARRIVED: 'Đã cập bến',
-        DEPARTED: 'Đã rời trạm'
+        PENDING: 'Chờ Cập Bến',
+        ARRIVED: 'Đã Cập Bến',
+        DEPARTED: 'Đã Rời Trạm'
     };
 
     const enumCode = (value) => {
@@ -425,6 +410,10 @@
         formatModuleName,
         formatStatusText,
         getStatusBadgeClass,
+        getStatusDotClass,
+        getStatusTextClass,
+        getStatusIndicatorClass,
+        formatStatusMeta,
         formatOperationType,
         formatInventoryStatus,
         formatTransportLeg,

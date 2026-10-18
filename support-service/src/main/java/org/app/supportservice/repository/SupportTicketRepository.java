@@ -9,6 +9,9 @@ import java.util.Optional;
 
 @Repository
 public interface SupportTicketRepository extends JpaRepository<SupportTicket, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<SupportTicket> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select t from SupportTicket t where t.id = :id")
+    Optional<SupportTicket> lockById(@org.springframework.data.repository.query.Param("id") Long id);
     Optional<SupportTicket> findByTicketCode(String ticketCode);
     boolean existsByTicketCode(String ticketCode);
     List<SupportTicket> findByCreatorUserIdOrderByCreatedAtDesc(Long creatorUserId);

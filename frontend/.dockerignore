@@ -1,2 +1,10 @@
 node_modules
 *.log
+tests
+scripts
+mockup-loader.html
+.git
+.env
+.env.*
+*.pem
+*.key
