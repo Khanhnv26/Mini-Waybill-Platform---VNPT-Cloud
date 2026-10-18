@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Chat QA · Dữ liệu mô phỏng</title>
+    <link rel="stylesheet" href="../../css/tailwind.prod.css">
+    <link rel="stylesheet" href="../../css/style.css">
+    <script src="../../js/libs/vue.global.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-900">
+    <div class="p-3 text-sm bg-amber-50 text-amber-900">Kiểm tra giao diện bằng dữ liệu mô phỏng; trang này không gửi yêu cầu tới backend.</div>
+    <div id="fixture"></div>
+    <script>
+        const ticket = { id: 7, ticketCode: 'TKT-DEMO-7', trackingCode: 'WB-DEMO', creatorUserId: 12,
+            creatorName: 'Khách hàng mô phỏng', creatorPhone: '0900000000', category: 'OTHER', priority: 'NORMAL',
+            status: 'IN_PROGRESS', title: 'Hỗ trợ giao hàng', assignedToUserId: 20, assignedToName: 'Chuyên viên CSKH',
+            createdAt: '2026-10-17T10:00:00', messages: [] };
+        let online = true, nextId = 103;
+        const messages = [
+            { id: 101, senderId: 20, senderName: 'Chuyên viên CSKH', senderRole: 'ROLE_CS', content: 'Chào bạn, mình đang kiểm tra lịch giao bưu phẩm cho bạn.', createdAt: '2026-10-17T10:01:00' },
+            { id: 102, senderId: 12, senderName: ticket.creatorName, senderRole: 'CUSTOMER', content: 'Cảm ơn bạn, mình muốn nhận hàng vào buổi chiều.', createdAt: '2026-10-17T10:02:00' }
+        ];
+        const subscriptions = new Map();
+        window.Auth = { getUser: () => ({ id: 12, fullName: ticket.creatorName }), getToken: () => 'fixture-only',
+            decodeJwtPayload: () => ({ userId: 12, roles: ['CUSTOMER'] }), hasRole: () => false };
+        window.Utils = { showToast: () => {} };
+        window.SockJS = function () { this.close = () => {}; };
+        window.Stomp = { over: () => ({ heartbeat: {}, connected: false,
+            connect(headers, done) { this.connected = true; done(); },
+            subscribe(topic, callback) {
+                const key = Symbol(topic); subscriptions.set(key, { topic, callback });
+                return { unsubscribe: () => subscriptions.delete(key) };
+            }, disconnect() { this.connected = false; }
+        }) };
+        const response = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
+        window.Api = {
+            async get(path) {
+                const url = new URL(path, location.origin);
+                if (path.includes('/presence/')) return response({ customerOnline: true, staffOnline: online, assigned: true });
+                if (path.includes('/messages')) {
+                    const after = url.searchParams.get('afterId');
+                    const before = url.searchParams.get('beforeId');
+                    const selected = messages.filter(m => (after == null || m.id > Number(after)) && (before == null || m.id < Number(before)));
+                    return response({ messages: selected, hasMore: false, nextCursor: selected.at(-1)?.id,
+                        read: { lastReadMessageId: 101, counterpartReadMessageId: 102, unreadCount: 0 },
+                        status: ticket.status, assignedToName: ticket.assignedToName, assignedToUserId: 20 });
+                }
+                if (path.includes('/chat/summary') || path.includes('/chat/inbox')) return response([]);
+                if (path.includes('/my-tickets')) return response([ticket]);
+                return response({ ...ticket, messages: [] });
+            },
+            async post(path, body) {
+                if (!path.includes('/messages')) return response(null, 204);
+                if (body.content.includes('Kiểm tra gửi lỗi')) return response({ message: 'Lỗi mô phỏng. Bạn có thể thử gửi lại.' }, 400);
+                const message = { ...body, id: nextId++, senderId: 12, senderRole: 'CUSTOMER', createdAt: new Date().toISOString() };
+                messages.push(message); return response(message, 201);
+            },
+            async put() { return response({ lastReadMessageId: nextId - 1, counterpartReadMessageId: 102, unreadCount: 0 }); }
+        };
+    </script>
+    <script src="../../js/services/supportService.js"></script>
+    <script src="../../js/services/supportChatRuntime.js"></script>
+    <script src="../../js/views/SupportView.js"></script>
+    <script>
+        Vue.createApp({ components: { SupportView: window.SupportView },
+            template: `<div class="max-w-7xl mx-auto p-3"><div class="flex flex-wrap gap-3 p-3">
+                <button @click="togglePresence" class="px-3 py-2 bg-white border rounded">Mô phỏng online/offline</button>
+                <button @click="incoming" class="px-3 py-2 bg-white border rounded">Mô phỏng tin mới</button>
+                <button @click="failed" class="px-3 py-2 bg-white border rounded">Mô phỏng gửi lỗi</button>
+                </div><SupportView ref="support" /></div>`,
+            mounted() { this.$refs.support.currentSubTab = 'lookup'; this.$refs.support.selectActiveTicket({ ...ticket }); },
+            methods: {
+                togglePresence() { online = !online; this.$refs.support.manualRefreshChat(); },
+                incoming() {
+                    const message = { id: nextId++, senderId: 20, senderRole: 'ROLE_CS', senderName: 'Chuyên viên CSKH',
+                        content: 'Bưu phẩm sẽ được giao trong chiều nay. Bạn vui lòng để ý điện thoại nhé.', createdAt: new Date().toISOString() };
+                    messages.push(message);
+                    const event = { ...message, messageId: message.id, ticketId: 7, ticketCode: ticket.ticketCode, eventType: 'MESSAGE', audienceKey: 'user:12' };
+                    for (const { callback } of subscriptions.values()) callback({ body: JSON.stringify(event) });
+                },
+                failed() { window.SupportChatRuntime.send(7, { content: 'Kiểm tra gửi lỗi', senderName: ticket.creatorName }); }
+            }
+        }).mount('#fixture');
+    </script>
+</body>
+</html>

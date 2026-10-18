@@ -1171,7 +1171,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                         </svg>
                         <span class="truncate">Quét Tiếp Nhận</span>
-                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'scan' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
+                        <span class="subtab-counter font-normal text-xs" :class="currentSubtab === 'scan' ? 'subtab-counter-blue' : 'subtab-counter-slate'">
                             {{ (kpiAwaitingIntake + kpiAwaitingStore) }}
                         </span>
                     </button>
@@ -1191,7 +1191,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                         </svg>
                         <span class="truncate">Tồn Kho Hub</span>
-                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'inventory' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
+                        <span class="subtab-counter font-normal text-xs" :class="currentSubtab === 'inventory' ? 'subtab-counter-blue' : 'subtab-counter-slate'">
                             {{ kpiTotalInHub }}
                         </span>
                     </button>
@@ -1369,14 +1369,14 @@
                                     <div class="text-[10.5px] text-slate-500 truncate" :title="item.receiverAddress || ''">{{ item.receiverAddress || 'Chưa có địa chỉ' }}</div>
                                 </td>
                                 <td class="py-2.5 px-3 align-top whitespace-nowrap">
-                                    <span :class="['px-2 py-0.5 rounded-md text-[10.5px] font-bold border inline-flex items-center whitespace-nowrap', Utils.getStatusBadgeClass(operationalStatus(item))]">
+                                    <span class="status-indicator whitespace-nowrap" :class="Utils.getStatusIndicatorClass(operationalStatus(item))">
                                         {{ Utils.formatStatusText(operationalStatus(item), locationForDisplay(item)) || '—' }}
                                     </span>
                                 </td>
                                 <td class="py-2.5 px-3 align-top whitespace-nowrap">
                                     <span v-if="getInventoryStatus(item)" 
-                                        :class="String(getInventoryStatus(item) || '').toUpperCase() === 'RECEIVED' ? 'bg-amber-50 text-amber-700 border-amber-200' : (String(getInventoryStatus(item) || '').toUpperCase() === 'STORED' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-700 border-slate-200')"
-                                        class="px-2 py-0.5 rounded text-[10.5px] font-bold border inline-flex items-center whitespace-nowrap"
+                                        class="status-indicator whitespace-nowrap"
+                                        :class="String(getInventoryStatus(item) || '').toUpperCase() === 'STORED' ? 'status-indicator-blue' : 'status-indicator-slate'"
                                         :title="getInventoryStatus(item)">
                                         {{ Utils.formatInventoryStatus(getInventoryStatus(item)) }}
                                     </span>

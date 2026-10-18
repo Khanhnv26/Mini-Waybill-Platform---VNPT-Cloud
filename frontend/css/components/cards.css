@@ -127,3 +127,220 @@
 .truck-pin {
     transition: left 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+/* Status Badge (Compact 20px Slim - r=4px, 11px font-medium, Enterprise Standard) */
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.08rem 0.45rem;
+    border-radius: 0.25rem; /* rounded r=4px */
+    font-size: 0.6875rem;   /* text-[11px] 11px */
+    line-height: 0.875rem;  /* 14px */
+    font-weight: 500;
+    min-height: 1.25rem;    /* 20px */
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    background-color: rgba(248, 250, 252, 0.9);
+    color: #334155;
+    white-space: nowrap;
+    text-align: center;
+    transition: all 0.15s ease-in-out;
+}
+
+.dark .status-indicator {
+    border-color: rgba(51, 65, 85, 0.7);
+    background-color: rgba(30, 41, 59, 0.5);
+    color: #cbd5e1;
+}
+
+/* Hide status dots inside status-indicator completely */
+.status-indicator .status-dot {
+    display: none !important;
+}
+
+/* Explicit Tone Variants (Tone 50 bg, Tone 200/300 border, Tone 700 text) */
+.status-indicator-emerald,
+.status-indicator.status-emerald {
+    background-color: #ecfdf5;
+    border-color: #a7f3d0;
+    color: #047857;
+}
+
+.status-indicator-blue,
+.status-indicator.status-blue {
+    background-color: #eff6ff;
+    border-color: #bfdbfe;
+    color: #1d4ed8;
+}
+
+.status-indicator-amber,
+.status-indicator.status-amber {
+    background-color: #fffbeb;
+    border-color: #fde68a;
+    color: #b45309;
+}
+
+.status-indicator-rose,
+.status-indicator.status-rose {
+    background-color: #fff1f2;
+    border-color: #fecdd3;
+    color: #be123c;
+}
+
+.status-indicator-purple,
+.status-indicator.status-purple {
+    background-color: #faf5ff;
+    border-color: #e9d5ff;
+    color: #6b21a8;
+}
+
+.status-indicator-slate,
+.status-indicator.status-slate {
+    background-color: #f8fafc;
+    border-color: #e2e8f0;
+    color: #334155;
+}
+
+/* Dark Mode Variants */
+.dark .status-indicator-emerald,
+.dark .status-indicator.status-emerald {
+    background-color: rgba(6, 78, 59, 0.35);
+    border-color: rgba(16, 185, 129, 0.4);
+    color: #6ee7b7;
+}
+
+.dark .status-indicator-blue,
+.dark .status-indicator.status-blue {
+    background-color: rgba(30, 58, 138, 0.35);
+    border-color: rgba(59, 130, 246, 0.4);
+    color: #93c5fd;
+}
+
+.dark .status-indicator-amber,
+.dark .status-indicator.status-amber {
+    background-color: rgba(120, 53, 15, 0.35);
+    border-color: rgba(245, 158, 11, 0.4);
+    color: #fcd34d;
+}
+
+.dark .status-indicator-rose,
+.dark .status-indicator.status-rose {
+    background-color: rgba(136, 19, 55, 0.35);
+    border-color: rgba(244, 63, 94, 0.4);
+    color: #fda4af;
+}
+
+.dark .status-indicator-purple,
+.dark .status-indicator.status-purple {
+    background-color: rgba(88, 28, 135, 0.35);
+    border-color: rgba(168, 85, 247, 0.4);
+    color: #d8b4fe;
+}
+
+.dark .status-indicator-slate,
+.dark .status-indicator.status-slate {
+    background-color: rgba(30, 41, 59, 0.5);
+    border-color: rgba(71, 85, 105, 0.4);
+    color: #94a3b8;
+}
+
+/* Status Dot & Pulse (5px Slim) */
+.status-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 9999px;
+    display: inline-block;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.status-dot-pulse {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 5px;
+    height: 5px;
+}
+
+.status-dot-pulse::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 9999px;
+    background-color: inherit;
+    opacity: 0.65;
+    animation: status-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+    pointer-events: none;
+}
+
+@keyframes status-ping {
+    70%, 100% {
+        transform: scale(2.2);
+        opacity: 0;
+    }
+}
+
+/* Subtab Counter Pill (GitHub / Linear Standard) */
+.subtab-counter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.125rem; /* 18px */
+    height: 1.125rem;     /* 18px */
+    padding: 0 0.35rem;
+    border-radius: 9999px;
+    font-size: 0.65625rem; /* 10.5px */
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-weight: 600;
+    line-height: 1;
+    margin-left: 0.375rem;
+    background-color: rgba(241, 245, 249, 0.85); /* bg-slate-100 */
+    color: #475569;                               /* text-slate-600 */
+    border: 1px solid rgba(226, 232, 240, 0.75);
+    transition: all 0.15s ease-in-out;
+}
+
+.dark .subtab-counter {
+    background-color: rgba(30, 41, 59, 0.6);
+    color: #94a3b8;
+    border-color: rgba(51, 65, 85, 0.5);
+}
+
+/* Active Subtab Counter (Soft blue tint) */
+.subtab-counter-blue {
+    background-color: rgba(239, 246, 255, 0.9); /* blue-50 */
+    color: #1d4ed8;                              /* blue-700 */
+    border-color: rgba(191, 219, 254, 0.7);
+}
+
+.dark .subtab-counter-blue {
+    background-color: rgba(30, 58, 138, 0.35);
+    color: #93c5fd;
+    border-color: rgba(30, 64, 175, 0.4);
+}
+
+/* Alert States for Subtabs (Soft tint, hairline border) */
+.subtab-counter-rose {
+    background-color: rgba(255, 241, 242, 0.8); /* rose-50 */
+    color: #be123c;                              /* rose-700 */
+    border-color: rgba(254, 205, 211, 0.6);
+}
+
+.dark .subtab-counter-rose {
+    background-color: rgba(136, 19, 55, 0.3);
+    color: #fda4af;
+    border-color: rgba(159, 18, 57, 0.4);
+}
+
+.subtab-counter-amber {
+    background-color: rgba(254, 252, 232, 0.8); /* amber-50 */
+    color: #b45309;                               /* amber-700 */
+    border-color: rgba(253, 230, 138, 0.6);
+}
+
+.dark .subtab-counter-amber {
+    background-color: rgba(120, 53, 15, 0.3);
+    color: #fcd34d;
+    border-color: rgba(146, 64, 14, 0.4);
+}

@@ -445,11 +445,8 @@
 
                     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
                         <div>
-                            <div class="flex items-center space-x-2">
-                                <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
-                                    Shipper Operations
-                                </span>
-                                <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
+                            <div class="text-xs font-medium text-blue-100">
+                                Quản Trị Bưu Tá &amp; Ca Trực Tuyến Phát
                             </div>
                             <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
                                 Quản Trị Ca Trực &amp; Năng Lực Tiếp Nhận Đơn Của Bưu Tá
@@ -610,9 +607,7 @@
                                     <!-- BƯU CỤC TUYẾN PHÁT -->
                                     <td class="py-2.5 px-3.5">
                                         <div class="space-y-0.5">
-                                            <span class="inline-flex items-center gap-1 font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-[11px]">
-                                                {{ stationLabel(item.stationCode) }}
-                                            </span>
+                                            <div class="font-semibold text-slate-800 text-xs">{{ stationLabel(item.stationCode) }}</div>
                                             <div class="font-mono text-[10px] text-slate-400">{{ item.stationCode }}</div>
                                         </div>
                                     </td>
@@ -622,14 +617,12 @@
                                         <button 
                                             type="button"
                                             @click="toggleShiftStatus(item)"
-                                            class="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold cursor-pointer transition border shadow-2xs whitespace-nowrap"
-                                            :class="item.shiftStatus === 'ON_DUTY' 
-                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800' 
-                                                : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'"
+                                            class="status-indicator font-medium transition cursor-pointer hover:opacity-85"
+                                            :class="item.shiftStatus === 'ON_DUTY' ? 'status-indicator-emerald' : 'status-indicator-slate'"
                                             :title="item.shiftStatus === 'ON_DUTY' ? 'Đang trực ca (Bấm để chuyển sang Nghỉ Ca)' : 'Đang nghỉ ca (Bấm để Bật Ca Trực)'"
                                         >
-                                            <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="item.shiftStatus === 'ON_DUTY' ? 'bg-emerald-500' : 'bg-slate-400'"></span>
-                                            <span>{{ item.shiftStatus === 'ON_DUTY' ? 'Đang Trực Ca' : 'Nghỉ Ca' }}</span>
+                                            <span class="status-dot shrink-0" :class="item.shiftStatus === 'ON_DUTY' ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+                                            <span>{{ item.shiftStatus === 'ON_DUTY' ? 'Đang trực ca' : 'Nghỉ ca' }}</span>
                                         </button>
                                     </td>
 
@@ -654,8 +647,8 @@
 
                                     <!-- ĐÁNH GIÁ (SAO) -->
                                     <td class="py-2.5 px-3.5 text-center">
-                                        <span class="inline-flex items-center gap-1 font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 text-[11px]">
-                                            <svg class="w-3 h-3 text-amber-500 fill-current shrink-0" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                                        <span class="inline-flex items-center gap-1 font-mono font-semibold text-slate-700 text-xs">
+                                            <svg class="w-3.5 h-3.5 text-amber-500 fill-current shrink-0" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
                                             <span>{{ (item.ratingAvg != null ? item.ratingAvg : 5.0).toFixed(1) }}</span>
                                         </span>
                                     </td>
@@ -664,18 +657,19 @@
                                     <td class="py-2.5 px-3.5 text-center">
                                         <span 
                                             v-if="item.hasLinkedTelegram" 
-                                            class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-sky-50 text-sky-700 border border-sky-200"
+                                            class="status-indicator status-indicator-blue"
                                             title="Đã liên kết Telegram Bot nhận đơn hàng"
                                         >
-                                            <svg class="w-3 h-3 text-sky-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .37z"/></svg>
-                                            <span>Đã Nối</span>
+                                            <span class="status-dot bg-sky-500"></span>
+                                            <span>Đã nối</span>
                                         </span>
                                         <span 
                                             v-else 
-                                            class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10.5px] font-medium bg-slate-100 text-slate-400 border border-slate-200"
+                                            class="status-indicator status-indicator-slate"
                                             title="Chưa kết nối Telegram Bot"
                                         >
-                                            <span>Chưa Nối</span>
+                                            <span class="status-dot bg-slate-300"></span>
+                                            <span>Chưa nối</span>
                                         </span>
                                     </td>
 

@@ -12,6 +12,13 @@ spec:
   policyTypes: [Ingress]
   ingress:
     - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitor
+          podSelector:
+            matchLabels:
+              app: prometheus
+    - from:
         - podSelector:
             matchExpressions:
               - key: app
@@ -37,6 +44,12 @@ spec:
           podSelector:
             matchLabels:
               app.kubernetes.io/name: traefik
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
       ports:
         - protocol: TCP
           port: 8085

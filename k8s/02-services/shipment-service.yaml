@@ -38,7 +38,7 @@ spec:
                   name: waybill-runtime
                   key: db-password
             - name: SPRING_JPA_HIBERNATE_DDL_AUTO
-              value: "update"
+              value: "validate"
             - name: SPRING_FLYWAY_ENABLED
               value: "false"
             - name: SPRING_DATA_REDIS_HOST

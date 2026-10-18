@@ -475,17 +475,15 @@
                                 plan.serviceCode === 'STANDARD' && selectedPlanCode !== plan.serviceCode ? 'border-blue-400 shadow-2xs' : ''
                             ]"
                         >
-                            <div v-if="plan.serviceCode === 'STANDARD'" class="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-blue-600 text-white font-black text-[9px] uppercase tracking-wider shadow-sm">
-                                PHỔ BIẾN NHẤT
+                            <div v-if="plan.serviceCode === 'STANDARD'" class="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-blue-600 text-white font-semibold text-[10px] shadow-xs">
+                                Phổ biến
                             </div>
 
                             <div class="space-y-2.5" :class="plan.serviceCode === 'STANDARD' ? 'pt-1' : ''">
                                 <div class="flex items-center justify-between">
-                                    <span 
-                                        class="px-2 py-0.5 rounded font-bold text-[10px]"
-                                        :class="plan.serviceCode === 'EXPRESS' ? 'bg-amber-50 text-amber-700' : plan.serviceCode === 'STANDARD' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-600'"
-                                    >
-                                        {{ plan.serviceCode === 'EXPRESS' ? 'HỎA TỐC' : plan.serviceCode === 'STANDARD' ? 'TIÊU CHUẨN' : 'TIẾT KIỆM' }}
+                                    <span class="status-indicator font-semibold text-xs text-slate-700 status-indicator-slate">
+                                        <span class="status-dot" :class="plan.serviceCode === 'EXPRESS' ? 'bg-amber-500' : plan.serviceCode === 'STANDARD' ? 'bg-blue-600' : 'bg-slate-400'"></span>
+                                        <span>{{ plan.serviceCode === 'EXPRESS' ? 'Hỏa tốc' : plan.serviceCode === 'STANDARD' ? 'Tiêu chuẩn' : 'Tiết kiệm' }}</span>
                                     </span>
                                     <span class="text-xs font-medium flex items-center gap-1" :class="plan.serviceCode === 'EXPRESS' ? 'text-amber-600 font-bold' : plan.serviceCode === 'STANDARD' ? 'text-blue-600 font-bold' : 'text-slate-400'">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>

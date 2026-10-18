@@ -116,6 +116,7 @@ class TicketServiceImplTest {
         assertEquals(1, response.getMessages().size());
         verify(ticketRepository, times(1)).save(any(SupportTicket.class));
         verify(messageRepository, times(1)).save(any(TicketMessage.class));
+        verify(chatOutbox).save(argThat(row -> row.getMessageId().equals(100L) && !row.isDelivered()));
     }
 
     @Test
@@ -141,7 +142,7 @@ class TicketServiceImplTest {
         AddMessageRequest request = new AddMessageRequest();
         request.setContent("CSKH đã kiểm tra và đang làm việc với bưu cục giao");
 
-        when(ticketRepository.findById(1L)).thenReturn(Optional.of(sampleTicket));
+        when(ticketRepository.lockById(1L)).thenReturn(Optional.of(sampleTicket));
         when(messageRepository.save(any(TicketMessage.class))).thenAnswer(invocation -> {
             TicketMessage m = invocation.getArgument(0);
             m.setId(101L);
@@ -160,7 +161,7 @@ class TicketServiceImplTest {
     @Test
     void testAddMessage_RejectedWhenResolved() {
         sampleTicket.setStatus("RESOLVED");
-        when(ticketRepository.findById(1L)).thenReturn(Optional.of(sampleTicket));
+        when(ticketRepository.lockById(1L)).thenReturn(Optional.of(sampleTicket));
 
         AddMessageRequest request = new AddMessageRequest();
         request.setContent("Nhắn thêm sau khi đã đóng");

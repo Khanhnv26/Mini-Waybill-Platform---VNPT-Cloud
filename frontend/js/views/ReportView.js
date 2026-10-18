@@ -477,7 +477,8 @@
                 getSlaBadge,
                 goToTracking,
                 changePage,
-                isDockCollapsed
+                isDockCollapsed,
+                Utils
             };
         },
         template: `
@@ -563,7 +564,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                             <span class="truncate">Chi Tiết Đơn</span>
-                            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="activeSubtab === 'details' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
+                            <span class="subtab-counter" :class="activeSubtab === 'details' ? 'subtab-counter-blue' : 'subtab-counter-slate'">
                                 {{ formatNumber(reportData ? reportData.totalOrders : 0) }}
                             </span>
                         </button>
@@ -1092,21 +1093,16 @@
 
                                     <td class="py-2.5 px-3 text-center whitespace-nowrap">
                                         <div>
-                                            <span 
-                                                class="px-2.5 py-0.5 rounded-full text-[10.5px] font-bold shadow-2xs inline-block"
-                                                :class="getStatusBadge(s.currentStatus).class"
-                                            >
-                                                {{ getStatusBadge(s.currentStatus).label }}
+                                            <span class="status-indicator" :class="Utils.getStatusIndicatorClass(s.currentStatus)">
+                                                <span class="status-dot" :class="Utils.getStatusDotClass(s.currentStatus)"></span>
+                                                <span :class="Utils.getStatusTextClass(s.currentStatus)">{{ getStatusBadge(s.currentStatus).label }}</span>
                                             </span>
                                         </div>
-                                        <div class="mt-1 flex items-center justify-center space-x-1">
-                                            <span 
-                                                class="px-2 py-0.5 rounded-full text-[10px] font-bold shadow-2xs inline-block"
-                                                :class="getSlaBadge(s.slaStatus).class"
-                                            >
+                                        <div class="mt-1 flex items-center justify-center space-x-1 text-xs">
+                                            <span :class="s.slaStatus === 'ON_TIME' ? 'text-emerald-700 dark:text-emerald-400 font-medium' : (s.slaStatus === 'BREACHED' ? 'text-rose-600 dark:text-rose-400 font-medium' : 'text-slate-400')">
                                                 {{ getSlaBadge(s.slaStatus).label }}
                                             </span>
-                                            <span v-if="s.leadTimeHours" class="text-[10px] font-mono text-slate-500 font-bold">
+                                            <span v-if="s.leadTimeHours" class="text-[10px] font-mono text-slate-400">
                                                 ({{ Number(s.leadTimeHours).toFixed(1) }}h)
                                             </span>
                                         </div>

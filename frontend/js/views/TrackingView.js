@@ -2155,9 +2155,9 @@
                                                 <span v-if="copiedCodeTooltip" class="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded bg-slate-900 text-[10px] text-white whitespace-nowrap shadow-md">Đã chép!</span>
                                             </button>
                                         </div>
-                                        <span :class="['px-2.5 py-1 rounded-full text-xs font-bold border flex items-center space-x-1.5 shadow-xs whitespace-nowrap flex-shrink-0', Utils.getStatusBadgeClass(currentShipment.status)]">
-                                            <span class="w-1.5 h-1.5 rounded-full" :class="currentShipment.status === 'DELIVERED' ? 'bg-emerald-500' : 'bg-blue-600 animate-ping'"></span>
-                                            <span>{{ Utils.formatStatusText(currentShipment.status) }}</span>
+                                        <span class="status-indicator shrink-0" :class="Utils.getStatusIndicatorClass(currentShipment.status)">
+                                            <span class="status-dot" :class="Utils.getStatusDotClass(currentShipment.status)"></span>
+                                            <span class="font-medium text-xs">{{ Utils.formatStatusText(currentShipment.status) }}</span>
                                         </span>
                                     </div>
                                     <p class="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl leading-relaxed">
@@ -2292,13 +2292,13 @@
                             <div class="lg:col-span-8 bg-white dark:bg-[#131e3a] border border-slate-200/90 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-5">
                                 <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
                                     <div>
-                                        <h3 class="font-extrabold text-sm sm:text-base text-slate-800 dark:text-slate-200 uppercase tracking-tight flex items-center space-x-2">
-                                            <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                        <h3 class="font-semibold text-sm sm:text-base text-slate-800 dark:text-slate-200 flex items-center space-x-2">
+                                            <span class="w-2 h-2 rounded-full bg-blue-600"></span>
                                             <span>Lịch Sử Luân Chuyển Bưu Cục</span>
                                         </h3>
                                         <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Dữ liệu quét cập nhật theo thời gian thực từ trạm bưu chính</p>
                                     </div>
-                                    <span class="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
+                                    <span class="text-xs text-slate-400 dark:text-slate-500 font-normal">
                                         {{ sortedHistory.length }} mốc quét
                                     </span>
                                 </div>
@@ -2349,12 +2349,12 @@
                             <div class="lg:col-span-4 space-y-5">
                                 <div class="bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 text-xs">
                                     <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                                        <span class="font-extrabold text-slate-800 uppercase tracking-tight flex items-center space-x-2">
+                                        <span class="font-semibold text-slate-800 dark:text-slate-200 flex items-center space-x-2">
                                             <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                             <span>Thông Tin Bưu Gửi</span>
                                         </span>
-                                        <span class="font-mono text-[10.5px] text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full font-bold border border-blue-200">
-                                            {{ currentShipment.serviceType || 'WAYBILL EXPRESS' }}
+                                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">
+                                            {{ currentShipment.serviceType || 'Chuyển phát tiêu chuẩn' }}
                                         </span>
                                     </div>
 
@@ -2380,12 +2380,12 @@
                                                 ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60' 
                                                 : 'bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-200/90 dark:border-emerald-800/60'">
                                             <div class="flex items-center justify-between">
-                                                <span class="text-[11px] font-extrabold flex items-center gap-1.5"
+                                                <span class="text-[11px] font-semibold flex items-center gap-1.5"
                                                       :class="currentShipment.status === 'DELIVERED' ? 'text-emerald-900 dark:text-emerald-300' : 'text-emerald-800 dark:text-emerald-300'">
                                                     <svg class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                                     {{ currentShipment.status === 'DELIVERED' ? 'Thời Gian Phát Hàng:' : 'Dự Kiến Nhận Hàng:' }}
                                                 </span>
-                                                <span class="text-[10px] bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 px-2 py-0.5 rounded-full font-extrabold border border-emerald-300 dark:border-emerald-700">
+                                                <span class="text-xs text-emerald-700 dark:text-emerald-300 font-medium">
                                                     {{ currentShipment.status === 'DELIVERED' ? 'Hoàn tất' : 'Đúng hẹn' }}
                                                 </span>
                                             </div>
@@ -2538,8 +2538,9 @@
                     </div>
                     <div class="flex items-center space-x-2 text-xs">
                         <span class="text-blue-100 text-[11px]">Trạng thái:</span>
-                        <span :class="['px-2.5 py-0.5 rounded-full font-bold text-[11px] border', Utils.getStatusBadgeClass(currentShipment.status)]">
-                            {{ Utils.formatStatusText(currentShipment.status) }}
+                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-white/20 border border-white/25 text-white">
+                            <span class="w-1.5 h-1.5 rounded-full" :class="Utils.getStatusDotClass(currentShipment.status)"></span>
+                            <span>{{ Utils.formatStatusText(currentShipment.status) }}</span>
                         </span>
                     </div>
                 </div>
@@ -3032,8 +3033,9 @@
                                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                                         </button>
                                     </div>
-                                    <span :class="['px-2 py-0.5 rounded-full font-bold text-[10.5px] border shrink-0', Utils.getStatusBadgeClass(currentShipment.status)]">
-                                        {{ Utils.formatStatusText(currentShipment.status) }}
+                                    <span class="status-indicator shrink-0" :class="Utils.getStatusIndicatorClass(currentShipment.status)">
+                                        <span class="status-dot" :class="Utils.getStatusDotClass(currentShipment.status)"></span>
+                                        <span>{{ Utils.formatStatusText(currentShipment.status) }}</span>
                                     </span>
                                 </div>
 
@@ -3214,8 +3216,9 @@
                                     </span>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-2 mb-1.5">
-                                    <span :class="['px-2.5 py-0.5 rounded-lg text-xs font-bold border', Utils.getStatusBadgeClass(h.status)]">
-                                        {{ Utils.formatStatusText(h.status, h.location || h.locationCode) }}
+                                    <span class="status-indicator" :class="Utils.getStatusIndicatorClass(h.status)">
+                                        <span class="status-dot" :class="Utils.getStatusDotClass(h.status)"></span>
+                                        <span class="font-medium">{{ Utils.formatStatusText(h.status, h.location || h.locationCode) }}</span>
                                     </span>
                                     <span class="text-xs font-bold text-slate-800 dark:text-slate-200">
                                         {{ getPostOfficeDisplayName(h.location || h.locationCode) || h.location || h.locationCode || 'Bưu Cục Trung Tâm' }}
@@ -3465,5 +3468,6 @@
         `
     };
 
+    TrackingView.components = { ...TrackingView.components, TrackingRecentSearches: window.TrackingRecentSearches };
     window.TrackingView = TrackingView;
 })();

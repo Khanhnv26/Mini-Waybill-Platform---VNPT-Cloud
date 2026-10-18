@@ -5,6 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
 @EnableFeignClients
+@org.springframework.scheduling.annotation.EnableScheduling
 @SpringBootApplication
 public class NotificationServiceApplication {
 

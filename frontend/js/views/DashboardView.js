@@ -931,10 +931,12 @@
             });
 
             onMounted(() => {
-                loadStationData();
-                loadHubData();
-                loadShipperData();
-                loadAdminData();
+                // Load only the selected role; other role panels load when selected.
+                const loaders = {
+                    POST_STAFF: loadStationData, HUB_STAFF: loadHubData,
+                    SHIPPER: loadShipperData, ADMIN: loadAdminData
+                };
+                loaders[activeRole.value]?.();
             });
 
             return {
@@ -993,7 +995,10 @@
                 refreshCurrentDashboard,
                 formatCurrency: (val) => (typeof Utils !== 'undefined' ? Utils.formatCurrency(val) : `${(Number(val) || 0).toLocaleString('vi-VN')}₫`),
                 formatCurrencyShort,
-                currentRoleHeader
+                currentRoleHeader,
+                getStatusDotClass: (val) => (typeof Utils !== 'undefined' && Utils.getStatusDotClass ? Utils.getStatusDotClass(val) : 'bg-slate-400'),
+                getStatusIndicatorClass: (val) => (typeof Utils !== 'undefined' && Utils.getStatusIndicatorClass ? Utils.getStatusIndicatorClass(val) : 'status-indicator-slate'),
+                formatStatusText: (val) => (typeof Utils !== 'undefined' && Utils.formatStatusText ? Utils.formatStatusText(val) : val)
             };
         },
         template: `
@@ -1004,13 +1009,14 @@
                     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
                             <div class="flex items-center space-x-2">
-                                <span class="px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[10.5px] font-extrabold uppercase tracking-wider border border-white/25">
+                                <span class="text-xs font-semibold text-blue-100 uppercase tracking-wide">
                                     {{ currentRoleHeader.badge }}
                                 </span>
+                                <span class="text-blue-100/60 text-xs">•</span>
                                 <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
-                                <span class="text-blue-200 text-xs">•</span>
-                                <span class="text-[11px] text-emerald-300 font-semibold flex items-center space-x-1">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                <span class="text-blue-100/60 text-xs">•</span>
+                                <span class="text-xs text-emerald-300 font-medium flex items-center space-x-1.5">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                                     <span>Trực Tuyến</span>
                                 </span>
                             </div>
@@ -1147,9 +1153,8 @@
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
                             <div class="b2b-card p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-default">
-                                <div class="flex items-center justify-between text-slate-500 font-medium">
+                                <div class="text-slate-500 font-medium">
                                     <span>Doanh Thu Cước</span>
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">Cước</span>
                                 </div>
                                 <div class="mt-2 text-xl font-bold text-slate-900 font-mono">{{ formatCurrency(adminKpi.totalShippingFee) }}</div>
                                 <div class="mt-2 text-[11px] text-slate-500 border-t border-slate-100 pt-1.5 flex justify-between">
@@ -1161,9 +1166,9 @@
                             <div class="b2b-card p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-default">
                                 <div class="flex items-center justify-between text-slate-500 font-medium">
                                     <span>Tỷ Lệ Đạt SLA</span>
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse mr-1"></span>
-                                        SLA
+                                    <span class="inline-flex items-center text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
+                                        <span>Chuẩn</span>
                                     </span>
                                 </div>
                                 <div class="mt-2 text-xl font-bold text-emerald-600 font-mono">{{ adminKpi.successRate }}%</div>
@@ -1174,9 +1179,8 @@
                             </div>
 
                             <div class="b2b-card p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-default">
-                                <div class="flex items-center justify-between text-slate-500 font-medium">
+                                <div class="text-slate-500 font-medium">
                                     <span>Quỹ Tiền COD</span>
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">Thu Hộ</span>
                                 </div>
                                 <div class="mt-2 text-xl font-bold text-amber-600 font-mono">{{ formatCurrency(adminKpi.totalCod) }}</div>
                                 <div class="mt-2 text-[11px] text-slate-500 border-t border-slate-100 pt-1.5 flex justify-between">
@@ -1186,9 +1190,8 @@
                             </div>
 
                             <div class="b2b-card p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-default">
-                                <div class="flex items-center justify-between text-slate-500 font-medium">
+                                <div class="text-slate-500 font-medium">
                                     <span>Đang Luân Chuyển</span>
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">In-Transit</span>
                                 </div>
                                 <div class="mt-2 text-xl font-bold text-purple-700 font-mono">{{ adminKpi.inTransitOrders }} kiện</div>
                                 <div class="mt-2 text-[11px] text-slate-500 border-t border-slate-100 pt-1.5 flex justify-between">
@@ -1259,25 +1262,25 @@
                                             <button
                                                 type="button"
                                                 @click="adminNetworkTab = 'hubs'"
-                                                :class="adminNetworkTab === 'hubs' ? 'bg-white dark:bg-[#19274e] text-blue-700 dark:text-blue-300 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
+                                                :class="adminNetworkTab === 'hubs' ? 'bg-white dark:bg-[#19274e] text-blue-700 dark:text-blue-300 shadow-xs font-bold' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium'"
                                                 class="px-2.5 py-1 rounded-md transition-all duration-150 cursor-pointer flex items-center space-x-1.5"
                                             >
                                                 <span>Kho Tổng Hub</span>
-                                                <span class="px-1.5 py-0.2 rounded text-[10px] bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 font-mono">{{ adminHubMatrix.length }}</span>
+                                                <span class="subtab-counter font-mono" :class="adminNetworkTab === 'hubs' ? 'subtab-counter-blue' : 'subtab-counter-slate'">{{ adminHubMatrix.length }}</span>
                                             </button>
                                             <button
                                                 type="button"
                                                 @click="adminNetworkTab = 'stations'"
-                                                :class="adminNetworkTab === 'stations' ? 'bg-white dark:bg-[#19274e] text-blue-700 dark:text-blue-300 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
+                                                :class="adminNetworkTab === 'stations' ? 'bg-white dark:bg-[#19274e] text-blue-700 dark:text-blue-300 shadow-xs font-bold' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium'"
                                                 class="px-2.5 py-1 rounded-md transition-all duration-150 cursor-pointer flex items-center space-x-1.5"
                                             >
                                                 <span>Top Bưu Cục Đầu Tuyến</span>
-                                                <span class="px-1.5 py-0.2 rounded text-[10px] bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 font-mono">{{ adminTopStations.length }}</span>
+                                                <span class="subtab-counter font-mono" :class="adminNetworkTab === 'stations' ? 'subtab-counter-blue' : 'subtab-counter-slate'">{{ adminTopStations.length }}</span>
                                             </button>
                                             <button
                                                 type="button"
                                                 @click="adminNetworkTab = 'both'"
-                                                :class="adminNetworkTab === 'both' ? 'bg-white dark:bg-[#19274e] text-blue-700 dark:text-blue-300 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
+                                                :class="adminNetworkTab === 'both' ? 'bg-white dark:bg-[#19274e] text-blue-700 dark:text-blue-300 shadow-xs font-bold' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium'"
                                                 class="px-2 py-1 rounded-md transition-all duration-150 cursor-pointer text-[11px]"
                                                 title="Hiển thị cả 2 bảng đồng thời"
                                             >
@@ -1310,14 +1313,9 @@
                                                         {{ h.stagedCargo }} kiện
                                                     </td>
                                                     <td class="py-2 px-3.5 text-center">
-                                                        <span :class="[
-                                                            'inline-flex items-center px-2 py-0.5 rounded text-[10.5px] font-bold border',
-                                                            h.loadStatus === 'OPTIMAL' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                                            h.loadStatus === 'BUSY' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                                            'bg-amber-50 text-amber-700 border-amber-200'
-                                                        ]">
-                                                            <span :class="h.loadStatus === 'OPTIMAL' ? 'bg-emerald-500' : h.loadStatus === 'BUSY' ? 'bg-blue-500' : 'bg-amber-500'" class="w-1.5 h-1.5 rounded-full mr-1 animate-pulse"></span>
-                                                            {{ h.statusLabel }}
+                                                        <span class="status-indicator" :class="h.loadStatus === 'OPTIMAL' ? 'status-indicator-emerald' : h.loadStatus === 'BUSY' ? 'status-indicator-blue' : 'status-indicator-amber'">
+                                                            <span class="status-dot" :class="h.loadStatus === 'OPTIMAL' ? 'bg-emerald-500' : h.loadStatus === 'BUSY' ? 'bg-blue-500' : 'bg-amber-500'"></span>
+                                                            <span>{{ h.statusLabel }}</span>
                                                         </span>
                                                     </td>
                                                 </tr>
@@ -1359,8 +1357,9 @@
                                                     </td>
                                                     <td class="py-2 px-3 text-right font-mono font-bold text-amber-700">{{ formatCurrency(s.pendingCod) }}</td>
                                                     <td class="py-2 px-3.5 text-center">
-                                                        <span :class="s.alertStatus === 'WARNING' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border">
-                                                            {{ s.alertStatus === 'WARNING' ? 'Cao Điểm' : 'Bình Thường' }}
+                                                        <span class="status-indicator" :class="s.alertStatus === 'WARNING' ? 'status-indicator-amber' : 'status-indicator-slate'">
+                                                            <span class="status-dot" :class="s.alertStatus === 'WARNING' ? 'bg-amber-500' : 'bg-emerald-500'"></span>
+                                                            <span>{{ s.alertStatus === 'WARNING' ? 'Cao Điểm' : 'Bình Thường' }}</span>
                                                         </span>
                                                     </td>
                                                 </tr>
@@ -1429,14 +1428,9 @@
                                             </div>
                                             <div class="text-[10px] flex items-center justify-between border-t border-slate-100/80 pt-1 text-slate-500">
                                                 <span>Cước: <strong class="font-mono text-slate-700">{{ formatCurrency(item.fee) }}</strong> <span v-if="item.cod > 0">• COD: <strong class="font-mono text-emerald-700">{{ formatCurrency(item.cod) }}</strong></span></span>
-                                                <span :class="[
-                                                    'px-1.5 py-0.5 rounded font-mono font-bold text-[9.5px] border',
-                                                    item.status === 'DELIVERED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                                    item.status === 'IN_TRANSIT' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                                    item.status === 'RETURNED' || item.status === 'FAILED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                                                    'bg-slate-100 text-slate-700 border-slate-200'
-                                                ]">
-                                                    {{ item.status }}
+                                                <span class="status-indicator text-[11px]" :class="getStatusIndicatorClass(item.status)">
+                                                    <span class="status-dot" :class="getStatusDotClass(item.status)"></span>
+                                                    <span>{{ formatStatusText(item.status) }}</span>
                                                 </span>
                                             </div>
                                         </div>
@@ -1543,20 +1537,21 @@
                                                         <div class="font-mono text-[10.5px] text-slate-400 dark:text-slate-500">{{ shipper.courierCode }}</div>
                                                     </td>
                                                     <td class="py-2 px-3">
-                                                        <span class="px-2 py-0.5 rounded text-[11px] bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-semibold">{{ shipper.assignedZone }}</span>
+                                                        <span class="font-mono text-xs text-slate-700 dark:text-slate-300 font-medium">{{ shipper.assignedZone }}</span>
                                                     </td>
                                                     <td class="py-2 px-3 text-center">
-                                                        <span :class="shipper.shiftStatus === 'ON_DUTY' ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'" class="px-1.5 py-0.5 rounded text-[10px] font-bold">
-                                                            {{ shipper.shiftStatus }}
+                                                        <span class="status-indicator" :class="shipper.shiftStatus === 'ON_DUTY' ? 'status-indicator-emerald' : 'status-indicator-slate'">
+                                                            <span class="status-dot" :class="shipper.shiftStatus === 'ON_DUTY' ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+                                                            <span>{{ shipper.shiftStatus === 'ON_DUTY' ? 'Đang Trực' : 'Nghỉ Ca' }}</span>
                                                         </span>
                                                     </td>
                                                     <td class="py-2 px-3 text-right font-mono font-bold text-slate-800 dark:text-slate-200">{{ shipper.estimatedOrdersCount }} đơn</td>
                                                     <td class="py-2 px-3 text-center">
-                                                        <div class="font-mono font-bold text-[11px] text-blue-700 dark:text-blue-400">{{ shipper.utilizationRate }}%</div>
+                                                        <div class="font-mono font-bold text-[11px]" :class="shipper.utilizationRate > 85 ? 'text-amber-600' : 'text-blue-700 dark:text-blue-400'">{{ shipper.utilizationRate }}%</div>
                                                     </td>
                                                     <td class="py-2 px-3 text-right font-mono font-bold text-emerald-700 dark:text-emerald-400">{{ formatCurrency(shipper.estimatedCodAmount) }}</td>
                                                     <td class="py-2 px-3.5 text-center">
-                                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">@NovaWay_Bill_Bot</span>
+                                                        <span class="text-[11px] font-mono text-slate-500 dark:text-slate-400">@NovaWay_Bill_Bot</span>
                                                     </td>
                                                 </tr>
                                             </tbody>
@@ -1614,7 +1609,7 @@
                                 <div class="b2b-card overflow-hidden transition-all duration-200 hover:shadow-xs">
                                     <div class="p-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/60 dark:bg-slate-900/60">
                                         <h3 class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight">Lịch Trình Chuyến Xe Trục</h3>
-                                        <span class="text-[11px] font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800">{{ filteredHubTrips.length }} Chuyến</span>
+                                        <span class="text-xs font-mono text-slate-500 font-medium">{{ filteredHubTrips.length }} chuyến</span>
                                     </div>
                                     <div class="overflow-x-auto">
                                         <table class="w-full text-left text-xs">
@@ -1632,8 +1627,9 @@
                                                     <td class="py-2 px-3 font-semibold text-slate-800 dark:text-slate-200">{{ trip.route || (trip.originHub + ' → ' + trip.destinationHub) }}</td>
                                                     <td class="py-2 px-3 font-mono text-[11.5px] text-slate-600 dark:text-slate-400">{{ trip.vehiclePlate || 'Xe Container' }} • {{ trip.driverName || 'Tài xế' }}</td>
                                                     <td class="py-2 px-3.5 text-center">
-                                                        <span :class="trip.status === 'IN_TRANSIT' ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800' : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border">
-                                                            {{ trip.status }}
+                                                        <span class="status-indicator" :class="trip.status === 'IN_TRANSIT' ? 'status-indicator-blue' : 'status-indicator-emerald'">
+                                                            <span class="status-dot" :class="trip.status === 'IN_TRANSIT' ? 'bg-blue-500' : 'bg-emerald-500'"></span>
+                                                            <span>{{ trip.status === 'IN_TRANSIT' ? 'Đang Chạy' : (trip.status === 'COMPLETED' ? 'Hoàn Thành' : trip.status) }}</span>
                                                         </span>
                                                     </td>
                                                 </tr>
@@ -1657,8 +1653,9 @@
                                                 <div class="font-bold text-slate-800 dark:text-slate-200">{{ v.plateNumber || v.plate }}</div>
                                                 <div class="text-[11px] text-slate-500 dark:text-slate-400">{{ v.vehicleType || 'Container' }} • {{ v.driverName || '' }}</div>
                                             </div>
-                                            <span :class="v.status === 'AVAILABLE' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'" class="px-2 py-0.5 rounded text-[10px] font-bold border">
-                                                {{ v.status }}
+                                            <span class="status-indicator" :class="v.status === 'AVAILABLE' ? 'status-indicator-emerald' : 'status-indicator-blue'">
+                                                <span class="status-dot" :class="v.status === 'AVAILABLE' ? 'bg-emerald-500' : 'bg-blue-500'"></span>
+                                                <span>{{ v.status === 'AVAILABLE' ? 'Sẵn Sàng' : v.status }}</span>
                                             </span>
                                         </div>
                                         <div v-if="hubVehicles.length === 0" class="text-center py-4 text-slate-400 dark:text-slate-500 text-xs">
@@ -1701,7 +1698,7 @@
                                 <div class="b2b-card overflow-hidden transition-all duration-200 hover:shadow-xs">
                                     <div class="p-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/60 dark:bg-slate-900/60">
                                         <h3 class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight">Bưu Gửi Phụ Trách Giao</h3>
-                                        <span class="font-mono text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded">{{ myAssignedShipments.length }} kiện</span>
+                                        <span class="font-mono text-xs font-medium text-slate-500 dark:text-slate-400">{{ myAssignedShipments.length }} kiện</span>
                                     </div>
                                     <div class="overflow-x-auto">
                                         <table class="w-full text-left text-xs">
@@ -1727,8 +1724,9 @@
                                                     </td>
                                                     <td class="py-2 px-3 text-right font-mono font-bold text-emerald-700 dark:text-emerald-400">{{ formatCurrency(item.codAmount || 0) }}</td>
                                                     <td class="py-2 px-3 text-center">
-                                                        <span :class="item.currentStatus === 'DELIVERED' ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'" class="px-2 py-0.5 rounded text-[10.5px] font-bold border">
-                                                            {{ item.currentStatus || 'WAITING' }}
+                                                        <span class="status-indicator text-[11px]" :class="getStatusIndicatorClass(item.currentStatus)">
+                                                            <span class="status-dot" :class="getStatusDotClass(item.currentStatus)"></span>
+                                                            <span>{{ formatStatusText(item.currentStatus || 'WAITING') }}</span>
                                                         </span>
                                                     </td>
                                                     <td class="py-2 px-3.5 text-center">

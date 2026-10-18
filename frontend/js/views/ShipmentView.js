@@ -1748,7 +1748,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                             </svg>
                             <span class="truncate">Danh Sách</span>
-                            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'list' ? 'bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200' : 'bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400'">
+                            <span class="subtab-counter" :class="currentSubtab === 'list' ? 'subtab-counter-blue' : 'subtab-counter-slate'">
                                 {{ shipmentsList.length }}
                             </span>
                         </button>
@@ -1768,9 +1768,9 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
                             <span class="truncate">Cần Xử Lý</span>
-                            <span 
-                                class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" 
-                                :class="pendingDecisions.length > 0 ? (currentSubtab === 'need_action' ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 animate-pulse' : 'bg-rose-500 text-white animate-pulse') : (currentSubtab === 'need_action' ? 'bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200' : 'bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400')"
+                            <span
+                                class="subtab-counter"
+                                :class="currentSubtab === 'need_action' ? 'subtab-counter-rose' : (pendingDecisions.length > 0 ? 'subtab-counter-rose' : 'subtab-counter-slate')"
                             >
                                 {{ pendingDecisions.length }}
                             </span>
@@ -1791,7 +1791,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
                             </svg>
                             <span class="truncate">Đơn Hoàn</span>
-                            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'returns' ? 'bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200' : 'bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400'">
+                            <span class="subtab-counter" :class="currentSubtab === 'returns' ? 'subtab-counter-amber' : 'subtab-counter-slate'">
                                 {{ returnRequestsList.length }}
                             </span>
                         </button>
@@ -1937,7 +1937,7 @@
                                                 <div class="text-xs">Waybill Tiết Kiệm (Eco)</div>
                                                 <div class="text-[10.5px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">Tiết kiệm 3 - 5 ngày</div>
                                             </div>
-                                            <span 
+                                            <span
                                                 :class="form.serviceType === 'ECO' ? 'border-blue-600 bg-blue-600' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'"
                                                 class="w-3.5 h-3.5 rounded-full border flex items-center justify-center p-0.5"
                                             >
@@ -1958,7 +1958,7 @@
                                                 <div class="text-xs">Waybill Tiêu Chuẩn (Standard)</div>
                                                 <div class="text-[10.5px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">Liên tỉnh 1 - 2 ngày</div>
                                             </div>
-                                            <span 
+                                            <span
                                                 :class="form.serviceType === 'STANDARD' ? 'border-blue-600 bg-blue-600' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'"
                                                 class="w-3.5 h-3.5 rounded-full border flex items-center justify-center p-0.5"
                                             >
@@ -1979,7 +1979,7 @@
                                                 <div class="text-xs">Waybill Hỏa Tốc (Express)</div>
                                                 <div class="text-[10.5px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">Toàn quốc trong 24h</div>
                                             </div>
-                                            <span 
+                                            <span
                                                 :class="form.serviceType === 'EXPRESS' ? 'border-blue-600 bg-blue-600' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'"
                                                 class="w-3.5 h-3.5 rounded-full border flex items-center justify-center p-0.5"
                                             >
@@ -2068,15 +2068,15 @@
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-3">
-                                    <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                                    <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
                                         <div class="flex items-center space-x-2">
-                                            <span class="w-2 h-2 rounded-full bg-slate-800"></span>
-                                            <span class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                                            <span class="text-xs font-semibold text-slate-800 dark:text-slate-200">
                                                 2. Thông Tin Người Gửi
                                             </span>
                                         </div>
-                                        <span class="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-700 rounded-full border border-slate-200">
-                                            Điểm Xuất Phát
+                                        <span class="text-xs text-slate-400">
+                                            Điểm xuất phát
                                         </span>
                                     </div>
 
@@ -2216,15 +2216,15 @@
                                 </div>
 
                                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-3">
-                                    <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                                    <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
                                         <div class="flex items-center space-x-2">
-                                            <span class="w-2 h-2 rounded-full bg-blue-600"></span>
-                                            <span class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                                            <span class="text-xs font-semibold text-slate-800 dark:text-slate-200">
                                                 3. Thông Tin Người Nhận
                                             </span>
                                         </div>
-                                        <span class="text-[10px] font-bold px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full border border-blue-200">
-                                            Điểm Phát Trả
+                                        <span class="text-xs text-slate-400">
+                                            Điểm phát trả
                                         </span>
                                     </div>
 
@@ -2598,19 +2598,19 @@
                                                     {{ s.trackingCode }}
                                                 </button>
                                                 <span
-                                                    :class="s.serviceType === 'EXPRESS' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-700 border-slate-200'"
-                                                    class="px-1.5 py-0.5 rounded text-[9px] font-bold border"
+                                                    class="text-[11px] font-medium"
+                                                    :class="s.serviceType === 'EXPRESS' ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-slate-400 dark:text-slate-500'"
                                                 >
-                                                    {{ s.serviceType === 'EXPRESS' ? 'HỎA TỐC' : 'TIÊU CHUẨN' }}
+                                                    {{ s.serviceType === 'EXPRESS' ? 'Hỏa tốc' : 'Tiêu chuẩn' }}
                                                 </span>
                                             </div>
                                             <div class="text-[10px] font-mono text-slate-400 mt-0.5">
                                                 {{ Utils.formatTime(s.createdAt) }}
                                             </div>
                                         </div>
-                                        <span :class="['inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0', Utils.getStatusBadgeClass(s.currentStatus)]">
-                                            <span class="w-1.5 h-1.5 rounded-full mr-1 bg-current opacity-80"></span>
-                                            {{ Utils.formatStatusText(s.currentStatus) }}
+                                        <span class="status-indicator shrink-0" :class="Utils.getStatusIndicatorClass(s.currentStatus)">
+                                            <span class="status-dot" :class="Utils.getStatusDotClass(s.currentStatus)"></span>
+                                            <span>{{ Utils.formatStatusText(s.currentStatus) }}</span>
                                         </span>
                                     </div>
 
@@ -2715,7 +2715,7 @@
                                                 >
                                                     <span class="truncate max-w-[130px] inline-block align-bottom" :title="s.trackingCode">{{ s.trackingCode }}</span>
                                                 </button>
-                                                <span 
+                                                <span
                                                     :class="s.serviceType === 'EXPRESS' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-slate-100 text-slate-700 border-slate-200'"
                                                     class="px-1.5 py-0.5 rounded text-[9.5px] font-bold border"
                                                 >
@@ -2752,21 +2752,19 @@
                                         </td>
 
                                         <td class="py-3 px-3.5 whitespace-nowrap">
-                                            <div class="flex items-center gap-1.5 flex-wrap">
-                                                <span 
-                                                    :class="['inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border', Utils.getStatusBadgeClass(s.currentStatus)]"
-                                                >
-                                                    <span class="w-1.5 h-1.5 rounded-full mr-1 bg-current opacity-80"></span>
-                                                    {{ Utils.formatStatusText(s.currentStatus) }}
+                                            <div class="flex items-center gap-2 flex-wrap">
+                                                <span class="status-indicator" :class="Utils.getStatusIndicatorClass(s.currentStatus)">
+                                                    <span class="status-dot" :class="Utils.getStatusDotClass(s.currentStatus)"></span>
+                                                    <span>{{ Utils.formatStatusText(s.currentStatus) }}</span>
                                                 </span>
-                                                <span v-if="s.assignedTripCode && canCreateForOthers" class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 font-mono text-[9px] rounded font-bold" title="Chuyến xe vận chuyển">
+                                                <span v-if="s.assignedTripCode && canCreateForOthers" class="inline-flex items-center gap-1 text-[11px] font-mono text-blue-600 dark:text-blue-400 font-medium" title="Chuyến xe vận chuyển">
                                                     <svg class="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>
                                                     <span>{{ s.assignedTripCode }}</span>
                                                 </span>
-                                                <span v-else-if="!s.assignedTripCode && canCreateForOthers && ['CREATED', 'ACCEPTED', 'PENDING_ROUTING', 'AT_POST_OFFICE', 'RECEIVED_AT_POST_OFFICE'].includes(s.currentStatus)" class="inline-flex items-center px-1.5 py-0.5 bg-amber-50 border border-amber-200 text-amber-700 text-[9px] rounded font-medium" title="Đang chờ điều phối xe">
+                                                <span v-else-if="!s.assignedTripCode && canCreateForOthers && ['CREATED', 'ACCEPTED', 'PENDING_ROUTING', 'AT_POST_OFFICE', 'RECEIVED_AT_POST_OFFICE'].includes(s.currentStatus)" class="text-[11px] text-amber-600 dark:text-amber-400" title="Đang chờ điều phối xe">
                                                     Chờ ghép xe
                                                 </span>
-                                                <span v-else-if="!s.assignedTripCode && canCreateForOthers && s.currentStatus === 'IN_TRANSIT'" class="inline-flex items-center px-1.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-600 text-[9px] rounded font-medium" title="Đang trung chuyển qua mạng lưới">
+                                                <span v-else-if="!s.assignedTripCode && canCreateForOthers && s.currentStatus === 'IN_TRANSIT'" class="text-[11px] text-slate-400" title="Đang trung chuyển qua mạng lưới">
                                                     Đang trung chuyển
                                                 </span>
                                             </div>
@@ -2780,7 +2778,7 @@
 
                                         <td class="py-3 px-3.5 text-right whitespace-nowrap">
                                             <div class="inline-flex items-center justify-end gap-1">
-                                                <span 
+                                                <span
                                                     v-if="s.currentStatus === 'CANCELLED'"
                                                     class="px-2 py-1 bg-slate-100 text-slate-500 rounded-lg text-[10.5px] font-semibold border border-slate-200 cursor-not-allowed inline-flex items-center gap-1 select-none"
                                                     title="Đơn hàng đã hủy - Không phát sinh cước phí"
@@ -2959,13 +2957,13 @@
                                 <!-- Countdown timer pill -->
                                 <div class="text-right">
                                     <div 
-                                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold shadow-2xs border"
-                                        :class="isDecisionUrgent(d.decisionDeadline || d.deadline) ? 'bg-rose-50 text-rose-700 border-rose-300 animate-pulse' : 'bg-amber-50 text-amber-800 border-amber-200'"
+                                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono font-medium border"
+                                        :class="isDecisionUrgent(d.decisionDeadline || d.deadline) ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200' : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
                                     >
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        <svg class="w-3.5 h-3.5" :class="isDecisionUrgent(d.decisionDeadline || d.deadline) ? 'text-rose-500' : 'text-slate-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                         <span>{{ formatRemainingTime(d.decisionDeadline || d.deadline) }}</span>
                                     </div>
-                                    <div class="text-[9.5px] text-slate-400 mt-0.5 font-medium">Hạn tự động giao lại</div>
+                                    <div class="text-[10px] text-slate-400 mt-0.5">Hạn tự động giao lại</div>
                                 </div>
                             </div>
 
@@ -3159,7 +3157,7 @@
 
                                         <td class="py-3 px-3.5 max-w-xs">
                                             <div class="flex items-center space-x-1.5">
-                                                <span 
+                                                <span
                                                     class="px-1.5 py-0.2 rounded text-[9.5px] font-bold"
                                                     :class="r.initiator === 'CUSTOMER' ? 'bg-blue-50 text-blue-700 border border-blue-200' : ((r.initiator === 'SYSTEM' || r.initiator === 'AUTO_MAX_FAILED' || r.initiator === 'RECEIVER_REFUSED') ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-purple-50 text-purple-700 border border-purple-200')"
                                                 >
@@ -3172,19 +3170,19 @@
                                         </td>
 
                                         <td class="py-3 px-3.5 whitespace-nowrap">
-                                            <span 
+                                            <span
                                                 v-if="r.returnMode === 'DOORSTEP'" 
-                                                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-blue-50 text-blue-700 border border-blue-200"
+                                                class="inline-flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300"
                                             >
-                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                                                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                                                 <span>Phát tận nơi</span>
                                             </span>
-                                            <span 
+                                            <span
                                                 v-else 
-                                                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-amber-50 text-amber-800 border border-amber-300"
+                                                class="inline-flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300"
                                                 title="Lưu kho 7 ngày tại bưu cục gốc"
                                             >
-                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
                                                 <span>Nhận tại bưu cục (7 ngày)</span>
                                             </span>
                                         </td>
@@ -3194,27 +3192,27 @@
                                                 {{ Utils.formatCurrency(r.returnFee || 17500) }}
                                             </div>
                                             <div class="mt-0.5">
-                                                <span 
+                                                <span
                                                     v-if="r.feePaymentStatus === 'PREPAID'" 
-                                                    class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                                    class="text-[11px] font-medium text-emerald-600 dark:text-emerald-400"
                                                 >
                                                     Đã trả trước
                                                 </span>
-                                                <span 
+                                                <span
                                                     v-else-if="r.feePaymentStatus === 'WAIVED'" 
-                                                    class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-purple-50 text-purple-700 border border-purple-200"
+                                                    class="text-[11px] font-medium text-purple-600 dark:text-purple-400"
                                                 >
                                                     Miễn phí (Lỗi BC)
                                                 </span>
-                                                <span 
+                                                <span
                                                     v-else-if="r.feePaymentStatus === 'PAID_ON_RETURN'" 
-                                                    class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                                    class="text-[11px] font-medium text-emerald-600 dark:text-emerald-400"
                                                 >
                                                     Đã thu khi hoàn
                                                 </span>
-                                                <span 
+                                                <span
                                                     v-else 
-                                                    class="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-slate-100 text-slate-600 border border-slate-200"
+                                                    class="text-[11px] text-slate-400"
                                                 >
                                                     Chưa thanh toán
                                                 </span>
@@ -3222,11 +3220,14 @@
                                         </td>
 
                                         <td class="py-3 px-3.5 whitespace-nowrap">
-                                            <span 
-                                                class="px-2 py-0.5 rounded-full text-[10.5px] font-bold border"
-                                                :class="r.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : (r.status === 'REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-800 border-amber-200')"
-                                            >
-                                                {{ r.status === 'COMPLETED' ? 'Đã hoàn tất' : (r.status === 'APPROVED' ? 'Đã duyệt hoàn' : (r.status === 'REJECTED' ? 'Bị từ chối' : r.status)) }}
+                                            <span class="status-indicator">
+                                                <span
+                                                    class="status-dot"
+                                                    :class="r.status === 'COMPLETED' ? 'bg-emerald-500' : (r.status === 'REJECTED' ? 'bg-rose-500' : 'bg-amber-500')"
+                                                ></span>
+                                                <span :class="r.status === 'COMPLETED' ? 'text-slate-800 dark:text-slate-200' : (r.status === 'REJECTED' ? 'text-rose-600 dark:text-rose-400' : 'text-amber-700 dark:text-amber-300')">
+                                                    {{ r.status === 'COMPLETED' ? 'Đã hoàn tất' : (r.status === 'APPROVED' ? 'Đã duyệt hoàn' : (r.status === 'REJECTED' ? 'Bị từ chối' : r.status)) }}
+                                                </span>
                                             </span>
                                         </td>
 
@@ -3457,8 +3458,8 @@
                                         </svg>
                                         <span>Dự Kiến Nhận Hàng</span>
                                     </div>
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                        <svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <span class="inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-300 font-medium">
+                                        <svg class="w-3.5 h-3.5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
                                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
                                         </svg>
                                         Đúng hẹn
@@ -4075,6 +4076,7 @@
                     </div>
                 </div>
                 </Transition>
+                </teleport>
                 <shipment-print-modal 
                     :show="showThermalPrintModal" 
                     :shipment="selectedShipmentForPrint" 
@@ -4084,5 +4086,6 @@
         `
     };
 
+    ShipmentView.components = { ...ShipmentView.components, ShipmentSmartPasteCard: window.ShipmentSmartPasteCard, ShipmentPrintModal: window.ShipmentPrintModal };
     window.ShipmentView = ShipmentView;
 })();

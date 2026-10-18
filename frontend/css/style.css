@@ -4,7 +4,8 @@
 @import './layout/sidebar.css?v=3.5.8';
 @import './layout/topbar.css?v=3.5.8';
 @import './layout/footer.css?v=3.5.8';
-@import './components/cards.css?v=3.5.8';
+@import './components/cards.css?v=3.7.1';
+@import './components/preloader.css?v=3.7.12';
 @import './components/toast.css?v=3.5.8';
 @import './components/map.css?v=3.5.8';
 @import './components/chatbot.css?v=3.5.8';

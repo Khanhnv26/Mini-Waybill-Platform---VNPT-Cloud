@@ -1928,7 +1928,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                         </svg>
                         <span class="truncate">Khai Thác Đi</span>
-                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'outbound' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
+                        <span class="subtab-counter font-normal text-xs" :class="currentSubtab === 'outbound' ? 'subtab-counter-blue' : 'subtab-counter-slate'">
                             {{ outboundCount }}
                         </span>
                     </button>
@@ -1947,7 +1947,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
                         </svg>
                         <span class="truncate">Khai Thác Đến</span>
-                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'inbound' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
+                        <span class="subtab-counter font-normal text-xs" :class="currentSubtab === 'inbound' ? 'subtab-counter-blue' : 'subtab-counter-slate'">
                             {{ inboundCount }}
                         </span>
                     </button>
@@ -1966,7 +1966,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                         </svg>
                         <span class="truncate">Tồn Bưu Cục</span>
-                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'inventory' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
+                        <span class="subtab-counter font-normal text-xs" :class="currentSubtab === 'inventory' ? 'subtab-counter-blue' : 'subtab-counter-slate'">
                             {{ inventoryCount }}
                         </span>
                     </button>
@@ -1985,7 +1985,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span class="truncate">Đối Soát COD</span>
-                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'cod-settlement' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
+                        <span class="subtab-counter font-normal text-xs" :class="currentSubtab === 'cod-settlement' ? 'subtab-counter-blue' : 'subtab-counter-slate'">
                             {{ codSettlementPendingCount }}
                         </span>
                     </button>
@@ -2534,8 +2534,9 @@
                                         {{ Utils.formatCurrency(item.codAmount) }}
                                     </td>
                                     <td class="py-3 px-3.5 whitespace-nowrap">
-                                        <span :class="['px-2 py-0.5 rounded text-[10.5px] font-semibold border inline-flex items-center whitespace-nowrap', Utils.getStatusBadgeClass(item.currentStatus || item.status)]">
-                                            {{ Utils.formatStatusText(item.currentStatus || item.status, item.locationCode) }}
+                                        <span class="status-indicator whitespace-nowrap" :class="Utils.getStatusIndicatorClass(item.currentStatus || item.status)">
+                                            <span class="status-dot" :class="Utils.getStatusDotClass(item.currentStatus || item.status)"></span>
+                                            <span>{{ Utils.formatStatusText(item.currentStatus || item.status, item.locationCode) }}</span>
                                         </span>
                                     </td>
                                     <td class="py-3 px-3.5 text-right whitespace-nowrap">

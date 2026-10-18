@@ -16,8 +16,16 @@
     const SupportService = {
         rememberTicketAccess(ticket) {
             if (!ticket?.accessToken) return;
+            let changed = false;
             for (const key of [ticket.id, ticket.ticketCode]) {
-                if (key != null) sessionStorage.setItem(`support_access:${key}`, ticket.accessToken);
+                if (key != null) {
+                    const name = `support_access:${key}`;
+                    changed ||= sessionStorage.getItem(name) !== ticket.accessToken;
+                    sessionStorage.setItem(name, ticket.accessToken);
+                }
+            }
+            if (changed && ticket.id != null && typeof window.dispatchEvent === 'function') {
+                window.dispatchEvent(new CustomEvent('support:access-changed'));
             }
         },
 
@@ -68,7 +76,7 @@
 
         async getTicketByCode(ticketCode) {
             const code = encodeURIComponent(ticketCode.trim().toUpperCase());
-            const response = await Api.get(`/api/tickets/code/${code}`, this.ticketHeaders(ticketCode.trim().toUpperCase()), { skip403Toast: true, silent: true });
+            const response = await Api.get(`/api/tickets/code/${code}?includeMessages=false`, this.ticketHeaders(ticketCode.trim().toUpperCase()), { skip403Toast: true, silent: true });
             if (!response.ok) {
                 const errData = await response.json().catch(() => ({}));
                 throw new Error(extractErrorMessage(errData, `Không tìm thấy phiếu khiếu nại với mã: ${ticketCode}`));
@@ -87,7 +95,7 @@
         },
 
         async getTicketById(id) {
-            const response = await Api.get(`/api/tickets/${id}`, this.ticketHeaders(id), { skip403Toast: true, silent: true });
+            const response = await Api.get(`/api/tickets/${id}?includeMessages=false`, this.ticketHeaders(id), { skip403Toast: true, silent: true });
             if (!response.ok) {
                 const errData = await response.json().catch(() => ({}));
                 throw new Error(extractErrorMessage(errData, `Không tìm thấy phiếu khiếu nại ID: ${id}`));
@@ -130,10 +138,35 @@
             const response = await Api.post(`/api/tickets/${id}/messages`, payload, this.ticketHeaders(id), { skip403Toast: true });
             if (!response.ok) {
                 const errData = await response.json().catch(() => ({}));
-                throw new Error(extractErrorMessage(errData, 'Không thể gửi tin nhắn phản hồi'));
+                const error = new Error(extractErrorMessage(errData, 'Không thể gửi tin nhắn phản hồi'));
+                error.status = response.status;
+                throw error;
             }
             return response.json();
         },
+
+        async chatRequest(url, method = 'get', payload = null, ticket = null, requestOptions = {}) {
+            const options = { silent: true, skip403Toast: true, ...requestOptions };
+            const headers = ticket == null ? {} : this.ticketHeaders(ticket);
+            const response = method === 'get' ? await Api.get(url, headers, options)
+                : await Api[method](url, payload, headers, options);
+            if (!response.ok) {
+                const body = await response.json().catch(() => ({}));
+                const error = new Error(extractErrorMessage(body, 'Không thể đồng bộ chat'));
+                error.status = response.status;
+                throw error;
+            }
+            return response.status === 204 ? null : response.json();
+        },
+
+        getMessages(id, params = {}) {
+            return this.chatRequest(`/api/tickets/${id}/messages?${new URLSearchParams(params)}`, 'get', null, id);
+        },
+        markRead(id, lastReadMessageId, notificationOnly = false) {
+            return this.chatRequest(`/api/tickets/${id}/${notificationOnly ? 'notifications/read' : 'read'}`,
+                'put', { lastReadMessageId }, id);
+        },
+        getPresence(id) { return this.chatRequest(`/api/notifications/chat/presence/${id}`, 'get', null, id); },
 
         async uploadAttachment(file, ticketId) {
             if (!ticketId) throw new Error('Vui lòng mở phiếu hỗ trợ trước khi tải tệp');
@@ -180,6 +213,7 @@
                 this.connecting = false;
                 this.attempt = 0;
                 this.subscribe(this.ticket);
+                this.subscribeInboxes(this.inboxes || []);
                 this.onConnect();
             }, () => {
                 if (this.stopped || this.client !== client) return;
@@ -193,7 +227,7 @@
 
         retry() {
             if (this.stopped || this.retryTimer) return;
-            const delay = Math.min(30000, 1000 * 2 ** Math.min(this.attempt++, 5));
+            const delay = Math.min(30000, 1000 * 2 ** Math.min(this.attempt++, 5)) + Math.random() * 500;
             this.retryTimer = setTimeout(() => { this.retryTimer = null; this.start(); }, delay);
         }
 
@@ -212,6 +246,15 @@
             if (this.client) { try { this.client.disconnect(); } catch {} }
             if (this.socket) { try { this.socket.close(); } catch {} }
             this.client = null;
+        }
+
+        subscribeInboxes(inboxes) {
+            this.inboxes = inboxes;
+            for (const subscription of this.inboxSubscriptions || []) { try { subscription.unsubscribe(); } catch {} }
+            this.inboxSubscriptions = [];
+            if (!this.client?.connected) return;
+            for (const inbox of inboxes) this.inboxSubscriptions.push(
+                this.client.subscribe(inbox.destination, this.onMessage, inbox.headers || {}));
         }
     }
 

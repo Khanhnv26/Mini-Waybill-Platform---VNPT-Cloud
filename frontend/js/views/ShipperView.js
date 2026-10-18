@@ -1592,7 +1592,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
                         </svg>
                         <span class="truncate">Bưu Gửi Phát</span>
-                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'active' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
+                        <span class="subtab-counter font-normal text-xs" :class="currentSubtab === 'active' ? 'subtab-counter-blue' : 'subtab-counter-slate'">
                             {{ (kpiOutForDelivery + kpiAwaitingDispatch) }}
                         </span>
                     </button>
@@ -1612,7 +1612,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
                         <span class="truncate">Quyết Toán COD</span>
-                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold" :class="currentSubtab === 'cod' ? 'bg-blue-100 text-blue-800' : 'bg-slate-200/70 text-slate-600'">
+                        <span class="subtab-counter font-normal text-xs" :class="currentSubtab === 'cod' ? 'subtab-counter-blue' : 'subtab-counter-slate'">
                             {{ kpiDeliveredCount }}
                         </span>
                     </button>
@@ -1776,8 +1776,9 @@
                                     >
                                         <span>{{ item.trackingCode }}</span>
                                     </button>
-                                    <span :class="['px-2 py-0.5 rounded-md text-[10px] font-bold border inline-flex items-center whitespace-nowrap', getShipmentStatusBadgeClass(getShipmentStatus(item))]">
-                                        {{ formatShipmentStatus(getShipmentStatus(item)) }}
+                                    <span class="status-indicator whitespace-nowrap" :class="Utils.getStatusIndicatorClass(getShipmentStatus(item))">
+                                        <span class="status-dot" :class="Utils.getStatusDotClass(getShipmentStatus(item))"></span>
+                                        <span>{{ formatShipmentStatus(getShipmentStatus(item)) }}</span>
                                     </span>
                                 </div>
 
@@ -1929,8 +1930,9 @@
                                         </template>
                                     </td>
                                     <td class="py-2.5 px-3 whitespace-nowrap">
-                                        <span :class="['px-2 py-0.5 rounded-md text-[10.5px] font-bold border inline-flex items-center whitespace-nowrap', getShipmentStatusBadgeClass(getShipmentStatus(item))]">
-                                            {{ formatShipmentStatus(getShipmentStatus(item)) }}
+                                        <span class="status-indicator whitespace-nowrap" :class="Utils.getStatusIndicatorClass(getShipmentStatus(item))">
+                                            <span class="status-dot" :class="Utils.getStatusDotClass(getShipmentStatus(item))"></span>
+                                            <span>{{ formatShipmentStatus(getShipmentStatus(item)) }}</span>
                                         </span>
                                     </td>
                                     <td class="py-2.5 px-3 text-right whitespace-nowrap">

@@ -439,9 +439,10 @@
                 <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <div class="flex items-center space-x-2">
-                            <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
+                            <span class="text-xs font-semibold text-blue-100 uppercase tracking-wide">
                                 Kế Toán &amp; Đối Soát Dòng Tiền
                             </span>
+                            <span class="text-blue-100/60 text-xs">•</span>
                             <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
                         </div>
                         <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white flex items-center space-x-2">
@@ -716,24 +717,15 @@
                                     </button>
                                 </td>
 
-                                <td class="py-2.5 px-2.5 whitespace-nowrap">
-                                    <span 
-                                        v-if="tx.paymentType === 'COD'" 
-                                        class="px-2 py-0.5 rounded text-[10px] font-bold border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800"
-                                    >
-                                        THU HỘ COD
+                                <td class="py-2.5 px-2.5 whitespace-nowrap text-xs font-medium">
+                                    <span v-if="tx.paymentType === 'COD'" class="text-amber-700 dark:text-amber-400">
+                                        Thu hộ COD
                                     </span>
-                                    <span 
-                                        v-else-if="tx.paymentType === 'SHIPPING_FEE'" 
-                                        class="px-2 py-0.5 rounded text-[10px] font-bold border bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800"
-                                    >
-                                        CƯỚC GỬI
+                                    <span v-else-if="tx.paymentType === 'SHIPPING_FEE'" class="text-blue-700 dark:text-blue-400">
+                                        Cước gửi
                                     </span>
-                                    <span 
-                                        v-else 
-                                        class="px-2 py-0.5 rounded text-[10px] font-bold border bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-800"
-                                    >
-                                        PHÍ HOÀN
+                                    <span v-else class="text-purple-700 dark:text-purple-400">
+                                        Phí hoàn
                                     </span>
                                 </td>
 
@@ -757,31 +749,31 @@
                                 <td class="py-2.5 px-2.5 whitespace-nowrap">
                                     <span 
                                         v-if="tx.status === 'SUCCESS'"
-                                        class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800"
+                                        class="status-indicator text-emerald-700 dark:text-emerald-400 status-indicator-emerald"
                                     >
-                                        <span class="w-1.5 h-1.5 rounded-full mr-1.5 bg-emerald-500"></span>
-                                        Đã Thu Tiền
+                                        <span class="status-dot bg-emerald-500"></span>
+                                        <span>Đã Thu Tiền</span>
                                     </span>
                                     <span 
                                         v-else-if="tx.status === 'PENDING'"
-                                        class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800"
+                                        class="status-indicator text-amber-700 dark:text-amber-400 status-indicator-amber"
                                     >
-                                        <span class="w-1.5 h-1.5 rounded-full mr-1.5 bg-amber-500 animate-pulse"></span>
-                                        Chờ Thu Tiền
+                                        <span class="status-dot bg-amber-500"></span>
+                                        <span>Chờ Thu Tiền</span>
                                     </span>
                                     <span 
                                         v-else-if="tx.status === 'CANCELLED'"
-                                        class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+                                        class="status-indicator text-slate-500 dark:text-slate-400 status-indicator-slate"
                                     >
-                                        <span class="w-1.5 h-1.5 rounded-full mr-1.5 bg-slate-400"></span>
-                                        Đã Hủy
+                                        <span class="status-dot bg-slate-400"></span>
+                                        <span>Đã Hủy</span>
                                     </span>
                                     <span 
                                         v-else
-                                        class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800"
+                                        class="status-indicator text-rose-600 dark:text-rose-400 status-indicator-rose"
                                     >
-                                        <span class="w-1.5 h-1.5 rounded-full mr-1.5 bg-rose-500"></span>
-                                        Thất Bại
+                                        <span class="status-dot bg-rose-500"></span>
+                                        <span>Thất Bại</span>
                                     </span>
                                 </td>
 

@@ -1,6 +1,6 @@
 package org.app.notificationservice.consumer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.app.notificationservice.client.ShipmentClient;
@@ -41,6 +41,7 @@ public class NotificationConsumer {
     private final SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper;
     private final ShipperOrderIndexService shipperOrderIndexService;
+    private final org.app.notificationservice.service.ChatRealtimeFanout chatFanout;
 
     @KafkaListener(topics = "shipment-events", groupId = "notification-group")
     public void handleShipmentCreated(CreateShipmentEvent event) {
@@ -372,17 +373,8 @@ public class NotificationConsumer {
     @KafkaListener(topics = "support-chat-events", groupId = "notification-group")
     public void handleSupportChatMessage(TicketChatMessageEvent event) {
         if (event == null) return;
-        log.info("[NOTIFICATION] Nhận sự kiện chat: messageId={}, ticketId={}", event.getMessageId(), event.getTicketId());
-        try {
-            if (event.getTicketId() != null) {
-                messagingTemplate.convertAndSend("/topic/tickets/" + event.getTicketId(), event);
-            }
-            if (event.getTicketCode() != null && !event.getTicketCode().isBlank()) {
-                messagingTemplate.convertAndSend("/topic/tickets/code/" + event.getTicketCode(), event);
-            }
-        } catch (Exception ex) {
-            log.warn("[NOTIFICATION] Không thể đẩy WebSocket cho tin nhắn phiếu {}: {}", event.getTicketCode(), ex.getMessage());
-        }
+        // Let Redis failures reach Kafka's retry handler; every WebSocket node receives the event.
+        chatFanout.publish(event);
     }
 
 }

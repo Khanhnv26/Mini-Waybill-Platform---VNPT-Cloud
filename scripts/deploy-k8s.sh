@@ -27,7 +27,7 @@ echo "=== 3. TRIỂN KHAI HẠ TẦNG (SQL SERVER, KAFKA, REDIS, RABBITMQ, MINIO
 kubectl apply -f k8s/01-infrastructure/
 
 echo "=== 4. TRIỂN KHAI 14 MICROSERVICES & FRONTEND ==="
-kubectl apply -f k8s/02-services/
+kubectl apply -k k8s/02-services
 
 echo "=== 5. ÁP DỤNG QUY TẮC INGRESS CỔNG MẠNG ==="
 kubectl delete -A ValidatingWebhookConfiguration ingress-nginx-admission --ignore-not-found

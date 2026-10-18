@@ -64,19 +64,37 @@
                 v-for="tab in navigationTabs" 
                 :key="tab.id"
                 @click="$emit('switch-tab', tab.id)"
-                :title="(isSidebarCollapsed && !isMobileDrawerOpen) ? tab.name : ''"
+                :title="(isSidebarCollapsed && !isMobileDrawerOpen) ? (tab.id === 'support' && chatUnread ? tab.name + ' (' + chatUnread + ' tin chưa đọc)' : tab.name) : ''"
                 :class="[
-                    'w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs transition smooth-transition cursor-pointer text-left',
-                    (isSidebarCollapsed && !isMobileDrawerOpen) ? 'md:justify-center md:!px-0 md:!space-x-0' : '',
+                    'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs transition smooth-transition cursor-pointer text-left',
+                    (isSidebarCollapsed && !isMobileDrawerOpen) ? 'md:justify-center md:!px-0 md:!gap-0' : '',
                     currentTab === tab.id 
                         ? 'bg-blue-50 dark:bg-blue-600/25 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-500/40 shadow-sm shadow-blue-500/10 font-bold' 
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/80 dark:hover:bg-slate-800/50 font-medium'
                 ]"
             >
-                <svg class="w-4 h-4 flex-shrink-0" :class="currentTab === tab.id ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tab.icon || 'M4 6h16M4 12h16M4 18h16'" />
-                </svg>
-                <span v-show="!isSidebarCollapsed || isMobileDrawerOpen" class="truncate">{{ tab.name }}</span>
+                <div class="relative flex-shrink-0 flex items-center justify-center">
+                    <svg class="w-4 h-4" :class="currentTab === tab.id ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tab.icon || 'M4 6h16M4 12h16M4 18h16'" />
+                    </svg>
+                    <!-- Floating badge in collapsed mode -->
+                    <span 
+                        v-if="tab.id === 'support' && chatUnread && isSidebarCollapsed && !isMobileDrawerOpen" 
+                        class="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-blue-600 text-white text-[9.5px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-[#0f1a38] shadow-sm pointer-events-none"
+                        :aria-label="chatUnread + ' tin hỗ trợ chưa đọc'"
+                    >
+                        {{ chatUnread > 9 ? '9+' : chatUnread }}
+                    </span>
+                </div>
+                <span v-show="!isSidebarCollapsed || isMobileDrawerOpen" class="truncate flex-1">{{ tab.name }}</span>
+                <!-- Right-aligned badge in expanded mode -->
+                <span 
+                    v-if="tab.id === 'support' && chatUnread && (!isSidebarCollapsed || isMobileDrawerOpen)" 
+                    class="!ml-auto min-w-[18px] h-[18px] px-1.5 text-[10px] font-bold rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xs flex-shrink-0" 
+                    :aria-label="chatUnread + ' tin hỗ trợ chưa đọc'"
+                >
+                    {{ chatUnread > 99 ? '99+' : chatUnread }}
+                </span>
             </button>
         </div>
 
@@ -130,6 +148,10 @@
     const AppSidebar = {
         name: 'AppSidebar',
         template,
+        setup() {
+            const chatUnread = Vue.computed(() => Object.values(window.SupportChatRuntime?.state.unread || {}).reduce((sum, count) => sum + count, 0));
+            return { chatUnread };
+        },
         props: {
             currentUser: { type: Object, default: null },
             currentTab: { type: String, default: 'tracking' },

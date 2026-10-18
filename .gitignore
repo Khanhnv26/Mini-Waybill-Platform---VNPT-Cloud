@@ -67,3 +67,6 @@ agent/
 # Interview Handbook (Personal notes - DO NOT COMMIT)
 .secrets/
 FRESHER_INTERVIEW_HANDBOOK.md
+
+# Local verification logs (may include infrastructure diagnostics)
+.verification/

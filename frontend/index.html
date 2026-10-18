@@ -23,14 +23,14 @@
             };
         })();
     </script>
-    <link rel="stylesheet" href="css/tailwind.prod.css?v=3.6.5" />
+    <link rel="stylesheet" href="css/tailwind.prod.css?v=3.7.5" />
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <link rel="stylesheet" href="css/style.css?v=3.6.6" />
+    <link rel="stylesheet" href="css/style.css?v=3.7.12" />
     <link rel="stylesheet" href="css/views/login.css?v=3.5.8" />
 
     <script>
@@ -62,44 +62,11 @@
 </head>
 <body class="bg-[#f8fafc] text-slate-900 antialiased min-h-full flex flex-col selection:bg-blue-600 selection:text-white font-sans">
 
-    <div id="vnpt-page-preloader" class="fixed inset-0 z-[99999] bg-slate-50 flex flex-col items-center justify-center transition-opacity duration-300">
-        <div class="flex flex-col items-center text-center space-y-4 max-w-xs px-4">
-            <div class="relative w-24 h-24 flex items-center justify-center">
-                <div class="absolute inset-0 rounded-full border border-blue-200/50"></div>
-                <div class="absolute inset-0 rounded-full border-2 border-transparent border-t-blue-600 border-r-blue-400 animate-spin" style="animation-duration: 0.9s;"></div>
-                <div class="absolute inset-2 rounded-full bg-blue-500/5 blur-sm pointer-events-none"></div>
-                <div class="w-12 h-12 rounded-2xl vnpt-gradient text-white flex items-center justify-center shadow-lg shadow-blue-600/25 border border-white/30 select-none z-10">
-                    <span class="text-xs sm:text-sm font-black tracking-tight leading-none">WB</span>
-                </div>
-            </div>
-            <div class="space-y-0.5 pt-1">
-                <div class="font-extrabold text-base text-slate-800 tracking-tight">Waybill Post</div>
-                <p class="text-[11.5px] text-slate-400 font-medium">Hệ Thống Điều Phối Bưu Chính &amp; Vận Đơn</p>
-            </div>
-            <div class="pt-2 flex items-center justify-center space-x-2 text-xs text-slate-500 font-medium">
-                <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-ping"></span>
-                <span id="preloader-status-text">Đang kết nối hệ thống bưu chính...</span>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        (function () {
-            var preloader = document.getElementById('vnpt-page-preloader');
-            var status = document.getElementById('preloader-status-text');
-            if (!preloader) return;
-            setTimeout(function () {
-                if (status) status.innerText = 'Đồng bộ dữ liệu bưu cục...';
-            }, 400);
-            setTimeout(function () {
-                if (status) status.innerText = 'Sẵn sàng khởi động!';
-                preloader.classList.add('opacity-0', 'pointer-events-none');
-                setTimeout(function () {
-                    preloader.style.display = 'none';
-                }, 300);
-            }, 800);
-        })();
-    </script>
+    <!-- ==========================================================================
+         MÀN HÌNH LOADING RIÊNG TOÀN TRANG (WAYBILL POST FULL-SCREEN PRELOADER)
+         ========================================================================== -->
+    <div id="waybill-preloader" hidden role="status" aria-label="Đang khởi động hệ thống"></div>
+    <script src="js/components/preloader.js?v=3.7.12"></script>
 
     <div id="app" v-cloak class="w-full min-h-screen bg-slate-50 selection:bg-blue-600 selection:text-white font-sans">
         
@@ -273,6 +240,6 @@
         <chatbot-widget v-if="!isStaffUser && currentTab !== 'login'"></chatbot-widget>
     </div>
 
-    <script type="module" src="js/app.js?v=3.6.7"></script>
+    <script type="module" src="js/app.js?v=3.8.0"></script>
 </body>
 </html>

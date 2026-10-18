@@ -4,8 +4,8 @@
 
     const errorConfigs = {
         404: {
-            badgeText: 'MÃ LỖI 404 • KHÔNG TÌM THẤY',
-            badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+            badgeText: 'Mã lỗi 404 • Không tìm thấy',
+            dotClass: 'bg-blue-500',
             glowClass: 'bg-blue-400',
             iconBoxClass: 'bg-blue-50 border-blue-200 text-blue-600',
             title: 'Không Tìm Thấy Trang Yêu Cầu',
@@ -18,8 +18,8 @@
             hasCountdown: false
         },
         403: {
-            badgeText: 'MÃ LỖI 403 • TRUY CẬP BỊ TỪ CHỐI',
-            badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
+            badgeText: 'Mã lỗi 403 • Truy cập bị từ chối',
+            dotClass: 'bg-rose-500',
             glowClass: 'bg-rose-400',
             iconBoxClass: 'bg-rose-50 border-rose-200 text-rose-600',
             title: 'Quyền Truy Cập Bị Chặn (RBAC)',
@@ -32,8 +32,8 @@
             hasCountdown: false
         },
         503: {
-            badgeText: 'MÃ LỖI 503 • DỊCH VỤ TẠM THỜI GIÁN ĐOẠN',
-            badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
+            badgeText: 'Mã lỗi 503 • Dịch vụ tạm thời gián đoạn',
+            dotClass: 'bg-amber-500',
             glowClass: 'bg-amber-400',
             iconBoxClass: 'bg-amber-50 border-amber-200 text-amber-600',
             title: 'Cụm Dịch Vụ Đang Tạm Ngưng',
@@ -46,8 +46,8 @@
             hasCountdown: true
         },
         502: {
-            badgeText: 'MÃ LỖI 502 • BAD GATEWAY',
-            badgeClass: 'bg-orange-50 text-orange-800 border-orange-200',
+            badgeText: 'Mã lỗi 502 • Bad Gateway',
+            dotClass: 'bg-orange-500',
             glowClass: 'bg-orange-400',
             iconBoxClass: 'bg-orange-50 border-orange-200 text-orange-600',
             title: 'Mất Kết Nối Cổng Dịch Vụ (Gateway)',
@@ -60,8 +60,8 @@
             hasCountdown: true
         },
         429: {
-            badgeText: 'MÃ LỖI 429 • QUÁ NHIỀU YÊU CẦU',
-            badgeClass: 'bg-purple-50 text-purple-700 border-purple-200',
+            badgeText: 'Mã lỗi 429 • Quá nhiều yêu cầu',
+            dotClass: 'bg-purple-500',
             glowClass: 'bg-purple-400',
             iconBoxClass: 'bg-purple-50 border-purple-200 text-purple-600',
             title: 'Thao Tác Quá Nhanh (Rate Limit)',
@@ -269,8 +269,9 @@
                         </div>
                     </div>
 
-                    <div :class="['inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold tracking-wide uppercase mb-3.5 border shadow-sm', activeConfig.badgeClass]">
-                        {{ activeConfig.badgeText }}
+                    <div class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 mb-3.5">
+                        <span class="status-dot" :class="activeConfig.dotClass || 'bg-rose-500'"></span>
+                        <span>{{ activeConfig.badgeText }}</span>
                     </div>
 
                     <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 mb-3">

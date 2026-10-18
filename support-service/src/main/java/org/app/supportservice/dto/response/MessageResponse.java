@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class MessageResponse {
     private Long id;
+    private String clientMessageId;
     private Long senderId;
     private String senderName;
     private String senderRole;
@@ -25,6 +26,7 @@ public class MessageResponse {
         if (msg == null) return null;
         return MessageResponse.builder()
                 .id(msg.getId())
+                .clientMessageId(msg.getClientMessageId())
                 .senderId(msg.getSenderId())
                 .senderName(msg.getSenderName())
                 .senderRole(msg.getSenderRole())

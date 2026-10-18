@@ -61,9 +61,9 @@
                             </div>
                             <div class="text-right">
                                 <div class="text-[10px] uppercase font-bold text-slate-500">Chức Danh Vận Hành</div>
-                                <span class="inline-block mt-0.5 px-2.5 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white shadow-xs">
+                                <div class="text-xs font-semibold text-slate-800 mt-0.5">
                                     {{ getRoleTitle ? getRoleTitle(currentUser?.roles?.[0]) : (currentUser?.roles?.[0] || 'NHÂN VIÊN') }}
-                                </span>
+                                </div>
                             </div>
                         </div>
                         <div class="pt-2 border-t border-blue-100 flex items-center justify-between text-[11px]">
@@ -74,7 +74,7 @@
                                 </svg>
                                 <span>Trạm công tác trực thuộc:</span>
                             </span>
-                            <span class="font-mono font-bold text-blue-800 bg-white px-2 py-0.5 rounded border border-blue-200 shadow-xs">
+                            <span class="font-mono font-bold text-slate-800 text-xs">
                                 {{ currentUser?.locationCode || 'Chưa phân công trạm' }}
                             </span>
                         </div>
@@ -89,9 +89,9 @@
                         </div>
                         <div class="text-right">
                             <div class="text-[10px] uppercase font-bold text-slate-400">Vai Trò Hệ Thống</div>
-                            <span class="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">
+                            <div class="text-xs font-semibold text-slate-800 mt-0.5">
                                 {{ currentUser?.roles?.[0] ? currentUser.roles[0].replace('ROLE_', '') : 'CUSTOMER' }}
-                            </span>
+                            </div>
                         </div>
                     </div>
 
@@ -100,8 +100,9 @@
                             <label class="block text-[11px] font-bold text-slate-700">
                                 {{ isStaffUser ? 'Email Công Vụ' : 'Email Tài Khoản' }}
                             </label>
-                            <span v-if="currentUser?.googleLinked || currentUser?.avatarUrl" class="text-[10px] text-emerald-700 font-semibold px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200">
-                                Đã liên kết Google
+                            <span v-if="currentUser?.googleLinked || currentUser?.avatarUrl" class="status-indicator text-slate-600 font-medium text-[11px] status-indicator-slate">
+                                <span class="status-dot bg-emerald-500"></span>
+                                <span>Đã liên kết Google</span>
                             </span>
                             <button 
                                 v-else 

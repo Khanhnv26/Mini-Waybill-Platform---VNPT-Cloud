@@ -16,4 +16,7 @@ public class AddMessageRequest {
 
     private String attachmentUrls;
     private String senderName;
+
+    @jakarta.validation.constraints.Pattern(regexp = "[A-Za-z0-9_-]{16,64}")
+    private String clientMessageId;
 }

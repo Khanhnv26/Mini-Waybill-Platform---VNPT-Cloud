@@ -348,17 +348,15 @@
                                     <div class="flex items-center space-x-1.5">
                                         <span 
                                             :class="[
-                                                'px-1.5 py-0.5 rounded text-[9.5px] font-bold uppercase transition-colors',
-                                                item.type === 'SUPER_HUB' 
-                                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 dark:border dark:border-blue-500/30' 
-                                                    : 'bg-teal-50 text-teal-700 border border-teal-200/60 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-500/30'
+                                                'text-[10px] font-bold',
+                                                item.type === 'SUPER_HUB' ? 'text-blue-700 dark:text-blue-400' : 'text-teal-700 dark:text-teal-400'
                                             ]"
                                         >
-                                            {{ item.type === 'SUPER_HUB' ? 'KHO TỔNG' : 'BƯU CỤC' }}
+                                            {{ item.type === 'SUPER_HUB' ? 'Kho Tổng' : 'Bưu Cục' }}
                                         </span>
                                         <span class="font-mono text-[11px] font-bold text-slate-500">{{ item.code }}</span>
                                     </div>
-                                    <span class="text-[9.5px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-500/30 px-2 py-0.5 rounded-full border border-emerald-200">
+                                    <span class="text-[10.5px] font-medium text-slate-500 dark:text-slate-400">
                                         {{ item.hours }}
                                     </span>
                                 </div>

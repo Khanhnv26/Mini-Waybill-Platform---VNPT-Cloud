@@ -34,8 +34,11 @@
                         <span class="font-bold text-slate-800">{{ trip?.shipments?.length || trip?.totalPackages || 0 }} kiện</span>
                     </div>
                     <div>
-                        <span class="text-[10px] text-slate-400 font-semibold block">Trạng Thái</span>
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">{{ trip?.status || 'SẴN SÀNG' }}</span>
+                        <span class="text-xs text-slate-400 font-normal block mb-0.5">Trạng Thái</span>
+                        <span class="status-indicator">
+                            <span class="status-dot bg-blue-500"></span>
+                            <span class="font-medium text-xs text-slate-700 dark:text-slate-300">{{ trip?.status || 'Sẵn sàng' }}</span>
+                        </span>
                     </div>
                 </div>
 

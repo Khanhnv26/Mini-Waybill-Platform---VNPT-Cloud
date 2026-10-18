@@ -55,6 +55,20 @@ class WebSocketAuthorizationTest {
         verifyNoInteractions(payments);
     }
 
+    @Test void privateInboxesRequireTheExactUserOrGuestCapability() {
+        var user = new WebSocketAuthorization.Identity("7", "", null);
+        var guest = new WebSocketAuthorization.Identity("", "", null);
+        // Use a spy only to bypass JWT freshness here; subscription routing is the subject.
+        var auth = spy(authorization);
+        doReturn(true).when(auth).valid(any());
+        assertDoesNotThrow(() -> auth.preSend(frame(StompCommand.SUBSCRIBE, "/topic/chat/inbox/user/7", user, null), null));
+        assertThrows(MessageDeliveryException.class, () -> auth.preSend(frame(StompCommand.SUBSCRIBE, "/topic/chat/inbox/user/8", user, null), null));
+        assertThrows(MessageDeliveryException.class, () -> auth.preSend(frame(StompCommand.SUBSCRIBE, "/topic/chat/inbox/staff", user, null), null));
+        auth.preSend(frame(StompCommand.SUBSCRIBE, "/topic/chat/inbox/guest/7", guest, "secret"), null);
+        verify(tickets).checkId(7L, "", "", "secret");
+        assertThrows(MessageDeliveryException.class, () -> auth.preSend(frame(StompCommand.SUBSCRIBE, "/topic/chat/inbox/guest/7", user, "secret"), null));
+    }
+
     @Test void missingRedisStateOrChangedPermissionsInvalidateExistingWebSocketIdentity() {
         @SuppressWarnings("unchecked") ValueOperations<String, String> values = mock(ValueOperations.class);
         when(redis.opsForValue()).thenReturn(values);

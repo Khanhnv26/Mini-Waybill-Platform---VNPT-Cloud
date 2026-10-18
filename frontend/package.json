@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "VNPT Waybill Platform Frontend",
   "scripts": {
+    "check": "node scripts/check.cjs",
+    "test": "node --test tests/*.test.cjs",
+    "verify": "npm run check && npm test && npm run build:css",
     "start": "node server.js 3000",
     "build:css": "tailwindcss -i ./css/tailwind.input.css -o ./css/tailwind.prod.css --minify",
     "watch:css": "tailwindcss -i ./css/tailwind.input.css -o ./css/tailwind.prod.css --watch"

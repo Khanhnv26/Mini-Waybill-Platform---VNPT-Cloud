@@ -41,9 +41,13 @@ public class TicketResponse {
     private List<MessageResponse> messages;
 
     public static TicketResponse fromEntity(SupportTicket ticket) {
+        return fromEntity(ticket, true);
+    }
+
+    public static TicketResponse fromEntity(SupportTicket ticket, boolean includeMessages) {
         if (ticket == null) return null;
 
-        List<MessageResponse> msgResponses = (ticket.getMessages() != null)
+        List<MessageResponse> msgResponses = (includeMessages && ticket.getMessages() != null)
                 ? ticket.getMessages().stream().map(MessageResponse::fromEntity).collect(Collectors.toList())
                 : Collections.emptyList();
 

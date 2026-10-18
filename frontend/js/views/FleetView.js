@@ -243,15 +243,15 @@
             const getStatusBadge = (status) => {
                 switch (status) {
                     case 'AVAILABLE':
-                        return { text: 'SẴN SÀNG', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200', dotClass: 'bg-emerald-500 animate-pulse' };
+                        return { text: 'Sẵn sàng', dotClass: 'bg-emerald-500', indicatorClass: 'status-indicator-emerald' };
                     case 'ON_TRIP':
-                        return { text: 'CHẠY TUYẾN', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200', dotClass: 'bg-blue-500 animate-pulse' };
+                        return { text: 'Chạy tuyến', dotClass: 'bg-blue-500 status-dot-pulse', indicatorClass: 'status-indicator-blue' };
                     case 'MAINTENANCE':
-                        return { text: 'BẢO DƯỠNG', badgeClass: 'bg-amber-50 text-amber-700 border-amber-200', dotClass: 'bg-amber-500' };
+                        return { text: 'Bảo dưỡng', dotClass: 'bg-amber-500', indicatorClass: 'status-indicator-amber' };
                     case 'DISABLED':
-                        return { text: 'VÔ HIỆU HÓA', badgeClass: 'bg-slate-100 text-slate-500 border-slate-200', dotClass: 'bg-slate-400' };
+                        return { text: 'Vô hiệu hóa', dotClass: 'bg-slate-400', indicatorClass: 'status-indicator-slate' };
                     default:
-                        return { text: status, badgeClass: 'bg-slate-100 text-slate-700 border-slate-200', dotClass: 'bg-slate-400' };
+                        return { text: status, dotClass: 'bg-slate-400', indicatorClass: 'status-indicator-slate' };
                 }
             };
 
@@ -309,11 +309,8 @@
 
                     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
                         <div>
-                            <div class="flex items-center space-x-2">
-                                <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
-                                    Fleet Operations
-                                </span>
-                                <span class="text-blue-100 text-xs font-medium">Trung Tâm Quản Lý Phương Tiện Vận Tải</span>
+                            <div class="text-xs font-medium text-blue-100">
+                                Trung Tâm Quản Lý Phương Tiện Vận Tải
                             </div>
                             <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
                                 Quản Lý Đội Phương Tiện &amp; Điều Phối Đội Xe
@@ -463,13 +460,9 @@
                                     </td>
 
                                     <td class="py-2.5 px-3.5">
-                                        <span class="inline-flex items-center gap-1 font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded border border-blue-200 text-xs">
-                                            <svg class="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                            </svg>
-                                            <span>{{ v.currentHub }}</span>
-                                        </span>
+                                        <div class="font-semibold text-slate-800 text-xs">
+                                            {{ v.currentHub }}
+                                        </div>
                                     </td>
 
                                     <td class="py-2.5 px-3.5">
@@ -478,10 +471,8 @@
                                     </td>
 
                                     <td class="py-2.5 px-3.5 text-center">
-                                        <span 
-                                             :class="['inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border', getStatusBadge(v.status).badgeClass]"
-                                        >
-                                            <span :class="['w-1.5 h-1.5 rounded-full', getStatusBadge(v.status).dotClass]"></span>
+                                        <span class="status-indicator" :class="getStatusBadge(v.status).indicatorClass">
+                                            <span :class="['status-dot', getStatusBadge(v.status).dotClass]"></span>
                                             <span>{{ getStatusBadge(v.status).text }}</span>
                                         </span>
                                     </td>

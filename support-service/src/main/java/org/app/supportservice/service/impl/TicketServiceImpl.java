@@ -101,6 +101,8 @@ public class TicketServiceImpl implements TicketService {
         //Tự động tạo Message đầu tiên từ nội dung mô tả của khách
         TicketMessage initialMsg = TicketMessage.builder()
                 .ticket(savedTicket)
+                .senderKey(userId != null && userId > 0 ? "user:" + userId : "guest:" + savedTicket.getId())
+                .audienceKey("staff")
                 .senderId(userId != null ? userId : 0L)
                 .senderName(savedTicket.getCreatorName())
                 .senderRole("CUSTOMER")
@@ -108,6 +110,8 @@ public class TicketServiceImpl implements TicketService {
                 .createdAt(LocalDateTime.now())
                 .build();
         messageRepository.save(initialMsg);
+        chatOutbox.save(org.app.supportservice.entity.ChatOutbox.builder().messageId(initialMsg.getId())
+                .delivered(false).nextAttemptAt(LocalDateTime.now()).build());
 
         savedTicket.getMessages().add(initialMsg);
         TicketResponse response = TicketResponse.fromEntity(savedTicket);
@@ -231,9 +235,27 @@ public class TicketServiceImpl implements TicketService {
     @Override
     @Transactional
     public MessageResponse addMessage(Long id, AddMessageRequest req, Long senderId, String senderRole, String guestToken) {
-        SupportTicket ticket = ticketRepository.findById(id)
+        SupportTicket ticket = ticketRepository.lockById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ticket với ID: " + id));
         ticketAccess.check(ticket, senderId, senderRole, guestToken);
+
+        String senderKey = senderId != null && senderId > 0 ? "user:" + senderId : "guest:" + id;
+        String attachmentKey = storage.normalizeAttachment(req.getAttachmentUrls(), id);
+        if (req.getClientMessageId() != null) {
+            var previous = messageRepository.findByTicketIdAndClientMessageId(id, req.getClientMessageId());
+            if (previous.isPresent()) {
+                TicketMessage old = previous.get();
+                if (!java.util.Objects.equals(old.getSenderKey(), senderKey)
+                        || !java.util.Objects.equals(old.getContent(), req.getContent())
+                        || !java.util.Objects.equals(old.getAttachmentUrls(), attachmentKey)) {
+                    throw new org.springframework.web.server.ResponseStatusException(
+                            org.springframework.http.HttpStatus.CONFLICT, "Mã gửi tin đã được dùng với nội dung khác");
+                }
+                MessageResponse response = MessageResponse.fromEntity(old);
+                response.setAttachmentUrls(storage.signedUrl(old.getAttachmentUrls()));
+                return response;
+            }
+        }
 
         String status = ticket.getStatus() == null ? "" : ticket.getStatus().trim().toUpperCase(Locale.ROOT);
         if ("RESOLVED".equals(status) || "CLOSED".equals(status)) {
@@ -242,6 +264,12 @@ public class TicketServiceImpl implements TicketService {
 
         TicketMessage msg = TicketMessage.builder()
                 .ticket(ticket)
+                .clientMessageId(req.getClientMessageId())
+                .senderKey(senderKey)
+                .audienceKey("CUSTOMER".equals(senderRole)
+                        ? (ticket.getAssignedToUserId() == null ? "staff" : "user:" + ticket.getAssignedToUserId())
+                        : (ticket.getCreatorUserId() == null || ticket.getCreatorUserId() == 0
+                            ? "guest:" + id : "user:" + ticket.getCreatorUserId()))
                 .senderId(senderId != null ? senderId : 0L)
                 .senderName(req.getSenderName() != null && !req.getSenderName().isBlank()
                         ? req.getSenderName() : "Người dùng")
@@ -251,7 +279,7 @@ public class TicketServiceImpl implements TicketService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        msg.setAttachmentUrls(storage.normalizeAttachment(req.getAttachmentUrls(), id));
+        msg.setAttachmentUrls(attachmentKey);
 
         TicketMessage saved = messageRepository.save(msg);
         chatOutbox.save(org.app.supportservice.entity.ChatOutbox.builder().messageId(saved.getId())

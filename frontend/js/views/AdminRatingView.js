@@ -332,9 +332,10 @@
                 <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <div class="flex items-center space-x-2">
-                            <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
-                                ĐÁNH GIÁ CSAT
+                            <span class="text-xs font-semibold text-blue-100 uppercase tracking-wide">
+                                Đánh Giá CSAT
                             </span>
+                            <span class="text-blue-100/60 text-xs">•</span>
                             <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
                         </div>
                         <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
@@ -644,11 +645,9 @@
                                     </div>
                                 </td>
                                 <td class="py-3 px-4 text-center whitespace-nowrap">
-                                    <span v-if="item.isHidden" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Đã Ẩn
-                                    </span>
-                                    <span v-else class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Hiển Thị
+                                    <span class="status-indicator" :class="item.isHidden ? 'status-indicator-rose' : 'status-indicator-emerald'">
+                                        <span class="status-dot" :class="item.isHidden ? 'bg-rose-500' : 'bg-emerald-500'"></span>
+                                        <span>{{ item.isHidden ? 'Đã Ẩn' : 'Hiển Thị' }}</span>
                                     </span>
                                 </td>
                                 <td class="py-3 px-4 text-center whitespace-nowrap">
@@ -735,11 +734,9 @@
                                 <div>
                                     <div class="flex items-center gap-2.5">
                                         <h3 class="text-base font-extrabold tracking-tight font-mono text-blue-600 dark:text-blue-400">{{ selectedRating.trackingCode }}</h3>
-                                        <span v-if="selectedRating.isHidden" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50">
-                                            Đã Bị Ẩn
-                                        </span>
-                                        <span v-else class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
-                                            Hiển Thị Công Khai
+                                        <span class="status-indicator text-xs" :class="selectedRating.isHidden ? 'status-indicator-rose' : 'status-indicator-emerald'">
+                                            <span class="status-dot" :class="selectedRating.isHidden ? 'bg-rose-500' : 'bg-emerald-500'"></span>
+                                            <span>{{ selectedRating.isHidden ? 'Đã Bị Ẩn' : 'Hiển Thị Công Khai' }}</span>
                                         </span>
                                     </div>
                                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Ngày gửi: {{ selectedRating.createdAt }}</p>

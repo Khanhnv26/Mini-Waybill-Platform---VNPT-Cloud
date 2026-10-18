@@ -39,9 +39,9 @@
                                 </button>
                                 <span 
                                     v-if="shipment?.status"
-                                    :class="['px-2.5 py-0.5 rounded-full text-[11px] font-bold border flex items-center space-x-1 shadow-2xs whitespace-nowrap', getStatusBadgeClass(shipment.status)]"
+                                    class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-medium bg-white/20 border border-white/25 text-white whitespace-nowrap"
                                 >
-                                    <span class="w-1.5 h-1.5 rounded-full bg-current"></span>
+                                    <span class="w-1.5 h-1.5 rounded-full" :class="Utils.getStatusDotClass(shipment.status)"></span>
                                     <span>{{ formatStatusText(shipment.status) }}</span>
                                 </span>
                             </div>
@@ -1311,7 +1311,8 @@
                 printThermalLabel,
                 toggleMap,
                 fitModalMapView,
-                fetchData
+                fetchData,
+                Utils
             };
         }
     };
