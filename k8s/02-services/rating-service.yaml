@@ -38,7 +38,7 @@ spec:
                   name: waybill-runtime
                   key: db-password
             - name: SPRING_JPA_HIBERNATE_DDL_AUTO
-              value: "validate"
+              value: "update"
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
               value: "kafka:9092"
             - name: EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE
