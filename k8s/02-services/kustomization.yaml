@@ -49,15 +49,6 @@ patches:
           failureThreshold: 3
   - target:
       kind: Deployment
-      labelSelector: app in (api-gateway,audit-service,auth-service,customer-service,notification-service,payment-service,rating-service,report-service,routing-service,shipment-service,shipper-service,support-service,tracking-service)
-    patch: |-
-      - op: add
-        path: /spec/template/spec/containers/0/env/-
-        value:
-          name: SPRING_PROFILES_ACTIVE
-          value: prod
-  - target:
-      kind: Deployment
       name: frontend
     patch: |-
       - op: replace
