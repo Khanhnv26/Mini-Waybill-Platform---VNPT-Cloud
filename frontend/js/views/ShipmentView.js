@@ -13,6 +13,7 @@
             const currentSubtab = ref('create');
             const isDockCollapsed = ref(false);
             const showThermalPrintModal = ref(false);
+            const showFeeDetailModal = ref(false);
             const selectedShipmentForPrint = ref(null);
             const openThermalPrint = (shipment) => {
                 selectedShipmentForPrint.value = shipment;
@@ -1390,6 +1391,7 @@
                 codFee,
                 fuelSurcharge,
                 totalEstimatedFee,
+                showFeeDetailModal,
                 setWeight,
                 setCodAmount,
                 setServiceType,
@@ -1557,7 +1559,7 @@
                     </div>
                 </div>
                 
-                <div class="bg-white/95 dark:bg-[#131e3a]/95 backdrop-blur-md text-slate-700 dark:text-slate-300 rounded-2xl shadow-xs border border-slate-200/90 dark:border-slate-800 p-1.5 flex items-center justify-between gap-2 transition-all duration-300">
+                <div class="bg-white/95 dark:bg-[#131e3a]/95 backdrop-blur-md text-slate-700 dark:text-slate-300 rounded-2xl shadow-xs border border-slate-200/90 dark:border-slate-800 p-1.5 flex flex-nowrap items-center justify-between gap-1.5 transition-all duration-300">
                     <div class="flex-1 min-w-0 bg-slate-100/90 dark:bg-slate-900/80 p-1 rounded-xl border border-slate-200/70 dark:border-slate-800 flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 scroll-smooth">
                         <button
                             type="button"
@@ -1565,8 +1567,8 @@
                             :class="[
                                 'shrink-0 whitespace-nowrap px-2.5 sm:px-3.5 py-1.5 rounded-lg flex items-center space-x-1.5 sm:space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                                 currentSubtab === 'create'
-                                    ? 'bg-white dark:bg-[#19264c] text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-slate-200/80 dark:ring-blue-500/30 font-bold'
-                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/80 font-semibold'
+                                     ? 'bg-white dark:bg-[#19264c] text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-slate-200/80 dark:ring-blue-500/30 font-bold'
+                                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/80 font-semibold'
                             ]"
                         >
                             <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'create' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -1581,8 +1583,8 @@
                             :class="[
                                 'shrink-0 whitespace-nowrap px-2.5 sm:px-3.5 py-1.5 rounded-lg flex items-center space-x-1.5 sm:space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                                 currentSubtab === 'list'
-                                    ? 'bg-white dark:bg-[#19264c] text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-slate-200/80 dark:ring-blue-500/30 font-bold'
-                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/80 font-semibold'
+                                     ? 'bg-white dark:bg-[#19264c] text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-slate-200/80 dark:ring-blue-500/30 font-bold'
+                                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/80 font-semibold'
                             ]"
                         >
                             <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'list' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -1600,8 +1602,8 @@
                             :class="[
                                 'shrink-0 whitespace-nowrap px-2.5 sm:px-3.5 py-1.5 rounded-lg flex items-center space-x-1.5 sm:space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                                 currentSubtab === 'need_action'
-                                    ? 'bg-white dark:bg-[#19264c] text-rose-700 dark:text-rose-400 shadow-sm ring-1 ring-slate-200/80 dark:ring-rose-500/30 font-bold'
-                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/80 font-semibold'
+                                     ? 'bg-white dark:bg-[#19264c] text-rose-700 dark:text-rose-400 shadow-sm ring-1 ring-slate-200/80 dark:ring-rose-500/30 font-bold'
+                                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/80 font-semibold'
                             ]"
                         >
                             <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'need_action' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -1622,8 +1624,8 @@
                             :class="[
                                 'shrink-0 whitespace-nowrap px-2.5 sm:px-3.5 py-1.5 rounded-lg flex items-center space-x-1.5 sm:space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                                 currentSubtab === 'returns'
-                                    ? 'bg-white dark:bg-[#19264c] text-amber-700 dark:text-amber-400 shadow-sm ring-1 ring-slate-200/80 dark:ring-amber-500/30 font-bold'
-                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/80 font-semibold'
+                                     ? 'bg-white dark:bg-[#19264c] text-amber-700 dark:text-amber-400 shadow-sm ring-1 ring-slate-200/80 dark:ring-amber-500/30 font-bold'
+                                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/80 font-semibold'
                             ]"
                         >
                             <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'returns' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -1636,7 +1638,7 @@
                         </button>
                     </div>
                     
-                    <div class="flex items-center space-x-2 shrink-0 px-1 py-0.5">
+                    <div class="flex items-center space-x-1.5 shrink-0 px-1 py-0.5">
                         <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/70 px-2.5 py-1 rounded-lg border border-slate-200/70 dark:border-slate-800">
                             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                             <span>Thời gian thực</span>
@@ -1645,7 +1647,7 @@
                             type="button"
                             @click="loadShipments()"
                             :disabled="isLoadingShipments"
-                            class="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-50 dark:bg-slate-900/70 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 border border-slate-200/80 dark:border-slate-800 transition-all duration-200 active:scale-90 disabled:opacity-50 cursor-pointer shadow-2xs"
+                            class="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-50 dark:bg-slate-900/70 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 border border-slate-200/80 dark:border-slate-800 transition-all duration-200 active:scale-90 disabled:opacity-50 cursor-pointer shadow-2xs shrink-0"
                             title="Làm mới dữ liệu thời gian thực"
                         >
                             <svg class="w-3.5 h-3.5 transition-transform duration-300" :class="{ 'animate-spin text-emerald-600': isLoadingShipments }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -1655,7 +1657,7 @@
                     </div>
                 </div>
                 <transition name="subtab" mode="out-in">
-                    <div v-if="currentSubtab === 'create'" key="create" class="space-y-3">
+                    <div v-if="currentSubtab === 'create'" key="create" class="space-y-3 pb-36 lg:pb-0">
                     <div v-if="isShopOwner && myProfile && (!myProfile.phoneNumber || !myProfile.address)" class="p-3 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-900 shadow-sm">
                         <div class="flex items-center space-x-2">
                             <span class="font-bold">Lưu ý:</span>
@@ -2251,21 +2253,72 @@
                             </div>
                         </div>
                         
-                        <div class="lg:hidden sticky bottom-20 z-30 bg-white/95 dark:bg-[#131e3a]/95 backdrop-blur-md border border-blue-200 dark:border-blue-800/80 rounded-2xl p-3 shadow-xl flex items-center justify-between gap-3">
-                            <div>
-                                <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Tổng cước ước tính</div>
-                                <div class="text-base font-black font-mono text-blue-700 dark:text-blue-300">{{ Utils.formatCurrency(totalEstimatedFee) }}</div>
+                        <div class="lg:hidden fixed bottom-16 left-0 right-0 z-30 bg-white/95 dark:bg-[#131e3a]/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-4 py-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] flex items-center justify-between gap-3 select-none">
+                            <div @click="showFeeDetailModal = true" class="cursor-pointer group flex items-center space-x-2 min-w-0" title="Chạm để xem chi tiết các khoản phí">
+                                <div>
+                                    <div class="flex items-center space-x-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
+                                        <span>Tổng Cước</span>
+                                        <svg class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    </div>
+                                    <div class="text-base font-black font-mono text-blue-700 dark:text-blue-300 truncate">
+                                        {{ Utils.formatCurrency(totalEstimatedFee) }}
+                                    </div>
+                                </div>
                             </div>
                             <button
                                 type="submit"
                                 :disabled="isSubmitting"
-                                class="px-5 py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 shadow-md shadow-blue-500/20 flex items-center justify-center space-x-2 shrink-0 cursor-pointer"
+                                class="px-6 py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 shadow-md shadow-blue-500/20 flex items-center justify-center space-x-2 shrink-0 cursor-pointer"
                             >
                                 <span v-if="isSubmitting" class="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></span>
                                 <span>{{ isSubmitting ? 'Đang Xử Lý...' : 'Xuất Vận Đơn' }}</span>
                             </button>
                         </div>
                     </form>
+
+                    <!-- Mobile Fee Breakdown Bottom Sheet Modal -->
+                    <transition name="fade">
+                        <div v-if="showFeeDetailModal" class="fixed inset-0 z-50 lg:hidden flex flex-col justify-end">
+                            <div class="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity" @click="showFeeDetailModal = false"></div>
+                            <div class="relative z-10 bg-white dark:bg-[#131e3a] rounded-t-3xl border-t border-slate-200 dark:border-slate-800 shadow-2xl p-5 space-y-4 max-h-[85vh] overflow-y-auto">
+                                <div class="w-10 h-1 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto"></div>
+                                <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                                    <div>
+                                        <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100">Chi Tiết Cước Phí Ký Gửi</h3>
+                                        <p class="text-[11px] text-slate-400">Bảng chiết tính phụ phí và cước dịch vụ bưu chính</p>
+                                    </div>
+                                    <button type="button" @click="showFeeDetailModal = false" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                    </button>
+                                </div>
+                                <div class="space-y-2.5 text-xs">
+                                    <div class="flex items-center justify-between py-1">
+                                        <span class="text-slate-600 dark:text-slate-400">Cước vận chuyển chính:</span>
+                                        <span class="font-mono font-bold text-slate-800 dark:text-slate-200">{{ Utils.formatCurrency(baseFee) }}</span>
+                                    </div>
+                                    <div class="flex items-center justify-between py-1">
+                                        <span class="text-slate-600 dark:text-slate-400">Cước dịch vụ thu hộ (COD):</span>
+                                        <span class="font-mono font-bold text-slate-800 dark:text-slate-200">{{ Utils.formatCurrency(codFee) }}</span>
+                                    </div>
+                                    <div class="flex items-center justify-between py-1">
+                                        <span class="text-slate-600 dark:text-slate-400">Phụ phí xăng dầu &amp; vùng sâu:</span>
+                                        <span class="font-mono font-bold text-slate-800 dark:text-slate-200">{{ Utils.formatCurrency(fuelSurcharge) }}</span>
+                                    </div>
+                                    <div class="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-sm font-bold">
+                                        <span class="text-slate-800 dark:text-slate-100">Tổng cước ước tính:</span>
+                                        <span class="font-mono text-blue-600 dark:text-blue-400 text-base">{{ Utils.formatCurrency(totalEstimatedFee) }}</span>
+                                    </div>
+                                    <div class="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[11px] text-blue-700 dark:text-blue-300">
+                                        <span>Người trả cước: </span>
+                                        <strong class="font-bold">{{ form.payer === 'SENDER' ? 'Người gửi trả ngay' : 'Người nhận trả khi nhận hàng' }}</strong>
+                                    </div>
+                                </div>
+                                <button type="button" @click="showFeeDetailModal = false" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition">
+                                    Đã Hiểu &amp; Đóng
+                                </button>
+                            </div>
+                        </div>
+                    </transition>
                 </div>
                 <div v-else-if="currentSubtab === 'list'" key="list" class="space-y-4">
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
