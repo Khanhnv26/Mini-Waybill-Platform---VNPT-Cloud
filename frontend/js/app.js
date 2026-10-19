@@ -19,6 +19,7 @@ import './services/ratingService.js';
 import './services/paymentService.js?v=3.6.6';
 import './components/layout/AppSidebar.js';
 import './components/layout/AppTopbar.js?v=3.7.6';
+import './components/layout/AppBottomNav.js';
 import './components/layout/InternalFooter.js';
 import './components/layout/PublicHeader.js?v=3.7.6';
 import './components/layout/PublicFooter.js';

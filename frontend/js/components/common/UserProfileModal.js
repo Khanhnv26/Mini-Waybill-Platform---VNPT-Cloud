@@ -3,11 +3,14 @@
     <Transition name="modal">
         <div 
             v-if="show" 
-            class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
+            class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
             @click.self="$emit('close')"
         >
-            <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
-                <div class="vnpt-gradient text-white p-4 sm:p-5 flex items-center justify-between relative overflow-hidden">
+            <div class="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl max-w-md w-full max-h-[92vh] sm:max-h-none flex flex-col overflow-hidden border border-slate-200">
+                <div class="sm:hidden pt-2.5 pb-1 flex justify-center bg-white cursor-grab active:cursor-grabbing select-none flex-shrink-0" @click="$emit('close')">
+                    <div class="w-10 h-1 bg-slate-300 rounded-full"></div>
+                </div>
+                <div class="vnpt-gradient text-white p-4 sm:p-5 flex items-center justify-between relative overflow-hidden flex-shrink-0">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 14px 14px;"></div>
                     <div class="relative z-10 flex items-center space-x-3">
                         <div class="w-10 h-10 rounded-xl overflow-hidden bg-white/15 border border-white/25 flex items-center justify-center font-black text-sm shadow-inner">

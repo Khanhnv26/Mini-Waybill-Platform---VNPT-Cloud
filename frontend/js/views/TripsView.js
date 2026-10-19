@@ -3078,8 +3078,57 @@
                     <div v-if="pendingFeederItems.length === 0" class="p-12 text-center text-slate-400">
                         Không có bưu phẩm nào đang chờ gom tại bưu cục đã chọn.
                     </div>
-                    <div v-else class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
+                    <div v-else>
+                        <div class="md:hidden divide-y divide-slate-100 text-xs">
+                            <div v-for="item in pendingFeederItems" :key="'mob-feeder-' + (item.id || item.trackingCode)" class="p-3.5 space-y-2.5 bg-white">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="flex items-center gap-2">
+                                        <input type="checkbox" :checked="selectedOriginFeederCodes.has(String(item.trackingCode || '').trim().toUpperCase())" @change="toggleOriginFeederSelection(item)" :disabled="isFeederActionRunning" class="rounded text-blue-600 w-4 h-4" :aria-label="'Chọn ' + item.trackingCode" />
+                                        <button type="button" @click="viewTracking(item.trackingCode)" class="font-mono font-bold text-blue-600 hover:underline">
+                                            {{ item.trackingCode }}
+                                        </button>
+                                    </div>
+                                    <span class="px-2 py-0.5 rounded text-[10.5px] font-semibold border inline-flex items-center whitespace-nowrap bg-blue-50 text-blue-700 border-blue-200">
+                                        Đã Lưu Kho
+                                    </span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl text-[11px]">
+                                    <div>
+                                        <span class="text-slate-400 block text-[10px] uppercase">Bưu Cục Nguồn</span>
+                                        <span class="font-bold text-slate-800">{{ getOriginPostOfficeInfo(item).name }}</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-slate-400 block text-[10px] uppercase">Kho Tổng Tiếp Nhận</span>
+                                        <span class="font-bold text-slate-800">{{ item.sourceHub || 'HUB-HN-01' }}</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-slate-400 block text-[10px] uppercase">Khối Lượng</span>
+                                        <span class="font-mono font-bold text-slate-700">{{ item.weight || 0 }} kg</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-slate-400 block text-[10px] uppercase">Thời Gian Nhận</span>
+                                        <span class="font-mono text-slate-600">{{ formatDateTime(item.createdAt || item.updatedAt) }}</span>
+                                    </div>
+                                    <div class="col-span-2">
+                                        <span class="text-slate-400 block text-[10px] uppercase">Người Nhận</span>
+                                        <span class="font-bold text-slate-800">{{ item.receiverName }}</span>
+                                        <span class="text-slate-500 block text-[10px] truncate">{{ item.receiverAddress }}</span>
+                                    </div>
+                                </div>
+                                <div class="pt-1">
+                                    <button 
+                                        type="button"
+                                        @click="handleDispatchFeederItem(item)"
+                                        :disabled="isFeederActionRunning"
+                                        class="w-full min-h-[44px] py-2 px-3 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white border border-blue-200 rounded-xl font-bold transition flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
+                                    >
+                                        <span>Xếp Lên Xe Gom</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="hidden md:block overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-slate-50/80 text-slate-600 font-bold border-b border-slate-200 text-[11px] uppercase tracking-wider">
                                     <th class="py-3 px-3.5 w-10">
@@ -3140,6 +3189,7 @@
                                  </tr>
                              </tbody>
                          </table>
+                     </div>
                      </div>
                  </div>
                  <div v-else class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden text-xs">

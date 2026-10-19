@@ -140,11 +140,14 @@
         ></shipment-detail-modal>
         <div 
             v-if="showNotificationDetailModal && activeNotificationDetail" 
-            class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+            class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
             @click.self="closeNotificationDetailModal"
         >
-            <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden animate-fade-slide">
-                <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+            <div class="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden animate-fade-slide">
+                <div class="sm:hidden pt-2.5 pb-1 flex justify-center bg-slate-50/80 cursor-grab active:cursor-grabbing select-none flex-shrink-0" @click="closeNotificationDetailModal">
+                    <div class="w-10 h-1 bg-slate-300 rounded-full"></div>
+                </div>
+                <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 flex-shrink-0">
                     <div class="flex items-center space-x-3">
                         <div :class="['w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-xs', activeNotificationDetail.iconBg || 'bg-blue-600']">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

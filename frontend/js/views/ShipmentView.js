@@ -2251,7 +2251,7 @@
                             </div>
                         </div>
                         
-                        <div class="lg:hidden sticky bottom-2 z-30 bg-white/95 dark:bg-[#131e3a]/95 backdrop-blur-md border border-blue-200 dark:border-blue-800/80 rounded-2xl p-3 shadow-xl flex items-center justify-between gap-3">
+                        <div class="lg:hidden sticky bottom-20 z-30 bg-white/95 dark:bg-[#131e3a]/95 backdrop-blur-md border border-blue-200 dark:border-blue-800/80 rounded-2xl p-3 shadow-xl flex items-center justify-between gap-3">
                             <div>
                                 <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Tổng cước ước tính</div>
                                 <div class="text-base font-black font-mono text-blue-700 dark:text-blue-300">{{ Utils.formatCurrency(totalEstimatedFee) }}</div>
@@ -2259,7 +2259,7 @@
                             <button
                                 type="submit"
                                 :disabled="isSubmitting"
-                                class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 shadow-md shadow-blue-500/20 flex items-center justify-center space-x-2 shrink-0"
+                                class="px-5 py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 shadow-md shadow-blue-500/20 flex items-center justify-center space-x-2 shrink-0 cursor-pointer"
                             >
                                 <span v-if="isSubmitting" class="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></span>
                                 <span>{{ isSubmitting ? 'Đang Xử Lý...' : 'Xuất Vận Đơn' }}</span>

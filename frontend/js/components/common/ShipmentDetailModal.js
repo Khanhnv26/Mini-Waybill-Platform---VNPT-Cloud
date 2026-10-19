@@ -14,6 +14,9 @@
             <div 
                 class="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 max-w-4xl w-full max-h-[92vh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-fade-slide transform transition-all"
             >
+                <div class="sm:hidden pt-2 pb-1 flex justify-center bg-white dark:bg-slate-900 cursor-grab active:cursor-grabbing select-none flex-shrink-0" @click="closeModal">
+                    <div class="w-10 h-1 bg-slate-300 dark:bg-slate-600 rounded-full"></div>
+                </div>
                 <div class="vnpt-gradient text-white p-4 sm:p-5 flex items-center justify-between relative overflow-hidden flex-shrink-0 shadow-md">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 14px 14px;"></div>
                     <div class="relative z-10 flex items-center space-x-3 min-w-0 pr-2">

@@ -32,7 +32,7 @@
                 </div>
             </div>
         </div>
-        <main class="flex-1 p-4 sm:p-8 bg-gradient-to-b from-blue-50/30 via-slate-50 to-slate-100 dark:bg-none dark:!bg-[#0b1329] transition-colors duration-200">
+        <main class="flex-1 p-4 sm:p-8 pb-20 sm:pb-8 bg-gradient-to-b from-blue-50/30 via-slate-50 to-slate-100 dark:bg-none dark:!bg-[#0b1329] transition-colors duration-200">
             <div class="max-w-7xl mx-auto relative">
                 <slot></slot>
             </div>
@@ -40,13 +40,21 @@
         <public-footer
             @switch-tab="$emit('switch-tab', $event)"
         ></public-footer>
+        <app-bottom-nav
+            :current-user="null"
+            :current-tab="currentTab"
+            :unread-notifications-count="unreadNotificationsCount"
+            @switch-tab="$emit('switch-tab', $event)"
+            @open-drawer="$emit('switch-tab', 'tracking')"
+        ></app-bottom-nav>
     </div>
     `;
     const PublicLayout = {
         name: 'PublicLayout',
         components: {
             PublicHeader: window.PublicHeader,
-            PublicFooter: window.PublicFooter
+            PublicFooter: window.PublicFooter,
+            AppBottomNav: window.AppBottomNav
         },
         template,
         props: {

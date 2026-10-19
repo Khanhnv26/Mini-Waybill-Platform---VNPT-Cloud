@@ -532,7 +532,109 @@
                 </div>
             </div>
             <div class="bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-2xl shadow-xs overflow-hidden smooth-transition">
-                <div class="overflow-x-auto">
+                <div class="md:hidden divide-y divide-slate-100 dark:divide-[#23345e] text-xs">
+                    <div v-if="isLoading" class="p-8 text-center text-slate-400">
+                        <div class="inline-flex items-center gap-2">
+                            <div class="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                            <span>Đang tải dữ liệu đánh giá...</span>
+                        </div>
+                    </div>
+                    <div v-else-if="!ratings.length" class="p-8 text-center text-slate-400">
+                        <p class="font-medium">Không tìm thấy bản ghi đánh giá nào</p>
+                        <button @click="resetFilters" class="mt-2 text-xs text-blue-500 hover:underline">Đặt lại bộ lọc</button>
+                    </div>
+                    <div 
+                        v-else 
+                        v-for="item in ratings" 
+                        :key="'mob-rate-' + item.id" 
+                        class="p-3.5 space-y-3 bg-white dark:bg-[#131e3a]"
+                        :class="item.isHidden ? 'bg-rose-500/5 dark:bg-rose-950/10' : ''"
+                    >
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <span class="font-mono font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer text-xs" @click="openDetail(item)">
+                                    {{ item.trackingCode }}
+                                </span>
+                                <div class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                    {{ item.createdAt }}
+                                </div>
+                            </div>
+                            <span class="status-indicator shrink-0" :class="item.isHidden ? 'status-indicator-rose' : 'status-indicator-emerald'">
+                                <span class="status-dot" :class="item.isHidden ? 'bg-rose-500' : 'bg-emerald-500'"></span>
+                                <span>{{ item.isHidden ? 'Đã Ẩn' : 'Hiển Thị' }}</span>
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-[#19264c]/70 p-2.5 rounded-xl text-[11px]">
+                            <div>
+                                <span class="text-slate-400 block text-[10px] uppercase">Đ.Giá Dịch Vụ</span>
+                                <div class="flex items-center gap-1 mt-0.5">
+                                    <span :class="item.serviceRating <= 2 ? 'text-rose-500' : 'text-amber-500'" class="text-xs font-bold">{{ renderStars(item.serviceRating) }}</span>
+                                    <span class="font-mono font-bold text-slate-800 dark:text-slate-200">{{ item.serviceRating }}.0</span>
+                                </div>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 block text-[10px] uppercase">Đ.Giá Bưu Tá</span>
+                                <div class="flex items-center gap-1 mt-0.5">
+                                    <span :class="item.shipperRating <= 2 ? 'text-rose-500' : 'text-amber-500'" class="text-xs font-bold">{{ renderStars(item.shipperRating) }}</span>
+                                    <span class="font-mono font-bold text-slate-800 dark:text-slate-200">{{ item.shipperRating }}.0</span>
+                                </div>
+                            </div>
+                            <div class="col-span-2">
+                                <span class="text-slate-400 block text-[10px] uppercase">Bưu Tá Phụ Trách</span>
+                                <span class="font-semibold text-slate-800 dark:text-slate-200">{{ item.courierCode || 'Chưa gán bưu tá' }}</span>
+                            </div>
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <p class="text-slate-700 dark:text-slate-300 font-medium text-xs leading-relaxed">
+                                {{ item.comment || 'Không để lại bình luận văn bản' }}
+                            </p>
+                            <div class="flex flex-wrap items-center gap-1">
+                                <span v-for="tag in (item.tags || [])" :key="tag" class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#19264c] text-[10px] font-medium text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-[#23345e]">
+                                    {{ tag }}
+                                </span>
+                                <span v-if="item.attachmentUrls && item.attachmentUrls.length" class="inline-flex items-center text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-900/50">
+                                    📷 {{ item.attachmentUrls.length }} ảnh
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 pt-1">
+                            <button 
+                                @click="openDetail(item)" 
+                                type="button"
+                                class="flex-1 min-h-[44px] py-2 px-3 rounded-xl border border-slate-200 dark:border-[#23345e] hover:bg-slate-100 dark:hover:bg-[#19264c] text-slate-700 dark:text-slate-200 font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                <span>Xem Chi Tiết</span>
+                            </button>
+                            <template v-if="isAdmin">
+                                <button 
+                                    v-if="item.isHidden" 
+                                    @click="unhideRating(item)" 
+                                    :disabled="isSaving" 
+                                    type="button"
+                                    class="min-h-[44px] px-3.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 font-bold transition flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                                >
+                                    <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <span>Bỏ Ẩn</span>
+                                </button>
+                                <button 
+                                    v-else 
+                                    @click="openHideDialog(item)" 
+                                    :disabled="isSaving" 
+                                    type="button"
+                                    class="min-h-[44px] px-3.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50 font-bold transition flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+                                >
+                                    <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/></svg>
+                                    <span>Ẩn</span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                <div class="hidden md:block overflow-x-auto">
                     <table class="w-full min-w-[1100px] text-left border-collapse text-xs">
                         <thead>
                             <tr class="bg-slate-50/90 dark:bg-[#0b1329]/90 border-b border-slate-200 dark:border-[#23345e] text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">

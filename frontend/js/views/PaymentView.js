@@ -594,8 +594,133 @@
                         </button>
                     </div>
                 </div>
-                <div v-else class="overflow-x-auto w-full">
-                    <table class="w-full text-left border-collapse table-auto">
+                <div v-else>
+                    <div class="md:hidden divide-y divide-slate-100 dark:divide-[#1e2e56] text-xs">
+                        <div v-for="tx in transactions" :key="'mob-tx-' + tx.paymentCode" class="p-3.5 space-y-3 bg-white dark:bg-[#131e3a]">
+                            <div class="flex items-start justify-between gap-2">
+                                <div>
+                                    <div class="flex items-center space-x-1">
+                                        <span 
+                                            class="font-mono font-bold text-slate-900 dark:text-slate-100 text-xs cursor-pointer hover:text-blue-600"
+                                            @click="copyCode(tx.paymentCode, 'mã giao dịch')"
+                                        >
+                                            {{ tx.paymentCode }}
+                                        </span>
+                                        <button 
+                                            type="button" 
+                                            @click="copyCode(tx.paymentCode, 'mã giao dịch')"
+                                            class="text-slate-400 hover:text-blue-600 p-0.5"
+                                            title="Sao chép"
+                                        >
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                        </button>
+                                    </div>
+                                    <div class="text-[10px] font-mono text-slate-400 mt-0.5">
+                                        {{ formatDateTime(tx.createdAt) }}
+                                    </div>
+                                </div>
+                                <span 
+                                    v-if="tx.status === 'SUCCESS'"
+                                    class="status-indicator text-emerald-700 dark:text-emerald-400 status-indicator-emerald"
+                                >
+                                    <span class="status-dot bg-emerald-500"></span>
+                                    <span>Đã Thu Tiền</span>
+                                </span>
+                                <span 
+                                    v-else-if="tx.status === 'PENDING'"
+                                    class="status-indicator text-amber-700 dark:text-amber-400 status-indicator-amber"
+                                >
+                                    <span class="status-dot bg-amber-500"></span>
+                                    <span>Chờ Thu</span>
+                                </span>
+                                <span 
+                                    v-else-if="tx.status === 'CANCELLED'"
+                                    class="status-indicator text-slate-500 dark:text-slate-400 status-indicator-slate"
+                                >
+                                    <span class="status-dot bg-slate-400"></span>
+                                    <span>Đã Hủy</span>
+                                </span>
+                                <span 
+                                    v-else
+                                    class="status-indicator text-rose-600 dark:text-rose-400 status-indicator-rose"
+                                >
+                                    <span class="status-dot bg-rose-500"></span>
+                                    <span>Thất Bại</span>
+                                </span>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-[#19264c]/70 p-2.5 rounded-xl text-[11px]">
+                                <div>
+                                    <span class="text-slate-400 dark:text-slate-400 block text-[10px] uppercase">Mã Bưu Gửi</span>
+                                    <button 
+                                        type="button"
+                                        @click="navigateToTracking(tx.trackingCode)"
+                                        class="font-mono font-bold text-blue-600 dark:text-blue-400 hover:underline mt-0.5 inline-flex items-center gap-1"
+                                    >
+                                        <span>{{ tx.trackingCode }}</span>
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                                    </button>
+                                </div>
+                                <div>
+                                    <span class="text-slate-400 dark:text-slate-400 block text-[10px] uppercase">Số Tiền</span>
+                                    <span class="font-mono font-bold text-sm" :class="tx.paymentType === 'COD' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'">
+                                        {{ formatVnd(tx.amount) }}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span class="text-slate-400 dark:text-slate-400 block text-[10px] uppercase">Phân Loại</span>
+                                    <span class="font-semibold text-slate-700 dark:text-slate-300">
+                                        {{ tx.paymentType === 'COD' ? 'Thu hộ COD' : (tx.paymentType === 'SHIPPING_FEE' ? 'Cước gửi' : 'Phí hoàn') }}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span class="text-slate-400 dark:text-slate-400 block text-[10px] uppercase">Kênh Thu</span>
+                                    <span class="font-semibold" :class="tx.paymentMethod === 'VIETQR' ? 'text-blue-600 dark:text-blue-400' : 'text-emerald-600 dark:text-emerald-400'">
+                                        {{ tx.paymentMethod === 'VIETQR' ? 'VietQR' : 'Tiền mặt' }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div v-if="tx.customerCode || tx.payerNote" class="text-[11px] text-slate-500 dark:text-slate-400">
+                                <span v-if="tx.customerCode" class="font-medium">#KH: {{ tx.customerCode }} • </span>
+                                <span>{{ tx.payerNote || 'Không có ghi chú' }}</span>
+                            </div>
+
+                            <div class="flex items-center gap-2 pt-1">
+                                <template v-if="tx.status === 'PENDING'">
+                                    <button 
+                                        type="button"
+                                        @click="openQrModal(tx)"
+                                        class="flex-1 min-h-[44px] py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold transition flex items-center justify-center gap-1.5 shadow-sm shadow-blue-500/20 cursor-pointer"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+                                        <span>Quét QR</span>
+                                    </button>
+                                    <button 
+                                        v-if="isStaff"
+                                        type="button"
+                                        @click="openCashModal(tx)"
+                                        class="flex-1 min-h-[44px] py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold transition flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-500/20 cursor-pointer"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                                        <span>Thu Tiền</span>
+                                    </button>
+                                </template>
+                                <template v-else>
+                                    <button 
+                                        type="button"
+                                        @click="openReceiptModal(tx)"
+                                        class="w-full min-h-[44px] py-2 px-3 rounded-xl border border-slate-200 dark:border-[#23345e] bg-slate-50 hover:bg-slate-100 dark:bg-[#19264c] text-slate-700 dark:text-slate-200 font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                                    >
+                                        <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                        <span>Xem Biên Lai</span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hidden md:block overflow-x-auto w-full">
+                        <table class="w-full text-left border-collapse table-auto">
                         <thead>
                             <tr class="bg-slate-50/90 dark:bg-[#19264c] border-b border-slate-200 dark:border-[#23345e] text-[11px] font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                                 <th class="py-2.5 px-3 whitespace-nowrap" style="min-width: 145px; max-width: 170px;">Mã Giao Dịch &amp; Ngày Tạo</th>
@@ -752,6 +877,7 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>
                 </div>
                 <div v-if="pagination.totalElements > 0" class="p-3 bg-slate-50 dark:bg-[#19264c] border-t border-slate-200 dark:border-[#23345e] flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
                     <div>
