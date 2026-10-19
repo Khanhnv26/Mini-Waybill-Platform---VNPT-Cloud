@@ -32,7 +32,7 @@
                 </div>
             </div>
         </div>
-        <main class="flex-1 p-4 sm:p-8 pb-20 sm:pb-8 bg-gradient-to-b from-blue-50/30 via-slate-50 to-slate-100 dark:bg-none dark:!bg-[#0b1329] transition-colors duration-200">
+        <main class="flex-1 p-3 sm:p-8 pb-28 sm:pb-8 bg-gradient-to-b from-blue-50/30 via-slate-50 to-slate-100 dark:bg-none dark:!bg-[#0b1329] transition-colors duration-200">
             <div class="max-w-7xl mx-auto relative">
                 <slot></slot>
             </div>

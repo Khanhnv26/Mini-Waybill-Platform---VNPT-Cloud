@@ -2,7 +2,7 @@
     const ChatbotWidget = {
         name: 'ChatbotWidget',
         template: `
-            <div v-if="shouldDisplay" id="vnpt-chatbot-widget" class="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-[9999] font-sans antialiased">
+            <div v-if="shouldDisplay" id="vnpt-chatbot-widget" class="fixed bottom-20 right-3 sm:bottom-6 sm:right-6 z-[9999] font-sans antialiased">
                 <div 
                     v-show="!isOpen" 
                     class="relative flex items-center justify-center animate-chatbot-float select-none"

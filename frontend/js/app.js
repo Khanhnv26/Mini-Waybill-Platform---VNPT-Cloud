@@ -21,14 +21,14 @@ import './components/layout/AppSidebar.js?v=3.8.2';
 import './components/layout/AppTopbar.js?v=3.7.6';
 import './components/layout/AppBottomNav.js?v=3.8.2';
 import './components/layout/InternalFooter.js';
-import './components/layout/PublicHeader.js?v=3.7.6';
+import './components/layout/PublicHeader.js?v=3.8.3';
 import './components/layout/PublicFooter.js';
 import './components/common/ToastContainer.js';
 import './components/common/UserProfileModal.js?v=3.7.1';
 import './components/common/ShipmentDetailModal.js';
 import './layouts/InternalLayout.js';
-import './layouts/PublicLayout.js';
-import './components/ChatbotWidget.js?v=3.7.1';
+import './layouts/PublicLayout.js?v=3.8.3';
+import './components/ChatbotWidget.js?v=3.8.3';
 import { authStore, appStore, notificationStore, badgeStore } from './store/index.js?v=3.8.2';
 window.authStore = authStore;
 window.appStore = appStore;
@@ -1525,6 +1525,10 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
     if (window.AppTopbar) {
         app.component('AppTopbar', window.AppTopbar);
         app.component('app-topbar', window.AppTopbar);
+    }
+    if (window.AppBottomNav) {
+        app.component('AppBottomNav', window.AppBottomNav);
+        app.component('app-bottom-nav', window.AppBottomNav);
     }
     if (window.InternalFooter) {
         app.component('InternalFooter', window.InternalFooter);
