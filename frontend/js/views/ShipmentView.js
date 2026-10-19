@@ -1560,7 +1560,7 @@
                 </div>
                 
                 <div class="bg-white/95 dark:bg-[#131e3a]/95 backdrop-blur-md text-slate-700 dark:text-slate-300 rounded-2xl shadow-xs border border-slate-200/90 dark:border-slate-800 p-1.5 flex flex-nowrap items-center justify-between gap-1.5 transition-all duration-300">
-                    <div class="flex-1 min-w-0 bg-slate-100/90 dark:bg-slate-900/80 p-1 rounded-xl border border-slate-200/70 dark:border-slate-800 flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 scroll-smooth">
+                    <div class="flex-1 min-w-0 bg-slate-100/90 dark:bg-slate-900/80 p-1 rounded-xl border border-slate-200/70 dark:border-slate-800 flex flex-nowrap items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 scroll-smooth">
                         <button
                             type="button"
                             @click="switchSubtab('create')"

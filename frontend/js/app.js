@@ -1565,7 +1565,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
     const viewLoaders = {
         LoginView: createViewLoader('LoginView', () => import('./views/LoginView.js?v=3.7.7'), []),
         TrackingView: createViewLoader('TrackingView', () => import('./views/TrackingView.js?v=3.8.0'), [() => import('./views/tracking/TrackingRecentSearches.js')]),
-        ShipmentView: createViewLoader('ShipmentView', () => import('./views/ShipmentView.js?v=3.8.0'), [() => import('./views/shipment/ShipmentSmartPasteCard.js'), () => import('./views/shipment/ShipmentPrintModal.js')]),
+        ShipmentView: createViewLoader('ShipmentView', () => import('./views/ShipmentView.js?v=3.8.4'), [() => import('./views/shipment/ShipmentSmartPasteCard.js'), () => import('./views/shipment/ShipmentPrintModal.js')]),
         DashboardView: createViewLoader('DashboardView', () => import('./views/DashboardView.js?v=3.8.0'), []),
         PostOfficeOpsView: createViewLoader('PostOfficeOpsView', () => import('./views/PostOfficeOpsView.js?v=3.7.1'), []),
         TripsView: createViewLoader('TripsView', () => import('./views/TripsView.js?v=3.8.0'), [() => import('./views/trips/TripManifestModal.js')]),
