@@ -3349,7 +3349,11 @@
                     </div>
                 </div>
                 <div class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden text-xs">
-                    <div v-if="filteredTrips.length === 0" class="p-12 text-center text-slate-400">
+                    <div v-if="isLoading" class="p-12 text-center text-slate-400">
+                        <div class="inline-block animate-spin h-6 w-6 border-2 border-purple-600 border-t-transparent rounded-full mb-2"></div>
+                        <div class="font-semibold text-slate-600 text-xs">Đang nạp dữ liệu điều phối chuyến xe container từ routing-service...</div>
+                    </div>
+                    <div v-else-if="filteredTrips.length === 0" class="p-12 text-center text-slate-400">
                         Không có chuyến xe container nào phù hợp với bộ lọc hiện tại.
                     </div>
                     <div v-else class="overflow-x-auto">

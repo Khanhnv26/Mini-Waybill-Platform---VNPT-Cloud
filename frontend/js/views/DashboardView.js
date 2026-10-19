@@ -1014,6 +1014,15 @@
                         </button>
                     </div>
                 </div>
+                
+                <div v-if="isAdminLoading || isHubLoading || isShipperLoading || isForecastLoading || isRefreshing" class="p-3 bg-blue-50/90 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 rounded-xl flex items-center justify-between text-xs text-blue-700 dark:text-blue-300 shadow-2xs">
+                    <div class="flex items-center space-x-2.5">
+                        <span class="inline-block animate-spin h-4 w-4 border-2 border-blue-600 dark:border-blue-400 border-t-transparent rounded-full shrink-0"></span>
+                        <span class="font-bold">Đang nạp và đồng bộ dữ liệu chỉ số vận hành Dashboard...</span>
+                    </div>
+                    <span class="text-[11px] text-blue-600/80 dark:text-blue-400 font-mono hidden sm:inline">Hệ thống phân tán thời gian thực</span>
+                </div>
+
                 <transition name="subtab" mode="out-in">
                     <div v-if="activeRole === 'ADMIN'" key="role-admin" class="space-y-3.5">
                         <div class="b2b-card p-2.5 px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs">
@@ -1323,7 +1332,11 @@
                                                 </span>
                                             </div>
                                         </div>
-                                        <div v-if="recentShipments.length === 0" class="text-center py-4 text-slate-400 text-xs">
+                                        <div v-if="isAdminLoading" class="text-center py-4 text-slate-400 text-xs">
+                                            <div class="inline-block animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full mb-1"></div>
+                                            <div class="font-medium text-slate-500">Đang tải sự kiện bưu gửi...</div>
+                                        </div>
+                                        <div v-else-if="recentShipments.length === 0" class="text-center py-4 text-slate-400 text-xs">
                                             Chưa có bưu gửi nào ghi nhận.
                                         </div>
                                     </div>
@@ -1439,6 +1452,19 @@
                                                         <span class="text-[11px] font-mono text-slate-500 dark:text-slate-400">@NovaWay_Bill_Bot</span>
                                                     </td>
                                                 </tr>
+                                                <tr v-if="isForecastLoading">
+                                                    <td colspan="7" class="py-8 text-center text-slate-500 dark:text-slate-400">
+                                                        <div class="inline-flex items-center space-x-2">
+                                                            <div class="inline-block animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                                                            <span>Đang dự báo phân bổ tuyến bưu tá...</span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                <tr v-else-if="forecastShippers.length === 0">
+                                                    <td colspan="7" class="py-8 text-center text-slate-400 dark:text-slate-500">
+                                                        Chưa có dữ liệu phân bổ bưu tá cho ca này.
+                                                    </td>
+                                                </tr>
                                             </tbody>
                                         </table>
                                     </div>
@@ -1514,7 +1540,15 @@
                                                         </span>
                                                     </td>
                                                 </tr>
-                                                <tr v-if="filteredHubTrips.length === 0">
+                                                <tr v-if="isHubLoading">
+                                                    <td colspan="4" class="py-8 text-center text-slate-500 dark:text-slate-400">
+                                                        <div class="inline-flex items-center space-x-2">
+                                                            <div class="inline-block animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                                                            <span>Đang đồng bộ chuyến xe điều phối hub...</span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                <tr v-else-if="filteredHubTrips.length === 0">
                                                     <td colspan="4" class="py-8 text-center text-slate-400 dark:text-slate-500">
                                                         Hiện chưa có chuyến xe nào khởi hành tại kho hub này.
                                                     </td>
@@ -1538,7 +1572,11 @@
                                                 <span>{{ v.status === 'AVAILABLE' ? 'Sẵn Sàng' : v.status }}</span>
                                             </span>
                                         </div>
-                                        <div v-if="hubVehicles.length === 0" class="text-center py-4 text-slate-400 dark:text-slate-500 text-xs">
+                                        <div v-if="isHubLoading" class="text-center py-4 text-slate-500 dark:text-slate-400 text-xs flex items-center justify-center space-x-2">
+                                            <div class="inline-block animate-spin h-3.5 w-3.5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                                            <span>Đang tải thông tin xe...</span>
+                                        </div>
+                                        <div v-else-if="hubVehicles.length === 0" class="text-center py-4 text-slate-400 dark:text-slate-500 text-xs">
                                             Không có thông tin xe tại kho này.
                                         </div>
                                     </div>
@@ -1611,7 +1649,15 @@
                                                         <button @click="$emit('switch-tab', 'shipper')" class="px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[11px] cursor-pointer active:scale-95 transition-all">Cập Nhật</button>
                                                     </td>
                                                 </tr>
-                                                <tr v-if="myAssignedShipments.length === 0">
+                                                <tr v-if="isShipperLoading">
+                                                    <td colspan="5" class="py-8 text-center text-slate-500 dark:text-slate-400">
+                                                        <div class="inline-flex items-center space-x-2">
+                                                            <div class="inline-block animate-spin h-4 w-4 border-2 border-emerald-600 border-t-transparent rounded-full"></div>
+                                                            <span>Đang tải danh sách bưu gửi phụ trách...</span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                <tr v-else-if="myAssignedShipments.length === 0">
                                                     <td colspan="5" class="py-8 text-center text-slate-400 dark:text-slate-500">
                                                         Hiện chưa có bưu gửi nào được bàn giao cho mã bưu tá này.
                                                     </td>

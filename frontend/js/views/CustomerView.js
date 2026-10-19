@@ -408,7 +408,11 @@
                                 </button>
                             </div>
                         </div>
-                        <div v-if="filteredCustomers.length === 0" class="text-center py-10 text-slate-400 text-xs">
+                        <div v-if="isLoading" class="text-center py-10 text-slate-400 text-xs">
+                            <div class="inline-block animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full mb-2"></div>
+                            <div class="font-semibold text-slate-500">Đang tải danh bạ đối tác...</div>
+                        </div>
+                        <div v-else-if="filteredCustomers.length === 0" class="text-center py-10 text-slate-400 text-xs">
                             <span class="font-bold text-slate-600 block">Không tìm thấy khách hàng nào.</span>
                             <button v-if="hasActiveFilter" @click="resetFilters" class="text-blue-600 hover:underline font-bold text-xs mt-1">
                                 Xóa tất cả điều kiện lọc
@@ -501,7 +505,15 @@
                                         </div>
                                     </td>
                                 </tr>
-                                <tr v-if="filteredCustomers.length === 0">
+                                <tr v-if="isLoading">
+                                    <td colspan="5" class="text-center py-10 text-slate-400 text-xs">
+                                        <div class="flex flex-col items-center justify-center space-y-2">
+                                            <span class="inline-block animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></span>
+                                            <span class="font-semibold text-slate-500">Đang tải danh bạ đối tác từ customer-service...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr v-else-if="filteredCustomers.length === 0">
                                     <td colspan="5" class="text-center py-10 text-slate-400 text-xs">
                                         <div class="flex flex-col items-center justify-center space-y-1.5">
                                             <span class="font-bold text-slate-600">Không tìm thấy khách hàng nào phù hợp với bộ lọc.</span>

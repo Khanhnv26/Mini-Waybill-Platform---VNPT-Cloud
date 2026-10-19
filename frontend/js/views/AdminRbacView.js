@@ -584,8 +584,12 @@
                 <div class="b2b-card overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
                     <!-- Mobile Card View (< md) -->
                     <div class="md:hidden divide-y divide-slate-100">
-                        <div v-if="paginatedUsers.length === 0" class="py-8 text-center text-slate-400 text-xs">
-                            {{ isLoadingUsers ? 'Đang tải danh sách người dùng...' : 'Không tìm thấy người dùng phù hợp.' }}
+                        <div v-if="isLoading" class="py-8 text-center text-slate-400 text-xs">
+                            <div class="inline-block animate-spin h-5 w-5 border-2 border-emerald-600 border-t-transparent rounded-full mb-2"></div>
+                            <div class="font-semibold text-slate-500">Đang tải danh sách người dùng...</div>
+                        </div>
+                        <div v-else-if="paginatedUsers.length === 0" class="py-8 text-center text-slate-400 text-xs">
+                            Không tìm thấy người dùng phù hợp.
                         </div>
                         <div v-for="user in paginatedUsers" :key="user.id" class="p-3.5 space-y-2.5">
                             <div class="flex items-start justify-between gap-2">
@@ -715,7 +719,15 @@
                                         </div>
                                     </td>
                                 </tr>
-                                <tr v-if="filteredUsers.length === 0">
+                                <tr v-if="isLoading">
+                                    <td colspan="6" class="text-center py-10 text-slate-400 text-xs">
+                                        <div class="flex flex-col items-center justify-center space-y-2">
+                                            <span class="inline-block animate-spin h-5 w-5 border-2 border-emerald-600 border-t-transparent rounded-full"></span>
+                                            <span class="font-semibold text-slate-500">Đang tải danh sách người dùng từ hệ thống quản trị RBAC...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr v-else-if="filteredUsers.length === 0">
                                     <td colspan="6" class="text-center py-10 text-slate-400 text-xs">
                                         Không tìm thấy tài khoản người dùng nào phù hợp.
                                     </td>

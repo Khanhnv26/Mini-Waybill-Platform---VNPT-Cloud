@@ -1865,7 +1865,15 @@
                                             </button>
                                         </td>
                                     </tr>
-                                    <tr v-if="filteredOpsTickets.length === 0">
+                                    <tr v-if="isLoadingOps">
+                                        <td colspan="7" class="text-center py-10 text-slate-400 text-xs">
+                                            <div class="flex flex-col items-center justify-center space-y-2">
+                                                <span class="inline-block animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></span>
+                                                <span class="font-semibold text-slate-500">Đang tải danh sách hồ sơ khiếu nại &amp; hỗ trợ...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr v-else-if="filteredOpsTickets.length === 0">
                                         <td colspan="7" class="text-center py-10 text-slate-400 text-xs">
                                             Không có hồ sơ nào phù hợp với bộ lọc hiện tại.
                                         </td>
@@ -1926,7 +1934,11 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div v-if="filteredOpsTickets.length === 0" class="text-center py-10 text-[11px] text-slate-400">
+                                    <div v-if="isLoadingOps" class="text-center py-10 text-[11px] text-slate-400">
+                                        <div class="inline-block animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full mb-1.5"></div>
+                                        <div class="font-semibold text-slate-500">Đang tải hồ sơ...</div>
+                                    </div>
+                                    <div v-else-if="filteredOpsTickets.length === 0" class="text-center py-10 text-[11px] text-slate-400">
                                         Không có hồ sơ nào phù hợp bộ lọc.
                                     </div>
                                 </div>

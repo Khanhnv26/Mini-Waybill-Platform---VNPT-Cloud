@@ -2732,7 +2732,12 @@
                         </div>
                     </div>
                     
-                    <div v-if="pendingDecisions.length === 0" class="b2b-card bg-white border border-slate-200 rounded-xl p-8 sm:p-12 text-center shadow-sm">
+                    <div v-if="isLoadingDecisions" class="b2b-card bg-white border border-slate-200 rounded-xl p-8 sm:p-12 text-center shadow-sm">
+                        <div class="inline-block animate-spin h-6 w-6 border-2 border-rose-600 border-t-transparent rounded-full mb-2"></div>
+                        <div class="font-semibold text-slate-600 text-xs">Đang kiểm tra danh sách đơn giao không thành công...</div>
+                    </div>
+                    
+                    <div v-else-if="pendingDecisions.length === 0" class="b2b-card bg-white border border-slate-200 rounded-xl p-8 sm:p-12 text-center shadow-sm">
                         <div class="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto mb-3 text-emerald-600 shadow-sm">
                             <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
@@ -2929,7 +2934,15 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100">
-                                    <tr v-if="filteredReturnRequests.length === 0">
+                                    <tr v-if="isLoadingReturns">
+                                        <td colspan="6" class="py-8 text-center text-slate-400">
+                                            <div class="flex flex-col items-center justify-center space-y-2">
+                                                <span class="inline-block animate-spin h-5 w-5 border-2 border-amber-600 border-t-transparent rounded-full"></span>
+                                                <span class="font-semibold text-slate-500">Đang nạp dữ liệu yêu cầu chuyển hoàn...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr v-else-if="filteredReturnRequests.length === 0">
                                         <td colspan="6" class="py-8 text-center text-slate-400 italic">
                                             Không có đơn hoàn nào phù hợp điều kiện lọc.
                                         </td>

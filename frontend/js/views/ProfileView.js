@@ -302,6 +302,12 @@
         },
         template: `
             <div class="space-y-4 pb-8 text-slate-800">
+                <div v-if="isLoading" class="p-16 text-center text-slate-400 bg-white border border-slate-200 rounded-2xl shadow-xs">
+                    <div class="inline-block animate-spin h-8 w-8 border-3 border-blue-600 border-t-transparent rounded-full mb-3"></div>
+                    <div class="font-bold text-slate-700 text-sm">Đang tải hồ sơ tài khoản...</div>
+                    <div class="text-xs text-slate-400 mt-1">Đồng bộ thông tin tài khoản, quyền hạn và chỉ số bưu gửi</div>
+                </div>
+                <template v-else>
                 <div class="rounded-2xl vnpt-gradient text-white p-5 sm:p-6 shadow-md shadow-blue-900/10 relative overflow-hidden transition-all duration-300">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1.2px, transparent 1.2px); background-size: 16px 16px;"></div>
                     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
@@ -764,6 +770,7 @@
                         </div>
                     </div>
                 </div>
+                </template>
             </div>
         `
     };

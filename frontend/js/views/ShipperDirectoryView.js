@@ -733,7 +733,15 @@
                                         </div>
                                     </td>
                                 </tr>
-                                <tr v-if="filteredShippers.length === 0">
+                                <tr v-if="isLoading">
+                                    <td colspan="7" class="text-center py-10 text-slate-400 text-xs">
+                                        <div class="flex flex-col items-center justify-center space-y-2">
+                                            <span class="inline-block animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></span>
+                                            <span class="font-semibold text-slate-500">Đang tải danh bạ bưu tá từ hệ thống điều phối...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr v-else-if="filteredShippers.length === 0">
                                     <td colspan="7" class="text-center py-10 text-slate-400 text-xs">
                                         <div class="flex flex-col items-center justify-center space-y-1.5">
                                             <span class="font-bold text-slate-600">Không tìm thấy bưu tá nào phù hợp với bộ lọc hiện tại.</span>
