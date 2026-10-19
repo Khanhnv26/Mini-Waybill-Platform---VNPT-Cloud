@@ -35,4 +35,19 @@ class PrivateAttachmentTest {
         MockMultipartFile file = new MockMultipartFile("file", "fake.png", "image/png", "<script>invalid</script>".getBytes());
         assertThrows(BadRequestException.class, () -> storage.uploadFile(file, 7L));
     }
+
+    @Test void missingObjectReturnsNullSignedUrl() throws Exception {
+        MinioClient client = mock(MinioClient.class);
+        var response = mock(io.minio.messages.ErrorResponse.class);
+        when(response.code()).thenReturn("NoSuchKey");
+        var errorEx = new io.minio.errors.ErrorResponseException(response, null, null);
+        doThrow(errorEx).when(client).statObject(any());
+        var storage = new MinioStorageServiceImpl(client, mock(MinioBucketSupport.class));
+        ReflectionTestUtils.setField(storage, "bucketName", "support-tickets");
+        ReflectionTestUtils.setField(storage, "publicUrl", "https://storage.example.com");
+        ReflectionTestUtils.setField(storage, "accessKey", "test-user");
+        ReflectionTestUtils.setField(storage, "secretKey", "test-only-password");
+
+        assertNull(storage.signedUrl("tickets/7/2026/10/deleted.png"));
+    }
 }

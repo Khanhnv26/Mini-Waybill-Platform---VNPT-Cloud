@@ -2,6 +2,8 @@ package org.app.supportservice.service.impl;
 
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
+import io.minio.StatObjectArgs;
+import io.minio.errors.ErrorResponseException;
 import lombok.RequiredArgsConstructor;
 
 import lombok.extern.slf4j.Slf4j;
@@ -93,6 +95,16 @@ public class MinioStorageServiceImpl implements MinioStorageService {
             object = path.substring(marker.length());
         }
         if (object.contains("..") || object.contains(":") || object.startsWith("/") || object.length() > 300) return null;
+        try {
+            minioClient.statObject(StatObjectArgs.builder().bucket(bucketName).object(object).build());
+        } catch (ErrorResponseException e) {
+            if ("NoSuchKey".equals(e.errorResponse().code())) {
+                log.warn("Tệp đính kèm không tồn tại trên MinIO: bucket={}, object={}", bucketName, object);
+                return null;
+            }
+        } catch (Exception e) {
+            log.debug("Bỏ qua kiểm tra statObject do lỗi kết nối nội bộ hoặc mock: {}", e.getMessage());
+        }
         try {
             MinioClient signer = MinioClient.builder().endpoint(publicUrl).region("us-east-1")
                     .credentials(accessKey, secretKey).build();

@@ -432,14 +432,28 @@
                 finally { loadingHistory.value = false; }
             };
             const attachmentRefreshes = new Map();
+            const failedAttachmentIds = ref(new Set());
             const refreshMessageAttachment = async message => {
+                if (!message || !message.id) return;
+                if (failedAttachmentIds.value.has(message.id)) return;
                 const id = activeTicket.value?.id;
-                if (!id || Date.now() - (attachmentRefreshes.get(message.id) || 0) < 30000) return;
+                if (!id) return;
+                if (attachmentRefreshes.has(message.id)) {
+                    failedAttachmentIds.value.add(message.id);
+                    return;
+                }
                 attachmentRefreshes.set(message.id, Date.now());
                 try {
                     const page = await SupportService.getMessages(id, { beforeId: message.id + 1, limit: 1 });
-                    if (activeTicket.value?.id === id && !chatDestroyed) mergeMessages(activeTicket.value, page.messages);
-                } catch {}
+                    const refreshedMsg = page?.messages?.find(m => m.id === message.id);
+                    if (!refreshedMsg || !refreshedMsg.attachmentUrls) {
+                        failedAttachmentIds.value.add(message.id);
+                    } else if (activeTicket.value?.id === id && !chatDestroyed) {
+                        mergeMessages(activeTicket.value, page.messages);
+                    }
+                } catch {
+                    failedAttachmentIds.value.add(message.id);
+                }
             };
             const formatAttachmentUrl = url => {
                 if (!url || typeof url !== 'string') return null;
@@ -951,7 +965,8 @@
                 formatShipmentBadge,
                 formatStatusText,
                 formatCurrency,
-                formatTime
+                formatTime,
+                failedAttachmentIds
             };
         },
         template: `
@@ -1009,33 +1024,33 @@
                                 Tiếp nhận sự cố vận chuyển, giải quyết quyền lợi bưu chính và bồi hoàn trực tuyến 24/7.
                             </p>
                         </div>
-                        <div class="flex items-center space-x-2 self-start sm:self-auto">
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px] transform hover:scale-105 transition">
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full sm:w-auto self-start sm:self-auto">
+                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center transform hover:scale-105 transition">
                                 <div class="text-sm sm:text-base font-bold leading-tight">{{ stats.total }}</div>
                                 <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Tổng Hồ Sơ</div>
                             </div>
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px] transform hover:scale-105 transition">
+                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center transform hover:scale-105 transition">
                                 <div class="text-sm sm:text-base font-bold leading-tight text-amber-300">{{ stats.open }}</div>
                                 <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Chờ Tiếp Nhận</div>
                             </div>
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px] transform hover:scale-105 transition">
+                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center transform hover:scale-105 transition">
                                 <div class="text-sm sm:text-base font-bold leading-tight text-blue-200">{{ stats.inProgress }}</div>
                                 <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Đang Xử Lý</div>
                             </div>
-                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px] transform hover:scale-105 transition">
+                            <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center transform hover:scale-105 transition">
                                 <div class="text-sm sm:text-base font-bold leading-tight text-emerald-300">{{ stats.resolved }}</div>
                                 <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Đã Giải Quyết</div>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="b2b-card rounded-xl p-1.5 shadow-sm flex items-center justify-between overflow-x-auto">
-                    <div class="flex items-center space-x-1.5">
+                <div class="b2b-card rounded-xl p-1.5 shadow-sm flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar scroll-smooth py-0.5 min-w-0">
                         <button 
                             type="button"
                             @click="currentSubTab = 'create'" 
                             :class="[
-                                'btn-press px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5',
+                                'btn-press px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 whitespace-nowrap flex items-center space-x-1.5',
                                 currentSubTab === 'create' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                             ]"
                         >
@@ -1045,7 +1060,7 @@
                             type="button"
                             @click="currentSubTab = 'lookup'" 
                             :class="[
-                                'btn-press px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5',
+                                'btn-press px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 whitespace-nowrap flex items-center space-x-1.5',
                                 currentSubTab === 'lookup' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                             ]"
                         >
@@ -1059,7 +1074,7 @@
                             type="button"
                             @click="currentSubTab = 'ops'; loadOpsTickets();" 
                             :class="[
-                                'btn-press px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5',
+                                'btn-press px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 whitespace-nowrap flex items-center space-x-1.5',
                                 currentSubTab === 'ops' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                             ]"
                         >
@@ -1069,8 +1084,18 @@
                             </span>
                         </button>
                     </div>
-                    <div class="hidden sm:flex items-center text-xs text-slate-400 font-medium pr-2">
-                        <span>Tổng đài hỗ trợ 24/7: <strong class="text-blue-700 font-mono">1900 54 54 81</strong></span>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <button 
+                            type="button" 
+                            @click="currentUser ? loadMyTickets() : handleSearch()" 
+                            class="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-500 hover:text-blue-600 transition" 
+                            title="Làm mới dữ liệu"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        </button>
+                        <div class="hidden sm:flex items-center text-xs text-slate-400 font-medium pr-2">
+                            <span>Tổng đài: <strong class="text-blue-700 font-mono">1900 54 54 81</strong></span>
+                        </div>
                     </div>
                 </div>
                 <div v-if="currentSubTab === 'create'" class="tab-content-enter grid grid-cols-1 lg:grid-cols-12 gap-3.5">
@@ -1535,7 +1560,11 @@
                                             <div class="bg-blue-600 text-white rounded-2xl rounded-tr-xs p-3 shadow-xs text-xs leading-relaxed space-y-2 chat-bubble-wrap break-words break-all">
                                                 <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
                                                 <div v-if="formatAttachmentUrl(msg.attachmentUrls)" class="pt-1.5 border-t border-blue-400/40">
-                                                    <a :href="formatAttachmentUrl(msg.attachmentUrls)" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-white/20 bg-blue-700/50 hover:bg-blue-700 transition">
+                                                    <div v-if="failedAttachmentIds.has(msg.id)" class="px-2.5 py-1.5 rounded-lg bg-blue-700/60 border border-white/20 text-blue-100 text-[10px] flex items-center space-x-1.5">
+                                                        <svg class="w-3.5 h-3.5 shrink-0 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                                        <span class="truncate">Tệp đính kèm không khả dụng hoặc đã hết hạn</span>
+                                                    </div>
+                                                    <a v-else :href="formatAttachmentUrl(msg.attachmentUrls)" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-white/20 bg-blue-700/50 hover:bg-blue-700 transition">
                                                         <img :src="formatAttachmentUrl(msg.attachmentUrls)" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
                                                         <div class="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-xs text-white rounded text-[9px] flex items-center space-x-1 opacity-90 group-hover:opacity-100 transition">
                                                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
@@ -1561,7 +1590,11 @@
                                             <div class="bg-white text-slate-800 rounded-2xl rounded-tl-xs border border-slate-200 p-3 shadow-2xs text-xs leading-relaxed space-y-2 chat-bubble-wrap break-words break-all">
                                                 <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
                                                 <div v-if="formatAttachmentUrl(msg.attachmentUrls)" class="pt-1.5 border-t border-slate-100">
-                                                    <a :href="formatAttachmentUrl(msg.attachmentUrls)" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition">
+                                                    <div v-if="failedAttachmentIds.has(msg.id)" class="px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 text-[10px] flex items-center space-x-1.5">
+                                                        <svg class="w-3.5 h-3.5 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                                        <span class="truncate">Tệp đính kèm không khả dụng hoặc đã hết hạn</span>
+                                                    </div>
+                                                    <a v-else :href="formatAttachmentUrl(msg.attachmentUrls)" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition">
                                                         <img :src="formatAttachmentUrl(msg.attachmentUrls)" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
                                                         <div class="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-xs text-white rounded text-[9px] flex items-center space-x-1 opacity-90 group-hover:opacity-100 transition">
                                                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
@@ -1975,7 +2008,11 @@
                                                 <div class="bg-blue-600 text-white rounded-2xl rounded-tr-xs p-3 shadow-xs text-xs leading-relaxed space-y-2 chat-bubble-wrap break-words break-all">
                                                     <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
                                                     <div v-if="formatAttachmentUrl(msg.attachmentUrls)" class="pt-1.5 border-t border-blue-400/40">
-                                                        <a :href="formatAttachmentUrl(msg.attachmentUrls)" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-white/20 bg-blue-700/50 hover:bg-blue-700 transition">
+                                                        <div v-if="failedAttachmentIds.has(msg.id)" class="px-2.5 py-1.5 rounded-lg bg-blue-700/60 border border-white/20 text-blue-100 text-[10px] flex items-center space-x-1.5">
+                                                            <svg class="w-3.5 h-3.5 shrink-0 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                                            <span class="truncate">Tệp đính kèm không khả dụng hoặc đã hết hạn</span>
+                                                        </div>
+                                                        <a v-else :href="formatAttachmentUrl(msg.attachmentUrls)" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-white/20 bg-blue-700/50 hover:bg-blue-700 transition">
                                                             <img :src="formatAttachmentUrl(msg.attachmentUrls)" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
                                                             <div class="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-xs text-white rounded text-[9px] flex items-center space-x-1 opacity-90 group-hover:opacity-100 transition">
                                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
@@ -2001,7 +2038,11 @@
                                                 <div class="bg-white text-slate-800 rounded-2xl rounded-tl-xs border border-slate-200 p-3 shadow-2xs text-xs leading-relaxed space-y-2 chat-bubble-wrap break-words break-all">
                                                     <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
                                                     <div v-if="formatAttachmentUrl(msg.attachmentUrls)" class="pt-1.5 border-t border-slate-100">
-                                                        <a :href="formatAttachmentUrl(msg.attachmentUrls)" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition">
+                                                        <div v-if="failedAttachmentIds.has(msg.id)" class="px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 text-[10px] flex items-center space-x-1.5">
+                                                            <svg class="w-3.5 h-3.5 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                                            <span class="truncate">Tệp đính kèm không khả dụng hoặc đã hết hạn</span>
+                                                        </div>
+                                                        <a v-else :href="formatAttachmentUrl(msg.attachmentUrls)" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition">
                                                             <img :src="formatAttachmentUrl(msg.attachmentUrls)" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
                                                             <div class="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-xs text-white rounded text-[9px] flex items-center space-x-1 opacity-90 group-hover:opacity-100 transition">
                                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
@@ -2189,7 +2230,11 @@
                                                 <div class="p-2.5 bg-white text-slate-700 rounded-2xl rounded-tl-xs border border-slate-200 shadow-2xs text-[11px] leading-relaxed space-y-1.5 chat-bubble-wrap break-words break-all">
                                                     <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
                                                     <div v-if="formatAttachmentUrl(msg.attachmentUrls)" class="pt-1 border-t border-slate-100">
-                                                        <a :href="formatAttachmentUrl(msg.attachmentUrls)" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                                                        <div v-if="failedAttachmentIds.has(msg.id)" class="px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20 text-amber-700 text-[9.5px] flex items-center space-x-1">
+                                                            <svg class="w-3 h-3 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                                            <span class="truncate">Tệp đính kèm không khả dụng hoặc đã hết hạn</span>
+                                                        </div>
+                                                        <a v-else :href="formatAttachmentUrl(msg.attachmentUrls)" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
                                                             <img :src="formatAttachmentUrl(msg.attachmentUrls)" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-40 rounded-lg object-contain mx-auto" loading="lazy" />
                                                         </a>
                                                     </div>
@@ -2202,7 +2247,11 @@
                                                 <div class="p-2.5 bg-blue-600 text-white rounded-2xl rounded-tr-xs shadow-xs text-[11px] text-left leading-relaxed space-y-1.5 chat-bubble-wrap break-words break-all">
                                                     <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
                                                     <div v-if="formatAttachmentUrl(msg.attachmentUrls)" class="pt-1 border-t border-blue-400/40">
-                                                        <a :href="formatAttachmentUrl(msg.attachmentUrls)" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-white/20 bg-blue-700/50">
+                                                        <div v-if="failedAttachmentIds.has(msg.id)" class="px-2 py-1 rounded bg-blue-700/60 border border-white/20 text-blue-100 text-[9.5px] flex items-center space-x-1">
+                                                            <svg class="w-3 h-3 shrink-0 text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                                            <span class="truncate">Tệp đính kèm không khả dụng hoặc đã hết hạn</span>
+                                                        </div>
+                                                        <a v-else :href="formatAttachmentUrl(msg.attachmentUrls)" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-white/20 bg-blue-700/50">
                                                             <img :src="formatAttachmentUrl(msg.attachmentUrls)" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-40 rounded-lg object-contain mx-auto" loading="lazy" />
                                                         </a>
                                                     </div>
