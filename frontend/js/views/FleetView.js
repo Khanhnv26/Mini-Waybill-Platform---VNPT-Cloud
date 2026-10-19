@@ -382,7 +382,90 @@
                     </div>
                 </div>
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
-                    <div class="overflow-x-auto">
+                    <!-- Mobile Card View (< md) -->
+                    <div class="md:hidden divide-y divide-slate-100">
+                        <div v-if="filteredVehicles.length === 0" class="py-8 text-center text-slate-400 text-xs">
+                            {{ isLoading ? 'Đang tải dữ liệu đội xe...' : 'Không tìm thấy phương tiện nào phù hợp với bộ lọc.' }}
+                        </div>
+                        <div v-for="v in paginatedVehicles" :key="v.id" class="p-3.5 space-y-2.5">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="flex items-center gap-2.5 min-w-0">
+                                    <div class="w-9 h-9 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                                        </svg>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="font-mono font-extrabold text-slate-900 text-sm tracking-tight truncate">{{ v.vehiclePlate }}</div>
+                                        <div class="text-[11px] text-slate-500 font-medium truncate">{{ v.modelName }} • {{ getVehicleTypeBadge(v.vehicleType) }}</div>
+                                    </div>
+                                </div>
+                                <span class="status-indicator shrink-0 text-[10.5px]" :class="getStatusBadge(v.status).indicatorClass">
+                                    <span :class="['status-dot', getStatusBadge(v.status).dotClass]"></span>
+                                    <span>{{ getStatusBadge(v.status).text }}</span>
+                                </span>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2 text-[11px] bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                <div>
+                                    <span class="text-slate-400 text-[10px] block">Trạm đỗ hiện tại</span>
+                                    <span class="font-semibold text-slate-800 truncate block">{{ v.currentHub }}</span>
+                                </div>
+                                <div>
+                                    <span class="text-slate-400 text-[10px] block">Tải trọng tối đa</span>
+                                    <span class="font-mono font-bold text-slate-800">{{ Number(v.payloadCapacity || 0).toLocaleString() }} kg</span>
+                                </div>
+                                <div class="col-span-2 pt-1 border-t border-slate-200/60 flex items-center justify-between">
+                                    <span class="text-slate-500 text-[10.5px]">Tài xế: <strong class="text-slate-800">{{ v.assignedDriverName || 'Chưa gán tài xế' }}</strong></span>
+                                    <a v-if="v.driverPhone" :href="'tel:' + v.driverPhone" class="text-blue-600 font-mono font-bold text-[10.5px] hover:underline flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                                        {{ v.driverPhone }}
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-end gap-1.5 pt-0.5">
+                                <button 
+                                    v-if="v.status === 'AVAILABLE'"
+                                    type="button"
+                                    @click="toggleQuickStatus(v, 'MAINTENANCE')" 
+                                    class="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-bold transition cursor-pointer"
+                                    title="Đưa vào bảo dưỡng"
+                                >
+                                    Bảo Dưỡng
+                                </button>
+                                <button 
+                                    v-else-if="v.status === 'MAINTENANCE' || v.status === 'DISABLED'"
+                                    type="button"
+                                    @click="toggleQuickStatus(v, 'AVAILABLE')" 
+                                    class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-bold transition cursor-pointer"
+                                    title="Sẵn sàng xuất bến"
+                                >
+                                    Sẵn Sàng
+                                </button>
+                                <button 
+                                    type="button"
+                                    @click="openEditModal(v)" 
+                                    class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition cursor-pointer"
+                                    title="Sửa thông tin / Đổi tài xế"
+                                >
+                                    Sửa Xe
+                                </button>
+                                <button 
+                                    v-if="v.status !== 'ON_TRIP' && v.status !== 'DISABLED'"
+                                    type="button"
+                                    @click="toggleQuickStatus(v, 'DISABLED')" 
+                                    class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 rounded-lg text-xs font-bold transition cursor-pointer"
+                                    title="Tạm ngưng khai thác xe"
+                                >
+                                    Khóa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Desktop Table (>= md) -->
+                    <div class="hidden md:block overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">

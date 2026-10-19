@@ -362,13 +362,13 @@
                     </div>
                 </div>
             </div>
-            <div class="bg-white/95 backdrop-blur-md text-slate-700 rounded-2xl shadow-xs border border-slate-200/90 p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
-                <div class="bg-slate-100/90 p-1 rounded-xl border border-slate-200/70 inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
+            <div class="bg-white/95 backdrop-blur-md text-slate-700 rounded-2xl shadow-xs border border-slate-200/90 p-1.5 flex items-center justify-between gap-2 transition-all duration-300">
+                <div class="flex-1 min-w-0 bg-slate-100/90 p-1 rounded-xl border border-slate-200/70 flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 scroll-smooth">
                     <button
                         type="button"
                         @click="currentSubtab = 'matrix'"
                         :class="[
-                            'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                            'shrink-0 whitespace-nowrap px-2.5 sm:px-3.5 py-1.5 rounded-lg flex items-center space-x-1.5 sm:space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                             currentSubtab === 'matrix'
                                 ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
                                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-medium'
@@ -377,7 +377,7 @@
                         <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'matrix' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                         </svg>
-                        <span class="truncate">Ma Trận RBAC</span>
+                        <span>Ma Trận RBAC</span>
                         <span class="subtab-counter font-mono" :class="currentSubtab === 'matrix' ? 'subtab-counter-blue' : 'subtab-counter-slate'">
                             {{ rolesList.length }}
                         </span>
@@ -386,7 +386,7 @@
                         type="button"
                         @click="currentSubtab = 'users'"
                         :class="[
-                            'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                            'shrink-0 whitespace-nowrap px-2.5 sm:px-3.5 py-1.5 rounded-lg flex items-center space-x-1.5 sm:space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                             currentSubtab === 'users'
                                 ? 'bg-white text-blue-700 shadow-sm ring-1 ring-slate-200/80 font-bold'
                                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/50 font-medium'
@@ -395,7 +395,7 @@
                         <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'users' ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                         </svg>
-                        <span class="truncate">Người Dùng</span>
+                        <span>Người Dùng</span>
                         <span class="subtab-counter font-mono" :class="currentSubtab === 'users' ? 'subtab-counter-blue' : 'subtab-counter-slate'">
                             {{ usersList.length }}
                         </span>
@@ -549,38 +549,98 @@
                                 ✕
                             </button>
                         </div>
-                        <select 
-                            v-model="selectedRoleFilter"
-                            class="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 focus:bg-white focus:border-blue-600 outline-none transition"
-                        >
-                            <option value="ALL">Tất cả vai trò</option>
-                            <option v-for="r in rolesList" :key="r.id" :value="r.name">
-                                {{ Utils.getRoleBadgeInfo(r.name).label }}
-                            </option>
-                        </select>
-                        <select 
-                            v-model="selectedStatusFilter"
-                            class="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 focus:bg-white focus:border-blue-600 outline-none transition"
-                        >
-                            <option value="ALL">Tất cả trạng thái</option>
-                            <option value="ACTIVE">Đang Hoạt Động</option>
-                            <option value="BLOCKED">Tạm Đình Chỉ</option>
-                        </select>
-                        <button 
-                            v-if="hasActiveUserFilter"
-                            @click="resetUserFilters"
-                            class="px-2.5 py-1.5 rounded-lg text-xs text-rose-600 hover:bg-rose-50 border border-rose-200 font-bold transition flex items-center space-x-1"
-                            title="Xóa bộ lọc"
-                        >
-                            <span>✕ Xóa lọc</span>
-                        </button>
+                        <div class="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+                            <select 
+                                v-model="selectedRoleFilter"
+                                class="w-full sm:w-auto px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 focus:bg-white focus:border-blue-600 outline-none transition"
+                            >
+                                <option value="ALL">Tất cả vai trò</option>
+                                <option v-for="r in rolesList" :key="r.id" :value="r.name">
+                                    {{ Utils.getRoleBadgeInfo(r.name).label }}
+                                </option>
+                            </select>
+                            <select 
+                                v-model="selectedStatusFilter"
+                                class="w-full sm:w-auto px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 focus:bg-white focus:border-blue-600 outline-none transition"
+                            >
+                                <option value="ALL">Tất cả trạng thái</option>
+                                <option value="ACTIVE">Đang Hoạt Động</option>
+                                <option value="BLOCKED">Tạm Đình Chỉ</option>
+                            </select>
+                            <button 
+                                v-if="hasActiveUserFilter" 
+                                @click="resetUserFilters"
+                                class="col-span-2 sm:col-auto px-2.5 py-1.5 rounded-lg text-xs text-rose-600 hover:bg-rose-50 border border-rose-200 font-bold transition flex items-center justify-center space-x-1"
+                                title="Xóa bộ lọc"
+                            >
+                                <span>✕ Xóa lọc</span>
+                            </button>
+                        </div>
                     </div>
                     <div class="text-xs font-medium text-slate-500 whitespace-nowrap self-center">
                         Tổng cộng: <b class="text-slate-800">{{ filteredUsers.length }}</b> tài khoản
                     </div>
                 </div>
                 <div class="b2b-card overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
-                    <div class="overflow-x-auto">
+                    <!-- Mobile Card View (< md) -->
+                    <div class="md:hidden divide-y divide-slate-100">
+                        <div v-if="paginatedUsers.length === 0" class="py-8 text-center text-slate-400 text-xs">
+                            {{ isLoadingUsers ? 'Đang tải danh sách người dùng...' : 'Không tìm thấy người dùng phù hợp.' }}
+                        </div>
+                        <div v-for="user in paginatedUsers" :key="user.id" class="p-3.5 space-y-2.5">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="flex items-center space-x-2.5 min-w-0">
+                                    <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
+                                        {{ (user.fullName || user.email || 'U').charAt(0).toUpperCase() }}
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="font-bold text-xs text-slate-900 truncate">{{ user.fullName || 'Chưa cập nhật' }}</div>
+                                        <div class="text-[11px] text-slate-400 truncate mt-0.5">{{ user.email }}</div>
+                                    </div>
+                                </div>
+                                <span class="status-indicator shrink-0 text-[10.5px]" :class="user.status === 'ACTIVE' ? 'status-indicator-emerald' : 'status-indicator-rose'">
+                                    <span class="status-dot" :class="user.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-rose-500'"></span>
+                                    <span>{{ user.status === 'ACTIVE' ? 'Hoạt Động' : 'Đình Chỉ' }}</span>
+                                </span>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2 text-[11px] bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                <div>
+                                    <span class="text-slate-400 text-[10px] block">Trạm tác nghiệp</span>
+                                    <span class="font-semibold text-slate-800 font-mono truncate block">{{ user.locationCode || 'Toàn hệ thống' }}</span>
+                                </div>
+                                <div>
+                                    <span class="text-slate-400 text-[10px] block">Vai trò nghiệp vụ</span>
+                                    <span class="text-slate-700 font-medium truncate block">
+                                        {{ (user.roles || []).map(r => Utils.getRoleBadgeInfo(r).label).join(', ') || 'Chưa gán' }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-end space-x-1.5 pt-0.5">
+                                <button 
+                                    @click="openEditRolesModal(user)"
+                                    class="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition border border-blue-200 shadow-sm cursor-pointer"
+                                >
+                                    Cấp Vai Trò
+                                </button>
+                                <button 
+                                    @click="toggleUserStatus(user)"
+                                    :class="[
+                                        'px-2.5 py-1 rounded-lg text-xs font-bold transition border shadow-sm cursor-pointer',
+                                        user.status === 'ACTIVE'
+                                            ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
+                                            : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                                    ]"
+                                >
+                                    {{ user.status === 'ACTIVE' ? 'Khóa' : 'Kích Hoạt' }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Desktop Table (>= md) -->
+                    <div class="hidden md:block overflow-x-auto">
                         <table class="w-full text-left border-collapse table-b2b">
                             <thead>
                                 <tr>

@@ -1528,15 +1528,15 @@
                     <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
                             <div class="flex items-center space-x-2">
-                                <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[11px] uppercase font-bold tracking-wider border border-white/25">
+                                <span class="px-2 py-0.5 rounded-md bg-white/20 text-white text-[10px] sm:text-[11px] uppercase font-bold tracking-wider border border-white/25">
                                     Logistics Dispatch &amp; Management
                                 </span>
-                                <span class="text-blue-100 text-xs font-medium">Waybill Platform</span>
+                                <span class="hidden sm:inline text-blue-100 text-xs font-medium">Waybill Platform</span>
                             </div>
-                            <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
+                            <h1 class="text-sm sm:text-lg font-bold tracking-tight mt-1 text-white">
                                 Quản Trị Vận Đơn &amp; Khởi Tạo Bưu Gửi Ký Gửi
                             </h1>
-                            <p class="text-xs text-blue-100/90 mt-0.5 leading-normal">
+                            <p class="hidden sm:block text-xs text-blue-100/90 mt-0.5 leading-normal">
                                 Tiếp nhận yêu cầu gửi hàng, điều phối luồng luân chuyển bưu cục và kiểm soát trạng thái giao nhận toàn trình.
                             </p>
                         </div>

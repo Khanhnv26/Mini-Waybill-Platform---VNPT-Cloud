@@ -431,14 +431,14 @@
                 </div>
                 
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                    <div class="flex flex-wrap items-center gap-2 flex-1">
+                    <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 flex-1">
                         <div class="relative w-full sm:w-64">
                             <input 
                                 v-model="searchQuery" 
                                 type="text" 
                                 maxlength="100"
                                 placeholder="Tìm mã, họ tên, SĐT, trạm..." 
-                                class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+                                class="w-full pl-8 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                             />
                             <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                             <button 
@@ -450,58 +450,60 @@
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                             </button>
                         </div>
-                        <select 
-                            v-model="stationFilter" 
-                            class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition max-w-[200px]"
-                        >
-                            <option value="ALL">Tất cả bưu cục / trạm</option>
-                            <option v-for="s in stations" :key="s.code" :value="s.code">{{ s.label }}</option>
-                        </select>
-                        <select 
-                            v-model="shiftFilter" 
-                            class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
-                        >
-                            <option value="ALL">Tất cả ca trực</option>
-                            <option value="ON_DUTY">Đang bật ca (ON_DUTY)</option>
-                            <option value="OFF_DUTY">Đang nghỉ ca (OFF_DUTY)</option>
-                        </select>
-                        <select 
-                            v-model="statusFilter" 
-                            class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
-                        >
-                            <option value="ALL">Tất cả trạng thái hồ sơ</option>
-                            <option value="ACTIVE">Đang hoạt động</option>
-                            <option value="INACTIVE">Tạm dừng hoạt động</option>
-                        </select>
-                        <button 
-                            v-if="hasActiveFilter" 
-                            @click="resetFilters" 
-                            class="px-2.5 py-1.5 text-xs text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg font-medium transition flex items-center space-x-1"
-                        >
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                            <span>Xóa lọc</span>
-                        </button>
+                        <div class="grid grid-cols-1 xs:grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+                            <select 
+                                v-model="stationFilter" 
+                                class="w-full sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition max-w-full sm:max-w-[200px]"
+                            >
+                                <option value="ALL">Tất cả bưu cục / trạm</option>
+                                <option v-for="s in stations" :key="s.code" :value="s.code">{{ s.label }}</option>
+                            </select>
+                            <select 
+                                v-model="shiftFilter" 
+                                class="w-full sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
+                            >
+                                <option value="ALL">Tất cả ca trực</option>
+                                <option value="ON_DUTY">Đang bật ca (ON_DUTY)</option>
+                                <option value="OFF_DUTY">Đang nghỉ ca (OFF_DUTY)</option>
+                            </select>
+                            <select 
+                                v-model="statusFilter" 
+                                class="w-full sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition xs:col-span-2 sm:col-span-1"
+                            >
+                                <option value="ALL">Tất cả trạng thái hồ sơ</option>
+                                <option value="ACTIVE">Đang hoạt động</option>
+                                <option value="INACTIVE">Tạm dừng hoạt động</option>
+                            </select>
+                            <button 
+                                v-if="hasActiveFilter" 
+                                @click="resetFilters" 
+                                class="px-2.5 py-1.5 text-xs text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg font-medium transition flex items-center justify-center space-x-1 w-full sm:w-auto xs:col-span-2 sm:col-span-1"
+                            >
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                <span>Xóa lọc</span>
+                            </button>
+                        </div>
                     </div>
-                    <div class="flex items-center space-x-2">
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
                         <button 
                             @click="toggleAllShippersShift" 
-                            class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs transition border border-slate-200 flex items-center gap-1.5 cursor-pointer"
+                            class="flex-1 sm:flex-none justify-center px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs transition border border-slate-200 flex items-center gap-1.5 cursor-pointer"
                             title="Đổi ca nhanh toàn bộ bưu tá đang lọc"
                         >
                             <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                            <span>Chuyển Ca Nhanh</span>
+                            <span class="whitespace-nowrap">Chuyển Ca Nhanh</span>
                         </button>
                         <button 
                             @click="loadShippers()" 
                             :disabled="isLoading"
-                            class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition disabled:opacity-50"
+                            class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition disabled:opacity-50 shrink-0"
                             title="Tải lại dữ liệu danh bạ"
                         >
                             {{ isLoading ? 'Đang Tải...' : 'Làm Mới' }}
                         </button>
                         <button 
                             @click="openCreate()" 
-                            class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-sm shadow-blue-500/20 transition flex items-center space-x-1"
+                            class="flex-1 sm:flex-none justify-center px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-sm shadow-blue-500/20 transition flex items-center space-x-1 whitespace-nowrap"
                         >
                             <span>+ Thêm Bưu Tá</span>
                         </button>
@@ -509,7 +511,95 @@
                 </div>
                 
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
-                    <div class="overflow-x-auto">
+                    <!-- Mobile Card View (< md) -->
+                    <div class="md:hidden divide-y divide-slate-100">
+                        <div v-if="paginatedShippers.length === 0" class="py-8 text-center text-slate-400 text-xs">
+                            {{ isLoading ? 'Đang tải dữ liệu danh bạ bưu tá...' : 'Không tìm thấy bưu tá nào phù hợp với bộ lọc.' }}
+                        </div>
+                        <div v-for="item in paginatedShippers" :key="item.id" class="p-3.5 space-y-2.5">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="flex items-center gap-2.5 min-w-0">
+                                    <div 
+                                        class="w-9 h-9 rounded-xl font-black text-xs flex items-center justify-center shadow-xs shrink-0"
+                                        :class="item.shiftStatus === 'ON_DUTY' ? 'bg-gradient-to-br from-blue-600 to-indigo-700 text-white' : 'bg-slate-200 text-slate-600'"
+                                    >
+                                        {{ (item.fullName || 'B').charAt(0).toUpperCase() }}
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="font-bold text-slate-900 text-xs truncate">{{ item.fullName }}</div>
+                                        <div class="text-[10.5px] text-blue-700 font-mono font-bold mt-0.5 truncate">
+                                            {{ item.courierCode }} <span v-if="item.phone" class="text-slate-400 font-normal">• {{ item.phone }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button 
+                                    type="button" 
+                                    @click="toggleShiftStatus(item)" 
+                                    class="px-2.5 py-1 rounded-full text-[10.5px] font-bold border transition flex items-center gap-1.5 shrink-0"
+                                    :class="item.shiftStatus === 'ON_DUTY' 
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300' 
+                                        : 'bg-slate-100 text-slate-600 border-slate-300'"
+                                >
+                                    <span class="w-1.5 h-1.5 rounded-full" :class="item.shiftStatus === 'ON_DUTY' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'"></span>
+                                    <span>{{ item.shiftStatus === 'ON_DUTY' ? 'Đang trực' : 'Nghỉ ca' }}</span>
+                                </button>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-2 text-[11px] bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                                <div>
+                                    <span class="text-slate-400 text-[10px] block">Bưu cục tuyến phát</span>
+                                    <span class="font-semibold text-slate-700 truncate block">{{ stationLabel(item.stationCode) }}</span>
+                                </div>
+                                <div>
+                                    <span class="text-slate-400 text-[10px] block">Tải đơn trong ca</span>
+                                    <span class="font-mono font-bold text-slate-800">{{ item.currentOrdersCount || 0 }} / {{ item.maxOrdersPerShift || 40 }} đơn ({{ getWorkloadPercent(item) }}%)</span>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center justify-between pt-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="inline-flex items-center gap-1 font-mono font-semibold text-slate-700 text-xs">
+                                        <svg class="w-3.5 h-3.5 text-amber-500 fill-current shrink-0" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                                        <span>{{ (item.ratingAvg != null ? item.ratingAvg : 5.0).toFixed(1) }}</span>
+                                    </span>
+                                    <span 
+                                        class="status-indicator text-[10px]"
+                                        :class="item.hasLinkedTelegram ? 'status-indicator-blue' : 'status-indicator-slate'"
+                                    >
+                                        <span class="status-dot" :class="item.hasLinkedTelegram ? 'bg-sky-500' : 'bg-slate-300'"></span>
+                                        <span>{{ item.hasLinkedTelegram ? 'Telegram' : 'Chưa nối' }}</span>
+                                    </span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <a v-if="item.phone" :href="'tel:' + item.phone" class="p-1.5 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-200" title="Gọi bưu tá">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                                    </a>
+                                    <button 
+                                        type="button" 
+                                        @click="openEdit(item)" 
+                                        class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold border border-slate-200"
+                                    >
+                                        Sửa
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        @click="confirmToggleStatus(item)" 
+                                        :class="[
+                                            'px-2 py-1 rounded-lg text-[11px] font-bold transition border shadow-xs',
+                                            item.status === 'ACTIVE' 
+                                                ? 'bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-700 border-slate-200 hover:border-rose-200' 
+                                                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                                        ]"
+                                    >
+                                        {{ item.status === 'ACTIVE' ? 'Dừng' : 'Mở' }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Desktop Table (>= md) -->
+                    <div class="hidden md:block overflow-x-auto">
                         <table class="w-full text-left border-collapse table-b2b">
                             <thead>
                                 <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
