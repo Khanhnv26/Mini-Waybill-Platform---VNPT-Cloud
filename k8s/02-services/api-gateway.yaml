@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: api-gateway
-          image: khanhnv26/api-gateway:5cc150eeb53390fdacccf815b6c3461fe083bd7b
+          image: khanhnv26/api-gateway:f795e88890f0011310894460884f35f5d35f333e
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
