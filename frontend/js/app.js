@@ -13,13 +13,13 @@ import './services/adminService.js';
 import './services/reportService.js';
 import './services/pricingService.js';
 import './services/supportService.js';
-import './services/supportChatRuntime.js?v=3.7.1';
+import './services/supportChatRuntime.js?v=3.8.1';
 import './services/shipperService.js';
 import './services/ratingService.js';
 import './services/paymentService.js?v=3.6.6';
-import './components/layout/AppSidebar.js';
+import './components/layout/AppSidebar.js?v=3.8.2';
 import './components/layout/AppTopbar.js?v=3.7.6';
-import './components/layout/AppBottomNav.js';
+import './components/layout/AppBottomNav.js?v=3.8.2';
 import './components/layout/InternalFooter.js';
 import './components/layout/PublicHeader.js?v=3.7.6';
 import './components/layout/PublicFooter.js';
@@ -29,10 +29,11 @@ import './components/common/ShipmentDetailModal.js';
 import './layouts/InternalLayout.js';
 import './layouts/PublicLayout.js';
 import './components/ChatbotWidget.js?v=3.7.1';
-import { authStore, appStore, notificationStore } from './store/index.js';
+import { authStore, appStore, notificationStore, badgeStore } from './store/index.js?v=3.8.2';
 window.authStore = authStore;
 window.appStore = appStore;
 window.notificationStore = notificationStore;
+window.badgeStore = badgeStore;
 const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } = Vue;
     const ROUTE_TAB_MAP = {
         '/': 'tracking',
@@ -919,6 +920,9 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     currentUser.value = Auth.getUser();
                 }
                 fetchNotifications();
+                if (typeof badgeStore !== 'undefined' && badgeStore.startPolling) {
+                    badgeStore.startPolling(currentUser.value);
+                }
                 const defaultTarget = (typeof Auth !== 'undefined' && Auth.isInternalStaff()) ? '/dashboard' : '/tracking';
                 const target = sessionStorage.getItem('redirectAfterLogin') || defaultTarget;
                 sessionStorage.removeItem('redirectAfterLogin');
@@ -1062,6 +1066,10 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     localStorage.clear();
                 }
                 currentUser.value = null;
+                if (typeof badgeStore !== 'undefined') {
+                    badgeStore.stopPolling();
+                    badgeStore.refreshBadges(null);
+                }
                 if (window.Utils && window.Utils.showToast) {
                     window.Utils.showToast('Đăng Xuất', 'Bạn đã đăng xuất thành công khỏi hệ thống.', 'info');
                 }
@@ -1229,6 +1237,9 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 window.SupportChatRuntime.start();
                 if (typeof Auth !== 'undefined') {
                     currentUser.value = Auth.isAuthenticated() ? Auth.getUser() : null;
+                }
+                if (typeof badgeStore !== 'undefined' && badgeStore.startPolling) {
+                    badgeStore.startPolling(currentUser.value);
                 }
                 const authenticated = (typeof Auth !== 'undefined' && typeof Auth.isAuthenticated === 'function')
                     ? Auth.isAuthenticated()
@@ -1424,6 +1435,9 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     window.removeEventListener('system-notification-created', handleSystemNotificationEvent);
                     window.removeEventListener('navigate-to-tracking', handleNavigateToTracking);
                     window.removeEventListener('navigate-to-support', handleNavigateToSupport);
+                    if (typeof badgeStore !== 'undefined' && badgeStore.stopPolling) {
+                        badgeStore.stopPolling();
+                    }
                     if (pollTimer) clearInterval(pollTimer);
                     if (bellSubscription) {
                         try { bellSubscription.unsubscribe(); } catch (e) {}

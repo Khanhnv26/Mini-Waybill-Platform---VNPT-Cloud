@@ -41,10 +41,10 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tab.icon" />
                     </svg>
                     <span 
-                        v-if="tab.badgeCount && tab.badgeCount > 0"
-                        class="absolute -top-1 -right-2 px-1 min-w-[14px] h-3.5 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center shadow-xs"
+                        v-if="getTabBadge(tab)"
+                        :class="['absolute -top-1 -right-2 px-1 min-w-[14px] h-3.5 rounded-full text-white text-[9px] font-black flex items-center justify-center shadow-xs', getTabBadge(tab).colorClass]"
                     >
-                        {{ tab.badgeCount > 99 ? '99+' : tab.badgeCount }}
+                        {{ getTabBadge(tab).count > 99 ? '99+' : getTabBadge(tab).count }}
                     </span>
                     <span 
                         v-if="currentTab === tab.id"
@@ -218,9 +218,30 @@
                 emit('switch-tab', tab.id);
             };
 
+            const getTabBadge = (tab) => {
+                if (!tab) return null;
+                if (tab.isDrawerTrigger) {
+                    if (props.unreadNotificationsCount > 0) {
+                        return {
+                            count: props.unreadNotificationsCount,
+                            colorClass: 'bg-rose-500'
+                        };
+                    }
+                    return null;
+                }
+                if (tab.isCenterAction) {
+                    return null;
+                }
+                if (window.badgeStore && typeof window.badgeStore.getBadge === 'function') {
+                    return window.badgeStore.getBadge(tab.id);
+                }
+                return null;
+            };
+
             return {
                 visibleTabs,
-                handleTabClick
+                handleTabClick,
+                getTabBadge
             };
         }
     };

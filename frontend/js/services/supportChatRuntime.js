@@ -183,8 +183,16 @@
     function unlockAudio() {
         if (!state.sound) return;
         try {
+            if (typeof window !== 'undefined' && window.navigator?.userActivation && !window.navigator.userActivation.hasBeenActive) {
+                return;
+            }
             const Audio = window.AudioContext || window.webkitAudioContext;
-            if (Audio) { audio ||= new Audio(); audio.resume().catch(() => {}); }
+            if (Audio) {
+                audio ||= new Audio();
+                if (audio.state === 'suspended') {
+                    audio.resume().catch(() => {});
+                }
+            }
         } catch {}
     }
     function wake(force = false) {

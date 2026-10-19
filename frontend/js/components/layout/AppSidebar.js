@@ -60,7 +60,7 @@
                 v-for="tab in navigationTabs" 
                 :key="tab.id"
                 @click="$emit('switch-tab', tab.id)"
-                :title="(isSidebarCollapsed && !isMobileDrawerOpen) ? (tab.id === 'support' && chatUnread ? tab.name + ' (' + chatUnread + ' tin chưa đọc)' : tab.name) : ''"
+                :title="(isSidebarCollapsed && !isMobileDrawerOpen) ? (getTabBadge(tab.id) ? (tab.name + ' (' + getTabBadge(tab.id).title + ')') : tab.name) : ''"
                 :class="[
                     'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs transition smooth-transition cursor-pointer text-left',
                     (isSidebarCollapsed && !isMobileDrawerOpen) ? 'md:justify-center md:!px-0 md:!gap-0' : '',
@@ -74,20 +74,20 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tab.icon || 'M4 6h16M4 12h16M4 18h16'" />
                     </svg>
                     <span 
-                        v-if="tab.id === 'support' && chatUnread && isSidebarCollapsed && !isMobileDrawerOpen" 
-                        class="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-blue-600 text-white text-[9.5px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-[#0f1a38] shadow-sm pointer-events-none"
-                        :aria-label="chatUnread + ' tin hỗ trợ chưa đọc'"
+                        v-if="getTabBadge(tab.id) && isSidebarCollapsed && !isMobileDrawerOpen" 
+                        :class="['absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full text-white text-[9.5px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-[#0f1a38] shadow-sm pointer-events-none', getTabBadge(tab.id).colorClass]"
+                        :aria-label="getTabBadge(tab.id).title"
                     >
-                        {{ chatUnread > 9 ? '9+' : chatUnread }}
+                        {{ getTabBadge(tab.id).count > 9 ? '9+' : getTabBadge(tab.id).count }}
                     </span>
                 </div>
                 <span v-show="!isSidebarCollapsed || isMobileDrawerOpen" class="truncate flex-1">{{ tab.name }}</span>
                 <span 
-                    v-if="tab.id === 'support' && chatUnread && (!isSidebarCollapsed || isMobileDrawerOpen)" 
-                    class="!ml-auto min-w-[18px] h-[18px] px-1.5 text-[10px] font-bold rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xs flex-shrink-0" 
-                    :aria-label="chatUnread + ' tin hỗ trợ chưa đọc'"
+                    v-if="getTabBadge(tab.id) && (!isSidebarCollapsed || isMobileDrawerOpen)" 
+                    :class="['!ml-auto min-w-[18px] h-[18px] px-1.5 text-[10px] font-bold rounded-full text-white flex items-center justify-center shadow-xs flex-shrink-0', getTabBadge(tab.id).colorClass]" 
+                    :aria-label="getTabBadge(tab.id).title"
                 >
-                    {{ chatUnread > 99 ? '99+' : chatUnread }}
+                    {{ getTabBadge(tab.id).count > 99 ? '99+' : getTabBadge(tab.id).count }}
                 </span>
             </button>
         </div>
@@ -141,7 +141,20 @@
         template,
         setup() {
             const chatUnread = Vue.computed(() => Object.values(window.SupportChatRuntime?.state.unread || {}).reduce((sum, count) => sum + count, 0));
-            return { chatUnread };
+            const getTabBadge = (tabId) => {
+                if (window.badgeStore && typeof window.badgeStore.getBadge === 'function') {
+                    return window.badgeStore.getBadge(tabId);
+                }
+                if (tabId === 'support' && chatUnread.value > 0) {
+                    return {
+                        count: chatUnread.value,
+                        colorClass: 'bg-blue-600',
+                        title: `${chatUnread.value} tin nhắn hỗ trợ chưa đọc`
+                    };
+                }
+                return null;
+            };
+            return { chatUnread, getTabBadge };
         },
         props: {
             currentUser: { type: Object, default: null },
