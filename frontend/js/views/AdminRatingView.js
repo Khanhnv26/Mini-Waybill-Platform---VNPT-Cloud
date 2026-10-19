@@ -1,13 +1,11 @@
 (function () {
     const { ref, reactive, computed, watch, onMounted } = Vue;
-
     const AdminRatingView = {
         name: 'AdminRatingView',
         setup() {
             const ratings = ref([]);
             const isLoading = ref(false);
             const isSaving = ref(false);
-
             const stats = reactive({
                 averageServiceRating: 0.0,
                 averageShipperRating: 0.0,
@@ -17,44 +15,36 @@
                 negativeRatingsCount: 0,
                 starDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
             });
-
             const filters = reactive({
                 keyword: '',
                 star: 'ALL',
                 courierCode: '',
                 status: 'ALL'
             });
-
             const pagination = reactive({
                 page: 0,
                 size: 20,
                 totalPages: 1,
                 totalElements: 0
             });
-
             const selectedRating = ref(null);
             const showDetailModal = ref(false);
             const showHideModal = ref(false);
-
             const hideForm = reactive({
                 ratingId: null,
                 trackingCode: '',
                 presetReason: 'Ngôn từ xúc phạm, thiếu văn hóa, đả kích cá nhân',
                 customReason: ''
             });
-
             const zoomImageUrl = ref(null);
-
             const isAdmin = computed(() => {
                 if (typeof Auth === 'undefined') return false;
                 return Auth.hasRole('ROLE_ADMIN') || Auth.hasRole('ADMIN');
             });
-
             const isDispatcher = computed(() => {
                 if (typeof Auth === 'undefined') return false;
                 return Auth.hasRole('ROLE_DISPATCHER') || Auth.hasRole('DISPATCHER');
             });
-
             const starPercentages = computed(() => {
                 const total = stats.totalRatings || 0;
                 const dist = stats.starDistribution || {};
@@ -65,7 +55,6 @@
                 }
                 return res;
             });
-
             const loadStats = async () => {
                 try {
                     const res = await RatingService.getRatingStats();
@@ -84,7 +73,6 @@
                     console.error(err);
                 }
             };
-
             const loadRatings = async () => {
                 isLoading.value = true;
                 try {
@@ -97,7 +85,6 @@
                         size: pagination.size,
                         sort: 'createdAt,desc'
                     });
-
                     if (res) {
                         ratings.value = res.content || [];
                         pagination.page = res.page || 0;
@@ -113,12 +100,10 @@
                     isLoading.value = false;
                 }
             };
-
             const applyFilters = () => {
                 pagination.page = 0;
                 loadRatings();
             };
-
             const resetFilters = () => {
                 filters.keyword = '';
                 filters.star = 'ALL';
@@ -127,7 +112,6 @@
                 pagination.page = 0;
                 loadRatings();
             };
-
             const filterByStar = (star) => {
                 if (filters.star === String(star)) {
                     filters.star = 'ALL';
@@ -136,7 +120,6 @@
                 }
                 applyFilters();
             };
-
             const filterNegative = () => {
                 if (filters.star === 'NEGATIVE') {
                     filters.star = 'ALL';
@@ -145,7 +128,6 @@
                 }
                 applyFilters();
             };
-
             const filterStatus = (status) => {
                 if (filters.status === status) {
                     filters.status = 'ALL';
@@ -154,24 +136,20 @@
                 }
                 applyFilters();
             };
-
             const changePage = (newPage) => {
                 if (newPage >= 0 && newPage < pagination.totalPages) {
                     pagination.page = newPage;
                     loadRatings();
                 }
             };
-
             const openDetail = (item) => {
                 selectedRating.value = item;
                 showDetailModal.value = true;
             };
-
             const closeDetail = () => {
                 showDetailModal.value = false;
                 selectedRating.value = null;
             };
-
             const openHideDialog = (item) => {
                 if (!isAdmin.value) {
                     if (window.Utils && window.Utils.showToast) {
@@ -185,14 +163,12 @@
                 hideForm.customReason = '';
                 showHideModal.value = true;
             };
-
             const closeHideDialog = () => {
                 showHideModal.value = false;
                 hideForm.ratingId = null;
                 hideForm.trackingCode = '';
                 hideForm.customReason = '';
             };
-
             const confirmHideRating = async () => {
                 if (!hideForm.ratingId) return;
                 let reason = hideForm.presetReason === 'OTHER' ? hideForm.customReason.trim() : hideForm.presetReason;
@@ -202,7 +178,6 @@
                     }
                     return;
                 }
-
                 isSaving.value = true;
                 try {
                     const updated = await RatingService.updateRatingVisibility(hideForm.ratingId, true, reason);
@@ -222,7 +197,6 @@
                     isSaving.value = false;
                 }
             };
-
             const unhideRating = async (item) => {
                 if (!isAdmin.value) {
                     if (window.Utils && window.Utils.showToast) {
@@ -230,7 +204,6 @@
                     }
                     return;
                 }
-
                 isSaving.value = true;
                 try {
                     const updated = await RatingService.updateRatingVisibility(item.id, false, null);
@@ -249,7 +222,6 @@
                     isSaving.value = false;
                 }
             };
-
             const exportCsv = () => {
                 if (!ratings.value.length) {
                     if (window.Utils && window.Utils.showToast) {
@@ -257,7 +229,6 @@
                     }
                     return;
                 }
-
                 const headers = ['Mã vận đơn', 'Thời gian', 'Mã bưu tá', 'Đ.Giá Dịch Vụ', 'Đ.Giá Shipper', 'SĐT xác thực', 'Tiêu chí', 'Bình luận', 'Trạng thái'];
                 const rows = ratings.value.map(r => [
                     r.trackingCode,
@@ -270,7 +241,6 @@
                     `"${(r.comment || '').replace(/"/g, '""')}"`,
                     r.isHidden ? 'Đã ẩn' : 'Hiển thị'
                 ]);
-
                 const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
                 const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement('a');
@@ -278,7 +248,6 @@
                 link.download = `Danh_Sach_Danh_Gia_${new Date().toISOString().slice(0, 10)}.csv`;
                 link.click();
             };
-
             const renderStars = (score) => {
                 let s = '';
                 for (let i = 1; i <= 5; i++) {
@@ -286,12 +255,10 @@
                 }
                 return s;
             };
-
             onMounted(() => {
                 loadStats();
                 loadRatings();
             });
-
             return {
                 ratings,
                 isLoading,
@@ -325,10 +292,8 @@
         },
         template: `
         <div class="space-y-4 animate-fade-in pb-12">
-            
             <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                 <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
-
                 <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <div class="flex items-center space-x-2">
@@ -345,7 +310,6 @@
                             Giám sát điểm CSAT khách hàng dành cho dịch vụ bưu chính và tác phong giao hàng của bưu tá; kiểm duyệt các phản ánh vi phạm quy chuẩn.
                         </p>
                     </div>
-
                     <div class="flex items-center space-x-2 self-start sm:self-auto flex-wrap sm:flex-nowrap gap-2">
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[76px]">
                             <div class="text-sm sm:text-base font-bold leading-tight text-amber-300 flex items-center justify-center gap-1">
@@ -370,7 +334,6 @@
                     </div>
                 </div>
             </div>
-
             <div v-if="isAdmin" class="bg-blue-50 dark:bg-[#131e3a] border border-blue-200 dark:border-blue-900/60 rounded-xl px-4 py-3 text-xs flex items-center justify-between text-blue-700 dark:text-blue-300 smooth-transition">
                 <div class="flex items-center gap-2.5">
                     <div class="w-6 h-6 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0">
@@ -384,7 +347,6 @@
                     TOÀN QUYỀN KIỂM DUYỆT
                 </span>
             </div>
-
             <div v-else class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 rounded-xl px-4 py-3 text-xs flex items-center justify-between text-amber-700 dark:text-amber-300 smooth-transition">
                 <div class="flex items-center gap-2.5">
                     <div class="w-6 h-6 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center text-amber-600 dark:text-amber-400 flex-shrink-0">
@@ -398,9 +360,7 @@
                     CHỈ ĐỌC
                 </span>
             </div>
-
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                
                 <div class="lg:col-span-2 bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-2xl p-4 sm:p-5 shadow-xs smooth-transition">
                     <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-[#23345e]">
                         <div>
@@ -416,7 +376,6 @@
                             Xóa lọc sao
                         </button>
                     </div>
-
                     <div class="space-y-2.5">
                         <div v-for="s in [5, 4, 3, 2, 1]" :key="s" @click="filterByStar(s)" 
                             :title="filters.star === String(s) ? 'Bấm để hủy lọc mức ' + s + ' sao' : 'Bấm để lọc các đơn ' + s + ' sao'"
@@ -424,7 +383,6 @@
                             :class="filters.star === String(s) 
                                 ? 'bg-blue-50/90 dark:bg-blue-950/50 border border-blue-400 dark:border-blue-600 shadow-xs ring-1 ring-blue-400/30' 
                                 : 'border border-transparent hover:bg-slate-50 dark:hover:bg-[#19264c] hover:border-slate-200 dark:hover:border-[#23345e]'">
-                            
                             <div class="w-24 sm:w-28 flex items-center gap-1.5 flex-shrink-0">
                                 <span class="text-xs font-bold flex items-center gap-0.5" :class="s <= 2 ? 'text-rose-500' : 'text-amber-500'">
                                     {{ s }} ★
@@ -433,7 +391,6 @@
                                     {{ s === 5 ? 'Tuyệt vời' : s === 4 ? 'Hài lòng' : s === 3 ? 'Tạm ổn' : s === 2 ? 'Kém' : 'Rất tệ' }}
                                 </span>
                             </div>
-
                             <div class="flex-1 bg-slate-100 dark:bg-[#0b1329] h-2.5 rounded-full overflow-hidden">
                                 <div class="h-full rounded-full group-hover:brightness-105 transition-all duration-500" 
                                     :style="{ 
@@ -442,13 +399,11 @@
                                     }">
                                 </div>
                             </div>
-
                             <span class="text-xs font-bold w-12 text-right flex-shrink-0 font-mono" :class="s <= 2 ? 'text-rose-500' : 'text-slate-700 dark:text-slate-200'">{{ starPercentages[s] }}%</span>
                             <span class="text-[11px] text-slate-400 w-16 text-right flex-shrink-0 font-medium">{{ stats.starDistribution[s] || 0 }} đơn</span>
                         </div>
                     </div>
                 </div>
-
                 <div class="space-y-3 flex flex-col justify-between">
                     <div @click="filterNegative" class="group cursor-pointer bg-white dark:bg-[#131e3a] border border-rose-200 dark:border-rose-900/60 rounded-2xl p-4 shadow-xs hover:-translate-y-0.5 hover:shadow-md smooth-transition flex-1 flex flex-col justify-between" :class="filters.star === 'NEGATIVE' ? 'ring-2 ring-rose-500 bg-rose-50/30' : ''">
                         <div>
@@ -472,7 +427,6 @@
                             <span class="px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/40">Ưu tiên cao</span>
                         </div>
                     </div>
-
                     <div @click="filterStatus('HIDDEN')" class="group cursor-pointer bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-2xl p-4 shadow-xs hover:-translate-y-0.5 hover:shadow-md smooth-transition flex-1 flex flex-col justify-between" :class="filters.status === 'HIDDEN' ? 'ring-2 ring-slate-500 bg-slate-50/50' : ''">
                         <div>
                             <div class="flex items-center justify-between">
@@ -496,12 +450,9 @@
                         </div>
                     </div>
                 </div>
-
             </div>
-
             <div class="bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-2xl p-4 shadow-xs space-y-3 smooth-transition">
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2.5">
-                    
                     <div class="lg:col-span-4 relative">
                         <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
@@ -514,7 +465,6 @@
                             class="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-[#0b1329] border border-slate-200 dark:border-[#23345e] rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:bg-white dark:focus:bg-[#131e3a] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 smooth-transition"
                         />
                     </div>
-
                     <div class="lg:col-span-2">
                         <select 
                             v-model="filters.star" 
@@ -530,7 +480,6 @@
                             <option value="NEGATIVE">&le; 2 Sao (Tiêu cực)</option>
                         </select>
                     </div>
-
                     <div class="lg:col-span-3">
                         <input 
                             v-model="filters.courierCode" 
@@ -540,7 +489,6 @@
                             class="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-[#0b1329] border border-slate-200 dark:border-[#23345e] rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:bg-white dark:focus:bg-[#131e3a] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 smooth-transition"
                         />
                     </div>
-
                     <div class="lg:col-span-2">
                         <select 
                             v-model="filters.status" 
@@ -552,7 +500,6 @@
                             <option value="HIDDEN">Đã ẩn (Ẩn mềm)</option>
                         </select>
                     </div>
-
                     <div class="lg:col-span-1 flex items-center space-x-1">
                         <button 
                             @click="applyFilters"
@@ -563,7 +510,6 @@
                         </button>
                     </div>
                 </div>
-
                 <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-[#23345e] text-xs text-slate-500 dark:text-slate-400">
                     <div class="flex items-center gap-2">
                         <span>Kết quả tìm kiếm:</span>
@@ -585,7 +531,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-2xl shadow-xs overflow-hidden smooth-transition">
                 <div class="overflow-x-auto">
                     <table class="w-full min-w-[1100px] text-left border-collapse text-xs">
@@ -660,7 +605,6 @@
                                             <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                             <span>Chi tiết</span>
                                         </button>
-
                                         <template v-if="isAdmin">
                                             <button 
                                                 v-if="item.isHidden" 
@@ -698,7 +642,6 @@
                         </tbody>
                     </table>
                 </div>
-
                 <div class="p-3.5 sm:p-4 border-t border-slate-100 dark:border-[#23345e] bg-slate-50/50 dark:bg-[#0b1329]/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
                     <div class="flex items-center gap-2">
                         <span>Số dòng:</span>
@@ -723,13 +666,11 @@
                     </div>
                 </div>
             </div>
-
             <!-- Modal 1: Chi Tiết Đánh Giá -->
             <teleport to="body">
                 <Transition name="modal">
                     <div v-if="showDetailModal && selectedRating" @click.self="closeDetail" class="fixed inset-0 z-[100] bg-slate-900/60 dark:bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
                         <div class="bg-white dark:bg-[#131e3a] text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-[#23345e] rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto shadow-2xl flex flex-col">
-                            
                             <div class="p-5 border-b border-slate-100 dark:border-[#23345e] flex items-center justify-between sticky top-0 bg-white/95 dark:bg-[#131e3a]/95 backdrop-blur-md z-10">
                                 <div>
                                     <div class="flex items-center gap-2.5">
@@ -745,9 +686,7 @@
                                     &times;
                                 </button>
                             </div>
-
                             <div class="p-5 space-y-4 text-xs">
-                                
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-50 dark:bg-[#0b1329] border border-slate-200 dark:border-[#23345e] rounded-xl">
                                     <div>
                                         <span class="text-slate-500 dark:text-slate-400 text-[11px] uppercase tracking-wider block font-semibold">Khách Hàng Đánh Giá</span>
@@ -763,7 +702,6 @@
                                         <span class="font-bold text-sm text-slate-900 dark:text-slate-100 block mt-1">{{ selectedRating.courierCode || 'Chưa gán bưu tá' }}</span>
                                     </div>
                                 </div>
-
                                 <div class="grid grid-cols-2 gap-3">
                                     <div class="p-3 bg-slate-50 dark:bg-[#0b1329] border border-slate-200 dark:border-[#23345e] rounded-xl">
                                         <span class="text-slate-500 dark:text-slate-400 text-[11px] font-semibold uppercase tracking-wider block">Chất Lượng Vận Chuyển:</span>
@@ -780,7 +718,6 @@
                                         </div>
                                     </div>
                                 </div>
-
                                 <div>
                                     <span class="text-slate-600 dark:text-slate-400 font-bold block mb-1.5 uppercase text-[11px] tracking-wider">Tiêu Chí Khách Chọn:</span>
                                     <div class="flex flex-wrap gap-1.5">
@@ -790,14 +727,12 @@
                                         </span>
                                     </div>
                                 </div>
-
                                 <div>
                                     <span class="text-slate-600 dark:text-slate-400 font-bold block mb-1.5 uppercase text-[11px] tracking-wider">Bình Luận Khách Hàng:</span>
                                     <div class="p-3.5 bg-slate-50 dark:bg-[#0b1329] border border-slate-200 dark:border-[#23345e] rounded-xl text-xs leading-relaxed text-slate-800 dark:text-slate-200 font-medium">
                                         {{ selectedRating.comment || 'Khách hàng không để lại bình luận văn bản.' }}
                                     </div>
                                 </div>
-
                                 <div v-if="selectedRating.attachmentUrls && selectedRating.attachmentUrls.length">
                                     <span class="text-slate-600 dark:text-slate-400 font-bold block mb-1.5 uppercase text-[11px] tracking-wider">Hình Ảnh Đính Kèm:</span>
                                     <div class="flex items-center gap-3">
@@ -809,7 +744,6 @@
                                         </div>
                                     </div>
                                 </div>
-
                                 <div v-if="selectedRating.isHidden" class="p-3.5 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 rounded-xl space-y-1.5 text-rose-700 dark:text-rose-300">
                                     <div class="flex items-center gap-2 font-bold text-xs">
                                         <svg class="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
@@ -820,14 +754,11 @@
                                         <p><strong>Lý do kiểm duyệt:</strong> <span class="font-semibold">{{ selectedRating.hiddenReason || 'Chưa cung cấp' }}</span></p>
                                     </div>
                                 </div>
-
                             </div>
-
                             <div class="p-4 border-t border-slate-100 dark:border-[#23345e] bg-slate-50/70 dark:bg-[#0b1329]/70 flex items-center justify-between sticky bottom-0">
                                 <button @click="closeDetail" class="px-4 py-2 rounded-xl border border-slate-200 dark:border-[#23345e] text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-[#131e3a] smooth-transition">
                                     Đóng
                                 </button>
-
                                 <div v-if="isAdmin">
                                     <button v-if="selectedRating.isHidden" @click="unhideRating(selectedRating)" :disabled="isSaving" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs smooth-transition shadow-sm">
                                         Bỏ Ẩn Đánh Giá (Công khai lại)
@@ -844,13 +775,11 @@
                     </div>
                 </Transition>
             </teleport>
-
             <!-- Modal 2: Xác Nhận Ẩn Đánh Giá Vi Phạm -->
             <teleport to="body">
                 <Transition name="modal">
                     <div v-if="showHideModal" @click.self="closeHideDialog" class="fixed inset-0 z-[100] bg-slate-900/60 dark:bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
                         <div class="bg-white dark:bg-[#131e3a] text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-[#23345e] rounded-2xl w-full max-w-md shadow-2xl p-5 space-y-4">
-                            
                             <div class="flex items-start justify-between gap-3">
                                 <div class="flex items-start gap-3">
                                     <div class="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-600 flex items-center justify-center flex-shrink-0">
@@ -865,11 +794,9 @@
                                     &times;
                                 </button>
                             </div>
-
                             <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed bg-slate-50 dark:bg-[#0b1329] p-3 rounded-xl border border-slate-200 dark:border-[#23345e]">
                                 Đánh giá bị ẩn sẽ <strong>không hiển thị</strong> ở cổng tra cứu công khai và <strong>bị loại trừ khỏi điểm trung bình</strong> của bưu tá. Hệ thống ghi nhận lịch sử kiểm duyệt phục vụ đối soát.
                             </p>
-
                             <div class="space-y-2 text-xs">
                                 <label class="block font-bold text-slate-700 dark:text-slate-300">Lý do ẩn (Bắt buộc):</label>
                                 <select v-model="hideForm.presetReason" class="w-full px-3 py-2 bg-slate-50 dark:bg-[#0b1329] text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-[#23345e] rounded-xl focus:ring-2 focus:ring-rose-500 text-xs font-medium focus:outline-none">
@@ -881,7 +808,6 @@
                                 </select>
                                 <textarea v-if="hideForm.presetReason === 'OTHER'" v-model="hideForm.customReason" placeholder="Nhập chi tiết ghi chú kiểm duyệt cho ban điều phối..." class="w-full px-3 py-2 bg-slate-50 dark:bg-[#0b1329] text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-[#23345e] rounded-xl focus:ring-2 focus:ring-rose-500 text-xs h-16 resize-none focus:outline-none"></textarea>
                             </div>
-
                             <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-[#23345e]">
                                 <button @click="closeHideDialog" class="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-[#23345e] text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#19264c] smooth-transition">
                                     Hủy bỏ
@@ -894,7 +820,6 @@
                     </div>
                 </Transition>
             </teleport>
-
             <!-- Modal 3: Phóng To Ảnh Đính Kèm -->
             <teleport to="body">
                 <Transition name="modal">
@@ -903,10 +828,8 @@
                     </div>
                 </Transition>
             </teleport>
-
         </div>
         `
     };
-
     window.AdminRatingView = AdminRatingView;
 })();

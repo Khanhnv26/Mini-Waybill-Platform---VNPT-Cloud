@@ -1,7 +1,6 @@
 
 (function () {
     const { ref, computed, watch, onMounted, onUnmounted } = Vue;
-
     const errorConfigs = {
         404: {
             badgeText: 'Mã lỗi 404 • Không tìm thấy',
@@ -74,7 +73,6 @@
             hasCountdown: true
         }
     };
-
     const ErrorView = {
         name: 'ErrorView',
         props: {
@@ -97,16 +95,13 @@
             const initialTotalSeconds = ref(10);
             let countdownTimer = null;
             const isRetrying = ref(false);
-
             const activeConfig = computed(() => {
                 return errorConfigs[props.errorCode] || errorConfigs[404];
             });
-
             const progressPercentage = computed(() => {
                 if (initialTotalSeconds.value <= 0) return 0;
                 return Math.max(0, Math.min(100, (countdownSeconds.value / initialTotalSeconds.value) * 100));
             });
-
             const startCountdown = (seconds = 10) => {
                 initialTotalSeconds.value = seconds;
                 countdownSeconds.value = seconds;
@@ -119,12 +114,10 @@
                     }
                 }, 1000);
             };
-
             const cancelCountdown = () => {
                 clearInterval(countdownTimer);
                 countdownSeconds.value = 0;
             };
-
             const checkAndStartCountdown = () => {
                 clearInterval(countdownTimer);
                 if (activeConfig.value.hasCountdown) {
@@ -135,11 +128,9 @@
                     countdownSeconds.value = 0;
                 }
             };
-
             watch(() => props.errorCode, () => {
                 checkAndStartCountdown();
             });
-
             const handleAction = (actionKey) => {
                 if (actionKey === 'home' || actionKey === 'tracking') {
                     cancelCountdown();
@@ -182,15 +173,12 @@
                     }, 800);
                 }
             };
-
             onMounted(() => {
                 checkAndStartCountdown();
             });
-
             onUnmounted(() => {
                 clearInterval(countdownTimer);
             });
-
             return {
                 activeConfig,
                 countdownSeconds,
@@ -204,12 +192,9 @@
         template: `
             <div class="min-h-[520px] flex items-center justify-center p-4 sm:p-6">
                 <div class="max-w-xl w-full error-view-card rounded-2xl p-8 sm:p-10 text-center relative overflow-hidden backdrop-blur-sm">
-                    
                     <div :class="['error-aura-pulse absolute top-1/4 left-1/2 w-64 h-64 rounded-full blur-3xl pointer-events-none transition-all duration-500', activeConfig.glowClass]"></div>
-
                     <div class="relative mb-6 error-icon-float flex justify-center">
                         <div :class="['w-24 h-24 rounded-3xl border-2 flex items-center justify-center relative shadow-inner select-none', activeConfig.iconBoxClass]">
-                            
                             <template v-if="activeConfig.iconType === '404'">
                                 <svg class="w-12 h-12 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                                     <path class="text-blue-200/70" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M4 7l8-4 8 4v10l-8 4-8-4V7z"></path>
@@ -221,7 +206,6 @@
                                 </svg>
                                 <div class="absolute -top-2 -right-2 bg-blue-600 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-md shadow-blue-500/20">404</div>
                             </template>
-
                             <template v-else-if="activeConfig.iconType === '403'">
                                 <div class="anim-403-lock flex items-center justify-center">
                                     <svg class="w-12 h-12 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -233,7 +217,6 @@
                                 </div>
                                 <div class="absolute -top-2 -right-2 bg-rose-600 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-md shadow-rose-500/20 anim-403-badge">KHÓA</div>
                             </template>
-
                             <template v-else-if="activeConfig.iconType === '503'">
                                 <div class="relative w-12 h-12 flex items-center justify-center">
                                     <svg class="w-10 h-10 text-amber-600 anim-503-gear-main" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -247,7 +230,6 @@
                                 </div>
                                 <div class="absolute -top-2 -right-2 bg-amber-600 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-md shadow-amber-500/20">BẢO TRÌ</div>
                             </template>
-
                             <template v-else-if="activeConfig.iconType === '502'">
                                 <div class="anim-502-zap flex items-center justify-center">
                                     <svg class="w-12 h-12 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -256,7 +238,6 @@
                                 </div>
                                 <div class="absolute -top-2 -right-2 bg-orange-600 text-white text-[10px] font-extrabold px-2.5 py-0.5 rounded-full shadow-md shadow-orange-500/20">NGẮT</div>
                             </template>
-
                             <template v-else-if="activeConfig.iconType === '429'">
                                 <svg class="w-12 h-12 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                                     <circle cx="12" cy="12" r="9" stroke-width="1.8"></circle>
@@ -268,20 +249,16 @@
                             </template>
                         </div>
                     </div>
-
                     <div class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 mb-3.5">
                         <span class="status-dot" :class="activeConfig.dotClass || 'bg-rose-500'"></span>
                         <span>{{ activeConfig.badgeText }}</span>
                     </div>
-
                     <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 mb-3">
                         {{ customTitle || activeConfig.title }}
                     </h1>
-
                     <p class="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-md mx-auto mb-6 leading-relaxed">
                         {{ customMessage || activeConfig.desc }}
                     </p>
-
                     <div v-if="activeConfig.hasCountdown && countdownSeconds > 0" class="mb-6 px-4 py-3 rounded-2xl border border-amber-200 bg-amber-50/80 text-amber-900 text-xs font-medium max-w-sm mx-auto shadow-sm">
                         <div class="flex items-center justify-between space-x-2 mb-2">
                             <div class="flex items-center space-x-2">
@@ -300,7 +277,6 @@
                             ></div>
                         </div>
                     </div>
-
                     <div class="flex flex-wrap items-center justify-center gap-3 w-full max-w-md mx-auto">
                         <button 
                             v-for="(act, idx) in activeConfig.actions" 
@@ -316,7 +292,6 @@
                             <span>{{ act.text }}</span>
                         </button>
                     </div>
-
                     <div class="mt-8 pt-6 border-t border-slate-100 error-view-footer flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500 dark:text-slate-400">
                         <span class="flex items-center space-x-1.5">
                             <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -332,11 +307,9 @@
                             <span>Email: <strong class="font-bold text-slate-700 dark:text-slate-200">hotro@vnpt.vn</strong></span>
                         </span>
                     </div>
-
                 </div>
             </div>
         `
     };
-
     window.ErrorView = ErrorView;
 })();

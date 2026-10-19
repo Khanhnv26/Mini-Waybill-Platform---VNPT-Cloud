@@ -5,11 +5,9 @@
         <span class="font-mono text-[10px] text-slate-400">VERSION 2.6.0-ENTERPRISE-SIDEBAR</span>
     </footer>
     `;
-
     const InternalFooter = {
         name: 'InternalFooter',
         template
     };
-
     window.InternalFooter = InternalFooter;
 })();

@@ -1,10 +1,8 @@
 import { reactive } from 'vue';
-
 const isInitialDark = typeof window !== 'undefined' && (
     (localStorage.getItem('waybill_theme') || localStorage.getItem('theme')) === 'dark' || 
     (!(localStorage.getItem('waybill_theme') || localStorage.getItem('theme')) && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
 );
-
 const state = reactive({
     currentTab: 'tracking',
     previousTab: null,
@@ -25,14 +23,10 @@ const state = reactive({
         message: ''
     }
 });
-
 let toastTimer = null;
-
 let isThemeTransitioning = false;
-
 export const appStore = {
     state,
-
     get currentTab() { return state.currentTab; },
     get previousTab() { return state.previousTab; },
     get currentTrackingCode() { return state.currentTrackingCode; },
@@ -40,7 +34,6 @@ export const appStore = {
     get isDarkMode() { return state.isDarkMode; },
     get toast() { return state.toast; },
     get error() { return state.error; },
-
     setDarkMode(targetMode, origin) {
         const nextState = typeof targetMode === 'boolean' ? targetMode : !state.isDarkMode;
         if (state.isDarkMode === nextState) {
@@ -53,7 +46,6 @@ export const appStore = {
             }
             return state.isDarkMode;
         }
-
         const applyTheme = () => {
             state.isDarkMode = nextState;
             if (typeof window !== 'undefined') {
@@ -71,23 +63,19 @@ export const appStore = {
                 }));
             }
         };
-
         if (isThemeTransitioning) {
             applyTheme();
             return state.isDarkMode;
         }
-
-        // Haptic feedback (subtle vibration on mobile devices)
+        
         if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
             try { navigator.vibrate(20); } catch (_) {}
         }
-
-        // Check for reduced motion preference
+        
         const isReducedMotion = typeof window !== 'undefined' &&
             window.matchMedia &&
             window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-        // Circular Ripple View Transitions API (Chrome 111+, Edge 111+, Safari 18+)
+        
         if (typeof document !== 'undefined' && document.startViewTransition && !isReducedMotion) {
             try {
                 isThemeTransitioning = true;
@@ -97,11 +85,9 @@ export const appStore = {
                     Math.max(x, window.innerWidth - x),
                     Math.max(y, window.innerHeight - y)
                 );
-
                 const transition = document.startViewTransition(() => {
                     applyTheme();
                 });
-
                 if (transition.finished && typeof transition.finished.finally === 'function') {
                     transition.finished.finally(() => {
                         isThemeTransitioning = false;
@@ -109,7 +95,6 @@ export const appStore = {
                 } else {
                     setTimeout(() => { isThemeTransitioning = false; }, 450);
                 }
-
                 transition.ready.then(() => {
                     document.documentElement.animate(
                         {
@@ -127,7 +112,6 @@ export const appStore = {
                 }).catch(() => {
                     isThemeTransitioning = false;
                 });
-
                 return nextState;
             } catch (_) {
                 isThemeTransitioning = false;
@@ -135,8 +119,7 @@ export const appStore = {
                 return nextState;
             }
         }
-
-        // Fallback for browsers without View Transitions: Smooth CSS Cross-fade
+        
         if (typeof document !== 'undefined' && !isReducedMotion) {
             isThemeTransitioning = true;
             document.documentElement.classList.add('theme-transitioning');
@@ -148,17 +131,14 @@ export const appStore = {
         } else {
             applyTheme();
         }
-
         return state.isDarkMode;
     },
-
     toggleDarkMode(targetMode, origin) {
         if (typeof targetMode === 'boolean') {
             return this.setDarkMode(targetMode, origin);
         }
         return this.setDarkMode(!state.isDarkMode, origin);
     },
-
     switchTab(tabId) {
         if (tabId === state.currentTab) return;
         state.previousTab = state.currentTab;
@@ -167,11 +147,9 @@ export const appStore = {
             state.currentTrackingCode = '';
         }
     },
-
     setTrackingCode(code) {
         state.currentTrackingCode = code || '';
     },
-
     toggleSidebar() {
         state.isSidebarCollapsed = !state.isSidebarCollapsed;
         setTimeout(() => {
@@ -180,7 +158,6 @@ export const appStore = {
             }
         }, 300);
     },
-
     showToast(title, message, type = 'info', undoCallback = null) {
         if (toastTimer) clearTimeout(toastTimer);
         state.toast = {
@@ -195,12 +172,10 @@ export const appStore = {
             this.hideToast();
         }, 4000);
     },
-
     hideToast() {
         if (toastTimer) clearTimeout(toastTimer);
         state.toast.show = false;
     },
-
     showError(code = 404, title = '', message = '') {
         state.error = { code, title, message };
         this.switchTab('error');

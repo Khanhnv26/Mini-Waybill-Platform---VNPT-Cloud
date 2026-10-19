@@ -1,7 +1,6 @@
 
 (function () {
     const { ref, reactive, computed, watch, onMounted, onUnmounted } = Vue;
-
     const ShipmentView = {
         name: 'ShipmentView',
         components: {
@@ -13,15 +12,12 @@
         setup(props, { emit }) {
             const currentSubtab = ref('create');
             const isDockCollapsed = ref(false);
-
             const showThermalPrintModal = ref(false);
             const selectedShipmentForPrint = ref(null);
-
             const openThermalPrint = (shipment) => {
                 selectedShipmentForPrint.value = shipment;
                 showThermalPrintModal.value = true;
             };
-
             const handleSmartPasteParsed = (data) => {
                 if (!data) return;
                 if (data.name) form.receiverName = data.name;
@@ -29,10 +25,8 @@
                 if (data.province) form.receiverProvince = data.province;
                 if (data.detail) form.receiverDetail = data.detail;
             };
-
             const isSubmitting = ref(false);
             const hubsList = ref([]);
-
             const shipmentsList = ref([]);
             const isLoadingShipments = ref(false);
             const shipmentSearchQuery = ref('');
@@ -44,58 +38,46 @@
             const serverStats = ref({ total: 0, pending: 0, inTransit: 0, delivered: 0, totalCod: 0 });
             let shipmentRequestVersion = 0;
             let shipmentFilterTimer = null;
-
             const currentUser = typeof Auth !== 'undefined' ? Auth.getUser() : null;
-
             const hasReadAllPermission = computed(() => {
                 if (typeof Auth === 'undefined') return false;
                 return Auth.hasRole('ROLE_ADMIN') || Auth.hasRole('ROLE_CS') || Auth.hasPermission('shipment:read_all');
             });
-
             const isAdmin = computed(() => {
                 if (typeof Auth === 'undefined') return false;
                 return Auth.hasRole('ROLE_ADMIN');
             });
-
             const isCSStaff = computed(() => {
                 if (typeof Auth === 'undefined') return false;
                 return !isAdmin.value && Auth.hasRole('ROLE_CS');
             });
-
             const isPostOperator = computed(() => {
                 if (typeof Auth === 'undefined') return false;
                 return Auth.hasRole('ROLE_POST_OFFICE_OPERATOR');
             });
-
             const canCreateForOthers = computed(() => {
                 if (typeof Auth === 'undefined') return false;
                 return Auth.hasRole('ROLE_ADMIN') || Auth.hasRole('ROLE_CS') || Auth.hasRole('ROLE_POST_OFFICE_OPERATOR') || Auth.hasPermission('shipment:create_for_others');
             });
-
             const isShopOwner = computed(() => {
                 if (typeof Auth === 'undefined') return false;
                 return Auth.hasRole('ROLE_CUSTOMER') && !canCreateForOthers.value;
             });
-
             const senderMode = ref('RETAIL');
-
             const form = reactive({
                 customerId: null,
                 serviceType: 'EXPRESS',
                 weight: 1.0,
                 codAmount: 0,
-                
                 senderName: currentUser?.fullName || 'Waybill Platform',
                 senderPhone: '',
                 senderProvince: 'Hà Nội',
                 senderDetail: '',
-
                 receiverName: '',
                 receiverPhone: '',
                 receiverProvince: 'Hồ Chí Minh',
                 receiverDetail: ''
             });
-
             const VIETNAM_HUB_ROUTING_MAP = [
                 { hub: 'Hải Phòng', keywords: ['hải phòng', 'hai phong', 'quảng ninh', 'quang ninh'] },
                 { hub: 'Cần Thơ', keywords: [
@@ -134,7 +116,6 @@
                     'hòa bình', 'hoa binh'
                 ]}
             ];
-
             const detectHubProvince = (item, defaultProvince = 'Hà Nội') => {
                 if (!item) return defaultProvince;
                 const addr = item.address || {};
@@ -147,7 +128,6 @@
                     addr.suburb || '',
                     item.display_name || ''
                 ].join(' ').toLowerCase();
-
                 for (const region of VIETNAM_HUB_ROUTING_MAP) {
                     for (const kw of region.keywords) {
                         if (textToMatch.includes(kw)) {
@@ -157,7 +137,6 @@
                 }
                 return defaultProvince;
             };
-
             const normalizeSearchText = (str) => {
                 if (!str) return '';
                 return String(str)
@@ -169,9 +148,7 @@
                     .replace(/\s+/g, ' ')
                     .trim();
             };
-
             const VIETNAM_DIGITAL_MAP_GAZETTEER = [
-                // Hà Nội - Cầu Giấy
                 { display_name: 'Số 165 Cầu Giấy, Phường Dịch Vọng, Quận Cầu Giấy, Hà Nội', lat: '21.0362', lon: '105.7906', province: 'Hà Nội', postOfficeCode: 'POST-HN-CG', postOfficeName: 'Bưu Cục Cầu Giấy' },
                 { display_name: 'Phố Duy Tân, Phường Dịch Vọng Hậu, Quận Cầu Giấy, Hà Nội', lat: '21.0308', lon: '105.7829', province: 'Hà Nội', postOfficeCode: 'POST-HN-CG', postOfficeName: 'Bưu Cục Cầu Giấy' },
                 { display_name: 'Số 144 Xuân Thủy, Phường Dịch Vọng Hậu, Quận Cầu Giấy, Hà Nội', lat: '21.0368', lon: '105.7821', province: 'Hà Nội', postOfficeCode: 'POST-HN-CG', postOfficeName: 'Bưu Cục Cầu Giấy' },
@@ -180,7 +157,6 @@
                 { display_name: 'Đường Hoàng Quốc Việt, Phường Nghĩa Đô, Quận Cầu Giấy, Hà Nội', lat: '21.0461', lon: '105.7952', province: 'Hà Nội', postOfficeCode: 'POST-HN-CG', postOfficeName: 'Bưu Cục Cầu Giấy' },
                 { display_name: 'Phường Mai Dịch, Quận Cầu Giấy, Hà Nội', lat: '21.0412', lon: '105.7764', province: 'Hà Nội', postOfficeCode: 'POST-HN-CG', postOfficeName: 'Bưu Cục Cầu Giấy' },
                 { display_name: 'Phường Yên Hòa, Quận Cầu Giấy, Hà Nội', lat: '21.0225', lon: '105.7914', province: 'Hà Nội', postOfficeCode: 'POST-HN-CG', postOfficeName: 'Bưu Cục Cầu Giấy' },
-                // Hà Nội - Các quận trọng điểm
                 { display_name: 'Số 57 Huỳnh Thúc Kháng, Phường Láng Hạ, Quận Đống Đa, Hà Nội', lat: '21.0168', lon: '105.8115', province: 'Hà Nội', postOfficeCode: 'POST-HN-DDA', postOfficeName: 'Bưu Cục Đống Đa' },
                 { display_name: 'Số 36 Tây Sơn, Phường Quang Trung, Quận Đống Đa, Hà Nội', lat: '21.0181', lon: '105.8299', province: 'Hà Nội', postOfficeCode: 'POST-HN-DDA', postOfficeName: 'Bưu Cục Đống Đa' },
                 { display_name: 'Số 236 Lạc Trung, Phường Vĩnh Tuy, Quận Hai Bà Trưng, Hà Nội', lat: '21.0069', lon: '105.8524', province: 'Hà Nội', postOfficeCode: 'POST-HN-HBT', postOfficeName: 'Bưu Cục Hai Bà Trưng' },
@@ -193,7 +169,6 @@
                 { display_name: 'KCN Minh Khai, Phường Minh Khai, Quận Bắc Từ Liêm, Hà Nội', lat: '21.0521', lon: '105.7482', province: 'Hà Nội', postOfficeCode: 'HUB-HN-01', postOfficeName: 'Kho Tổng Hà Nội' },
                 { display_name: 'Đường Nguyễn Văn Cừ, Phường Ngọc Lâm, Quận Long Biên, Hà Nội', lat: '21.0456', lon: '105.8752', province: 'Hà Nội', postOfficeCode: 'POST-HN-HBT', postOfficeName: 'Bưu Cục Long Biên' },
                 { display_name: 'Đường Giải Phóng, Phường Giáp Bát, Quận Hoàng Mai, Hà Nội', lat: '20.9815', lon: '105.8416', province: 'Hà Nội', postOfficeCode: 'POST-HN-TX', postOfficeName: 'Bưu Cục Hoàng Mai' },
-                // TP. Hồ Chí Minh
                 { display_name: 'Số 2 Công Xã Paris, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh', lat: '10.7798', lon: '106.6990', province: 'Hồ Chí Minh', postOfficeCode: 'POST-HCM-Q1', postOfficeName: 'Bưu Cục Bến Nghé (Quận 1)' },
                 { display_name: 'Số 121 Pasteur, Phường Võ Thị Sáu, Quận 3, TP. Hồ Chí Minh', lat: '10.7815', lon: '106.6928', province: 'Hồ Chí Minh', postOfficeCode: 'POST-HCM-Q1', postOfficeName: 'Bưu Cục Quận 3' },
                 { display_name: 'Số 288 Hoàng Văn Thụ, Phường 4, Quận Tân Bình, TP. Hồ Chí Minh', lat: '10.7992', lon: '106.6534', province: 'Hồ Chí Minh', postOfficeCode: 'POST-HCM-TB', postOfficeName: 'Bưu Cục Tân Bình' },
@@ -203,26 +178,21 @@
                 { display_name: 'Số 1441 Huỳnh Tấn Phát, Phường Phú Mỹ, Quận 7, TP. Hồ Chí Minh', lat: '10.7324', lon: '106.7082', province: 'Hồ Chí Minh', postOfficeCode: 'POST-HCM-Q7', postOfficeName: 'Bưu Cục Tân Phong (Quận 7)' },
                 { display_name: 'Đường Quang Trung, Phường 10, Quận Gò Vấp, TP. Hồ Chí Minh', lat: '10.8326', lon: '106.6654', province: 'Hồ Chí Minh', postOfficeCode: 'POST-HCM-TB', postOfficeName: 'Bưu Cục Gò Vấp' },
                 { display_name: 'Đường Ba Tháng Hai, Phường 12, Quận 10, TP. Hồ Chí Minh', lat: '10.7712', lon: '106.6698', province: 'Hồ Chí Minh', postOfficeCode: 'POST-HCM-Q1', postOfficeName: 'Bưu Cục Quận 10' },
-                // Đà Nẵng
                 { display_name: 'Số 4 Lê Duẩn, Phường Hải Châu 1, Quận Hải Châu, Đà Nẵng', lat: '16.0678', lon: '108.2208', province: 'Đà Nẵng', postOfficeCode: 'POST-DN-HC', postOfficeName: 'Bưu Cục Hải Châu' },
                 { display_name: 'Số 251 Điện Biên Phủ, Phường Chính Gián, Quận Thanh Khê, Đà Nẵng', lat: '16.0613', lon: '108.1812', province: 'Đà Nẵng', postOfficeCode: 'POST-DN-TK', postOfficeName: 'Bưu Cục Thanh Khê' },
                 { display_name: 'Số 1 Ngô Quyền, Phường Thọ Quang, Quận Sơn Trà, Đà Nẵng', lat: '16.0825', lon: '108.2431', province: 'Đà Nẵng', postOfficeCode: 'POST-DN-ST', postOfficeName: 'Bưu Cục Sơn Trà' },
                 { display_name: 'KCN Hòa Khánh, Phường Hòa Khánh Bắc, Quận Liên Chiểu, Đà Nẵng', lat: '16.0544', lon: '108.2022', province: 'Đà Nẵng', postOfficeCode: 'HUB-DN-01', postOfficeName: 'Kho Tổng Đà Nẵng' },
-                // Hải Phòng
                 { display_name: 'Số 147 Lương Khánh Thiện, Phường Cầu Đất, Quận Ngô Quyền, Hải Phòng', lat: '20.8561', lon: '106.6997', province: 'Hải Phòng', postOfficeCode: 'POST-HP-NQ', postOfficeName: 'Bưu Cục Ngô Quyền' },
                 { display_name: 'Số 5 Nguyễn Tri Phương, Phường Minh Khai, Quận Hồng Bàng, Hải Phòng', lat: '20.8653', lon: '106.6712', province: 'Hải Phòng', postOfficeCode: 'POST-HP-HB', postOfficeName: 'Bưu Cục Hồng Bàng' },
                 { display_name: 'Số 5 Lê Hồng Phong, Phường Đằng Lâm, Quận Hải An, Hải Phòng', lat: '20.8449', lon: '106.6881', province: 'Hải Phòng', postOfficeCode: 'HUB-HP-01', postOfficeName: 'Kho Tổng Hải Phòng' },
-                // Cần Thơ
                 { display_name: 'Số 2 Đại lộ Hòa Bình, Phường Tân An, Quận Ninh Kiều, Cần Thơ', lat: '10.0342', lon: '105.7797', province: 'Cần Thơ', postOfficeCode: 'POST-CT-NK', postOfficeName: 'Bưu Cục Ninh Kiều' },
                 { display_name: 'Số 321 Quốc Lộ 1A, Phường Lê Bình, Quận Cái Răng, Cần Thơ', lat: '10.0039', lon: '105.7533', province: 'Cần Thơ', postOfficeCode: 'POST-CT-CR', postOfficeName: 'Bưu Cục Cái Răng' }
             ];
-
             const searchLocalGazetteer = (rawQuery, preferredProvince = '') => {
                 const qNorm = normalizeSearchText(rawQuery);
                 if (!qNorm) return [];
                 const tokens = qNorm.split(' ').filter(Boolean);
-
-                // Combine static gazetteer with any runtime stations from MapManager
+                
                 const pool = [...VIETNAM_DIGITAL_MAP_GAZETTEER];
                 if (typeof window !== 'undefined' && window.MapManager?.hubCoordinates) {
                     for (const [code, h] of Object.entries(window.MapManager.hubCoordinates)) {
@@ -241,7 +211,6 @@
                         }
                     }
                 }
-
                 const scored = [];
                 for (const entry of pool) {
                     const haystack = normalizeSearchText(`${entry.display_name} ${entry.postOfficeName || ''} ${entry.postOfficeCode || ''} ${entry.province || ''}`);
@@ -262,12 +231,9 @@
                         scored.push({ entry, score });
                     }
                 }
-
                 scored.sort((a, b) => b.score - a.score);
                 const results = scored.slice(0, 6).map(s => s.entry);
-
-                // Nếu người dùng nhập địa chỉ số nhà cụ thể (VD: "120 Cầu Giấy") chưa có nguyên văn trong danh bạ,
-                // tạo thêm 1 gợi ý khớp chính xác số nhà + khu vực đã nhận diện
+                
                 if (results.length > 0 && rawQuery.trim().length >= 4) {
                     const top = results[0];
                     const rawLower = normalizeSearchText(rawQuery);
@@ -288,10 +254,8 @@
                         }
                     }
                 }
-
                 return results.slice(0, 6);
             };
-
             const fetchNominatimWithTimeout = async (q) => {
                 const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
                 const timer = controller ? setTimeout(() => controller.abort(), 2200) : null;
@@ -306,13 +270,11 @@
                         return Array.isArray(data) ? data : [];
                     }
                 } catch (_) {
-                    // Fallback gracefully to local gazetteer when offline or rate-limited
                 } finally {
                     if (timer) clearTimeout(timer);
                 }
                 return [];
             };
-
             const mergeAddressResults = (localResults, remoteResults) => {
                 const merged = [...localResults];
                 const seen = new Set(localResults.map(x => normalizeSearchText(x.display_name)));
@@ -326,7 +288,6 @@
                 }
                 return merged;
             };
-
             const receiverAddressQuery = ref('');
             const addressSuggestions = ref([]);
             const isSearchingAddress = ref(false);
@@ -334,7 +295,6 @@
             const verifiedAddress = ref(null);
             const manualReceiverProvinceMode = ref(false);
             let addressSearchTimeout = null;
-
             const onAddressInput = () => {
                 if (addressSearchTimeout) clearTimeout(addressSearchTimeout);
                 const q = receiverAddressQuery.value.trim();
@@ -344,13 +304,11 @@
                     isSearchingAddress.value = false;
                     return;
                 }
-                // 1. Phản hồi tức thì từ Bản Đồ Số Nội Địa (0ms)
                 const localMatches = searchLocalGazetteer(q, form.receiverProvince);
                 if (localMatches.length > 0) {
                     addressSuggestions.value = localMatches;
                     showAddressDropdown.value = true;
                 }
-                // 2. Bổ sung dữ liệu OpenStreetMap nếu khả dụng
                 isSearchingAddress.value = true;
                 addressSearchTimeout = setTimeout(async () => {
                     try {
@@ -362,7 +320,6 @@
                     }
                 }, 280);
             };
-
             const selectAddressSuggestion = (item) => {
                 if (!item) return;
                 verifiedAddress.value = {
@@ -375,16 +332,13 @@
                 receiverAddressQuery.value = item.display_name;
                 showAddressDropdown.value = false;
                 manualReceiverProvinceMode.value = false;
-
                 form.receiverProvince = item.province || detectHubProvince(item, form.receiverProvince || 'Hồ Chí Minh');
-
                 let detail = item.display_name;
                 const parts = detail.split(',').map(p => p.trim());
                 const filteredParts = parts.filter(p => !p.toLowerCase().includes('việt nam') && !/^\d{5,6}$/.test(p));
                 form.receiverDetail = filteredParts.join(', ');
                 Utils.showToast('Định Vị Thành Công', `Đã xác thực địa chỉ nhận: ${form.receiverProvince}`, 'success');
             };
-
             const clearVerifiedAddress = () => {
                 verifiedAddress.value = null;
                 receiverAddressQuery.value = '';
@@ -392,7 +346,6 @@
                 showAddressDropdown.value = false;
                 manualReceiverProvinceMode.value = false;
             };
-
             const senderAddressQuery = ref('');
             const senderAddressSuggestions = ref([]);
             const isSearchingSenderAddress = ref(false);
@@ -400,7 +353,6 @@
             const verifiedSenderAddress = ref(null);
             const manualSenderProvinceMode = ref(false);
             let senderAddressSearchTimeout = null;
-
             const onSenderAddressInput = () => {
                 if (senderAddressSearchTimeout) clearTimeout(senderAddressSearchTimeout);
                 const q = senderAddressQuery.value.trim();
@@ -410,13 +362,11 @@
                     isSearchingSenderAddress.value = false;
                     return;
                 }
-                // 1. Phản hồi tức thì từ Bản Đồ Số Nội Địa (0ms)
                 const localMatches = searchLocalGazetteer(q, form.senderProvince);
                 if (localMatches.length > 0) {
                     senderAddressSuggestions.value = localMatches;
                     showSenderAddressDropdown.value = true;
                 }
-                // 2. Bổ sung dữ liệu OpenStreetMap nếu khả dụng
                 isSearchingSenderAddress.value = true;
                 senderAddressSearchTimeout = setTimeout(async () => {
                     try {
@@ -428,7 +378,6 @@
                     }
                 }, 280);
             };
-
             const selectSenderAddressSuggestion = (item) => {
                 if (!item) return;
                 verifiedSenderAddress.value = {
@@ -441,16 +390,13 @@
                 senderAddressQuery.value = item.display_name;
                 showSenderAddressDropdown.value = false;
                 manualSenderProvinceMode.value = false;
-
                 form.senderProvince = item.province || detectHubProvince(item, form.senderProvince || 'Hà Nội');
-
                 let detail = item.display_name;
                 const parts = detail.split(',').map(p => p.trim());
                 const filteredParts = parts.filter(p => !p.toLowerCase().includes('việt nam') && !/^\d{5,6}$/.test(p));
                 form.senderDetail = filteredParts.join(', ');
                 Utils.showToast('Định Vị Thành Công', `Đã xác thực địa chỉ gửi: ${form.senderProvince}`, 'success');
             };
-
             const clearVerifiedSenderAddress = () => {
                 verifiedSenderAddress.value = null;
                 senderAddressQuery.value = '';
@@ -458,7 +404,6 @@
                 showSenderAddressDropdown.value = false;
                 manualSenderProvinceMode.value = false;
             };
-
             const myProfile = ref(null);
             const isLoadingProfile = ref(false);
             const showProfileModal = ref(false);
@@ -468,10 +413,8 @@
                 phoneNumber: '',
                 address: ''
             });
-
             const customersList = ref([]);
             const selectedCustomerFilter = ref('');
-
             const loadCustomersList = async () => {
                 if (canCreateForOthers.value || hasReadAllPermission.value) {
                     try {
@@ -482,7 +425,6 @@
                     }
                 }
             };
-
             const setSenderMode = (mode) => {
                 senderMode.value = mode;
                 if (mode === 'RETAIL') {
@@ -499,11 +441,9 @@
                     }
                 }
             };
-
             const loadMyProfile = async () => {
                 if (typeof Auth === 'undefined' || !Auth.isAuthenticated()) return;
                     if (!Auth.hasRole('ROLE_CUSTOMER')) return;
-
                 isLoadingProfile.value = true;
                 try {
                     const prof = await CustomerService.getMyProfile();
@@ -512,7 +452,6 @@
                         profileForm.fullName = prof.fullName || '';
                         profileForm.phoneNumber = prof.phoneNumber || '';
                         profileForm.address = prof.address || '';
-
                                     if (isShopOwner.value) {
                             if (prof.fullName) form.senderName = prof.fullName;
                             if (prof.phoneNumber) form.senderPhone = prof.phoneNumber;
@@ -536,7 +475,6 @@
                     isLoadingProfile.value = false;
                 }
             };
-
             const handleUpdateProfile = async () => {
                 if (!profileForm.fullName || !profileForm.phoneNumber || !profileForm.address) {
                     Utils.showToast('Thiếu Thông Tin', 'Vui lòng điền đủ họ tên, SĐT và địa chỉ', 'warning');
@@ -561,7 +499,6 @@
                     isSavingProfile.value = false;
                 }
             };
-
             const onCustomerSelectChange = (event) => {
                 const custVal = event?.target?.value;
                 if (!custVal) return;
@@ -583,7 +520,6 @@
                     }
                 }
             };
-
             watch(() => props.customerPrefill, (cust) => {
                 if (cust) {
                     if (cust.status && cust.status !== 'ACTIVE') {
@@ -608,7 +544,6 @@
                     Utils.showToast('Đã Điền Dữ Liệu', `Đã gắn thông tin đối tác ${cust.fullName} vào đơn gửi`);
                 }
             }, { immediate: true });
-
             watch(() => props.tariffPrefill, (tariff) => {
                 if (tariff) {
                     if (tariff.senderProvince) form.senderProvince = tariff.senderProvince;
@@ -620,7 +555,6 @@
                     if (tariff.serviceType) form.serviceType = tariff.serviceType;
                 }
             }, { immediate: true });
-
             const standardHubInfo = {
                 'HUB-HN-01': { hubName: 'Kho Tổng Hà Nội', province: 'Hà Nội' },
                 'HUB-HP-01': { hubName: 'Kho Tổng Hải Phòng', province: 'Hải Phòng' },
@@ -628,7 +562,6 @@
                 'HUB-HCM-01': { hubName: 'Kho Tổng TP. Hồ Chí Minh', province: 'Hồ Chí Minh' },
                 'HUB-CT-01': { hubName: 'Kho Tổng Cần Thơ', province: 'Cần Thơ' }
             };
-
             const loadHubs = async () => {
                 try {
                     const hubs = await RoutingService.getAllHubs();
@@ -653,7 +586,6 @@
                             { id: 5, hubCode: 'HUB-CT-01', hubName: 'Kho Tổng Cần Thơ', province: 'Cần Thơ', latitude: 10.045162, longitude: 105.746857 }
                         ];
                     }
-
                     hubsList.value = list;
                     if (list.length >= 2) {
                         if (!form.senderProvince) form.senderProvince = list[0].province;
@@ -667,21 +599,17 @@
                     Utils.showToast('Cảnh Báo', 'Không tải được danh bạ bưu cục từ máy chủ', 'warning');
                 }
             };
-
             const paidTrackingCodes = ref(new Set());
-
             const markShipmentAsPaid = (trackingCode) => {
                 if (!trackingCode) return;
                 const nextSet = new Set(paidTrackingCodes.value);
                 nextSet.add(trackingCode);
                 paidTrackingCodes.value = nextSet;
             };
-
             const isShipmentPaid = (shipment) => {
                 if (!shipment || !shipment.trackingCode) return false;
                 return paidTrackingCodes.value.has(shipment.trackingCode);
             };
-
             const loadShipments = async () => {
                 const requestVersion = ++shipmentRequestVersion;
                 isLoadingShipments.value = true;
@@ -714,24 +642,20 @@
                     if (requestVersion === shipmentRequestVersion) isLoadingShipments.value = false;
                 }
             };
-
             const showCancelModal = ref(false);
             const selectedShipmentToCancel = ref(null);
             const isCancellingShipment = ref(false);
             const cancelReasonCode = ref('CHANGE_MIND');
             const cancelReasonNote = ref('');
-
-            // --- RETURN & FAILURE DECISIONS STATE & LOGIC ---
+            
             const pendingDecisions = ref([]);
             const isLoadingDecisions = ref(false);
             const returnRequestsList = ref([]);
             const isLoadingReturns = ref(false);
             const nowTime = ref(Date.now());
             let decisionCountdownTimer = null;
-
             const selectedReturnStatusFilter = ref('ALL');
             const returnSearchQuery = ref('');
-
             const loadPendingDecisions = async () => {
                 isLoadingDecisions.value = true;
                 try {
@@ -743,7 +667,6 @@
                     isLoadingDecisions.value = false;
                 }
             };
-
             const loadReturnRequests = async () => {
                 isLoadingReturns.value = true;
                 try {
@@ -755,7 +678,6 @@
                     isLoadingReturns.value = false;
                 }
             };
-
             const canCancelShipment = (s) => {
                 if (!s) return false;
                 const status = s.currentStatus || s.status;
@@ -764,7 +686,6 @@
                 }
                 return ['CREATED', 'PENDING_ROUTING', 'ROUTE_ASSIGNED'].includes(status);
             };
-
             const canRequestReturn = (s) => {
                 if (!s) return false;
                 const status = s.currentStatus || s.status;
@@ -778,7 +699,6 @@
                 if (existing && existing.status !== 'CANCELLED') return false;
                 return true;
             };
-
             const formatRemainingTime = (deadline) => {
                 if (!deadline) return '24:00:00';
                 const target = new Date(deadline).getTime();
@@ -789,29 +709,25 @@
                 const s = diff % 60;
                 return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
             };
-
             const isDecisionUrgent = (deadline) => {
                 if (!deadline) return false;
                 const target = new Date(deadline).getTime();
                 const diff = Math.floor((target - nowTime.value) / 1000);
                 return diff > 0 && diff < 7200;
             };
-
-            // 3-step Return Modal state
+            
             const showReturnModal = ref(false);
             const returnModalStep = ref(1);
             const selectedShipmentForReturn = ref(null);
             const isReturnSubmitting = ref(false);
             const returnQuoteData = ref(null);
             const isLoadingReturnQuote = ref(false);
-
             const returnForm = reactive({
                 reason: 'CUSTOMER_REQUEST',
                 notes: '',
                 returnMode: 'DOORSTEP',
                 feePaymentStatus: 'PAY_ON_RECEIPT'
             });
-
             const openReturnModal = async (s) => {
                 selectedShipmentForReturn.value = s;
                 returnModalStep.value = 1;
@@ -821,7 +737,6 @@
                 returnForm.feePaymentStatus = 'PAY_ON_RECEIPT';
                 returnQuoteData.value = null;
                 showReturnModal.value = true;
-
                 try {
                     isLoadingReturnQuote.value = true;
                     const quote = await ShipmentService.getReturnQuote(s.trackingCode);
@@ -832,7 +747,6 @@
                     isLoadingReturnQuote.value = false;
                 }
             };
-
             const confirmReturnRequest = async () => {
                 if (!selectedShipmentForReturn.value) return;
                 isReturnSubmitting.value = true;
@@ -849,11 +763,9 @@
                     const res = await ShipmentService.createReturnRequest(code, payload);
                     Utils.showToast('Yêu Cầu Hoàn Thành Công', `Vận đơn ${code} đã được chuyển sang trạng thái Đang Chuyển Hoàn (RETURNING).`, 'success');
                     showReturnModal.value = false;
-
                     if (returnForm.feePaymentStatus === 'PREPAID' && res.returnFee > 0) {
                         openReturnCheckout(res);
                     }
-
                     await loadShipments();
                     await loadReturnRequests();
                     await loadPendingDecisions();
@@ -863,8 +775,7 @@
                     isReturnSubmitting.value = false;
                 }
             };
-
-            // Update Info Modal (Failure Decision)
+            
             const showUpdateInfoModal = ref(false);
             const selectedDecisionForUpdate = ref(null);
             const isSubmittingUpdateInfo = ref(false);
@@ -873,7 +784,6 @@
                 newReceiverAddress: '',
                 notes: ''
             });
-
             const openUpdateInfoModal = (decision) => {
                 selectedDecisionForUpdate.value = decision;
                 const currentShipment = decision.shipment || shipmentsList.value.find(s => s.trackingCode === decision.trackingCode);
@@ -882,7 +792,6 @@
                 updateInfoForm.notes = '';
                 showUpdateInfoModal.value = true;
             };
-
             const confirmUpdateInfo = async () => {
                 if (!selectedDecisionForUpdate.value) return;
                 const code = selectedDecisionForUpdate.value.trackingCode;
@@ -904,8 +813,7 @@
                     isSubmittingUpdateInfo.value = false;
                 }
             };
-
-            // Redeliver Action (Failure Decision)
+            
             const handleFailureRedeliver = async (decision) => {
                 const code = decision.trackingCode;
                 try {
@@ -920,24 +828,20 @@
                     Utils.showToast('Lỗi Xử Lý', err.message || 'Không thể gửi yêu cầu giao lại', 'error');
                 }
             };
-
             const handleFailureReturn = (decision) => {
                 const s = decision.shipment || shipmentsList.value.find(item => item.trackingCode === decision.trackingCode) || { trackingCode: decision.trackingCode };
                 openReturnModal(s);
             };
-
-            // Postal Fault Modal (CS/Admin)
+            
             const showPostalFaultModal = ref(false);
             const selectedReturnForPostalFault = ref(null);
             const postalFaultReason = ref('Lỗi chuyển phát trễ hạn / định tuyến sai bởi bưu chính');
             const isSubmittingPostalFault = ref(false);
-
             const openPostalFaultModal = (returnReq) => {
                 selectedReturnForPostalFault.value = returnReq;
                 postalFaultReason.value = 'Lỗi chuyển phát trễ hạn / định tuyến sai bởi bưu chính';
                 showPostalFaultModal.value = true;
             };
-
             const confirmPostalFault = async () => {
                 if (!selectedReturnForPostalFault.value) return;
                 const code = selectedReturnForPostalFault.value.trackingCode;
@@ -957,8 +861,7 @@
                     isSubmittingPostalFault.value = false;
                 }
             };
-
-            // Return KPIs & Filtering
+            
             const returnKpis = computed(() => {
                 const list = returnRequestsList.value || [];
                 const shipList = shipmentsList.value || [];
@@ -968,7 +871,6 @@
                 const returnedCount = shipList.filter(s => s.currentStatus === 'RETURNED').length;
                 return { returningCount, counterPickupCount, outForReturnCount, returnedCount };
             });
-
             const filteredReturnRequests = computed(() => {
                 let list = returnRequestsList.value || [];
                 if (selectedReturnStatusFilter.value && selectedReturnStatusFilter.value !== 'ALL') {
@@ -986,7 +888,6 @@
                 }
                 return list;
             });
-
             const openReturnCheckout = (returnReq) => {
                 const shipment = shipmentsList.value.find(s => s.trackingCode === returnReq.trackingCode) || {
                     trackingCode: returnReq.trackingCode,
@@ -1000,14 +901,12 @@
                     _isReturnFee: true
                 });
             };
-
             const openCancelModal = (s) => {
                 selectedShipmentToCancel.value = s;
                 cancelReasonCode.value = 'CHANGE_MIND';
                 cancelReasonNote.value = '';
                 showCancelModal.value = true;
             };
-
             const confirmCancelShipment = async () => {
                 if (!selectedShipmentToCancel.value) return;
                 isCancellingShipment.value = true;
@@ -1026,7 +925,6 @@
                     isCancellingShipment.value = false;
                 }
             };
-
             const switchSubtab = (tab) => {
                 currentSubtab.value = tab;
                 if (tab === 'list') {
@@ -1039,19 +937,16 @@
                     loadShipments();
                 }
             };
-
             const filteredShipments = computed(() => shipmentsList.value || []);
             const paginatedShipments = computed(() => shipmentsList.value || []);
             const totalPages = computed(() => serverTotalPages.value);
             const stats = computed(() => serverStats.value);
-
             watch([selectedStatusFilter, shipmentSearchQuery, selectedCustomerFilter, itemsPerPage], () => {
                 clearTimeout(shipmentFilterTimer);
                 currentPage.value = 1;
                 shipmentFilterTimer = setTimeout(() => { shipmentFilterTimer = null; loadShipments(); }, 300);
             });
             watch(currentPage, () => { if (!shipmentFilterTimer) loadShipments(); });
-
             const baseFee = computed(() => {
                 const w = Math.max(0.1, Number(form.weight) || 1);
                 const extraKg = Math.max(0, w - 0.5);
@@ -1064,21 +959,17 @@
                 }
                 return Math.round((isIntra ? 20000 : 30000) + extraKg * (isIntra ? 7000 : 13000));
             });
-
             const codFee = computed(() => {
                 const cod = Number(form.codAmount) || 0;
                 if (cod <= 0) return 0;
                 return Math.max(10000, Math.round(cod * 0.01));
             });
-
             const fuelSurcharge = computed(() => {
                 return Math.round(baseFee.value * 0.06);
             });
-
             const totalEstimatedFee = computed(() => {
                 return baseFee.value + codFee.value + fuelSurcharge.value;
             });
-
             const senderHubName = computed(() => {
                 const h = hubsList.value.find(x => x.province === form.senderProvince);
                 if (h) {
@@ -1087,7 +978,6 @@
                 }
                 return `Kho Tiếp Nhận ${form.senderProvince || 'Hà Nội'}`;
             });
-
             const receiverHubName = computed(() => {
                 const h = hubsList.value.find(x => x.province === form.receiverProvince);
                 if (h) {
@@ -1107,7 +997,6 @@
                 if (form.senderProvince === 'Đà Nẵng') return { code: 'POST-DN-HC', name: 'Bưu Cục Hải Châu' };
                 return { code: 'POST-GD', name: `Bưu Cục Giao Dịch ${form.senderProvince || ''}` };
             });
-
             const receiverPostOfficeInfo = computed(() => {
                 const fullAddr = `${form.receiverDetail || ''}, ${form.receiverProvince || ''}`;
                 if (window.MapManager?.getPostOfficeForAddress) {
@@ -1119,7 +1008,6 @@
                 if (form.receiverProvince === 'Hà Nội') return { code: 'POST-HN-CG', name: 'Bưu Cục Cầu Giấy' };
                 return { code: 'POST-PHAT', name: `Bưu Cục Phát ${form.receiverProvince || ''}` };
             });
-
             const resetForm = () => {
                 form.serviceType = 'EXPRESS';
                 form.weight = 1.0;
@@ -1131,19 +1019,15 @@
                 clearVerifiedSenderAddress();
                 Utils.showToast('Làm Mới', 'Đã đặt lại biểu mẫu tạo vận đơn');
             };
-
             const setWeight = (val) => {
                 form.weight = Number(val);
             };
-
             const setCodAmount = (val) => {
                 form.codAmount = Number(val);
             };
-
             const setServiceType = (val) => {
                 form.serviceType = val;
             };
-
             const handleSubmit = async () => {
                 if (canCreateForOthers.value) {
                     if (senderMode.value === 'B2B' && !form.customerId) {
@@ -1151,7 +1035,6 @@
                         return;
                     }
                     if (senderMode.value === 'RETAIL') {
-                        // Khách vãng lai: backend sẽ tự động gán CUS_RETAIL
                         form.customerId = null;
                     }
                 }
@@ -1170,10 +1053,8 @@
                     Utils.showToast('Thiếu Thông Tin', 'Vui lòng điền đầy đủ Họ tên, SĐT, Tỉnh/Thành và Địa chỉ người nhận', 'warning');
                     return;
                 }
-
                     const cleanSenderPhone = (form.senderPhone || '').toString().trim().replace(/[\s\.\-\(\)]/g, '');
                 const cleanReceiverPhone = (form.receiverPhone || '').toString().trim().replace(/[\s\.\-\(\)]/g, '');
-
                 const phonePattern = /^(0|\+84)(2|3|5|7|8|9)[0-9]{8,9}$/;
                 if (!phonePattern.test(cleanSenderPhone)) {
                     Utils.showToast('SĐT Người Gửi Không Hợp Lệ', 'Số điện thoại người gửi không đúng định dạng (VD: 0912345678 hoặc 02438888999)', 'warning');
@@ -1183,17 +1064,14 @@
                     Utils.showToast('SĐT Người Nhận Không Hợp Lệ', 'Số điện thoại người nhận không đúng định dạng (VD: 0987654321)', 'warning');
                     return;
                 }
-
                     const senderDetailTrimmed = form.senderDetail.trim();
                 const receiverDetailTrimmed = form.receiverDetail.trim();
                 const senderAddress = senderDetailTrimmed.toLowerCase().includes(form.senderProvince.toLowerCase())
                     ? senderDetailTrimmed
                     : `${senderDetailTrimmed}, ${form.senderProvince}`;
-
                 const receiverAddress = receiverDetailTrimmed.toLowerCase().includes(form.receiverProvince.toLowerCase())
                     ? receiverDetailTrimmed
                     : `${receiverDetailTrimmed}, ${form.receiverProvince}`;
-
                 if (senderAddress.length < 8) {
                     Utils.showToast('Địa Chỉ Người Gửi Quá Ngắn', 'Địa chỉ người gửi phải từ 8 ký tự trở lên', 'warning');
                     return;
@@ -1202,7 +1080,6 @@
                     Utils.showToast('Địa Chỉ Người Nhận Quá Ngắn', 'Địa chỉ người nhận phải từ 8 ký tự trở lên', 'warning');
                     return;
                 }
-
                 isSubmitting.value = true;
                 try {
                     const payload = {
@@ -1223,14 +1100,11 @@
                         weight: Number(form.weight),
                         codAmount: Number(form.codAmount)
                     };
-
                     if (canCreateForOthers.value && senderMode.value === 'B2B' && form.customerId) {
                         payload.customerId = Number(form.customerId);
                     }
-
                     const res = await ShipmentService.createShipment(payload);
                     Utils.showToast('Thành Công', `Đã khởi tạo vận đơn: ${res.trackingCode}`);
-
                     createdShipmentPrompt.value = {
                         ...res,
                         receiverName: payload.receiverName,
@@ -1242,12 +1116,10 @@
                         weight: payload.weight,
                         serviceType: payload.serviceType
                     };
-
                     form.receiverName = '';
                     form.receiverPhone = '';
                     form.receiverDetail = '';
                     clearVerifiedAddress();
-
                     if (canCreateForOthers.value && senderMode.value === 'RETAIL') {
                         form.senderName = '';
                         form.senderPhone = '';
@@ -1255,7 +1127,6 @@
                         senderAddressQuery.value = '';
                         clearVerifiedSenderAddress();
                     }
-
                     showOrderSuccessPrompt.value = true;
                     await loadShipments();
                 } catch (err) {
@@ -1264,11 +1135,9 @@
                     isSubmitting.value = false;
                 }
             };
-
             const viewTracking = (trackingCode) => {
                 emit('view-tracking', trackingCode, 'shipment');
             };
-
             const showCheckoutModal = ref(false);
             const checkoutTargetShipment = ref(null);
             const checkoutPaymentData = ref(null);
@@ -1279,13 +1148,11 @@
             const activeCheckoutTab = ref('vietqr');
             let checkoutTimer = null;
             let checkoutPollTimer = null;
-
             const formatCheckoutCountdown = (seconds) => {
                 const m = Math.floor(seconds / 60);
                 const s = seconds % 60;
                 return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
             };
-
             const closeCheckoutModal = () => {
                 const wasPaid = isCheckoutPaidSuccess.value;
                 if (checkoutTimer) clearInterval(checkoutTimer);
@@ -1296,13 +1163,11 @@
                 isCheckoutLoading.value = false;
                 isCheckoutPaidSuccess.value = false;
                 isCheckingPayment.value = false;
-
                 if (wasPaid) {
                     currentSubtab.value = 'list';
                     loadShipments();
                 }
             };
-
             const handleCheckoutSuccessRealtime = (payment) => {
                 if (checkoutTimer) clearInterval(checkoutTimer);
                 if (checkoutPollTimer) clearInterval(checkoutPollTimer);
@@ -1339,7 +1204,6 @@
                     loadReturnRequests();
                 }
             };
-
             const openCheckoutModal = async (shipment) => {
                 if (!shipment) return;
                 if (shipment.currentStatus === 'CANCELLED') {
@@ -1354,7 +1218,6 @@
                 checkoutCountdown.value = 600;
                 showCheckoutModal.value = true;
                 const isReturn = Boolean(shipment._isReturnFee);
-
                 if (!isReturn && isShipmentPaid(shipment)) {
                     try {
                         const existing = await PaymentService.getPaymentByTracking(shipment.trackingCode);
@@ -1367,14 +1230,12 @@
                         }
                     } catch (e) {}
                 }
-
                 try {
                     const feeToPay = shipment.totalFee || shipment.shippingFee || 35000;
                     const currentUser = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
                     const currentUserId = currentUser ? (currentUser.userId || currentUser.id) : null;
                     const customerCodeVal = shipment.customerCode || currentUserId || shipment.customerId;
                     const createdByVal = currentUserId || shipment.customerId;
-
                     const res = await PaymentService.createQrPayment({
                         trackingCode: shipment.trackingCode,
                         amount: feeToPay,
@@ -1385,7 +1246,6 @@
                     });
                     checkoutPaymentData.value = res;
                     isCheckoutLoading.value = false;
-
                     if (res && res.status === 'SUCCESS') {
                         isCheckoutPaidSuccess.value = true;
                         if (!isReturn) {
@@ -1393,7 +1253,6 @@
                         }
                         return;
                     }
-
                     if (checkoutTimer) clearInterval(checkoutTimer);
                     checkoutTimer = setInterval(() => {
                         if (checkoutCountdown.value > 0) {
@@ -1402,7 +1261,6 @@
                             clearInterval(checkoutTimer);
                         }
                     }, 1000);
-
                     if (checkoutPollTimer) clearInterval(checkoutPollTimer);
                     checkoutPollTimer = setInterval(async () => {
                         try {
@@ -1422,7 +1280,6 @@
                     Utils.showToast('Lỗi Khởi Tạo Thanh Toán', err.message || 'Không thể tạo mã VietQR', 'error');
                 }
             };
-
             const handleCheckoutRecheck = async () => {
                 if (!checkoutTargetShipment.value || isCheckingPayment.value) return;
                 if (checkoutTargetShipment.value.currentStatus === 'CANCELLED') {
@@ -1447,7 +1304,6 @@
                     isCheckingPayment.value = false;
                 }
             };
-
             const handleCheckoutMockPay = async () => {
                 if (!checkoutTargetShipment.value) return;
                 if (checkoutTargetShipment.value.currentStatus === 'CANCELLED') {
@@ -1471,30 +1327,25 @@
                     Utils.showToast('Lỗi Thanh Toán', err.message || 'Không thể thanh toán đơn hàng này', 'error');
                 }
             };
-
             const showOrderSuccessPrompt = ref(false);
             const createdShipmentPrompt = ref(null);
-
             const handlePayPromptQr = () => {
                 showOrderSuccessPrompt.value = false;
                 if (createdShipmentPrompt.value) {
                     openCheckoutModal(createdShipmentPrompt.value);
                 }
             };
-
             const handlePromptCreateAnother = () => {
                 showOrderSuccessPrompt.value = false;
                 currentSubtab.value = 'create';
                 Utils.showToast('Sẵn Sàng', 'Form đã được làm mới để bạn tạo tiếp đơn hàng mới.');
             };
-
             const handlePromptGoToList = () => {
                 showOrderSuccessPrompt.value = false;
                 currentSubtab.value = 'list';
                 loadShipments();
                 Utils.showToast('Điều Hướng', 'Chuyển sang trang danh sách vận đơn.');
             };
-
             const copyTrackingCode = (code) => {
                 if (!code) return;
                 if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
@@ -1502,7 +1353,6 @@
                 }
                 Utils.showToast('Đã Sao Chép', `Đã sao chép mã vận đơn: ${code}`);
             };
-
             onMounted(() => {
                 loadHubs();
                 loadShipments();
@@ -1514,13 +1364,11 @@
                     nowTime.value = Date.now();
                 }, 1000);
             });
-
             onUnmounted(() => {
                 clearTimeout(shipmentFilterTimer);
                 shipmentRequestVersion++;
                 if (decisionCountdownTimer) clearInterval(decisionCountdownTimer);
             });
-
             const navigateToPayment = (trackingCode) => {
                 if (!trackingCode) return;
                 if (window.app && typeof window.app.switchTab === 'function') {
@@ -1529,7 +1377,6 @@
                     emit('switch-tab', 'payments', trackingCode);
                 }
             };
-
             return {
                 navigateToPayment,
                 currentSubtab,
@@ -1629,7 +1476,6 @@
                 paidTrackingCodes,
                 handleCheckoutMockPay,
                 isDockCollapsed,
-                // Return & Failure Decisions exports
                 pendingDecisions,
                 isLoadingDecisions,
                 returnRequestsList,
@@ -1679,7 +1525,6 @@
             <div class="space-y-4 pb-8 text-slate-800 relative">
                 <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
-
                     <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
                             <div class="flex items-center space-x-2">
@@ -1695,7 +1540,6 @@
                                 Tiếp nhận yêu cầu gửi hàng, điều phối luồng luân chuyển bưu cục và kiểm soát trạng thái giao nhận toàn trình.
                             </p>
                         </div>
-
                         <div class="grid grid-cols-3 sm:flex sm:items-stretch gap-2 w-full sm:w-auto">
                             <div class="flex flex-col justify-center px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[78px]">
                                 <div class="text-sm sm:text-base font-bold leading-tight">{{ hubsList.length }}</div>
@@ -1712,11 +1556,9 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Sub-Banner Action Bar: Compact Segmented Pill Bar -->
+                
                 <div class="bg-white/95 dark:bg-[#131e3a]/95 backdrop-blur-md text-slate-700 dark:text-slate-300 rounded-2xl shadow-xs border border-slate-200/90 dark:border-slate-800 p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
                     <div class="bg-slate-100/90 dark:bg-slate-900/80 p-1 rounded-xl border border-slate-200/70 dark:border-slate-800 inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
-                        <!-- Tạo Bưu Gửi Tab Button -->
                         <button
                             type="button"
                             @click="switchSubtab('create')"
@@ -1732,8 +1574,7 @@
                             </svg>
                             <span class="truncate">Tạo Bưu Gửi</span>
                         </button>
-
-                        <!-- Danh Sách Vận Đơn Tab Button -->
+                        
                         <button
                             type="button"
                             @click="switchSubtab('list')"
@@ -1752,8 +1593,7 @@
                                 {{ shipmentsList.length }}
                             </span>
                         </button>
-
-                        <!-- Cần Xử Lý (Giao Thất Bại) Tab Button -->
+                        
                         <button
                             type="button"
                             @click="switchSubtab('need_action')"
@@ -1775,8 +1615,7 @@
                                 {{ pendingDecisions.length }}
                             </span>
                         </button>
-
-                        <!-- Đơn Hoàn Tab Button -->
+                        
                         <button
                             type="button"
                             @click="switchSubtab('returns')"
@@ -1796,8 +1635,7 @@
                             </span>
                         </button>
                     </div>
-
-                    <!-- Right Live Status & Mini Refresh Button -->
+                    
                     <div class="flex items-center space-x-2 shrink-0 px-1 py-0.5">
                         <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/70 px-2.5 py-1 rounded-lg border border-slate-200/70 dark:border-slate-800">
                             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -1816,7 +1654,6 @@
                         </button>
                     </div>
                 </div>
-
                 <transition name="subtab" mode="out-in">
                     <div v-if="currentSubtab === 'create'" key="create" class="space-y-3">
                     <div v-if="isShopOwner && myProfile && (!myProfile.phoneNumber || !myProfile.address)" class="p-3 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-900 shadow-sm">
@@ -1828,9 +1665,7 @@
                             Cập Nhật Hồ Sơ Shop
                         </button>
                     </div>
-
                     <shipment-smart-paste-card @parsed="handleSmartPasteParsed"></shipment-smart-paste-card>
-
                     <form @submit.prevent="handleSubmit" class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                         <div class="lg:col-span-2 space-y-4">
                             <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-3.5">
@@ -1839,7 +1674,6 @@
                                         Thông Số Dịch Vụ &amp; Bưu Phẩm
                                     </h2>
                                 </div>
-
                                 <div class="p-3 bg-slate-50 rounded-lg border border-slate-200/70">
                                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                         <span class="text-[11px] font-bold text-slate-700 uppercase tracking-tight flex items-center space-x-1.5">
@@ -1850,7 +1684,6 @@
                                             <span v-else-if="isShopOwner" class="text-blue-700">Chủ Hàng Ký Gửi (Shop)</span>
                                             <span v-else>Hồ Sơ Người Gửi</span>
                                         </span>
-
                                         <div v-if="canCreateForOthers" class="flex items-center bg-slate-200/80 dark:bg-[#0b1329] p-0.5 rounded-lg text-xs font-semibold border border-transparent dark:border-slate-800">
                                             <button 
                                                 type="button" 
@@ -1870,7 +1703,6 @@
                                             </button>
                                         </div>
                                     </div>
-
                                     <div v-if="canCreateForOthers && senderMode === 'B2B'" class="mt-2.5 pt-2 border-t border-slate-200/60 space-y-1">
                                         <label class="block text-[11px] font-semibold text-slate-600">
                                             Chọn Shop / Khách hàng gửi hàng: <span class="text-rose-500">*</span>
@@ -1891,14 +1723,12 @@
                                             Đang tải danh bạ khách hàng...
                                         </div>
                                     </div>
-
                                     <div v-else-if="canCreateForOthers && senderMode === 'RETAIL'" class="mt-2 flex items-center space-x-2 pt-1.5 border-t border-slate-200/60 text-xs">
                                         <span class="text-[10px] font-mono px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded font-bold">
                                             CUS_RETAIL
                                         </span>
                                         <span class="text-slate-600 text-[11px]">Đơn lẻ tại quầy, tự động gán tài khoản khách vãng lai hệ thống</span>
                                     </div>
-
                                     <div v-else-if="isShopOwner" class="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1.5 border-t border-slate-200/60">
                                         <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                                             <span class="font-bold text-slate-800">{{ myProfile?.fullName || currentUser?.fullName || 'Shop Của Bạn' }}</span>
@@ -1918,7 +1748,6 @@
                                         </button>
                                     </div>
                                 </div>
-
                                 <div class="space-y-1.5">
                                     <label class="block text-[11px] font-bold text-slate-700 uppercase tracking-tight">
                                         Gói Cước Dịch Vụ
@@ -1944,7 +1773,6 @@
                                                 <span v-if="form.serviceType === 'ECO'" class="w-1.5 h-1.5 rounded-full bg-white"></span>
                                             </span>
                                         </div>
-
                                         <div 
                                             @click="setServiceType('STANDARD')"
                                             :class="[
@@ -1965,7 +1793,6 @@
                                                 <span v-if="form.serviceType === 'STANDARD'" class="w-1.5 h-1.5 rounded-full bg-white"></span>
                                             </span>
                                         </div>
-
                                         <div 
                                             @click="setServiceType('EXPRESS')"
                                             :class="[
@@ -1988,7 +1815,6 @@
                                         </div>
                                     </div>
                                 </div>
-
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-0.5">
                                     <div class="space-y-1.5">
                                         <label class="block text-[11px] font-bold text-slate-700 uppercase tracking-tight">
@@ -2005,7 +1831,6 @@
                                             />
                                             <span class="absolute right-3 text-xs font-bold text-slate-400 select-none">kg</span>
                                         </div>
-
                                         <div class="flex items-center space-x-1.5">
                                             <button 
                                                 type="button" 
@@ -2019,7 +1844,6 @@
                                             </button>
                                         </div>
                                     </div>
-
                                     <div class="space-y-1.5">
                                         <div class="flex items-center justify-between">
                                             <label class="block text-[11px] font-bold text-slate-700 uppercase tracking-tight">
@@ -2029,7 +1853,6 @@
                                                 {{ form.codAmount > 0 ? Utils.formatCurrency(form.codAmount) : '0 đ' }}
                                             </span>
                                         </div>
-
                                         <div class="relative flex items-center">
                                             <input 
                                                 v-model.number="form.codAmount" 
@@ -2041,7 +1864,6 @@
                                             />
                                             <span class="absolute right-3 text-xs font-bold text-slate-400 select-none">VNĐ</span>
                                         </div>
-
                                         <div class="flex items-center space-x-1.5 overflow-x-auto no-scrollbar">
                                             <button 
                                                 type="button" 
@@ -2065,7 +1887,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-3">
                                     <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
@@ -2079,7 +1900,6 @@
                                             Điểm xuất phát
                                         </span>
                                     </div>
-
                                     <div class="space-y-2.5 pt-0.5">
                                         <div>
                                             <label class="block text-[11px] font-semibold text-slate-600 mb-1">Họ Tên Cá Nhân / Doanh Nghiệp Gửi</label>
@@ -2092,7 +1912,6 @@
                                                 class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
                                             />
                                         </div>
-
                                         <div>
                                             <label class="block text-[11px] font-semibold text-slate-600 mb-1">Số Điện Thoại Liên Hệ</label>
                                             <input 
@@ -2104,7 +1923,6 @@
                                                 class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
                                             />
                                         </div>
-
                                         <div class="relative">
                                             <div class="flex items-center justify-between mb-1">
                                                 <label class="block text-[11px] font-semibold text-slate-700">
@@ -2138,7 +1956,6 @@
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                                                 </button>
                                             </div>
-
                                             <div v-if="showSenderAddressDropdown && senderAddressSuggestions.length > 0" class="absolute z-30 left-0 right-0 mt-1 bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                                                 <div 
                                                     v-for="(item, idx) in senderAddressSuggestions" 
@@ -2159,7 +1976,6 @@
                                                 </div>
                                             </div>
                                         </div>
-
                                         <div>
                                             <div class="flex items-center justify-between mb-1">
                                                 <label class="block text-[11px] font-semibold text-slate-600">Bưu Cục Tiếp Nhận</label>
@@ -2172,7 +1988,6 @@
                                                     {{ manualSenderProvinceMode ? 'Thu gọn' : 'Thay đổi' }}
                                                 </button>
                                             </div>
-
                                             <div v-if="verifiedSenderAddress && !manualSenderProvinceMode" class="flex items-center justify-between px-3 py-2 bg-blue-50/70 border border-blue-200 rounded-lg text-xs">
                                                 <div class="flex items-center space-x-2 truncate">
                                                     <span class="w-1.5 h-1.5 rounded-full bg-blue-600 flex-shrink-0"></span>
@@ -2183,7 +1998,6 @@
                                                     Tự động nhận diện
                                                 </span>
                                             </div>
-
                                             <select 
                                                 v-else
                                                 v-model="form.senderProvince" 
@@ -2196,7 +2010,6 @@
                                                 <option v-if="hubsList.length === 0" value="Hà Nội">Hà Nội (Mặc định)</option>
                                             </select>
                                         </div>
-
                                         <div>
                                             <div class="flex items-center justify-between mb-1">
                                                 <label class="block text-[11px] font-semibold text-slate-600">Địa Chỉ Chi Tiết (Số nhà, phố, phường)</label>
@@ -2214,7 +2027,6 @@
                                         </div>
                                     </div>
                                 </div>
-
                                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-3">
                                     <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
                                         <div class="flex items-center space-x-2">
@@ -2227,7 +2039,6 @@
                                             Điểm phát trả
                                         </span>
                                     </div>
-
                                     <div class="space-y-2.5 pt-0.5">
                                         <div>
                                             <label class="block text-[11px] font-semibold text-slate-600 mb-1">Họ Tên Người Nhận Hàng</label>
@@ -2240,7 +2051,6 @@
                                                 class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
                                             />
                                         </div>
-
                                         <div>
                                             <label class="block text-[11px] font-semibold text-slate-600 mb-1">Số Điện Thoại Liên Hệ</label>
                                             <input 
@@ -2252,7 +2062,6 @@
                                                 class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-mono text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
                                             />
                                         </div>
-
                                         <div class="relative">
                                             <div class="flex items-center justify-between mb-1">
                                                 <label class="block text-[11px] font-semibold text-slate-700">
@@ -2286,7 +2095,6 @@
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                                                 </button>
                                             </div>
-
                                             <div v-if="showAddressDropdown && addressSuggestions.length > 0" class="absolute z-30 left-0 right-0 mt-1 bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                                                 <div 
                                                     v-for="(item, idx) in addressSuggestions" 
@@ -2307,7 +2115,6 @@
                                                 </div>
                                             </div>
                                         </div>
-
                                         <div>
                                             <div class="flex items-center justify-between mb-1">
                                                 <label class="block text-[11px] font-semibold text-slate-600">Bưu Cục Phát Trả Đích</label>
@@ -2320,7 +2127,6 @@
                                                     {{ manualReceiverProvinceMode ? 'Thu gọn' : 'Thay đổi' }}
                                                 </button>
                                             </div>
-
                                             <div v-if="verifiedAddress && !manualReceiverProvinceMode" class="flex items-center justify-between px-3 py-2 bg-blue-50/70 border border-blue-200 rounded-lg text-xs">
                                                 <div class="flex items-center space-x-2 truncate">
                                                     <span class="w-1.5 h-1.5 rounded-full bg-blue-600 flex-shrink-0"></span>
@@ -2331,7 +2137,6 @@
                                                     Tự động nhận diện
                                                 </span>
                                             </div>
-
                                             <select 
                                                 v-else
                                                 v-model="form.receiverProvince" 
@@ -2344,7 +2149,6 @@
                                                 <option v-if="hubsList.length === 0" value="Hồ Chí Minh">TP. Hồ Chí Minh (Mặc định)</option>
                                             </select>
                                         </div>
-
                                         <div>
                                             <div class="flex items-center justify-between mb-1">
                                                 <label class="block text-[11px] font-semibold text-slate-600">Địa Chỉ Chi Tiết (Số nhà, phố, phường)</label>
@@ -2364,7 +2168,6 @@
                                 </div>
                             </div>
                         </div>
-
                         <div class="space-y-4">
                             <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-4">
                                 <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
@@ -2377,7 +2180,6 @@
                                         LIVE RATE
                                     </span>
                                 </div>
-
                                 <div class="space-y-2 text-xs">
                                     <div class="flex justify-between py-1 border-b border-slate-50">
                                         <span class="text-slate-500">Cước chính ({{ form.weight }} kg):</span>
@@ -2393,7 +2195,6 @@
                                         <span class="text-slate-500">Phụ phí xăng dầu &amp; an ninh:</span>
                                         <span class="font-mono font-bold text-slate-800">{{ Utils.formatCurrency(fuelSurcharge) }}</span>
                                     </div>
-
                                     <div class="pt-2 flex items-baseline justify-between">
                                         <div>
                                             <div class="text-[11px] font-bold text-slate-600 uppercase">Tổng Cước Ước Tính:</div>
@@ -2404,12 +2205,10 @@
                                         </div>
                                     </div>
                                 </div>
-
                                 <div class="pt-2 border-t border-slate-100 space-y-2">
                                     <div class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
                                         Tuyến Luân Chuyển Dự Kiến
                                     </div>
-
                                     <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-2 font-medium">
                                         <div class="flex items-center space-x-2 text-slate-700">
                                             <span class="w-2 h-2 rounded-full bg-slate-800"></span>
@@ -2424,7 +2223,6 @@
                                         </div>
                                     </div>
                                 </div>
-
                                 <div class="pt-2 space-y-2">
                                     <button 
                                         type="submit" 
@@ -2434,7 +2232,6 @@
                                         <span v-if="isSubmitting" class="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></span>
                                         <span>{{ isSubmitting ? 'Đang Định Tuyến Bưu Cục...' : 'Xác Nhận & Xuất Vận Đơn' }}</span>
                                     </button>
-
                                     <button 
                                         type="button" 
                                         @click="resetForm" 
@@ -2444,7 +2241,6 @@
                                     </button>
                                 </div>
                             </div>
-
                             <div class="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 text-[11px] text-blue-900 dark:text-blue-300 leading-relaxed space-y-1">
                                 <div class="font-bold text-blue-900 dark:text-blue-300">
                                     Chính Sách Bưu Gửi Waybill
@@ -2454,8 +2250,7 @@
                                 </p>
                             </div>
                         </div>
-
-                        <!-- Mobile Sticky Bottom Action Bar (< 1024px) -->
+                        
                         <div class="lg:hidden sticky bottom-2 z-30 bg-white/95 dark:bg-[#131e3a]/95 backdrop-blur-md border border-blue-200 dark:border-blue-800/80 rounded-2xl p-3 shadow-xl flex items-center justify-between gap-3">
                             <div>
                                 <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Tổng cước ước tính</div>
@@ -2472,7 +2267,6 @@
                         </div>
                     </form>
                 </div>
-
                 <div v-else-if="currentSubtab === 'list'" key="list" class="space-y-4">
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
@@ -2480,26 +2274,22 @@
                             <div class="mt-1.5 text-2xl font-black font-mono text-slate-800">{{ stats.total }}</div>
                             <div class="text-[10px] text-slate-400 mt-0.5">Tổng số đơn ký gửi</div>
                         </div>
-
                         <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
                             <div class="text-[11px] font-bold text-amber-600 uppercase tracking-wide">Chờ Xử Lý</div>
                             <div class="mt-1.5 text-2xl font-black font-mono text-amber-600">{{ stats.pending }}</div>
                             <div class="text-[10px] text-slate-400 mt-0.5">Chờ tiếp nhận &amp; định tuyến</div>
                         </div>
-
                         <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
                             <div class="text-[11px] font-bold text-indigo-600 uppercase tracking-wide">Đang Luân Chuyển</div>
                             <div class="mt-1.5 text-2xl font-black font-mono text-indigo-600">{{ stats.inTransit }}</div>
                             <div class="text-[10px] text-slate-400 mt-0.5">Trung chuyển qua các Hub</div>
                         </div>
-
                         <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
                             <div class="text-[11px] font-bold text-emerald-600 uppercase tracking-wide">Phát Thành Công</div>
                             <div class="mt-1.5 text-2xl font-black font-mono text-emerald-600">{{ stats.delivered }}</div>
                             <div class="text-[10px] text-slate-400 mt-0.5">Giao thành công người nhận</div>
                         </div>
                     </div>
-
                     <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3 sm:p-3.5 shadow-sm">
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                             <div class="relative flex-1 min-w-0">
@@ -2518,7 +2308,6 @@
                                     Xóa
                                 </button>
                             </div>
-
                             <div class="flex flex-wrap items-center gap-2">
                                 <select 
                                     v-if="hasReadAllPermission && customersList.length > 0"
@@ -2531,7 +2320,6 @@
                                         #{{ c.id }} - {{ c.fullName }}
                                     </option>
                                 </select>
-
                                 <select 
                                     v-model="selectedStatusFilter"
                                     class="flex-1 sm:flex-none px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
@@ -2549,7 +2337,6 @@
                                     <option value="OUT_FOR_RETURN">Đang đi phát hoàn</option>
                                     <option value="RETURNED">Đã hoàn về người gửi</option>
                                 </select>
-
                                 <button 
                                     type="button"
                                     @click="switchSubtab('create')"
@@ -2560,13 +2347,11 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="b2b-card bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
                         <div v-if="isLoadingShipments" class="p-8 text-center space-y-2">
                             <div class="inline-block animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
                             <div class="text-xs font-medium text-slate-500">Đang đồng bộ danh sách vận đơn từ máy chủ...</div>
                         </div>
-
                         <div v-else-if="filteredShipments.length === 0" class="p-10 text-center space-y-2">
                             <div class="text-xs font-bold text-slate-700">Không tìm thấy vận đơn nào phù hợp</div>
                             <p class="text-[11px] text-slate-400 max-w-sm mx-auto">
@@ -2582,9 +2367,7 @@
                                 </button>
                             </div>
                         </div>
-
                         <template v-else>
-                            <!-- Mobile Card List (< 768px) -->
                             <div class="md:hidden divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                                 <div v-for="s in paginatedShipments" :key="'mob-ship-' + s.id" class="p-3.5 space-y-2.5">
                                     <div class="flex items-start justify-between gap-2">
@@ -2613,7 +2396,6 @@
                                             <span>{{ Utils.formatStatusText(s.currentStatus) }}</span>
                                         </span>
                                     </div>
-
                                     <div class="bg-slate-50 dark:bg-slate-900/60 rounded-lg p-2.5 border border-slate-200/70 dark:border-slate-800 space-y-1">
                                         <div class="flex items-center justify-between gap-2 text-xs">
                                             <div class="font-bold text-slate-800 dark:text-slate-100 truncate">
@@ -2634,7 +2416,6 @@
                                             {{ s.receiverAddress || 'Chưa cập nhật địa chỉ nhận' }}
                                         </div>
                                     </div>
-
                                     <div class="flex items-center justify-between pt-0.5">
                                         <div class="flex items-center gap-3">
                                             <div>
@@ -2647,7 +2428,6 @@
                                                 KL: <strong class="text-slate-700">{{ s.weight }} kg</strong>
                                             </div>
                                         </div>
-
                                         <div class="inline-flex items-center gap-1.5">
                                             <button
                                                 v-if="s.currentStatus !== 'CANCELLED' && !isShipmentPaid(s)"
@@ -2686,8 +2466,7 @@
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- Desktop Table (>= 768px) -->
+                            
                             <div class="hidden md:block overflow-x-auto">
                             <table class="w-full text-left border-collapse table-auto">
                                 <thead>
@@ -2728,7 +2507,6 @@
                                                 <span v-if="s.customerId">#KH:{{ s.customerId }}</span>
                                             </div>
                                         </td>
-
                                         <td class="py-3 px-3.5 max-w-[220px]">
                                             <div class="flex items-center gap-1.5 font-bold text-slate-800 text-[11.5px] truncate">
                                                 <span class="truncate" :title="s.senderName">{{ s.senderName }}</span>
@@ -2741,7 +2519,6 @@
                                                 <span class="truncate font-medium text-slate-700">{{ s.receiverAddress?.split(',').slice(-1)[0]?.trim() || s.receiverAddress || 'Điểm nhận' }}</span>
                                             </div>
                                         </td>
-
                                         <td class="py-3 px-3.5 whitespace-nowrap">
                                             <div class="font-mono font-bold text-xs" :class="s.codAmount > 0 ? 'text-emerald-600' : 'text-slate-500'">
                                                 {{ Utils.formatCurrency(s.codAmount) }}
@@ -2750,7 +2527,6 @@
                                                 KL: <span class="font-semibold text-slate-700">{{ s.weight }} kg</span>
                                             </div>
                                         </td>
-
                                         <td class="py-3 px-3.5 whitespace-nowrap">
                                             <div class="flex items-center gap-2 flex-wrap">
                                                 <span class="status-indicator" :class="Utils.getStatusIndicatorClass(s.currentStatus)">
@@ -2775,7 +2551,6 @@
                                             </div>
                                             <div v-else class="mt-1 text-slate-400 text-[10.5px] italic">Đang cập nhật...</div>
                                         </td>
-
                                         <td class="py-3 px-3.5 text-right whitespace-nowrap">
                                             <div class="inline-flex items-center justify-end gap-1">
                                                 <span
@@ -2849,7 +2624,6 @@
                             </table>
                             </div>
                         </template>
-
                         <div v-if="filteredShipments.length > 0" class="p-3 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
                             <div>
                                 Hiển thị <span class="font-bold text-slate-700">{{ paginatedShipments.length }}</span> / <span class="font-bold text-slate-700">{{ serverTotalElements }}</span> vận đơn (Trang {{ currentPage }} / {{ totalPages }})
@@ -2878,10 +2652,8 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Tab Cần Xử Lý (Giao Thất Bại - Cửa sổ 24h) -->
+                
                 <div v-else-if="currentSubtab === 'need_action'" key="need_action" class="space-y-4">
-                    <!-- Banner Info Header -->
                     <div class="b2b-card bg-gradient-to-r from-rose-50 via-amber-50 to-orange-50 border border-rose-200 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div class="space-y-1">
                             <div class="flex items-center space-x-2">
@@ -2906,8 +2678,7 @@
                             </button>
                         </div>
                     </div>
-
-                    <!-- Empty State -->
+                    
                     <div v-if="pendingDecisions.length === 0" class="b2b-card bg-white border border-slate-200 rounded-xl p-8 sm:p-12 text-center shadow-sm">
                         <div class="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto mb-3 text-emerald-600 shadow-sm">
                             <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -2919,8 +2690,7 @@
                             Mọi bưu phẩm đều đang được vận hành thuận lợi hoặc đã được bạn quyết định hướng xử lý.
                         </p>
                     </div>
-
-                    <!-- Decision Cards Grid -->
+                    
                     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
                         <div 
                             v-for="d in pendingDecisions" 
@@ -2928,7 +2698,6 @@
                             class="b2b-card bg-white border rounded-xl p-4 shadow-sm space-y-3 transition-all hover:shadow-md"
                             :class="isDecisionUrgent(d.decisionDeadline || d.deadline) ? 'border-rose-300 ring-1 ring-rose-300/50' : 'border-slate-200 hover:border-blue-300'"
                         >
-                            <!-- Card Header -->
                             <div class="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
                                 <div>
                                     <div class="flex items-center space-x-1.5">
@@ -2953,8 +2722,7 @@
                                         Giao thất bại lần {{ d.attemptNo || d.failureCount || 1 }}/3
                                     </span>
                                 </div>
-
-                                <!-- Countdown timer pill -->
+                                
                                 <div class="text-right">
                                     <div 
                                         class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono font-medium border"
@@ -2966,8 +2734,7 @@
                                     <div class="text-[10px] text-slate-400 mt-0.5">Hạn tự động giao lại</div>
                                 </div>
                             </div>
-
-                            <!-- Failure reason & Shipper note -->
+                            
                             <div class="p-2.5 bg-rose-50/70 border border-rose-200/80 rounded-lg text-xs space-y-1">
                                 <div class="flex items-center space-x-1.5 text-rose-900 font-bold text-[11px]">
                                     <svg class="w-3.5 h-3.5 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
@@ -2980,8 +2747,7 @@
                                     "{{ d.decisionNote || d.notes }}"
                                 </div>
                             </div>
-
-                            <!-- Receiver info -->
+                            
                             <div class="text-xs space-y-1 text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-200/60">
                                 <div class="flex items-center justify-between">
                                     <span class="font-bold text-slate-800 text-[11.5px]">{{ d.receiverName || d.shipment?.receiverName || 'Người nhận' }}</span>
@@ -2991,8 +2757,7 @@
                                     {{ d.receiverAddress || d.shipment?.receiverAddress || 'N/A' }}
                                 </div>
                             </div>
-
-                            <!-- 3 Action Buttons -->
+                            
                             <div class="grid grid-cols-3 gap-1.5 pt-1">
                                 <button
                                     type="button"
@@ -3003,7 +2768,6 @@
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                                     <span>Giao Lại</span>
                                 </button>
-
                                 <button
                                     type="button"
                                     @click="openUpdateInfoModal(d)"
@@ -3013,7 +2777,6 @@
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                     <span>Đổi SĐT/ĐC</span>
                                 </button>
-
                                 <button
                                     type="button"
                                     @click="handleFailureReturn(d)"
@@ -3027,37 +2790,31 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Tab Đơn Hoàn -->
+                
                 <div v-else-if="currentSubtab === 'returns'" key="returns" class="space-y-4">
-                    <!-- 4 KPI Stat Cards -->
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
                             <div class="text-[11px] font-bold text-blue-600 uppercase tracking-wide">Đang Chuyển Hoàn</div>
                             <div class="mt-1.5 text-2xl font-black font-mono text-blue-700">{{ returnKpis.returningCount }}</div>
                             <div class="text-[10px] text-slate-400 mt-0.5">Kiện đang trên xe quay về Hub/Bưu cục gốc</div>
                         </div>
-
                         <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
                             <div class="text-[11px] font-bold text-amber-600 uppercase tracking-wide">Chờ Nhận Tại Bưu Cục</div>
                             <div class="mt-1.5 text-2xl font-black font-mono text-amber-600">{{ returnKpis.counterPickupCount }}</div>
                             <div class="text-[10px] text-slate-400 mt-0.5">Shop tự đến nhận trong hạn 7 ngày</div>
                         </div>
-
                         <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
                             <div class="text-[11px] font-bold text-indigo-600 uppercase tracking-wide">Đang Phát Hoàn</div>
                             <div class="mt-1.5 text-2xl font-black font-mono text-indigo-600">{{ returnKpis.outForReturnCount }}</div>
                             <div class="text-[10px] text-slate-400 mt-0.5">Bưu tá đang trên đường giao về shop</div>
                         </div>
-
                         <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
                             <div class="text-[11px] font-bold text-emerald-600 uppercase tracking-wide">Đã Hoàn Tất</div>
                             <div class="mt-1.5 text-2xl font-black font-mono text-emerald-600">{{ returnKpis.returnedCount }}</div>
                             <div class="text-[10px] text-slate-400 mt-0.5">Đã bàn giao về tay người gửi</div>
                         </div>
                     </div>
-
-                    <!-- Search & Filter Bar -->
+                    
                     <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3 sm:p-3.5 shadow-sm">
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                             <div class="relative flex-1 min-w-0">
@@ -3076,7 +2833,6 @@
                                     Xóa
                                 </button>
                             </div>
-
                             <div class="flex flex-wrap items-center gap-2">
                                 <select 
                                     v-model="selectedReturnStatusFilter"
@@ -3093,7 +2849,6 @@
                                     <option value="PAID_ON_RETURN">Đã thu khi hoàn</option>
                                     <option value="WAIVED">Miễn cước (Lỗi bưu chính)</option>
                                 </select>
-
                                 <button 
                                     type="button" 
                                     @click="loadReturnRequests" 
@@ -3106,8 +2861,7 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Returns Table -->
+                    
                     <div class="b2b-card bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                         <div class="overflow-x-auto">
                             <table class="w-full text-left border-collapse text-xs">
@@ -3154,7 +2908,6 @@
                                                 {{ Utils.formatDateTime(r.createdAt) }}
                                             </div>
                                         </td>
-
                                         <td class="py-3 px-3.5 max-w-xs">
                                             <div class="flex items-center space-x-1.5">
                                                 <span
@@ -3168,7 +2921,6 @@
                                                 {{ r.reasonNote || r.reasonCode || r.reason || 'N/A' }}
                                             </div>
                                         </td>
-
                                         <td class="py-3 px-3.5 whitespace-nowrap">
                                             <span
                                                 v-if="r.returnMode === 'DOORSTEP'" 
@@ -3186,7 +2938,6 @@
                                                 <span>Nhận tại bưu cục (7 ngày)</span>
                                             </span>
                                         </td>
-
                                         <td class="py-3 px-3.5 whitespace-nowrap">
                                             <div class="font-mono font-bold text-slate-800 text-[11.5px]">
                                                 {{ Utils.formatCurrency(r.returnFee || 17500) }}
@@ -3218,7 +2969,6 @@
                                                 </span>
                                             </div>
                                         </td>
-
                                         <td class="py-3 px-3.5 whitespace-nowrap">
                                             <span class="status-indicator">
                                                 <span
@@ -3230,10 +2980,8 @@
                                                 </span>
                                             </span>
                                         </td>
-
                                         <td class="py-3 px-3.5 text-right whitespace-nowrap">
                                             <div class="inline-flex items-center justify-end gap-1">
-                                                <!-- VietQR Pay Button if Unpaid -->
                                                 <button 
                                                     v-if="r.feePaymentStatus !== 'PREPAID' && r.feePaymentStatus !== 'WAIVED' && r.returnFee > 0"
                                                     type="button"
@@ -3244,8 +2992,7 @@
                                                     <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
                                                     <span>Trả Cước QR</span>
                                                 </button>
-
-                                                <!-- Postal fault waiver button (Admin/CS) -->
+                                                
                                                 <button
                                                     v-if="(isAdmin || isCSStaff) && !r.postalFault"
                                                     type="button"
@@ -3256,8 +3003,7 @@
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
                                                     <span>Lỗi BC</span>
                                                 </button>
-
-                                                <!-- View tracking button -->
+                                                
                                                 <button 
                                                     type="button"
                                                     @click="viewTracking(r.trackingCode)"
@@ -3275,7 +3021,6 @@
                     </div>
                 </div>
                 </transition>
-
                 <teleport to="body">
                 <Transition name="modal">
                 <div v-if="showProfileModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
@@ -3287,7 +3032,6 @@
                             </div>
                             <button type="button" @click="showProfileModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1">&times;</button>
                         </div>
-
                         <form @submit.prevent="handleUpdateProfile" class="space-y-3">
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-700 mb-1">Họ Và Tên / Tên Doanh Nghiệp <span class="text-rose-500">*</span></label>
@@ -3300,7 +3044,6 @@
                                     class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none"
                                 />
                             </div>
-
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-700 mb-1">Số Điện Thoại Mặc Định <span class="text-rose-500">*</span></label>
                                 <input 
@@ -3312,7 +3055,6 @@
                                     class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none"
                                 />
                             </div>
-
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-700 mb-1">Địa Chỉ Bưu Cục / Kho Gửi Hàng Mặc Định</label>
                                 <input 
@@ -3323,7 +3065,6 @@
                                     class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none"
                                 />
                             </div>
-
                             <div class="pt-2 flex items-center justify-end space-x-2 border-t border-slate-100">
                                 <button 
                                     type="button" 
@@ -3345,7 +3086,6 @@
                 </div>
                 </Transition>
                 </teleport>
-
                 <teleport to="body">
                 <Transition name="modal">
                 <div v-if="showCancelModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
@@ -3357,7 +3097,6 @@
                             </div>
                             <button type="button" @click="showCancelModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1">&times;</button>
                         </div>
-
                         <div class="space-y-3 text-xs">
                             <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1">
                                 <div class="font-bold text-amber-900 flex items-center space-x-1">
@@ -3367,7 +3106,6 @@
                                     Vận đơn <span class="font-mono font-bold whitespace-nowrap">{{ selectedShipmentToCancel?.trackingCode }}</span> sẽ chuyển sang trạng thái <strong>ĐÃ HỦY (CANCELLED)</strong>. Nếu kiện đang nằm trong chuyến xe trục, hệ thống sẽ tự động gỡ kiện và hoàn trả tải trọng cho xe.
                                 </p>
                             </div>
-
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-700 mb-1">Lý Do Hủy Đơn</label>
                                 <select 
@@ -3381,7 +3119,6 @@
                                     <option value="OTHER">Lý do khác</option>
                                 </select>
                             </div>
-
                             <div>
                                 <div class="flex items-center justify-between mb-1">
                                     <label class="block text-[11px] font-bold text-slate-700">Ghi Chú Chi Tiết (Không bắt buộc)</label>
@@ -3396,7 +3133,6 @@
                                 ></textarea>
                             </div>
                         </div>
-
                         <div class="pt-2 flex items-center justify-end space-x-2 border-t border-slate-100">
                             <button 
                                 type="button" 
@@ -3418,7 +3154,6 @@
                 </div>
                 </Transition>
                 </teleport>
-
                 <teleport to="body">
                 <Transition name="modal">
                 <div v-if="showOrderSuccessPrompt" class="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -3436,7 +3171,6 @@
                                 <h3 class="text-base font-extrabold text-slate-900">Khởi Tạo Vận Đơn Thành Công!</h3>
                                 <p class="text-xs text-slate-500 mt-0.5">Bưu gửi đã được tiếp nhận vào hệ thống Waybill</p>
                             </div>
-
                             <div class="inline-flex items-center gap-2 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-xl">
                                 <span class="text-slate-500 text-[11px]">Mã vận đơn:</span>
                                 <span class="font-mono font-extrabold text-blue-700 text-sm">{{ createdShipmentPrompt?.trackingCode }}</span>
@@ -3447,9 +3181,7 @@
                                 </button>
                             </div>
                         </div>
-
                         <div class="p-5 space-y-3.5">
-                            <!-- ETA Delivery Guarantee Card (Shopee Style - ĐẶT NGAY DƯỚI MÃ VẬN ĐƠN) -->
                             <div v-if="createdShipmentPrompt?.estimatedDeliveryAt" class="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/90 rounded-xl p-3 space-y-2 text-[11.5px]">
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center gap-1.5 font-extrabold text-emerald-900">
@@ -3487,7 +3219,6 @@
                                     </span>
                                 </div>
                             </div>
-
                             <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-[11.5px] space-y-1.5">
                                 <div class="flex justify-between items-center">
                                     <span class="text-slate-500">Người nhận:</span>
@@ -3502,7 +3233,6 @@
                                     <span class="font-mono font-extrabold text-blue-700 text-sm">{{ Utils.formatCurrency(createdShipmentPrompt?.shippingFee || createdShipmentPrompt?.totalFee || 35000) }}</span>
                                 </div>
                             </div>
-
                             <div class="p-3 bg-blue-50/70 border border-blue-200 rounded-xl flex items-start gap-2.5">
                                 <div class="w-6 h-6 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3513,7 +3243,6 @@
                                     <span class="font-bold">Thanh toán cước ngay qua VietQR</span> để đơn được ưu tiên xử lý lấy hàng và không cần chuẩn bị tiền mặt khi gửi.
                                 </div>
                             </div>
-
                             <div class="space-y-2 pt-1">
                                 <button 
                                     type="button" 
@@ -3525,7 +3254,6 @@
                                     </svg>
                                     <span>Thanh Toán Cước VietQR Ngay ({{ Utils.formatCurrency(createdShipmentPrompt?.shippingFee || createdShipmentPrompt?.totalFee || 35000) }})</span>
                                 </button>
-
                                 <div class="grid grid-cols-2 gap-2 pt-1">
                                     <button 
                                         type="button" 
@@ -3537,7 +3265,6 @@
                                         </svg>
                                         <span>Tạo Thêm Đơn Khác</span>
                                     </button>
-
                                     <button 
                                         type="button" 
                                         @click="handlePromptGoToList" 
@@ -3555,7 +3282,6 @@
                 </div>
                 </Transition>
                 </teleport>
-
                 <teleport to="body">
                 <Transition name="modal">
                 <div v-if="showCheckoutModal" class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -3572,7 +3298,6 @@
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                             </button>
                         </div>
-
                         <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
                             <div class="lg:col-span-5 bg-slate-50 border border-slate-200/90 rounded-xl p-4 space-y-3">
                                 <div class="flex items-center justify-between border-b border-slate-200/70 pb-2">
@@ -3581,7 +3306,6 @@
                                         {{ isCheckoutPaidSuccess ? 'CƯỚC ĐÃ THU' : 'CHỜ THANH TOÁN' }}
                                     </span>
                                 </div>
-
                                 <div class="space-y-2 text-[11.5px]">
                                     <div class="flex justify-between items-center">
                                         <span class="text-slate-500">Người gửi:</span>
@@ -3600,7 +3324,6 @@
                                         <span class="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-[10.5px]">{{ checkoutTargetShipment?.serviceType === 'EXPRESS' ? 'Waybill Hỏa Tốc' : (checkoutTargetShipment?.serviceType === 'ECO' ? 'Waybill Tiết Kiệm' : 'Waybill Tiêu Chuẩn') }}</span>
                                     </div>
                                 </div>
-
                                 <div class="border-t border-slate-200/70 pt-2.5 space-y-1.5 text-[11.5px]">
                                     <div class="flex justify-between text-slate-600">
                                         <span>Cước vận chuyển:</span>
@@ -3616,7 +3339,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <div class="lg:col-span-7 bg-slate-50 border border-slate-200/90 rounded-xl p-4 space-y-4">
                                 <div v-if="!isCheckoutPaidSuccess" class="flex items-center gap-1 p-1 bg-slate-200/70 rounded-xl text-xs">
                                     <button @click="activeCheckoutTab = 'vietqr'" :class="activeCheckoutTab === 'vietqr' ? 'bg-white text-blue-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900 font-semibold'" class="flex-1 py-1.5 px-2 rounded-lg transition flex items-center justify-center gap-1.5">
@@ -3630,7 +3352,6 @@
                                         <span>Cổng VNPAY</span>
                                     </button>
                                 </div>
-
                                 <div v-if="isCheckoutPaidSuccess" class="py-6 text-center space-y-3 bg-emerald-50 border border-emerald-200 rounded-xl p-4">
                                     <div class="w-12 h-12 bg-emerald-100 border-2 border-emerald-500 rounded-full flex items-center justify-center mx-auto text-emerald-600 shadow-inner">
                                         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
@@ -3660,7 +3381,6 @@
                                         </button>
                                     </div>
                                 </div>
-
                                 <div v-else-if="activeCheckoutTab === 'vietqr'" class="space-y-3">
                                     <div class="flex items-center justify-between text-[11px]">
                                         <span class="text-slate-600 font-semibold flex items-center gap-1.5">
@@ -3671,7 +3391,6 @@
                                             {{ formatCheckoutCountdown(checkoutCountdown) }}
                                         </span>
                                     </div>
-
                                     <div class="bg-white border border-slate-200 rounded-xl p-3.5 flex flex-col sm:flex-row items-center gap-4 shadow-xs">
                                         <div class="bg-slate-50 p-2 rounded-xl border border-slate-200 shrink-0">
                                             <div v-if="isCheckoutLoading" class="w-36 h-36 flex items-center justify-center text-slate-400 text-xs">
@@ -3694,7 +3413,6 @@
                                             </div>
                                         </div>
                                     </div>
-
                                     <div class="grid grid-cols-2 gap-2 pt-1">
                                         <button @click="handleCheckoutRecheck" :disabled="isCheckingPayment" class="py-2 px-3 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition shadow-xs flex items-center justify-center gap-1.5">
                                             <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
@@ -3706,7 +3424,6 @@
                                         </button>
                                     </div>
                                 </div>
-
                                 <div v-else-if="activeCheckoutTab === 'wallet'" class="py-8 text-center space-y-3 bg-white border border-slate-200 rounded-xl p-4">
                                     <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
@@ -3716,7 +3433,6 @@
                                         Xác Nhận Trừ Ví
                                     </button>
                                 </div>
-
                                 <div v-else-if="activeCheckoutTab === 'gateway'" class="py-8 text-center space-y-3 bg-white border border-slate-200 rounded-xl p-4">
                                     <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
@@ -3732,13 +3448,11 @@
                 </div>
                 </Transition>
                 </teleport>
-
-                <!-- Modal 3 Bước Yêu Cầu Hoàn Hàng -->
+                
                 <teleport to="body">
                 <Transition name="modal">
                 <div v-if="showReturnModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
                     <div class="bg-white rounded-2xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto">
-                        <!-- Header & Stepper -->
                         <div class="border-b border-slate-100 pb-3">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center space-x-2">
@@ -3752,8 +3466,7 @@
                                 </div>
                                 <button type="button" @click="showReturnModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 cursor-pointer">&times;</button>
                             </div>
-
-                            <!-- Stepper pills -->
+                            
                             <div class="grid grid-cols-3 gap-2 mt-3 pt-2 border-t border-slate-100 text-center text-[11px] font-bold">
                                 <div class="py-1 rounded-lg transition" :class="returnModalStep === 1 ? 'bg-amber-100 text-amber-800 ring-1 ring-amber-300' : (returnModalStep > 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-50 text-slate-400')">
                                     1. Lý do hoàn
@@ -3766,8 +3479,7 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Step 1: Reason -->
+                        
                         <div v-if="returnModalStep === 1" class="space-y-3.5 text-xs">
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-700 mb-1">
@@ -3784,7 +3496,6 @@
                                     <option value="OTHER">Lý do khác</option>
                                 </select>
                             </div>
-
                             <div>
                                 <div class="flex items-center justify-between mb-1">
                                     <label class="block text-[11px] font-bold text-slate-700">Ghi chú chi tiết cho bưu tá / bưu cục (Không bắt buộc)</label>
@@ -3798,11 +3509,9 @@
                                     class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none resize-none"
                                 ></textarea>
                             </div>
-
                             <div class="p-3 bg-blue-50/70 border border-blue-200/80 rounded-xl text-[11px] text-blue-900 leading-relaxed">
                                 <strong>Lưu ý:</strong> Sau khi hoàn hàng, kiện hàng sẽ được gỡ khỏi luồng phát cho người nhận và định tuyến quay ngược về điểm xuất phát.
                             </div>
-
                             <div class="pt-2 flex items-center justify-end space-x-2 border-t border-slate-100">
                                 <button type="button" @click="showReturnModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition cursor-pointer">
                                     Hủy bỏ
@@ -3813,14 +3522,12 @@
                                 </button>
                             </div>
                         </div>
-
-                        <!-- Step 2: Return Mode Selection -->
+                        
                         <div v-else-if="returnModalStep === 2" class="space-y-3.5 text-xs">
                             <div class="text-[11.5px] font-bold text-slate-700">
                                 Chọn phương thức nhận lại hàng hoàn:
                             </div>
-
-                            <!-- Option 1: DOORSTEP -->
+                            
                             <div 
                                 @click="returnForm.returnMode = 'DOORSTEP'"
                                 class="p-3.5 border rounded-xl cursor-pointer transition flex items-start space-x-3"
@@ -3839,8 +3546,7 @@
                                     </p>
                                 </div>
                             </div>
-
-                            <!-- Option 2: COUNTER_PICKUP -->
+                            
                             <div 
                                 @click="returnForm.returnMode = 'COUNTER_PICKUP'"
                                 class="p-3.5 border rounded-xl cursor-pointer transition flex items-start space-x-3"
@@ -3859,7 +3565,6 @@
                                     </p>
                                 </div>
                             </div>
-
                             <div class="pt-2 flex items-center justify-between border-t border-slate-100">
                                 <button type="button" @click="returnModalStep = 1" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition cursor-pointer">
                                     Quay lại
@@ -3870,10 +3575,8 @@
                                 </button>
                             </div>
                         </div>
-
-                        <!-- Step 3: Fee Transparency, COD Warning & Payment -->
+                        
                         <div v-else-if="returnModalStep === 3" class="space-y-3.5 text-xs">
-                            <!-- Fee breakdown card -->
                             <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
                                 <div class="flex items-center justify-between border-b border-slate-200/70 pb-2">
                                     <span class="text-slate-500">Cước phát gửi ban đầu:</span>
@@ -3892,8 +3595,7 @@
                                         {{ Utils.formatCurrency(returnQuoteData?.estimatedReturnFee ?? returnQuoteData?.returnFee ?? 17500) }}
                                     </div>
                                 </div>
-
-                                <!-- COD Void Alert -->
+                                
                                 <div class="p-2.5 bg-amber-50 border border-amber-200 rounded-lg flex items-start space-x-2 text-[11px] text-amber-900">
                                     <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                                     <div>
@@ -3901,8 +3603,7 @@
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- Payment Choice -->
+                            
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-700 mb-1.5">
                                     Phương thức thanh toán cước hoàn:
@@ -3918,7 +3619,6 @@
                                             <div class="text-[10px] text-slate-400">Trả tiền mặt/QR khi bưu tá giao</div>
                                         </div>
                                     </label>
-
                                     <label 
                                         class="p-2.5 border rounded-lg cursor-pointer flex items-center space-x-2 transition"
                                         :class="returnForm.feePaymentStatus === 'PREPAID' ? 'border-blue-500 bg-blue-50/50' : 'border-slate-200 bg-white'"
@@ -3931,7 +3631,6 @@
                                     </label>
                                 </div>
                             </div>
-
                             <div class="pt-2 flex items-center justify-between border-t border-slate-100">
                                 <button type="button" @click="returnModalStep = 2" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition cursor-pointer">
                                     Quay lại
@@ -3951,8 +3650,7 @@
                 </div>
                 </Transition>
                 </teleport>
-
-                <!-- Modal Cập Nhật Thông Tin Giao Lại (Đổi SĐT / Địa chỉ) -->
+                
                 <teleport to="body">
                 <Transition name="modal">
                 <div v-if="showUpdateInfoModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
@@ -3964,12 +3662,10 @@
                             </div>
                             <button type="button" @click="showUpdateInfoModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 cursor-pointer">&times;</button>
                         </div>
-
                         <div class="space-y-3 text-xs">
                             <div class="p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-[11px] text-blue-900">
                                 <strong>Quy định Waybill:</strong> Bạn có thể đổi số điện thoại hoặc địa chỉ mới của người nhận trong <strong>cùng địa bàn Quận/Huyện</strong> để bưu cục phát hiện tại tiếp tục giao lại.
                             </div>
-
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-700 mb-1">
                                     Số điện thoại người nhận mới <span class="text-rose-500">*</span>
@@ -3982,7 +3678,6 @@
                                     class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none"
                                 />
                             </div>
-
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-700 mb-1">
                                     Địa chỉ chi tiết mới (Cùng quận/huyện)
@@ -3995,7 +3690,6 @@
                                     class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none resize-none"
                                 ></textarea>
                             </div>
-
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-700 mb-1">
                                     Ghi chú cho shipper
@@ -4009,7 +3703,6 @@
                                 />
                             </div>
                         </div>
-
                         <div class="pt-2 flex items-center justify-end space-x-2 border-t border-slate-100">
                             <button type="button" @click="showUpdateInfoModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition cursor-pointer">
                                 Hủy bỏ
@@ -4027,8 +3720,7 @@
                 </div>
                 </Transition>
                 </teleport>
-
-                <!-- Modal CSKH Xác Nhận Lỗi Bưu Chính -->
+                
                 <teleport to="body">
                 <Transition name="modal">
                 <div v-if="showPostalFaultModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
@@ -4040,12 +3732,10 @@
                             </div>
                             <button type="button" @click="showPostalFaultModal = false" class="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 cursor-pointer">&times;</button>
                         </div>
-
                         <div class="space-y-3 text-xs">
                             <div class="p-2.5 bg-purple-50 border border-purple-200 rounded-xl text-[11px] text-purple-900 leading-relaxed">
                                 <strong>Hiệu lực nghiệp vụ:</strong> Khi xác nhận do lỗi của phía bưu chính (phát trễ hẹn nghiêm trọng, thất lạc hoặc sai lệch định tuyến), cước hoàn sẽ tự động <strong>miễn phí 100% (0 VNĐ)</strong> cho khách hàng.
                             </div>
-
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-700 mb-1">
                                     Lý do xác nhận lỗi bưu chính <span class="text-rose-500">*</span>
@@ -4059,7 +3749,6 @@
                                 ></textarea>
                             </div>
                         </div>
-
                         <div class="pt-2 flex items-center justify-end space-x-2 border-t border-slate-100">
                             <button type="button" @click="showPostalFaultModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition cursor-pointer">
                                 Hủy bỏ
@@ -4085,7 +3774,6 @@
             </div>
         `
     };
-
     ShipmentView.components = { ...ShipmentView.components, ShipmentSmartPasteCard: window.ShipmentSmartPasteCard, ShipmentPrintModal: window.ShipmentPrintModal };
     window.ShipmentView = ShipmentView;
 })();

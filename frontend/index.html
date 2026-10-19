@@ -6,13 +6,10 @@
     <title>Waybill Platform - Hệ Thống Điều Phối & Quản Trị Vận Đơn Bưu Chính</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23005baa'/%3E%3Cpath d='M7 10h18v12H7z' fill='none' stroke='white' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M7 10l9 8 9-8' fill='none' stroke='white' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E">
     <link rel="alternate icon" href="favicon.ico">
-    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-    
     <script>
-        // Polyfill chuyển hướng sự kiện 'unload' sang 'pagehide' để triệt tiêu Permissions policy violation trên Chrome 117+
         (function () {
             var _ael = window.addEventListener;
             window.addEventListener = function (type, listener, options) {
@@ -27,12 +24,10 @@
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link rel="stylesheet" href="css/style.css?v=3.7.12" />
     <link rel="stylesheet" href="css/views/login.css?v=3.5.8" />
-
     <script>
         (function () {
             try {
@@ -50,7 +45,6 @@
             } catch (e) {}
         })();
     </script>
-
     <script type="importmap">
     {
         "imports": {
@@ -61,15 +55,10 @@
     <script src="js/libs/vue.global.js"></script>
 </head>
 <body class="bg-[#f8fafc] text-slate-900 antialiased min-h-full flex flex-col selection:bg-blue-600 selection:text-white font-sans">
-
-    <!-- ==========================================================================
-         MÀN HÌNH LOADING RIÊNG TOÀN TRANG (WAYBILL POST FULL-SCREEN PRELOADER)
-         ========================================================================== -->
+    
     <div id="waybill-preloader" hidden role="status" aria-label="Đang khởi động hệ thống"></div>
     <script src="js/components/preloader.js?v=3.7.12"></script>
-
     <div id="app" v-cloak class="w-full min-h-screen bg-slate-50 selection:bg-blue-600 selection:text-white font-sans">
-        
         <login-view 
             v-if="currentTab === 'login'" 
             :is-dark-mode="isDarkMode"
@@ -77,7 +66,6 @@
             @login-success="handleLoginSuccess" 
             @navigate="navigateTo"
         ></login-view>
-
         <component
             v-else
             :is="currentUser ? 'InternalLayout' : 'PublicLayout'"
@@ -129,9 +117,7 @@
                 </keep-alive>
             </transition>
         </component>
-
         <toast-container :toast="toast"></toast-container>
-
         <user-profile-modal
             :show="showUserProfileModal"
             :current-user="currentUser"
@@ -146,14 +132,12 @@
             @save="saveUserProfile"
             @trigger-google-link="triggerGoogleLink"
         ></user-profile-modal>
-
         <shipment-detail-modal
             :show="showShipmentDetailModal"
             :tracking-code="selectedTrackingCodeForModal"
             @close="closeShipmentDetailModal"
             @open-full-tracking="openFullTrackingFromModal"
         ></shipment-detail-modal>
-
         <div 
             v-if="showNotificationDetailModal && activeNotificationDetail" 
             class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
@@ -182,7 +166,6 @@
                         </svg>
                     </button>
                 </div>
-
                 <div class="p-6 space-y-4">
                     <div v-if="activeNotificationDetail.entityCode" class="p-3 bg-blue-50/60 border border-blue-100 rounded-xl flex items-center justify-between">
                         <div>
@@ -197,12 +180,10 @@
                             {{ activeNotificationDetail.detailType === 'TRIP' ? 'Chuyến xe gom hàng' : 'Vận đơn bưu chính' }}
                         </span>
                     </div>
-
                     <div class="p-4 bg-slate-50 border border-slate-100 rounded-xl text-xs sm:text-sm text-slate-700 leading-relaxed whitespace-pre-line">
                         {{ activeNotificationDetail.message }}
                     </div>
                 </div>
-
                 <div class="p-4 px-6 border-t border-slate-100 bg-slate-50/50 flex items-center justify-end space-x-3">
                     <button 
                         type="button"
@@ -236,10 +217,8 @@
                 </div>
             </div>
         </div>
-
         <chatbot-widget v-if="!isStaffUser && currentTab !== 'login'"></chatbot-widget>
     </div>
-
     <script type="module" src="js/app.js?v=3.8.0"></script>
 </body>
 </html>

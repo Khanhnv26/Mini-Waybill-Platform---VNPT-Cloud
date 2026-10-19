@@ -11,7 +11,6 @@
             }
             return response.json();
         },
-
         async getHistory(trackingCode) {
             const response = await Api.get(`/api/tracking/${encodeURIComponent(trackingCode)}/history`);
             if (!response.ok) {
@@ -19,11 +18,7 @@
             }
             return response.json();
         },
-
-        /**
-         * Gộp trạng thái hiện tại + hành trình thành một đối tượng thống nhất cho UI.
-         * Backend tách làm 2 endpoint nên phải hợp nhất tại đây.
-         */
+        
         async getFullTracking(trackingCode) {
             const [status, history] = await Promise.all([
                 this.getTracking(trackingCode),
@@ -36,7 +31,6 @@
                 history: Array.isArray(history) ? history : []
             };
         },
-
         async updateStatus(trackingCode, status, locationCode, note) {
             const response = await Api.post(`/api/tracking/${encodeURIComponent(trackingCode)}/status`, {
                 status,
@@ -50,6 +44,5 @@
             return response.json();
         }
     };
-
     window.TrackingService = TrackingService;
 })();

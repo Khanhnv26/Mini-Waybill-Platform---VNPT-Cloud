@@ -17,7 +17,6 @@
                     Hệ thống quản trị và điều phối vận đơn bưu chính số quốc gia, tối ưu vận chuyển chặng đầu, liên tỉnh và chặng cuối.
                 </p>
             </div>
-
             <div class="space-y-2">
                 <h4 class="text-white font-bold text-xs uppercase tracking-wider whitespace-nowrap">Dịch Vụ Nổi Bật</h4>
                 <ul class="space-y-1.5 text-[11.5px] text-slate-400">
@@ -26,7 +25,6 @@
                     <li @click="$emit('switch-tab', 'network')" class="hover:text-white transition-colors cursor-pointer whitespace-nowrap">Mạng lưới bưu cục gửi hàng</li>
                 </ul>
             </div>
-
             <div class="space-y-2">
                 <h4 class="text-white font-bold text-xs uppercase tracking-wider whitespace-nowrap">Hỗ Trợ Khách Hàng</h4>
                 <ul class="space-y-1.5 text-[11.5px] text-slate-400">
@@ -35,7 +33,6 @@
                     <li @click="$emit('switch-tab', 'support')" class="hover:text-white transition-colors cursor-pointer whitespace-nowrap">Gửi phản ánh &amp; CSKH</li>
                 </ul>
             </div>
-
             <div class="space-y-2">
                 <h4 class="text-white font-bold text-xs uppercase tracking-wider whitespace-nowrap">Tổng Đài Bưu Chính</h4>
                 <a href="tel:1900545481" class="text-white font-bold text-base text-cyan-300 hover:underline block whitespace-nowrap">1900 54 54 81</a>
@@ -49,12 +46,10 @@
         </div>
     </footer>
     `;
-
     const PublicFooter = {
         name: 'PublicFooter',
         template,
         emits: ['switch-tab']
     };
-
     window.PublicFooter = PublicFooter;
 })();

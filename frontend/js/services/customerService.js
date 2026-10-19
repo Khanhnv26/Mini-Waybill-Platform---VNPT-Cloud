@@ -12,7 +12,6 @@
         }
         return msg || defaultMsg;
     }
-
     const CustomerService = {
         async getAllCustomers() {
             const response = await Api.get('/api/customers');
@@ -22,7 +21,6 @@
             }
             return response.json();
         },
-
         async createCustomer(payload) {
             const response = await Api.post('/api/customers', payload);
             if (!response.ok) {
@@ -31,7 +29,6 @@
             }
             return response.json();
         },
-
         async updateCustomer(id, payload) {
             const response = await Api.put(`/api/customers/${id}`, payload);
             if (!response.ok) {
@@ -40,7 +37,6 @@
             }
             return response.json();
         },
-
         async updateCustomerStatus(id, status, customer = null) {
             const payload = customer ? {
                 fullName: customer.fullName,
@@ -56,7 +52,6 @@
             }
             return response.json();
         },
-
         async getMyProfile() {
             const response = await Api.get('/api/customers/me');
             if (!response.ok) {
@@ -65,7 +60,6 @@
             }
             return response.json();
         },
-
         async updateMyProfile(payload) {
             const response = await Api.put('/api/customers/me', payload);
             if (!response.ok) {
@@ -75,6 +69,5 @@
             return response.json();
         }
     };
-
     window.CustomerService = CustomerService;
 })();

@@ -1,17 +1,14 @@
 (function () {
     const { ref, reactive, computed, watch, onMounted, onUnmounted } = Vue;
-
     const PaymentView = {
         name: 'PaymentView',
         emits: ['view-tracking', 'switch-tab'],
         setup(props, { emit }) {
             const isLoading = ref(false);
             const isSubmitting = ref(false);
-
             const currentUser = computed(() => {
                 return (typeof Auth !== 'undefined') ? Auth.getUser() : null;
             });
-
             const isStaff = computed(() => {
                 if (typeof Auth === 'undefined') return true;
                 return Auth.isInternalStaff ? Auth.isInternalStaff() : (
@@ -20,27 +17,22 @@
                     Auth.hasRole('ROLE_CS') || Auth.hasRole('ROLE_HUB_OPERATOR')
                 );
             });
-
             const isCustomerOnly = computed(() => {
                 return !isStaff.value;
             });
-
-            // Filters & Pagination
+            
             const searchKeyword = ref('');
             const filterStatus = ref('');
             const filterType = ref('');
             const filterMethod = ref('');
             const filterDate = ref('all');
-
             const pagination = reactive({
                 page: 0,
                 size: 15,
                 totalPages: 1,
                 totalElements: 0
             });
-
             const transactions = ref([]);
-
             const stats = reactive({
                 totalCodSuccess: 0,
                 totalShippingFeeSuccess: 0,
@@ -49,25 +41,20 @@
                 successCount: 0,
                 totalCount: 0
             });
-
-            // Modals
+            
             const showQrModal = ref(false);
             const activeQrTx = ref(null);
             let qrPollingTimer = null;
-
             const showCashModal = ref(false);
             const activeCashTx = ref(null);
             const cashNote = ref('');
-
             const showReceiptModal = ref(false);
             const activeReceiptTx = ref(null);
-
-            // Formatters
+            
             const formatVnd = (val) => {
                 const num = Number(val) || 0;
                 return new Intl.NumberFormat('vi-VN').format(num) + ' đ';
             };
-
             const formatDateTime = (dtStr) => {
                 if (!dtStr) return '—';
                 try {
@@ -81,19 +68,16 @@
                     return dtStr;
                 }
             };
-
             const pad = (n) => String(n).padStart(2, '0');
             const formatLocalDateTime = (d) => {
                 return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
             };
-
-            // Calculate date ranges in local time (00:00:00 to 23:59:59)
+            
             const getDateRange = (rangeType) => {
                 if (rangeType === 'all') return { from: null, to: null };
                 const now = new Date();
                 const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
                 const to = formatLocalDateTime(endOfDay);
-
                 if (rangeType === 'today') {
                     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
                     return { from: formatLocalDateTime(start), to };
@@ -108,8 +92,7 @@
                 }
                 return { from: null, to: null };
             };
-
-            // Fetch Transactions & Stats
+            
             const fetchTransactions = async () => {
                 if (typeof PaymentService === 'undefined') return;
                 isLoading.value = true;
@@ -125,7 +108,6 @@
                         fromDate: dateFilter.from,
                         toDate: dateFilter.to
                     };
-
                     const res = await PaymentService.getTransactions(params);
                     if (res && res.content) {
                         transactions.value = res.content;
@@ -145,7 +127,6 @@
                     isLoading.value = false;
                 }
             };
-
             const fetchStats = async () => {
                 if (typeof PaymentService === 'undefined') return;
                 try {
@@ -162,25 +143,21 @@
                     console.error('[PaymentView] Lỗi tải thống kê:', e);
                 }
             };
-
             const reloadAll = () => {
                 pagination.page = 0;
                 fetchTransactions();
                 fetchStats();
             };
-
             const changePage = (newPage) => {
                 if (newPage < 0 || newPage >= pagination.totalPages) return;
                 pagination.page = newPage;
                 fetchTransactions();
             };
-
-            // Open QR Modal
+            
             const openQrModal = (tx) => {
                 activeQrTx.value = tx;
                 showQrModal.value = true;
-
-                // Start polling every 3.5 seconds
+                
                 if (qrPollingTimer) clearInterval(qrPollingTimer);
                 qrPollingTimer = setInterval(async () => {
                     if (!activeQrTx.value || !activeQrTx.value.trackingCode) return;
@@ -196,11 +173,9 @@
                             reloadAll();
                         }
                     } catch (err) {
-                        // ignore polling error
                     }
                 }, 3500);
             };
-
             const closeQrModal = () => {
                 showQrModal.value = false;
                 activeQrTx.value = null;
@@ -209,8 +184,7 @@
                     qrPollingTimer = null;
                 }
             };
-
-            // Mock Pay
+            
             const handleMockPay = async () => {
                 if (!activeQrTx.value || !activeQrTx.value.trackingCode) return;
                 isSubmitting.value = true;
@@ -229,20 +203,17 @@
                     isSubmitting.value = false;
                 }
             };
-
-            // Open Cash Modal
+            
             const openCashModal = (tx) => {
                 activeCashTx.value = tx;
                 cashNote.value = 'Thu tiền mặt tại quầy bưu cục';
                 showCashModal.value = true;
             };
-
             const closeCashModal = () => {
                 showCashModal.value = false;
                 activeCashTx.value = null;
                 cashNote.value = '';
             };
-
             const handleConfirmCash = async () => {
                 if (!activeCashTx.value || !activeCashTx.value.trackingCode) return;
                 isSubmitting.value = true;
@@ -266,25 +237,21 @@
                     isSubmitting.value = false;
                 }
             };
-
-            // Open Receipt Modal
+            
             const openReceiptModal = (tx) => {
                 activeReceiptTx.value = tx;
                 showReceiptModal.value = true;
             };
-
             const closeReceiptModal = () => {
                 showReceiptModal.value = false;
                 activeReceiptTx.value = null;
             };
-
-            // Navigate to Tracking
+            
             const navigateToTracking = (trackingCode) => {
                 if (!trackingCode) return;
                 const cleanCode = String(trackingCode).trim();
                 emit('view-tracking', cleanCode, 'payments');
             };
-
             const resetFilters = () => {
                 searchKeyword.value = '';
                 filterStatus.value = '';
@@ -292,12 +259,10 @@
                 filterMethod.value = '';
                 filterDate.value = 'all';
             };
-
             const applyQuickRange = (range) => {
                 filterDate.value = range;
             };
-
-            // Export to CSV/Excel
+            
             const exportExcel = () => {
                 if (!transactions.value || transactions.value.length === 0) {
                     if (window.Utils && window.Utils.showToast) {
@@ -305,7 +270,6 @@
                     }
                     return;
                 }
-
                 try {
                     const headers = ['Mã Giao Dịch', 'Mã Vận Đơn', 'Loại Cước', 'Số Tiền (VND)', 'Kênh Thu', 'Trạng Thái', 'Ngày Tạo', 'Ngày Thu', 'Ghi Chú'];
                     const rows = transactions.value.map(t => [
@@ -319,12 +283,10 @@
                         t.paidAt || '',
                         (t.payerNote || '').replace(/[\r\n,]/g, ' ')
                     ]);
-
                     let csvContent = '\uFEFF' + headers.join(',') + '\n';
                     rows.forEach(r => {
                         csvContent += r.map(c => `"${c}"`).join(',') + '\n';
                     });
-
                     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement('a');
@@ -333,7 +295,6 @@
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
-
                     if (window.Utils && window.Utils.showToast) {
                         window.Utils.showToast('Xuất Tệp Thành Công', 'Đã tải xuống file đối soát thanh toán định dạng CSV/Excel', 'success');
                     }
@@ -341,13 +302,11 @@
                     console.error('[PaymentView] Lỗi xuất file:', e);
                 }
             };
-
-            // Watch filters
+            
             watch([searchKeyword, filterStatus, filterType, filterMethod, filterDate], () => {
                 pagination.page = 0;
                 fetchTransactions();
             });
-
             onMounted(() => {
                 if (!window.Auth || !window.Auth.isAuthenticated()) {
                     try {
@@ -360,25 +319,21 @@
                     }
                     return;
                 }
-
-                // Check if URL has tracking query
+                
                 const urlParams = new URLSearchParams(window.location.search);
                 const trackingQuery = urlParams.get('tracking') || urlParams.get('code');
                 if (trackingQuery) {
                     searchKeyword.value = trackingQuery.trim();
                 }
-
                 fetchTransactions();
                 fetchStats();
             });
-
             onUnmounted(() => {
                 if (qrPollingTimer) {
                     clearInterval(qrPollingTimer);
                     qrPollingTimer = null;
                 }
             });
-
             const copyCode = (code, label = 'mã') => {
                 if (!code) return;
                 if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -389,7 +344,6 @@
                     }).catch(() => {});
                 }
             };
-
             return {
                 currentUser,
                 isStaff,
@@ -432,10 +386,8 @@
         },
         template: `
         <div class="space-y-4 pb-12 text-slate-800 dark:text-slate-100">
-
             <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-sm relative overflow-hidden">
                 <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
-
                 <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <div class="flex items-center space-x-2">
@@ -458,7 +410,6 @@
                             <span v-else>Khách hàng: <strong>{{ currentUser?.fullName || 'Khách Hàng Waybill' }}</strong></span>
                         </p>
                     </div>
-
                     <div class="flex items-center space-x-2 self-start sm:self-auto flex-shrink-0">
                         <button 
                             type="button" 
@@ -471,7 +422,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div class="b2b-card bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-xl p-3.5 shadow-sm">
                     <div class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
@@ -480,7 +430,6 @@
                     <div class="mt-1.5 text-xl sm:text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400">{{ formatVnd(stats.totalCodSuccess) }}</div>
                     <div class="text-[10px] text-slate-400 mt-0.5">Tiền thu hộ giao thành công</div>
                 </div>
-
                 <div class="b2b-card bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-xl p-3.5 shadow-sm">
                     <div class="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
                         {{ isStaff ? 'Cước Đã Thu' : 'Cước Đã Trả' }}
@@ -488,7 +437,6 @@
                     <div class="mt-1.5 text-xl sm:text-2xl font-black font-mono text-blue-600 dark:text-blue-400">{{ formatVnd(stats.totalShippingFeeSuccess) }}</div>
                     <div class="text-[10px] text-slate-400 mt-0.5">Cước vận chuyển phát sinh</div>
                 </div>
-
                 <div class="b2b-card bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-xl p-3.5 shadow-sm">
                     <div class="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
                         {{ isStaff ? 'COD Chờ Trả' : 'COD Chờ Thu' }}
@@ -496,16 +444,13 @@
                     <div class="mt-1.5 text-xl sm:text-2xl font-black font-mono text-amber-600 dark:text-amber-400">{{ formatVnd(stats.totalCodPending) }}</div>
                     <div class="text-[10px] text-slate-400 mt-0.5">Tiền chờ kết toán chu kỳ</div>
                 </div>
-
                 <div class="b2b-card bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-xl p-3.5 shadow-sm">
                     <div class="text-[11px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wide">Chờ Thu Tiền</div>
                     <div class="mt-1.5 text-xl sm:text-2xl font-black font-mono text-purple-600 dark:text-purple-400">{{ stats.pendingCount }} Đơn</div>
                     <div class="text-[10px] text-slate-400 mt-0.5">Giao dịch đang chờ thanh toán</div>
                 </div>
             </div>
-
             <div class="b2b-card bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-xl p-3 sm:p-3.5 shadow-sm space-y-3">
-                
                 <div class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-slate-100 dark:border-[#1e2e56]">
                     <div class="flex items-center space-x-1.5">
                         <span class="text-xs font-bold text-slate-500 dark:text-slate-400 mr-1">Khoảng ngày:</span>
@@ -542,7 +487,6 @@
                             Tháng Này
                         </button>
                     </div>
-
                     <div class="flex items-center space-x-2">
                         <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-[#0b1329] px-2.5 py-1 rounded-lg border border-slate-200/70 dark:border-[#23345e]">
                             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -561,9 +505,7 @@
                         </button>
                     </div>
                 </div>
-
                 <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                    
                     <div class="relative flex-1 min-w-0">
                         <input 
                             v-model="searchKeyword"
@@ -580,7 +522,6 @@
                             Xóa
                         </button>
                     </div>
-
                     <div class="flex flex-wrap items-center gap-2">
                         <select 
                             v-model="filterStatus"
@@ -592,7 +533,6 @@
                             <option value="FAILED">Thanh toán thất bại</option>
                             <option value="CANCELLED">Giao dịch đã hủy</option>
                         </select>
-
                         <select 
                             v-model="filterType"
                             class="px-3 py-2 bg-slate-50 dark:bg-[#0b1329] border border-slate-200 dark:border-[#23345e] rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 focus:bg-white dark:focus:bg-[#0b1329] focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition cursor-pointer"
@@ -602,7 +542,6 @@
                             <option value="SHIPPING_FEE">Cước vận chuyển</option>
                             <option value="RETURN_FEE">Phí chuyển hoàn</option>
                         </select>
-
                         <select 
                             v-model="filterMethod"
                             class="px-3 py-2 bg-slate-50 dark:bg-[#0b1329] border border-slate-200 dark:border-[#23345e] rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 focus:bg-white dark:focus:bg-[#0b1329] focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition cursor-pointer"
@@ -611,7 +550,6 @@
                             <option value="VIETQR">Chuyển khoản VietQR</option>
                             <option value="CASH">Tiền mặt tại quầy</option>
                         </select>
-
                         <button 
                             type="button"
                             @click="exportExcel"
@@ -623,7 +561,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="b2b-card bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-xl shadow-sm overflow-hidden">
                 <div class="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-[#1e2e56]">
                     <div class="flex items-center space-x-2">
@@ -638,12 +575,10 @@
                         <span>Đơn vị tính: <strong>VNĐ</strong></span>
                     </div>
                 </div>
-
                 <div v-if="isLoading" class="p-8 text-center space-y-2">
                     <div class="inline-block animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
                     <div class="text-xs font-medium text-slate-500 dark:text-slate-400">Đang đồng bộ danh sách giao dịch từ payment-service...</div>
                 </div>
-
                 <div v-else-if="transactions.length === 0" class="p-10 text-center space-y-2">
                     <div class="text-xs font-bold text-slate-700 dark:text-slate-200">Không tìm thấy giao dịch nào phù hợp</div>
                     <p class="text-[11px] text-slate-400 dark:text-slate-500 max-w-sm mx-auto">
@@ -659,7 +594,6 @@
                         </button>
                     </div>
                 </div>
-
                 <div v-else class="overflow-x-auto w-full">
                     <table class="w-full text-left border-collapse table-auto">
                         <thead>
@@ -704,7 +638,6 @@
                                         <span>{{ formatDateTime(tx.createdAt) }}</span>
                                     </div>
                                 </td>
-
                                 <td class="py-2.5 px-3">
                                     <button 
                                         type="button"
@@ -716,7 +649,6 @@
                                         <svg class="w-3 h-3 text-blue-500 opacity-60 group-hover/tracking:opacity-100 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                                     </button>
                                 </td>
-
                                 <td class="py-2.5 px-2.5 whitespace-nowrap text-xs font-medium">
                                     <span v-if="tx.paymentType === 'COD'" class="text-amber-700 dark:text-amber-400">
                                         Thu hộ COD
@@ -728,13 +660,11 @@
                                         Phí hoàn
                                     </span>
                                 </td>
-
                                 <td class="py-2.5 px-2.5 whitespace-nowrap">
                                     <div class="font-mono font-bold text-xs" :class="tx.paymentType === 'COD' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-800 dark:text-slate-100'">
                                         {{ formatVnd(tx.amount) }}
                                     </div>
                                 </td>
-
                                 <td class="py-2.5 px-2.5 whitespace-nowrap">
                                     <div v-if="tx.paymentMethod === 'VIETQR'" class="flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400">
                                         <svg class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
@@ -745,7 +675,6 @@
                                         <span>Tiền mặt</span>
                                     </div>
                                 </td>
-
                                 <td class="py-2.5 px-2.5 whitespace-nowrap">
                                     <span 
                                         v-if="tx.status === 'SUCCESS'"
@@ -776,7 +705,6 @@
                                         <span>Thất Bại</span>
                                     </span>
                                 </td>
-
                                 <td class="py-2.5 px-3">
                                     <div v-if="tx.customerCode" class="font-semibold text-slate-800 dark:text-slate-200 text-xs truncate" style="max-width: 110px;" :title="'Mã KH: ' + tx.customerCode">
                                         <span class="text-slate-400 font-normal">#KH:</span> {{ tx.customerCode }}
@@ -785,7 +713,6 @@
                                         {{ tx.payerNote || '—' }}
                                     </div>
                                 </td>
-
                                 <td class="py-2.5 px-3 text-right whitespace-nowrap">
                                     <div class="inline-flex items-center justify-end gap-1.5">
                                         <template v-if="tx.status === 'PENDING'">
@@ -798,7 +725,6 @@
                                                 <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
                                                 <span>Quét QR</span>
                                             </button>
-
                                             <button 
                                                 v-if="isStaff"
                                                 type="button"
@@ -810,7 +736,6 @@
                                                 <span>Thu Tiền</span>
                                             </button>
                                         </template>
-
                                         <template v-else>
                                             <button 
                                                 type="button"
@@ -828,7 +753,6 @@
                         </tbody>
                     </table>
                 </div>
-
                 <div v-if="pagination.totalElements > 0" class="p-3 bg-slate-50 dark:bg-[#19264c] border-t border-slate-200 dark:border-[#23345e] flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
                     <div>
                         Hiển thị <span class="font-bold text-slate-700 dark:text-slate-200">{{ transactions.length > 0 ? (pagination.page * pagination.size + 1) : 0 }} - {{ Math.min((pagination.page + 1) * pagination.size, pagination.totalElements) }}</span> / <span class="font-bold text-slate-700 dark:text-slate-200">{{ pagination.totalElements }}</span> giao dịch (Trang {{ pagination.page + 1 }} / {{ Math.max(1, pagination.totalPages) }})
@@ -856,7 +780,6 @@
                     </div>
                 </div>
             </div>
-
             <teleport to="body">
                 <div v-if="showQrModal" class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
                     <div class="bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-2xl max-w-sm w-full shadow-xl overflow-hidden animate-in fade-in zoom-in duration-150">
@@ -867,7 +790,6 @@
                             </div>
                             <button type="button" @click="closeQrModal" class="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-xs cursor-pointer">✕</button>
                         </div>
-
                         <div class="p-4 text-center space-y-3">
                             <div class="mx-auto w-52 h-52 p-2 bg-white border border-slate-200 rounded-xl shadow-inner flex flex-col items-center justify-center overflow-hidden">
                                 <img 
@@ -895,7 +817,6 @@
                                     <rect x="80" y="72" width="10" height="18" fill="#00376d"/>
                                 </svg>
                             </div>
-
                             <div class="bg-slate-50 dark:bg-[#0b1329] border border-slate-200/80 dark:border-[#23345e] rounded-lg p-2.5 text-left text-xs space-y-1.5">
                                 <div class="flex justify-between">
                                     <span class="text-slate-500">Mã vận đơn:</span>
@@ -920,7 +841,6 @@
                                     </span>
                                 </div>
                             </div>
-
                             <div class="pt-1 space-y-1.5">
                                 <button 
                                     type="button"
@@ -943,7 +863,6 @@
                     </div>
                 </div>
             </teleport>
-
             <teleport to="body">
                 <div v-if="showCashModal" class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
                     <div class="bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-2xl max-w-sm w-full shadow-xl overflow-hidden p-4 space-y-3 animate-in fade-in zoom-in duration-150">
@@ -956,7 +875,6 @@
                                 <p class="text-[11px] text-slate-400">Giao dịch viên quầy / Bưu tá thu tiền trực tiếp</p>
                             </div>
                         </div>
-
                         <div class="bg-slate-50 dark:bg-[#0b1329] border border-slate-200/80 dark:border-[#23345e] rounded-lg p-2.5 text-xs space-y-1.5">
                             <div class="flex justify-between">
                                 <span class="text-slate-500">Mã vận đơn:</span>
@@ -973,7 +891,6 @@
                                 </span>
                             </div>
                         </div>
-
                         <div>
                             <label class="block text-[11px] font-semibold text-slate-500 mb-1">Ghi chú xác nhận thu tiền:</label>
                             <input 
@@ -983,7 +900,6 @@
                                 placeholder="Thu tiền mặt tại quầy..."
                             />
                         </div>
-
                         <div class="flex items-center space-x-2 pt-1">
                             <button 
                                 type="button" 
@@ -1004,7 +920,6 @@
                     </div>
                 </div>
             </teleport>
-
             <teleport to="body">
                 <div v-if="showReceiptModal" class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
                     <div class="bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-2xl max-w-md w-full shadow-xl overflow-hidden p-5 space-y-4 animate-in fade-in zoom-in duration-150">
@@ -1020,7 +935,6 @@
                             </div>
                             <button type="button" @click="closeReceiptModal" class="text-slate-400 hover:text-slate-600 text-sm cursor-pointer">✕</button>
                         </div>
-
                         <div class="bg-slate-50 dark:bg-[#0b1329] border border-slate-200/80 dark:border-[#23345e] rounded-xl p-3.5 space-y-2 text-xs">
                             <div class="flex justify-between">
                                 <span class="text-slate-500">Mã giao dịch:</span>
@@ -1055,7 +969,6 @@
                                 <span class="font-mono text-slate-600">{{ activeReceiptTx?.referenceCode }}</span>
                             </div>
                         </div>
-
                         <div class="flex justify-end space-x-2 pt-1">
                             <button 
                                 type="button" 
@@ -1068,10 +981,8 @@
                     </div>
                 </div>
             </teleport>
-
         </div>
         `
     };
-
     window.PaymentView = PaymentView;
 })();

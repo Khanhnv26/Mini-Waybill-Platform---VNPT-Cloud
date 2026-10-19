@@ -1,4 +1,4 @@
-// View modules retain their existing window registration and load only when rendered.
+
 export function createViewLoader(name, loadModule, dependencies = []) {
     let pending;
     return () => {

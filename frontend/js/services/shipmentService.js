@@ -28,7 +28,6 @@
             }
             return response.json();
         },
-
         async getShipments(customerId, options = {}) {
             let url = '/api/shipments';
             if (customerId) {
@@ -41,17 +40,10 @@
             }
             return response.json();
         },
-
         async getAll(options = {}) {
             return this.getShipments(null, options);
         },
-
-        /**
-         * Chi tiết bưu gửi theo mã vận đơn.
-         * Dùng fetch trực tiếp (không qua Api.get) để KHÔNG kích hoạt
-         * toast lỗi 403 toàn cục khi khách vãng lai hoặc user không có
-         * quyền shipment:read_all tra cứu đơn của người khác.
-         */
+        
         async getByCode(trackingCode) {
             if (!trackingCode) return null;
             try {
@@ -68,7 +60,6 @@
                 return null;
             }
         },
-
         async cancelShipment(trackingCode, payload = {}) {
             const response = await Api.post(`/api/shipments/${encodeURIComponent(trackingCode)}/cancel`, payload);
             if (!response.ok) {
@@ -77,7 +68,6 @@
             }
             return response.json();
         },
-
         async submitCodSettlement(trackingCodes, courierId = '') {
             const payload = {
                 trackingCodes: Array.isArray(trackingCodes) ? trackingCodes : [trackingCodes],
@@ -90,7 +80,6 @@
             }
             return response.json();
         },
-
         async confirmCodSettlement(trackingCodes, officerId = '') {
             const payload = {
                 trackingCodes: Array.isArray(trackingCodes) ? trackingCodes : [trackingCodes],
@@ -103,7 +92,6 @@
             }
             return response.json();
         },
-
         async getReturnQuote(trackingCode) {
             const response = await Api.get(`/api/shipments/${encodeURIComponent(trackingCode)}/return-quote`);
             if (!response.ok) {
@@ -112,7 +100,6 @@
             }
             return response.json();
         },
-
         async createReturnRequest(trackingCode, payload) {
             const response = await Api.post(`/api/shipments/${encodeURIComponent(trackingCode)}/return-requests`, payload);
             if (!response.ok) {
@@ -121,7 +108,6 @@
             }
             return response.json();
         },
-
         async getReturnRequest(trackingCode) {
             try {
                 const response = await Api.get(`/api/shipments/${encodeURIComponent(trackingCode)}/return-request`, {}, { silent: true, skip403Toast: true });
@@ -132,7 +118,6 @@
                 return null;
             }
         },
-
         async listReturnRequests(status = null) {
             let url = '/api/shipments/return-requests';
             if (status) {
@@ -145,7 +130,6 @@
             }
             return response.json();
         },
-
         async updatePostalFault(trackingCode, payload) {
             const response = await Api.patch(`/api/shipments/${encodeURIComponent(trackingCode)}/return-request/postal-fault`, payload);
             if (!response.ok) {
@@ -154,7 +138,6 @@
             }
             return response.json();
         },
-
         async getPendingFailureDecisions() {
             const response = await Api.get('/api/shipments/pending-decisions');
             if (!response.ok) {
@@ -163,7 +146,6 @@
             }
             return response.json();
         },
-
         async submitFailureDecision(trackingCode, payload) {
             const response = await Api.post(`/api/shipments/${encodeURIComponent(trackingCode)}/failure-decision`, payload);
             if (!response.ok) {
@@ -173,6 +155,5 @@
             return response.json();
         }
     };
-
     window.ShipmentService = ShipmentService;
 })();

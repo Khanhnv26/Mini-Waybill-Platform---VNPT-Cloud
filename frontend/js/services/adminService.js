@@ -8,7 +8,6 @@
             }
             return await res.json();
         },
-
         async getAllRoles() {
             const res = await Api.get('/api/admin/roles');
             if (!res.ok) {
@@ -17,7 +16,6 @@
             }
             return await res.json();
         },
-
         async updateRolePermissions(roleId, permissionCodes) {
             const res = await Api.put(`/api/admin/roles/${roleId}/permissions`, {
                 permissionCodes
@@ -28,7 +26,6 @@
             }
             return await res.json();
         },
-
         async getAllUsers() {
             const res = await Api.get('/api/admin/users');
             if (!res.ok) {
@@ -37,7 +34,6 @@
             }
             return await res.json();
         },
-
         async updateUserRoles(userId, roleNames) {
             const res = await Api.put(`/api/admin/users/${userId}/roles`, {
                 roleNames
@@ -48,7 +44,6 @@
             }
             return await res.json();
         },
-
         async updateUserStatus(userId, status) {
             const res = await Api.put(`/api/admin/users/${userId}/status`, {
                 status
@@ -59,7 +54,6 @@
             }
             return await res.json();
         },
-
         async updateUserLocation(userId, locationCode) {
             const res = await Api.put(`/api/admin/users/${userId}/location`, {
                 locationCode: locationCode || null
@@ -71,6 +65,5 @@
             return await res.json();
         }
     };
-
     window.AdminService = AdminService;
 })();

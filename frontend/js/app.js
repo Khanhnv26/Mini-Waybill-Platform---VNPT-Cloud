@@ -1,15 +1,8 @@
 import { createViewLoader } from './viewLoader.js?v=3.8.0';
-// ==========================================
-// 1. Core Utilities & Auth
-// ==========================================
 import './auth.js';
 import './utils.js?v=3.7.1';
 import './api.js';
 import './map.js';
-
-// ==========================================
-// 2. Microservice API Services
-// ==========================================
 import './services/routingService.js';
 import './services/shipmentService.js';
 import './services/trackingService.js';
@@ -24,10 +17,6 @@ import './services/supportChatRuntime.js?v=3.7.1';
 import './services/shipperService.js';
 import './services/ratingService.js';
 import './services/paymentService.js?v=3.6.6';
-
-// ==========================================
-// 3. Layout Components
-// ==========================================
 import './components/layout/AppSidebar.js';
 import './components/layout/AppTopbar.js?v=3.7.6';
 import './components/layout/InternalFooter.js';
@@ -38,22 +27,12 @@ import './components/common/UserProfileModal.js?v=3.7.1';
 import './components/common/ShipmentDetailModal.js';
 import './layouts/InternalLayout.js';
 import './layouts/PublicLayout.js';
-
-// ==========================================
-// 4. Global assistant (feature subcomponents load with their parent views)
-// ==========================================
 import './components/ChatbotWidget.js?v=3.7.1';
-
-// ==========================================
-// 6. Reactive State Stores
-// ==========================================
 import { authStore, appStore, notificationStore } from './store/index.js';
 window.authStore = authStore;
 window.appStore = appStore;
 window.notificationStore = notificationStore;
-
 const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } = Vue;
-
     const ROUTE_TAB_MAP = {
         '/': 'tracking',
         '/index.html': 'tracking',
@@ -87,7 +66,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
         '/error': 'error',
         '/error.html': 'error'
     };
-
     const TAB_ROUTE_MAP = {
         'dashboard': '/dashboard',
         'tracking': '/tracking',
@@ -111,7 +89,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
         'login': '/login',
         'error': '/error'
     };
-
     const resolveRoute = (inputPath) => {
         const hasWindow = typeof window !== 'undefined' && window.location;
         let clean = inputPath || (hasWindow ? window.location.pathname : '/');
@@ -129,8 +106,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
         if (ROUTE_TAB_MAP.hasOwnProperty(pathname)) {
             return { tab: ROUTE_TAB_MAP[pathname], path: pathname, notFound: false };
         }
-
-        // Subpath tracking: /tracking/324325 or /tra-cuu/324325
+        
         const trackingSubMatch = pathname.match(/^\/(?:tracking|tra-cuu)\/([^/?#]+)$/i);
         if (trackingSubMatch) {
             const code = decodeURIComponent(trackingSubMatch[1]).trim();
@@ -138,8 +114,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 return { tab: 'tracking', path: '/tracking', code: code.toUpperCase(), notFound: false };
             }
         }
-
-        // Direct waybill code in path: /324325 (numeric), /WB..., /VNPT...
+        
         const directCodeMatch = pathname.match(/^\/((?:wb[0-9a-z_-]*|vnpt[0-9a-z_-]*|[0-9]{4,30}))$/i);
         if (directCodeMatch) {
             const potentialCode = directCodeMatch[1].trim();
@@ -147,10 +122,8 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 return { tab: 'tracking', path: '/tracking', code: potentialCode.toUpperCase(), notFound: false };
             }
         }
-
         return { tab: 'error', path: pathname, notFound: true };
     };
-
     const ALL_NAVIGATION_TABS = [
         { 
             id: 'dashboard', 
@@ -268,7 +241,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
             icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'
         }
     ];
-
     const PUBLIC_GUEST_TABS = [
         {
             id: 'tracking',
@@ -296,40 +268,32 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
             icon: 'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z'
         }
     ];
-
     const isTabAuthRequired = (tab) => {
         if (!tab) return false;
         if (tab.id === 'tracking' || tab.id === 'support') return false;
         return Boolean(tab.requiresAuth || tab.permission || tab.role || tab.roles || tab.staffOnly);
     };
-
     const app = createApp({
         setup() {
             const urlParams = new URLSearchParams(window.location.search);
             const initialRoute = resolveRoute(window.location.pathname);
             
-            // Fix bug: `code` query param is only an HTTP status error code (400, 403, 404, 500, etc.)
-            // when navigating explicitly to /error or /error.html, not when tracking a waybill with numeric code.
             const rawErrorCodeParam = parseInt(urlParams.get('code'), 10);
             const isHttpErrorCode = !isNaN(rawErrorCodeParam) && [400, 401, 403, 404, 429, 500, 502, 503].includes(rawErrorCodeParam);
             const isExplicitErrorRoute = initialRoute.tab === 'error' && (window.location.pathname.startsWith('/error') || initialRoute.notFound);
             const hasInitialError = isExplicitErrorRoute || (isHttpErrorCode && initialRoute.tab === 'error');
-
             const trackingQuery = initialRoute.code || urlParams.get('code') || urlParams.get('tracking');
-
             const isAuthUser = () => {
                 if (typeof Auth !== 'undefined' && typeof Auth.isAuthenticated === 'function') {
                     return Auth.isAuthenticated();
                 }
                 return Boolean(currentUser.value);
             };
-
             const initialUser = (typeof Auth !== 'undefined' && typeof Auth.isAuthenticated === 'function')
                 ? (Auth.isAuthenticated() ? Auth.getUser() : null)
                 : (typeof Auth !== 'undefined' ? Auth.getUser() : null);
             const currentUser = ref(initialUser);
-            // Bumped whenever the auth session changes (login/logout/profile sync)
-            // so permission-gated menus recompute without a full page reload.
+            
             const authVersion = ref(0);
             if (typeof window !== 'undefined') {
                 window.addEventListener('auth:changed', () => {
@@ -340,11 +304,9 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     authVersion.value += 1;
                 });
             }
-
             const initialTabObj = ALL_NAVIGATION_TABS.find(t => t.id === initialRoute.tab);
             const isInitialAuthRequired = isTabAuthRequired(initialTabObj);
             const shouldRedirectToLogin = !isAuthUser() && isInitialAuthRequired;
-
             if (shouldRedirectToLogin) {
                 try {
                     sessionStorage.setItem('redirectAfterLogin', window.location.pathname + window.location.search);
@@ -353,7 +315,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     window.history.replaceState({ tab: 'login' }, '', '/login');
                 }
             }
-
             const currentTab = ref(hasInitialError ? 'error' : (shouldRedirectToLogin ? 'login' : initialRoute.tab));
             const currentTrackingCode = ref(trackingQuery && !hasInitialError && initialRoute.tab !== 'error' ? trackingQuery.trim() : '');
             const currentErrorCode = ref(isHttpErrorCode ? rawErrorCodeParam : (initialRoute.notFound ? 404 : 200));
@@ -378,7 +339,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 (window.appStore && window.appStore.isDarkMode === true) ||
                 false
             );
-
             const onThemeChanged = (e) => {
                 if (e && e.detail && typeof e.detail.isDark === 'boolean') {
                     isDarkMode.value = e.detail.isDark;
@@ -389,7 +349,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
             if (typeof window !== 'undefined') {
                 window.addEventListener('theme-changed', onThemeChanged);
             }
-
             const toggleDarkMode = (targetMode, origin) => {
                 const nextMode = typeof targetMode === 'boolean' ? targetMode : !isDarkMode.value;
                 isDarkMode.value = nextMode;
@@ -413,7 +372,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     }));
                 }
             };
-
             const showError = (code = 404, title = '', message = '') => {
                 currentErrorCode.value = code;
                 currentErrorTitle.value = title;
@@ -422,7 +380,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
             };
             const showNotificationDropdown = ref(false);
             const notifications = ref([]);
-
             const formatNotificationTime = (sentAt) => {
                 if (!sentAt) return 'Vừa xong';
                 try {
@@ -437,7 +394,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     return 'Vừa xong';
                 }
             };
-
             const getNotificationVisuals = (title = '', message = '') => {
                 const text = (title + ' ' + message).toUpperCase();
                 if (text.includes('THANH TOÁN') || text.includes('VIETQR') || text.includes('CƯỚC') || text.includes('COD') || text.includes('TIỀN')) {
@@ -475,7 +431,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     iconBg: 'bg-blue-600'
                 };
             };
-
             const isTripNotification = (item) => {
                 if (!item) return false;
                 const title = String(item.title || '').toLowerCase();
@@ -492,7 +447,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 }
                 return false;
             };
-
             const extractTripCode = (item) => {
                 if (!item) return '';
                 if (item.trackingCode && item.trackingCode !== 'TRIP' && item.trackingCode !== 'SYSTEM') {
@@ -506,10 +460,8 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 }
                 return item.trackingCode ? String(item.trackingCode).trim() : '';
             };
-
             const showNotificationDetailModal = ref(false);
             const activeNotificationDetail = ref(null);
-
             const openNotificationDetailModal = (item, entityCode = null, type = 'GENERAL') => {
                 activeNotificationDetail.value = {
                     ...item,
@@ -518,12 +470,10 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 };
                 showNotificationDetailModal.value = true;
             };
-
             const closeNotificationDetailModal = () => {
                 showNotificationDetailModal.value = false;
                 activeNotificationDetail.value = null;
             };
-
             const handleNavigateToTripFromModal = (tripCode) => {
                 closeNotificationDetailModal();
                 currentTrackingCode.value = tripCode || '';
@@ -534,12 +484,10 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     }));
                 }, 150);
             };
-
             const handleNavigateToTrackingFromModal = (trackingCode) => {
                 closeNotificationDetailModal();
                 handleViewTracking(trackingCode);
             };
-
             const fetchNotifications = async () => {
                 const token = window.Auth?.getToken();
                 if (!token) {
@@ -571,20 +519,16 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     console.warn('[Notifications] Lỗi khi tải thông báo thực tế:', err);
                 }
             };
-
             const unreadNotificationsCount = computed(() => {
                 return notifications.value.filter(item => !item.isRead).length;
             });
-
             const toggleNotificationDropdown = (e) => {
                 if (e) e.stopPropagation();
                 showNotificationDropdown.value = !showNotificationDropdown.value;
             };
-
             const closeNotificationDropdown = () => {
                 showNotificationDropdown.value = false;
             };
-
             const markAllNotificationsAsRead = async () => {
                 const latestByTicket = new Map();
                 for (const item of notifications.value.filter(item => item.isChat)) {
@@ -607,7 +551,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     window.Utils.showToast('Thông Báo', 'Đã đánh dấu tất cả thông báo là đã đọc!', 'success');
                 }
             };
-
             const handleNotificationClick = async (item) => {
                 if (item.isChat) {
                     window.SupportChatRuntime.dismiss({ ticketId: item.ticketId, id: item.messageId }).catch(() => {});
@@ -620,12 +563,10 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     NotificationService.markAsRead(item.id);
                 }
                 showNotificationDropdown.value = false;
-
                 if (isTripNotification(item)) {
                     const tripCode = extractTripCode(item);
                     const canAccessTrips = typeof Auth !== 'undefined' && 
                         (Auth.hasPermission('routing:trip_manage') || Auth.hasRole('ADMIN') || Auth.isInternalStaff());
-
                     if (canAccessTrips) {
                         currentTrackingCode.value = tripCode;
                         switchTab('trips');
@@ -636,19 +577,15 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                         }, 120);
                         return;
                     }
-
                     openNotificationDetailModal(item, tripCode, 'TRIP');
                     return;
                 }
-
                 if (item.trackingCode && item.trackingCode !== 'SYSTEM') {
                     handleViewTracking(item.trackingCode);
                     return;
                 }
-
                 openNotificationDetailModal(item, null, 'GENERAL');
             };
-
             const showUserProfileModal = ref(false);
             const showShipmentDetailModal = ref(false);
             const selectedTrackingCodeForModal = ref('');
@@ -661,24 +598,19 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 address: ''
             });
             const stationFieldNames = ['locationCode', 'postOfficeCode', 'hubCode'];
-            // Customer profile data is not an authorization source. Station
-            // assignment comes from the authenticated user's JWT/response.
+            
             const profileStorageFields = ['fullName', 'phoneNumber', 'address', 'avatarUrl', 'googleLinked'];
-
             const isStaffUser = computed(() => {
                 if (!currentUser.value) return false;
                 return typeof Auth !== 'undefined' && Auth.isInternalStaff();
             });
-
             const getRoleTitle = (role) => {
                 return typeof Auth !== 'undefined' ? Auth.getRoleDisplayName(role) : (role || 'Khách Hàng');
             };
-
             const normalizeStationCode = (value) => {
                 if (typeof value !== 'string' && typeof value !== 'number') return '';
                 return String(value).trim();
             };
-
             const readStoredObject = (key) => {
                 try {
                     const raw = localStorage.getItem(key);
@@ -689,14 +621,12 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     return null;
                 }
             };
-
             const getStationFields = (...sources) => {
                 const context = {
                     locationCode: '',
                     postOfficeCode: '',
                     hubCode: ''
                 };
-
                 sources.forEach(source => {
                     if (!source || typeof source !== 'object') return;
                     stationFieldNames.forEach(field => {
@@ -705,14 +635,11 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                         }
                     });
                 });
-
                 return context;
             };
-
             const getProfileStoragePatch = (source) => {
                 const patch = {};
                 if (!source || typeof source !== 'object') return patch;
-
                 profileStorageFields.forEach(field => {
                     if (!Object.prototype.hasOwnProperty.call(source, field)) return;
                     if (stationFieldNames.includes(field)) {
@@ -720,7 +647,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                         if (value) patch[field] = value;
                         return;
                     }
-
                     const value = typeof source[field] === 'string'
                         ? source[field].trim()
                         : source[field];
@@ -728,21 +654,17 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                         patch[field] = value;
                     }
                 });
-
                 return patch;
             };
-
             const persistUserProfilePatch = (patch) => {
                 if (!patch || Object.keys(patch).length === 0 || typeof localStorage === 'undefined') return;
-
                 try {
                     const canonicalUser = readStoredObject('user') || (currentUser.value ? { ...currentUser.value } : null);
                     const nextUser = canonicalUser ? { ...canonicalUser, ...patch } : null;
                     if (nextUser) {
                         localStorage.setItem('user', JSON.stringify(nextUser));
                     }
-
-                    // auth_user is retained as a legacy mirror; Auth continues to own authentication via user/accessToken.
+                    
                     const legacyUser = readStoredObject('auth_user');
                     const nextLegacyUser = legacyUser || nextUser;
                     if (nextLegacyUser) {
@@ -752,7 +674,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     console.warn('[app.js] Không thể đồng bộ hồ sơ người dùng:', err);
                 }
             };
-
             const syncProfileToCurrentUser = (source, persist = false) => {
                 const patch = getProfileStoragePatch(source);
                 if (currentUser.value && Object.keys(patch).length > 0) {
@@ -762,21 +683,17 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     persistUserProfilePatch(patch);
                 }
             };
-
             const stationContext = computed(() => {
                 const context = getStationFields(currentUser.value);
                 const trustedLocation = typeof Auth !== 'undefined'
                     && typeof Auth.getLocationCode === 'function'
                     ? normalizeStationCode(Auth.getLocationCode())
                     : '';
-
-                // Never let a customer profile or a client-edited station field
-                // widen an operator's scope. The signed assignment is primary;
-                // the local user object is only a compatibility fallback.
+                
+                
                 context.locationCode = trustedLocation;
                 context.postOfficeCode = trustedLocation.startsWith('POST-') ? trustedLocation : '';
                 context.hubCode = trustedLocation.startsWith('HUB-') ? trustedLocation : '';
-
                 const primaryCode = trustedLocation;
                 return {
                     ...context,
@@ -784,14 +701,12 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     hasStation: Boolean(primaryCode)
                 };
             });
-
             const stationDisplayData = computed(() => {
                 const context = stationContext.value;
                 const labels = [];
                 if (context.locationCode) labels.push(`Vị trí: ${context.locationCode}`);
                 if (context.postOfficeCode) labels.push(`Bưu cục: ${context.postOfficeCode}`);
                 if (context.hubCode) labels.push(`Hub: ${context.hubCode}`);
-
                 return {
                     ...context,
                     code: context.primaryCode,
@@ -799,7 +714,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     summary: labels.join(' · ') || 'Chưa phân công trạm'
                 };
             });
-
             const activateTab = (tabId) => {
                 if (tabId !== 'tracking' && tabId !== 'support') {
                     currentTrackingCode.value = '';
@@ -820,20 +734,15 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     }
                 }, 300);
             };
-
             const allNavigationTabs = ALL_NAVIGATION_TABS;
             const publicGuestTabs = PUBLIC_GUEST_TABS;
-
             const showPublicMobileMenu = ref(false);
-
             const navigationTabs = computed(() => {
-                // Reactive dependencies: re-filter when the session/permissions change.
                 void authVersion.value;
                 void currentUser.value;
                 const authenticated = (typeof Auth !== 'undefined' && typeof Auth.isAuthenticated === 'function')
                     ? Auth.isAuthenticated()
                     : Boolean(currentUser.value);
-
                 return allNavigationTabs.filter(tab => {
                     if (isTabAuthRequired(tab) && !authenticated) return false;
                     if (tab.staffOnly) {
@@ -852,7 +761,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     return Auth.hasPermission(tab.permission);
                 });
             });
-
             const currentTabTitle = computed(() => {
                 if (currentTab.value === 'login') {
                     return 'Đăng Nhập';
@@ -876,9 +784,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 if (foundGuest) return foundGuest.name;
                 return 'Hệ Thống';
             });
-
             const currentFeatureId = ref('network');
-
             const activeComponent = computed(() => {
                 if (currentTab.value === 'login') {
                     return 'LoginView';
@@ -901,7 +807,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 const found = allNavigationTabs.find(t => t.id === currentTab.value);
                 return found ? found.component : 'TrackingView';
             });
-
             const navigateTo = (targetUrl, replace = false) => {
                 if (!targetUrl) return;
                 let url = String(targetUrl).trim();
@@ -914,16 +819,13 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 } else if (url.startsWith('#')) {
                     url = '/' + url.slice(1);
                 }
-
                 const urlObj = new URL(url, window.location.origin);
                 const resolved = resolveRoute(urlObj.pathname);
-
                 const targetTab = allNavigationTabs.find(t => t.id === resolved.tab);
                 const isAuthRequired = isTabAuthRequired(targetTab);
                 const authenticated = (typeof Auth !== 'undefined' && typeof Auth.isAuthenticated === 'function')
                     ? Auth.isAuthenticated()
                     : Boolean(currentUser.value);
-
                 if (!authenticated && isAuthRequired) {
                     try {
                         sessionStorage.setItem('redirectAfterLogin', urlObj.pathname + urlObj.search);
@@ -940,40 +842,34 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     }, 300);
                     return;
                 }
-
                 if (resolved.tab === 'login' && authenticated) {
                     navigateTo('/tracking', true);
                     return;
                 }
-
                 if (targetTab && targetTab.staffOnly) {
                     if (typeof Auth === 'undefined' || !Auth.isInternalStaff()) {
                         showError(403, 'Quyền Truy Cập Bị Chặn (403)', 'Chức năng này chỉ dành riêng cho cán bộ nhân viên vận hành nội bộ!');
                         return;
                     }
                 }
-
                 if (targetTab && targetTab.roles) {
                     if (typeof Auth === 'undefined' || !Auth.hasAnyRole(targetTab.roles)) {
                         showError(403, 'Quyền Truy Cập Bị Chặn (403)', 'Chức năng này chỉ dành riêng cho Quản trị viên hoặc Điều phối viên!');
                         return;
                     }
                 }
-
                 if (targetTab && targetTab.role) {
                     if (typeof Auth === 'undefined' || !Auth.hasRole(targetTab.role)) {
                         showError(403, 'Quyền Truy Cập Bị Chặn (403)', 'Chức năng này chỉ dành riêng cho Quản trị viên hệ thống!');
                         return;
                     }
                 }
-
                 if (targetTab && targetTab.permission) {
                     if (typeof Auth === 'undefined' || !Auth.hasPermission(targetTab.permission)) {
                         showError(403, 'Truy Cập Bị Chặn (403)', 'Tài khoản của bạn không có quyền truy cập tab này!');
                         return;
                     }
                 }
-
                 const params = new URLSearchParams(urlObj.search);
                 if (resolved.tab !== 'error') {
                     const code = params.get('code') || params.get('tracking') || resolved.code;
@@ -983,7 +879,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 } else {
                     currentTrackingCode.value = '';
                 }
-
                 const canonicalPath = TAB_ROUTE_MAP[resolved.tab] || urlObj.pathname;
                 let finalUrl = canonicalPath + (urlObj.search || '');
                 if (resolved.tab === 'tracking' && !params.get('code') && (params.get('tracking') || resolved.code)) {
@@ -997,7 +892,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                         window.history.pushState({ tab: resolved.tab }, '', finalUrl);
                     }
                 }
-
                 if (resolved.tab === 'error' || resolved.notFound) {
                     const rawCodeParam = parseInt(params.get('code'), 10);
                     const validHttpCode = !isNaN(rawCodeParam) && [400, 401, 403, 404, 429, 500, 502, 503].includes(rawCodeParam);
@@ -1016,7 +910,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
             window.ALL_NAVIGATION_TABS = ALL_NAVIGATION_TABS;
             window.isTabAuthRequired = isTabAuthRequired;
             window.resolveRoute = resolveRoute;
-
             const handleLoginSuccess = (data) => {
                 const releasePreloader = window.WaybillPreloader?.show();
                 if (data && data.user) {
@@ -1037,7 +930,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                         releasePreloader?.();
                     });
             };
-
             const handleGuestTabClick = (tab, param = null) => {
                 if (tab.id === 'support' && param) {
                     currentTrackingCode.value = String(param).trim();
@@ -1046,11 +938,9 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 const cleanPath = TAB_ROUTE_MAP[tab.id] || ('/' + tab.id);
                 navigateTo(cleanPath);
             };
-
             const handleBackToHome = () => {
                 navigateTo('/tracking');
             };
-
             const switchTab = (tabId, param = null) => {
                 if (tabId === 'support' && param) {
                     currentTrackingCode.value = String(param).trim();
@@ -1063,18 +953,15 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 const cleanPath = TAB_ROUTE_MAP[tabId] || ('/' + tabId);
                 navigateTo(cleanPath);
             };
-
             const openShipmentDetailModal = (trackingCode) => {
                 if (!trackingCode) return;
                 selectedTrackingCodeForModal.value = trackingCode.trim();
                 showShipmentDetailModal.value = true;
             };
             window.openShipmentDetailModal = openShipmentDetailModal;
-
             const closeShipmentDetailModal = () => {
                 showShipmentDetailModal.value = false;
             };
-
             const openFullTrackingFromModal = (trackingCode) => {
                 closeShipmentDetailModal();
                 if (!trackingCode) return;
@@ -1088,12 +975,10 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     window.history.pushState({ tab: 'tracking' }, '', newPath);
                 }
             };
-
             const handleViewTracking = (trackingCode, sourceTabId = null) => {
                 if (!trackingCode) return;
                 const code = trackingCode.trim();
-
-                // If currently already on the public tracking tab (/tracking), perform search directly in TrackingView
+                
                 if (currentTab.value === 'tracking') {
                     const srcId = sourceTabId || currentTab.value;
                     const srcObj = allNavigationTabs.find(t => t.id === srcId);
@@ -1107,18 +992,15 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     }
                     return;
                 }
-
-                // In all internal workspace views, open the popup modal directly over current view!
+                
                 openShipmentDetailModal(code);
             };
-
             const handleBackToPreviousTab = () => {
                 if (previousTab.value && previousTab.value.id) {
                     switchTab(previousTab.value.id);
                 }
                 previousTab.value = null;
             };
-
             const handleShipmentCreated = (trackingCode) => {
                 selectedCustomerForShipment.value = null;
                 selectedTariffForShipment.value = null;
@@ -1126,7 +1008,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 setTimeout(fetchNotifications, 1500);
                 openShipmentDetailModal(trackingCode);
             };
-
             const handleCreateShipmentFor = (customer) => {
                 if (!customer || customer.status !== 'ACTIVE') {
                     if (window.Utils && window.Utils.showToast) {
@@ -1137,7 +1018,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 selectedCustomerForShipment.value = customer;
                 switchTab('shipment');
             };
-
             const handleCreateShipmentFromTariff = (tariffData) => {
                 selectedTariffForShipment.value = tariffData;
                 if (!currentUser.value) {
@@ -1162,7 +1042,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     window.Utils.showToast('Gói Cước Đã Chọn', 'Đã chuyển sang tạo đơn với gói ' + (tariffData?.planName || ''));
                 }
             };
-
             const handleLogoClick = () => {
                 if (isSidebarCollapsed.value) {
                     isSidebarCollapsed.value = false;
@@ -1175,7 +1054,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     switchTab('tracking');
                 }
             };
-
             const handleLogout = () => {
                 if (typeof Auth !== 'undefined') {
                     Auth.logout();
@@ -1188,7 +1066,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 }
                 navigateTo('/login');
             };
-
             const handleUserUpdated = (updated) => {
                 if (updated && currentUser.value) {
                     currentUser.value = { ...currentUser.value, ...updated };
@@ -1197,7 +1074,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     }
                 }
             };
-
             const openUserProfileModal = () => {
                 if (typeof Auth === 'undefined' || !Auth.isAuthenticated()) {
                     navigateTo('/login');
@@ -1205,7 +1081,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 }
                 switchTab('profile');
             };
-
             const openUserProfileModalLegacy = async () => {
                 showUserProfileModal.value = true;
                 isLoadingUserProfile.value = true;
@@ -1237,11 +1112,9 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     isLoadingUserProfile.value = false;
                 }
             };
-
             const closeUserProfileModal = () => {
                 showUserProfileModal.value = false;
             };
-
             const saveUserProfile = async () => {
                 if (!profileFormData.fullName.trim()) {
                     Utils.showToast('Thiếu Thông Tin', isStaffUser.value ? 'Vui lòng nhập Họ và tên cán bộ / nhân viên' : 'Vui lòng nhập Họ tên hoặc Tên cửa hàng', 'warning');
@@ -1258,7 +1131,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                         };
                         userProfile.value = { ...userProfile.value, ...updatedProfile };
                         syncProfileToCurrentUser(updatedProfile, true);
-
                         Utils.showToast('Thành Công', 'Đã cập nhật hồ sơ cán bộ / nhân viên!');
                         showUserProfileModal.value = false;
                     } else {
@@ -1274,7 +1146,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                         };
                         userProfile.value = updatedProfile;
                         syncProfileToCurrentUser(updatedProfile, true);
-
                         Utils.showToast('Thành Công', 'Đã cập nhật hồ sơ thông tin Shop!');
                         showUserProfileModal.value = false;
                     }
@@ -1284,10 +1155,8 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     isSavingUserProfile.value = false;
                 }
             };
-
             const isLinkingGoogle = ref(false);
             const GOOGLE_CLIENT_ID = "530674460360-7q1qf5lchbkj7sp7kslvttf7mqt92klg.apps.googleusercontent.com";
-
             const handleGoogleLinkCallback = async (googleResponse) => {
                 if (!googleResponse || !googleResponse.credential) {
                     if (window.Utils) Utils.showToast('Lỗi', 'Không nhận được thông tin xác thực từ Google', 'error');
@@ -1320,7 +1189,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     isLinkingGoogle.value = false;
                 }
             };
-
             const triggerGoogleLink = () => {
                 if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) {
                     if (window.Utils) Utils.showToast('Thông Báo', 'Thư viện Google đang tải, vui lòng thử lại sau vài giây', 'warning');
@@ -1345,7 +1213,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     console.error('[GoogleLink] Error initializing Google:', e);
                 }
             };
-
             onMounted(() => {
                 const handleChatNotifications = event => {
                     const chatItems = (event.detail || []).map(item => ({
@@ -1362,13 +1229,11 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 if (typeof Auth !== 'undefined') {
                     currentUser.value = Auth.isAuthenticated() ? Auth.getUser() : null;
                 }
-
                 const authenticated = (typeof Auth !== 'undefined' && typeof Auth.isAuthenticated === 'function')
                     ? Auth.isAuthenticated()
                     : Boolean(currentUser.value);
                 const currentTabObj = allNavigationTabs.find(t => t.id === currentTab.value);
                 const isAuthRequired = isTabAuthRequired(currentTabObj);
-
                 if (!authenticated) {
                     if (isAuthRequired) {
                         try {
@@ -1395,13 +1260,11 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                         return;
                     }
                 }
-
                 let hash = window.location.hash.replace('#', '').trim();
                 if (hash && currentTab.value !== 'error') {
                     while (hash.startsWith('/')) hash = hash.slice(1);
                     navigateTo('/' + hash, true);
                 }
-
                 try {
                     const pendingSupportCode = sessionStorage.getItem('supportTrackingCode');
                     if (pendingSupportCode && (currentTab.value === 'support' || hash === 'support')) {
@@ -1410,7 +1273,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                         sessionStorage.removeItem('supportTrackingCode');
                     }
                 } catch (e) {}
-
                 const pendingTariff = sessionStorage.getItem('pendingTariffShipment');
                 if (pendingTariff && currentUser.value) {
                     try {
@@ -1418,7 +1280,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                         sessionStorage.removeItem('pendingTariffShipment');
                     } catch (e) {}
                 }
-
                 const handlePopState = () => {
                     const resolved = resolveRoute(window.location.pathname);
                     const targetTab = allNavigationTabs.find(t => t.id === resolved.tab);
@@ -1426,7 +1287,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     const authenticated = (typeof Auth !== 'undefined' && typeof Auth.isAuthenticated === 'function')
                         ? Auth.isAuthenticated()
                         : Boolean(currentUser.value);
-
                     if (!authenticated && isAuthRequired) {
                         try {
                             sessionStorage.setItem('redirectAfterLogin', window.location.pathname + window.location.search);
@@ -1454,7 +1314,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                         showError(403, 'Truy Cập Bị Chặn (403)', 'Tài khoản của bạn không có quyền truy cập tab này!');
                         return;
                     }
-
                     const search = new URLSearchParams(window.location.search);
                     if (resolved.tab !== 'error') {
                         const code = search.get('code') || search.get('tracking');
@@ -1464,7 +1323,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     } else {
                         currentTrackingCode.value = '';
                     }
-
                     if (resolved.tab === 'error' || resolved.notFound) {
                         const rawCodeParam = parseInt(search.get('code'), 10);
                         const validHttpCode = !isNaN(rawCodeParam) && [400, 401, 403, 404, 429, 500, 502, 503].includes(rawCodeParam);
@@ -1480,7 +1338,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     }
                 };
                 window.addEventListener('popstate', handlePopState);
-
                 const handleDocumentClick = (e) => {
                     const dropdownEl = document.getElementById('notification-bell-dropdown');
                     if (dropdownEl && !dropdownEl.contains(e.target)) {
@@ -1488,7 +1345,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     }
                 };
                 document.addEventListener('click', handleDocumentClick);
-
                 const handleSystemNotificationEvent = (e) => {
                     const detail = e.detail || {};
                     const visuals = getNotificationVisuals(detail.title, detail.message);
@@ -1508,7 +1364,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     setTimeout(() => fetchNotifications(), 2000);
                 };
                 window.addEventListener('system-notification-created', handleSystemNotificationEvent);
-
                 const connectNotificationSocket = () => {
                     if (typeof SockJS === 'undefined' || typeof Stomp === 'undefined') return;
                     if (bellStomp && bellStomp.connected) return;
@@ -1533,7 +1388,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                         console.warn('[Notifications] Không kết nối được chuông thời gian thực:', err);
                     }
                 };
-
                 let pollTimer = null;
                 let bellStomp = null;
                 let bellSubscription = null;
@@ -1546,14 +1400,12 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                         }
                     }, 30000);
                 }
-
                 const handleNavigateToTracking = (e) => {
                     if (e.detail && e.detail.trackingCode) {
                         handleViewTracking(e.detail.trackingCode);
                     }
                 };
                 window.addEventListener('navigate-to-tracking', handleNavigateToTracking);
-
                 const handleNavigateToSupport = (e) => {
                     if (e.detail?.ticketCode) {
                         switchTab('support');
@@ -1563,7 +1415,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     switchTab('support', code);
                 };
                 window.addEventListener('navigate-to-support', handleNavigateToSupport);
-
                 onUnmounted(() => {
                     window.removeEventListener('support:notifications', handleChatNotifications);
                     window.SupportChatRuntime.stop();
@@ -1581,7 +1432,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     }
                 });
             });
-
             return {
                 currentUser,
                 stationContext,
@@ -1653,7 +1503,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
             };
         }
     });
-
     if (window.AppSidebar) {
         app.component('AppSidebar', window.AppSidebar);
         app.component('app-sidebar', window.AppSidebar);
@@ -1694,7 +1543,6 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
         app.component('PublicLayout', window.PublicLayout);
         app.component('public-layout', window.PublicLayout);
     }
-
     const viewLoaders = {
         LoginView: createViewLoader('LoginView', () => import('./views/LoginView.js?v=3.7.7'), []),
         TrackingView: createViewLoader('TrackingView', () => import('./views/TrackingView.js?v=3.8.0'), [() => import('./views/tracking/TrackingRecentSearches.js')]),
@@ -1746,11 +1594,9 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
         app.component('TrackingRecentSearches', window.TrackingRecentSearches);
         app.component('tracking-recent-searches', window.TrackingRecentSearches);
     }
-
     app.config.errorHandler = (err, vm, info) => {
         console.error('VUE_APP_ERROR:', err, err ? err.stack : '', info);
     };
-
     const mountedApp = app.mount('#app');
     const initialComponent = mountedApp.activeComponent;
     const initialView = viewLoaders[initialComponent];

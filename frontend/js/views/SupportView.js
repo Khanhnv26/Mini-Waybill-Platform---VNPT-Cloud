@@ -1,7 +1,6 @@
 
 (function () {
     const { ref, reactive, computed, watch, onMounted, onUnmounted, onActivated, onDeactivated, nextTick } = Vue;
-
     const SupportView = {
         name: 'SupportView',
         props: {
@@ -25,16 +24,13 @@
                 if (typeof Auth === 'undefined') return false;
                 return Auth.hasRole('ROLE_CS') || Auth.hasRole('ROLE_ADMIN');
             });
-
             const currentSubTab = ref('create');
-
             const stats = reactive({
                 total: 0,
                 open: 0,
                 inProgress: 0,
                 resolved: 0
             });
-
             const formData = reactive({
                 trackingCode: props.trackingCode || props.initialTrackingCode || '',
                 creatorName: '',
@@ -45,11 +41,9 @@
                 title: '',
                 description: ''
             });
-
             const shipmentInfo = ref(null);
             const isCheckingShipment = ref(false);
             const isSubmittingTicket = ref(false);
-
             const syncUserDataToForm = () => {
                 if (currentUser.value) {
                     formData.creatorName = currentUser.value.fullName || currentUser.value.username || '';
@@ -57,7 +51,6 @@
                     formData.creatorEmail = currentUser.value.email || '';
                 }
             };
-
             const checkShipment = async () => {
                 const code = formData.trackingCode.trim().toUpperCase();
                 if (!code) {
@@ -104,7 +97,6 @@
                     isCheckingShipment.value = false;
                 }
             };
-
             const submitTicket = async () => {
                 if (!formData.trackingCode.trim()) {
                     if (window.Utils?.showToast) window.Utils.showToast('Lỗi', 'Vui lòng nhập mã vận đơn', 'warning');
@@ -118,7 +110,6 @@
                     if (window.Utils?.showToast) window.Utils.showToast('Lỗi', 'Vui lòng nhập tiêu đề và mô tả sự cố', 'warning');
                     return;
                 }
-
                 isSubmittingTicket.value = true;
                 try {
                     const payload = {
@@ -131,7 +122,6 @@
                         title: formData.title.trim(),
                         description: formData.description.trim()
                     };
-
                     const result = await SupportService.createTicket(payload);
                     if (window.Utils?.showToast) {
                         window.Utils.showToast(
@@ -140,9 +130,7 @@
                             'success'
                         );
                     }
-
                         saveGuestHistory(result);
-
                         searchCode.value = result.ticketCode;
                     activeTicket.value = result;
                     currentSubTab.value = 'lookup';
@@ -154,7 +142,6 @@
                     isSubmittingTicket.value = false;
                 }
             };
-
             const searchCode = ref('');
             const guestAccessInput = ref('');
             const isSearching = ref(false);
@@ -165,15 +152,12 @@
             const chatInput = ref('');
             const isSendingMessage = ref(false);
             const chatBoxRef = ref(null);
-
             const selectedAttachmentUrl = ref(null);
             const selectedAttachmentKey = ref(null);
             const isUploadingAttachment = ref(false);
-
             const handleAttachmentUpload = async (event) => {
                 const file = event.target.files?.[0];
                 if (!file) return;
-
                 if (file.size > 10 * 1024 * 1024) {
                     if (window.Utils?.showToast) {
                         window.Utils.showToast('Tệp Quá Dung Lượng', 'Vui lòng chọn ảnh có kích thước dưới 10MB', 'warning');
@@ -181,7 +165,6 @@
                     event.target.value = '';
                     return;
                 }
-
                 if (!file.type.startsWith('image/')) {
                     if (window.Utils?.showToast) {
                         window.Utils.showToast('Định Dạng Không Hợp Lệ', 'Hệ thống chỉ chấp nhận tệp hình ảnh (JPG, PNG, WEBP)', 'warning');
@@ -189,7 +172,6 @@
                     event.target.value = '';
                     return;
                 }
-
                 isUploadingAttachment.value = true;
                 const targetId = activeTicket.value?.id;
                 try {
@@ -213,11 +195,9 @@
                     event.target.value = '';
                 }
             };
-
             const removeAttachment = () => {
                 selectedAttachmentUrl.value = null; selectedAttachmentKey.value = null;
             };
-
             const triggerChatFileInput = () => {
                 if (!activeTicket.value) {
                     if (window.Utils?.showToast) {
@@ -232,7 +212,6 @@
                 const inputEl = document.getElementById('supportChatFileInput');
                 if (inputEl) inputEl.click();
             };
-
             const loadGuestHistory = () => {
                 try {
                     const raw = localStorage.getItem('vnpt_guest_support_history');
@@ -241,7 +220,6 @@
                     guestHistory.value = [];
                 }
             };
-
             const saveGuestHistory = (ticket) => {
                 if (!ticket || !ticket.ticketCode) return;
                 try {
@@ -259,7 +237,6 @@
                     localStorage.setItem('vnpt_guest_support_history', JSON.stringify(list.map(({ accessToken, ...metadata }) => metadata)));
                 } catch {}
             };
-
             const loadMyTickets = async () => {
                 if (!currentUser.value) return;
                 try {
@@ -272,14 +249,12 @@
                     console.warn('[SupportView] loadMyTickets:', e.message);
                 }
             };
-
             const handleSearch = async () => {
                 const code = searchCode.value.trim().toUpperCase();
                 if (!code) {
                     if (window.Utils?.showToast) window.Utils.showToast('Thiếu Mã', 'Vui lòng nhập mã TKT... hoặc WB...', 'warning');
                     return;
                 }
-
                 if (!currentUser.value && guestAccessInput.value.trim()) SupportService.setTicketAccess(code, guestAccessInput.value);
                 const selection = ++ticketSelectionVersion;
                 isSearching.value = true;
@@ -306,12 +281,10 @@
                     if (selection === ticketSelectionVersion) isSearching.value = false;
                 }
             };
-
             const chatRuntime = window.SupportChatRuntime;
             const isWsConnected = computed(() => chatRuntime.state.connected);
             const isRefreshingChat = ref(false);
             const opsViewMode = ref('table');
-
             const isMyMessage = (msg) => {
                 if (!msg) return false;
                 if (isStaffUser.value) {
@@ -319,7 +292,6 @@
                 }
                 return msg.senderRole === 'CUSTOMER';
             };
-
             const quickReplies = computed(() => {
                 if (isStaffUser.value) {
                     return [
@@ -335,13 +307,11 @@
                     'Thời gian và hình thức nhận tiền bồi thường như thế nào?'
                 ];
             });
-
             const chatPlaceholder = computed(() => {
                 if (isUploadingAttachment.value) return 'Đang tải ảnh lên MinIO...';
                 if (isStaffUser.value) return 'Nhập tin nhắn phản hồi khách hàng... (nhấn Enter để gửi)';
                 return 'Nhập tin nhắn trao đổi với CSKH... (nhấn Enter để gửi)';
             });
-
             let chatDestroyed = false;
             let viewActive = true;
             const presence = ref(null);
@@ -471,6 +441,15 @@
                     if (activeTicket.value?.id === id && !chatDestroyed) mergeMessages(activeTicket.value, page.messages);
                 } catch {}
             };
+            const formatAttachmentUrl = url => {
+                if (!url || typeof url !== 'string') return null;
+                const trimmed = url.trim();
+                if (!trimmed) return null;
+                if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/')) return trimmed;
+                if (trimmed.startsWith('/')) return trimmed;
+                if (trimmed.startsWith('support-tickets/')) return '/' + trimmed;
+                return null;
+            };
             const messageStatus = message => message.id <= readState.value.counterpartReadMessageId ? 'Đã đọc' : 'Đã gửi';
             const handleIncomingWsMessage = event => {
                 const data = event.detail;
@@ -488,7 +467,6 @@
                     content: data.content, createdAt: data.createdAt, attachmentUrls: null }]);
                 if (data.attachmentUrls) refreshActiveTicketMessagesSilently();
                 if (stick) scrollToBottom(); else if (!exists) newMessagesBelow.value = true;
-                // Fetch from the last reconciled cursor, including missed events, on the next sync.
                 refreshActiveTicketMessagesSilently();
             };
             const handleSent = event => {
@@ -537,19 +515,16 @@
                 chatInput.value = ''; selectedAttachmentKey.value = null; selectedAttachmentUrl.value = null;
                 scrollToBottom();
             };
-
             const opsTickets = ref([]);
             const opsFilterStatus = ref('ALL');
             const opsSearchQuery = ref('');
             const isLoadingOps = ref(false);
-
             const showResolveModal = ref(false);
             const modalTicket = ref(null);
             const modalCompensation = ref(0);
             const modalNote = ref('');
             const modalCsReply = ref('');
             const isSubmittingResolve = ref(false);
-
             const loadOpsTickets = async () => {
                 if (!isStaffUser.value) return;
                 isLoadingOps.value = true;
@@ -562,7 +537,6 @@
                     isLoadingOps.value = false;
                 }
             };
-
             const filteredOpsTickets = computed(() => {
                 return opsTickets.value.filter(t => {
                     if (opsFilterStatus.value !== 'ALL' && t.status !== opsFilterStatus.value) return false;
@@ -576,7 +550,6 @@
                     return true;
                 });
             });
-
             const handleAssignTicket = async (ticket) => {
                 try {
                     const csName = currentUser.value?.fullName || 'Chuyên viên CSKH';
@@ -596,7 +569,6 @@
                     if (window.Utils?.showToast) window.Utils.showToast('Lỗi', err.message, 'error');
                 }
             };
-
             const openResolveModal = (ticket) => {
                 selectActiveTicket(ticket);
                 modalTicket.value = ticket;
@@ -605,21 +577,17 @@
                 modalCsReply.value = '';
                 showResolveModal.value = true;
             };
-
             const closeResolveModal = () => {
                 showResolveModal.value = false;
                 modalTicket.value = null;
                 modalAttachmentUrl.value = null; modalAttachmentKey.value = null;
             };
-
             const modalAttachmentUrl = ref(null);
             const modalAttachmentKey = ref(null);
             const isUploadingModalAttachment = ref(false);
-
             const handleModalAttachmentUpload = async (event) => {
                 const file = event.target.files?.[0];
                 if (!file) return;
-
                 if (file.size > 10 * 1024 * 1024) {
                     if (window.Utils?.showToast) {
                         window.Utils.showToast('Tệp Quá Dung Lượng', 'Vui lòng chọn ảnh có kích thước dưới 10MB', 'warning');
@@ -627,7 +595,6 @@
                     event.target.value = '';
                     return;
                 }
-
                 if (!file.type.startsWith('image/')) {
                     if (window.Utils?.showToast) {
                         window.Utils.showToast('Định Dạng Không Hợp Lệ', 'Hệ thống chỉ chấp nhận tệp hình ảnh (JPG, PNG, WEBP)', 'warning');
@@ -635,7 +602,6 @@
                     event.target.value = '';
                     return;
                 }
-
                 isUploadingModalAttachment.value = true;
                 const targetId = modalTicket.value?.id;
                 try {
@@ -655,11 +621,9 @@
                     event.target.value = '';
                 }
             };
-
             const removeModalAttachment = () => {
                 modalAttachmentUrl.value = null; modalAttachmentKey.value = null;
             };
-
             const handleSendCsMessageInModal = () => {
                 const target = modalTicket.value;
                 if (['RESOLVED', 'CLOSED'].includes(target?.status)) return;
@@ -670,7 +634,6 @@
                     attachmentUrls: attachment, senderName: currentSenderName() });
                 modalCsReply.value = ''; modalAttachmentUrl.value = null; modalAttachmentKey.value = null;
             };
-
             const submitResolveTicket = async () => {
                 if (!modalTicket.value) return;
                 isSubmittingResolve.value = true;
@@ -697,7 +660,6 @@
                     isSubmittingResolve.value = false;
                 }
             };
-
             const applyStats = (list) => {
                 const rows = Array.isArray(list) ? list : [];
                 stats.total = rows.length;
@@ -705,7 +667,6 @@
                 stats.inProgress = rows.filter(t => t.status === 'IN_PROGRESS').length;
                 stats.resolved = rows.filter(t => t.status === 'RESOLVED' || t.status === 'CLOSED').length;
             };
-
             const ticketsForCustomerStats = () => {
                 const mine = Array.isArray(myTickets.value) ? myTickets.value : [];
                 const guest = Array.isArray(guestHistory.value) ? guestHistory.value : [];
@@ -719,14 +680,12 @@
                 });
                 return combined;
             };
-
             const currentSenderName = () => {
                 const user = currentUser.value;
                 if (!user) return 'Khách hàng';
                 return user.fullName || user.username || 'Khách hàng';
             };
-
-            // Khách chỉ đếm phiếu của mình. Nhân viên mới đếm toàn hệ thống.
+            
             const refreshStats = async () => {
                 try {
                     if (isStaffUser.value) {
@@ -742,7 +701,6 @@
                     stats.resolved = 0;
                 }
             };
-
             const formatCategory = (cat) => {
                 const map = {
                     DAMAGED_GOODS: 'Hàng móp méo / Vỡ hỏng',
@@ -756,13 +714,11 @@
                 };
                 return map[cat] || cat || 'Hỗ trợ khác';
             };
-
             const formatPriorityBadge = (p) => {
                 if (p === 'URGENT') return 'bg-rose-50 text-rose-700 border-rose-200';
                 if (p === 'HIGH') return 'bg-amber-50 text-amber-700 border-amber-200';
                 return 'bg-blue-50 text-blue-700 border-blue-200';
             };
-
             const formatStatusBadge = (s) => {
                 if (s === 'OPEN') return 'bg-blue-50 text-blue-700 border-blue-200';
                 if (s === 'ESCALATED') return 'bg-rose-50 text-rose-700 border-rose-300 font-semibold';
@@ -771,7 +727,6 @@
                 if (s === 'REJECTED') return 'bg-rose-50 text-rose-700 border-rose-200';
                 return 'bg-slate-100 text-slate-700 border-slate-200';
             };
-
             const getTicketStatusDotClass = (s) => {
                 if (s === 'OPEN') return 'bg-blue-500';
                 if (s === 'ESCALATED') return 'bg-rose-500';
@@ -780,7 +735,6 @@
                 if (s === 'REJECTED') return 'bg-rose-500';
                 return 'bg-slate-400';
             };
-
             const getTicketStatusIndicatorClass = (s) => {
                 if (s === 'ESCALATED' || s === 'REJECTED') return 'status-indicator-rose';
                 if (s === 'IN_PROGRESS') return 'status-indicator-amber';
@@ -788,21 +742,18 @@
                 if (s === 'OPEN') return 'status-indicator-blue';
                 return 'status-indicator-slate';
             };
-
             const getShipmentStatusDotClass = (s) => {
                 if (window.Utils && typeof window.Utils.getStatusDotClass === 'function') {
                     return window.Utils.getStatusDotClass(s);
                 }
                 return getTicketStatusDotClass(s);
             };
-
             const getShipmentStatusIndicatorClass = (s) => {
                 if (window.Utils && typeof window.Utils.getStatusIndicatorClass === 'function') {
                     return window.Utils.getStatusIndicatorClass(s);
                 }
                 return getTicketStatusIndicatorClass(s);
             };
-
             const formatStatusText = (s) => {
                 if (s === 'OPEN') return 'Mới Tiếp Nhận';
                 if (s === 'ESCALATED') return 'Quá Hạn SLA';
@@ -815,7 +766,6 @@
                 }
                 return s || 'Chưa rõ';
             };
-
             const formatShipmentBadge = (s) => {
                 if (s === 'OPEN' || s === 'IN_PROGRESS' || s === 'RESOLVED' || s === 'CLOSED') {
                     return formatStatusBadge(s);
@@ -825,11 +775,9 @@
                 }
                 return formatStatusBadge(s);
             };
-
             const formatCurrency = (amt) => {
                 return (Number(amt) || 0).toLocaleString('vi-VN') + ' đ';
             };
-
             const formatTime = (isoString) => {
                 if (!isoString) return '';
                 try {
@@ -840,13 +788,11 @@
                     return isoString;
                 }
             };
-
             watch(opsFilterStatus, () => {
                 if (isStaffUser.value && currentSubTab.value === 'ops') {
                     loadOpsTickets();
                 }
             });
-
             const openRequestedTicket = async () => {
                 const code = chatRuntime.state.openTicketCode;
                 if (!code) return;
@@ -879,11 +825,9 @@
                 loadGuestHistory();
                 initWebSocket();
                 startSmartPolling();
-
                 if (currentUser.value) {
                     await loadMyTickets();
                 }
-
                 if (isStaffUser.value) {
                     await loadOpsTickets();
                     if (!activeTicket.value && opsTickets.value.length > 0) {
@@ -891,9 +835,7 @@
                         subscribeTicketTopics(activeTicket.value);
                     }
                 }
-
                 await refreshStats();
-
                 const targetCode = props.trackingCode || props.initialTrackingCode;
                 if (targetCode) {
                     formData.trackingCode = targetCode;
@@ -901,7 +843,6 @@
                     checkShipment();
                 }
             });
-
             onUnmounted(() => {
                 if (activeTicket.value) chatRuntime.drafts.set(activeTicket.value.id, { text: chatInput.value,
                     key: selectedAttachmentKey.value, url: selectedAttachmentUrl.value });
@@ -915,7 +856,6 @@
                 stopSmartPolling();
                 chatRuntime.select(null, null);
             });
-
             watch(() => activeTicket.value?.id, (id, oldId) => {
                 ++messageSelectionVersion;
                 if (oldId) chatRuntime.drafts.set(oldId, { text: chatInput.value, key: selectedAttachmentKey.value, url: selectedAttachmentUrl.value });
@@ -926,7 +866,6 @@
                 subscribeTicketTopics(activeTicket.value);
                 syncMessages(true); refreshPresence();
             }, { flush: 'sync' });
-
             watch(() => props.trackingCode, (newCode) => {
                 if (newCode && newCode !== formData.trackingCode) {
                     formData.trackingCode = newCode;
@@ -934,7 +873,6 @@
                     checkShipment();
                 }
             });
-
             const selectTicketForChat = (ticket) => {
                 if (!ticket) return;
                 selectActiveTicket(ticket);
@@ -942,7 +880,6 @@
                 currentSubTab.value = 'ops';
                 scrollToBottom();
             };
-
             return {
                 currentUser,
                 isStaffUser,
@@ -951,6 +888,7 @@
                 isWsConnected, presenceText, counterpartOnline, pendingMessages, readState,
                 hasOlderMessages, loadingHistory, historyError, newMessagesBelow, soundEnabled,
                 loadOlderMessages, onChatScroll, scrollToBottom, messageStatus, unreadFor, refreshMessageAttachment,
+                formatAttachmentUrl,
                 retryMessage: pending => chatRuntime.retry(pending), toggleChatSound: () => chatRuntime.toggleSound(),
                 isRefreshingChat,
                 isMyMessage,
@@ -1025,7 +963,6 @@
                     class="hidden" 
                     @change="handleAttachmentUpload" 
                 />
-
                 <div v-if="!currentUser" class="page-header-banner rounded-3xl p-6 sm:p-7 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden transition-all duration-300 hover:shadow-md">
                     <div class="flex items-start space-x-4">
                         <div class="w-14 h-14 rounded-2xl bg-purple-600 text-white flex items-center justify-center shadow-lg shadow-purple-600/30 flex-shrink-0 ring-4 ring-purple-100">
@@ -1043,7 +980,6 @@
                             <p class="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl leading-relaxed">Tiếp nhận sự cố vận chuyển, giải quyết quyền lợi bưu chính và cam kết phản hồi đối soát bưu phẩm minh bạch.</p>
                         </div>
                     </div>
-
                     <div class="flex items-center space-x-3 self-start md:self-center flex-shrink-0">
                         <div class="px-4 py-2.5 rounded-2xl bg-white border border-purple-200/80 shadow-xs text-center min-w-[110px] flex-shrink-0">
                             <span class="text-[10.5px] uppercase font-bold text-slate-400 block tracking-wider whitespace-nowrap">Hotline</span>
@@ -1055,10 +991,8 @@
                         </div>
                     </div>
                 </div>
-
                 <div v-else class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden transition-all duration-300">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
-
                     <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
                             <div class="flex items-center space-x-2">
@@ -1075,7 +1009,6 @@
                                 Tiếp nhận sự cố vận chuyển, giải quyết quyền lợi bưu chính và bồi hoàn trực tuyến 24/7.
                             </p>
                         </div>
-
                         <div class="flex items-center space-x-2 self-start sm:self-auto">
                             <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[70px] transform hover:scale-105 transition">
                                 <div class="text-sm sm:text-base font-bold leading-tight">{{ stats.total }}</div>
@@ -1096,10 +1029,8 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="b2b-card rounded-xl p-1.5 shadow-sm flex items-center justify-between overflow-x-auto">
                     <div class="flex items-center space-x-1.5">
-
                         <button 
                             type="button"
                             @click="currentSubTab = 'create'" 
@@ -1110,7 +1041,6 @@
                         >
                             <span>Gửi Khiếu Nại Bưu Gửi</span>
                         </button>
-
                         <button 
                             type="button"
                             @click="currentSubTab = 'lookup'" 
@@ -1124,7 +1054,6 @@
                                 {{ myTickets.length }}
                             </span>
                         </button>
-
                         <button 
                             v-if="isStaffUser"
                             type="button"
@@ -1140,14 +1069,11 @@
                             </span>
                         </button>
                     </div>
-
                     <div class="hidden sm:flex items-center text-xs text-slate-400 font-medium pr-2">
                         <span>Tổng đài hỗ trợ 24/7: <strong class="text-blue-700 font-mono">1900 54 54 81</strong></span>
                     </div>
                 </div>
-
                 <div v-if="currentSubTab === 'create'" class="tab-content-enter grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-
                     <div class="lg:col-span-7 b2b-card rounded-xl p-4 sm:p-5 shadow-sm space-y-4">
                         <div class="border-b border-slate-100 pb-2.5 flex items-center justify-between">
                             <div class="flex items-center space-x-2">
@@ -1160,9 +1086,7 @@
                             </div>
                             <span class="text-[11px] text-slate-500 font-medium">Cam kết phản hồi trong 2 giờ</span>
                         </div>
-
                         <form class="space-y-3.5 text-xs" @submit.prevent="submitTicket">
-
                             <div>
                                 <label class="block font-semibold text-slate-700 mb-1">Mã Vận Đơn Bưu Chính (Tracking Code) <span class="text-rose-500">*</span>:</label>
                                 <div class="flex items-center space-x-2 min-w-0">
@@ -1185,7 +1109,6 @@
                                     </button>
                                 </div>
                             </div>
-
                             <div v-if="shipmentInfo" class="tab-content-enter p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5 transition-all text-[11px]">
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center space-x-2 min-w-0">
@@ -1203,7 +1126,6 @@
                                     <div v-if="shipmentInfo.codAmount"><span class="text-slate-400">Tiền COD:</span> {{ formatCurrency(shipmentInfo.codAmount) }}</div>
                                 </div>
                             </div>
-
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                     <label class="block font-semibold text-slate-700 mb-1">
@@ -1232,7 +1154,6 @@
                                     />
                                 </div>
                             </div>
-
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                     <label class="block font-semibold text-slate-700 mb-1">Phân loại sự cố <span class="text-rose-500">*</span>:</label>
@@ -1255,7 +1176,6 @@
                                     </select>
                                 </div>
                             </div>
-
                             <div>
                                 <label class="block font-semibold text-slate-700 mb-1">Tiêu đề yêu cầu <span class="text-rose-500">*</span>:</label>
                                 <input 
@@ -1267,7 +1187,6 @@
                                     required
                                 />
                             </div>
-
                             <div>
                                 <div class="flex items-center justify-between mb-1">
                                     <label class="block font-semibold text-slate-700">Mô tả sự việc chi tiết <span class="text-rose-500">*</span>:</label>
@@ -1282,7 +1201,6 @@
                                     required
                                 ></textarea>
                             </div>
-
                             <div class="pt-2 flex items-center justify-end space-x-2">
                                 <button 
                                     type="submit" 
@@ -1296,7 +1214,6 @@
                             </div>
                         </form>
                     </div>
-
                     <div class="lg:col-span-5 space-y-3.5">
                         <div class="b2b-card rounded-xl p-4 sm:p-5 shadow-sm space-y-3 text-xs">
                             <h2 class="text-xs font-bold text-slate-900 uppercase tracking-wide border-b border-slate-100 pb-2">
@@ -1317,7 +1234,6 @@
                                 </div>
                             </div>
                         </div>
-
                         <div class="b2b-card rounded-xl p-4 shadow-sm bg-slate-50 text-xs space-y-2">
                             <div class="font-bold text-slate-800 flex items-center justify-between">
                                 <span>Kênh Hỗ Trợ Khẩn Cấp 24/7</span>
@@ -1327,13 +1243,9 @@
                             <div class="pt-1 font-mono font-bold text-blue-700 text-sm">Hotline: 1900 54 54 81 (Phím 1)</div>
                         </div>
                     </div>
-
                 </div>
-
                 <div v-if="currentSubTab === 'lookup'" class="tab-content-enter grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch w-full max-w-full min-w-0">
-
                     <div class="lg:col-span-5 min-w-0 flex flex-col space-y-3">
-
                         <div class="b2b-card rounded-xl p-3.5 shadow-xs space-y-2">
                             <div class="flex items-center justify-between">
                                 <span class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center space-x-1.5">
@@ -1342,7 +1254,6 @@
                                 </span>
                                 <span class="text-[10px] text-slate-400 font-mono">TKT... / WB...</span>
                             </div>
-
                             <div class="flex items-center space-x-1.5">
                                 <input 
                                     type="text" 
@@ -1364,7 +1275,6 @@
                                 </button>
                             </div>
                         </div>
-
                         <div class="b2b-card rounded-xl p-3 shadow-xs space-y-2">
                             <div class="flex items-center justify-between pb-1.5 border-b border-slate-100">
                                 <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
@@ -1375,7 +1285,6 @@
                                     {{ currentUser ? 'Tự động đồng bộ' : 'Lưu tại trình duyệt' }}
                                 </span>
                             </div>
-
                             <div class="space-y-1.5 max-h-44 overflow-y-auto pr-0.5">
                                 <template v-if="currentUser && myTickets.length">
                                     <div 
@@ -1404,7 +1313,6 @@
                                         </div>
                                     </div>
                                 </template>
-
                                 <template v-else-if="!currentUser && guestHistory.length">
                                     <div 
                                         v-for="t in guestHistory" 
@@ -1432,13 +1340,11 @@
                                         </div>
                                     </div>
                                 </template>
-
                                 <div v-else class="text-center py-5 text-[11px] text-slate-400">
                                     Chưa có hồ sơ khiếu nại nào được ghi nhận.
                                 </div>
                             </div>
                         </div>
-
                         <div v-if="activeTicket" class="b2b-card rounded-xl p-3.5 shadow-xs space-y-2.5 flex-1">
                             <div class="flex items-center justify-between pb-2 border-b border-slate-100">
                                 <div>
@@ -1450,7 +1356,6 @@
                                     <span>{{ formatStatusText(activeTicket.status) }}</span>
                                 </span>
                             </div>
-
                             <div class="pt-2 pb-1">
                                 <div class="relative">
                                     <div class="absolute top-[13px] left-[12.5%] right-[12.5%] h-[2px] bg-slate-200 -translate-y-1/2 overflow-hidden z-0 pointer-events-none">
@@ -1464,9 +1369,7 @@
                                             }"
                                         ></div>
                                     </div>
-
                                     <div class="relative z-10 grid grid-cols-4">
-
                                         <div class="flex flex-col items-center text-center">
                                             <div 
                                                 class="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs transition-all duration-300 bg-blue-600 text-white"
@@ -1477,7 +1380,6 @@
                                             <span class="text-[9.5px] font-bold text-blue-900 mt-1">1. Tiếp Nhận</span>
                                             <span class="text-[9px] text-slate-400 font-mono">{{ formatTime(activeTicket.createdAt) }}</span>
                                         </div>
-
                                         <div class="flex flex-col items-center text-center">
                                             <div 
                                                 class="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs transition-all duration-300"
@@ -1497,7 +1399,6 @@
                                                 {{ (activeTicket.status !== 'OPEN' && activeTicket.assignedToName) ? 'Đã nhận' : '---' }}
                                             </span>
                                         </div>
-
                                         <div class="flex flex-col items-center text-center">
                                             <div 
                                                 class="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs transition-all duration-300"
@@ -1517,7 +1418,6 @@
                                                 {{ (activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED' || activeTicket.status === 'REJECTED') ? (activeTicket.closedAt ? formatTime(activeTicket.closedAt) : 'Đã duyệt') : '---' }}
                                             </span>
                                         </div>
-
                                         <div class="flex flex-col items-center text-center">
                                             <div 
                                                 class="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs transition-all duration-300"
@@ -1536,11 +1436,9 @@
                                                 {{ (activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED') ? 'Thành công' : '---' }}
                                             </span>
                                         </div>
-
                                     </div>
                                 </div>
                             </div>
-
                             <div class="p-2.5 bg-slate-50 border border-slate-200/80 rounded-lg space-y-1.5 text-[11px] text-slate-600">
                                 <div class="flex items-center justify-between pb-1 border-b border-slate-200/50">
                                     <span class="text-slate-400 flex items-center space-x-1">
@@ -1562,18 +1460,14 @@
                                         </span>
                                     </div>
                                 </div>
-
                                 <div v-if="activeTicket.resolutionNote" class="pt-1 border-t border-slate-200/50 text-[10.5px] leading-relaxed flex items-start space-x-1 text-slate-500">
                                     <span class="font-semibold text-slate-600 flex-shrink-0">Kết luận:</span>
                                     <span>{{ activeTicket.resolutionNote }}</span>
                                 </div>
                             </div>
                         </div>
-
                     </div>
-
                     <div class="lg:col-span-7 min-w-0 b2b-card rounded-xl shadow-xs overflow-hidden bg-white flex flex-col border border-slate-200 h-[620px] lg:h-[680px]">
-
                         <div class="bg-white px-3.5 py-2.5 border-b border-slate-200 flex items-center justify-between shrink-0">
                             <div class="flex items-center space-x-2.5 min-w-0">
                                 <div class="relative shrink-0">
@@ -1604,7 +1498,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <div class="flex items-center space-x-1.5 shrink-0">
                                 <button 
                                     v-if="isStaffUser && activeTicket && activeTicket.status !== 'RESOLVED' && activeTicket.status !== 'CLOSED'"
@@ -1615,14 +1508,12 @@
                                 >
                                     <span>Xử Lý / Bồi Hoàn</span>
                                 </button>
-
                                 <span class="inline-flex items-center text-[10px] font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
                                     <span class="w-1.5 h-1.5 rounded-full mr-1.5" :class="isWsConnected ? 'bg-emerald-500 animate-pulse' : 'bg-blue-400'"></span>
                                     <span>{{ isWsConnected ? 'Đã kết nối' : 'Đang kết nối lại' }}</span>
                                 </span>
                             </div>
                         </div>
-
                         <div v-if="!currentUser && activeTicket?.accessToken" class="px-3 py-2 text-xs break-all bg-slate-50">Lưu mã truy cập này để mở lại phiếu trên thiết bị khác: <code>{{ activeTicket.accessToken }}</code></div>
                         <div class="px-3 py-2 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2 text-xs bg-white" aria-live="polite">
     <span class="inline-flex items-center gap-1.5 text-slate-700"><span class="w-2 h-2 rounded-full" :class="counterpartOnline ? 'bg-emerald-500' : 'bg-slate-400'" aria-hidden="true"></span>{{ presenceText }}</span>
@@ -1632,24 +1523,20 @@
 <div id="chatMessagesFeed" @scroll.passive="onChatScroll" role="log" aria-label="Tin nhắn hỗ trợ" class="p-3.5 space-y-3 flex-1 overflow-y-auto overflow-x-hidden min-h-0 bg-[#f8fafc]">
 <div v-if="hasOlderMessages" class="text-center"><button type="button" @click="loadOlderMessages" :disabled="loadingHistory" class="px-3 py-2 text-sm text-blue-700 hover:underline disabled:opacity-50">{{ loadingHistory ? 'Đang tải…' : 'Tải tin nhắn cũ' }}</button></div>
 <div v-if="historyError" role="status" class="text-sm text-rose-700">{{ historyError }} <button type="button" @click="manualRefreshChat" class="underline">Thử đồng bộ lại</button></div>
-
-
                             <template v-if="activeTicket">
                                 <div class="flex justify-center">
                                     <span class="px-3 py-1 rounded-full bg-slate-200/80 text-slate-600 text-[10px] font-medium border border-slate-300/40 text-center">
                                         {{ formatTime(activeTicket.createdAt) }} • Hồ sơ {{ activeTicket.ticketCode }} được tạo thành công
                                     </span>
                                 </div>
-
                                 <template v-for="msg in activeTicket.messages" :key="msg.id">
-
                                     <div v-if="isMyMessage(msg)" :data-message-id="msg.id" class="flex justify-end chat-bubble-in">
                                         <div class="max-w-[85%] sm:max-w-[75%] min-w-0 space-y-1">
                                             <div class="bg-blue-600 text-white rounded-2xl rounded-tr-xs p-3 shadow-xs text-xs leading-relaxed space-y-2 chat-bubble-wrap break-words break-all">
                                                 <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
-                                                <div v-if="msg.attachmentUrls" class="pt-1.5 border-t border-blue-400/40">
-                                                    <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-white/20 bg-blue-700/50 hover:bg-blue-700 transition">
-                                                        <img :src="msg.attachmentUrls" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
+                                                <div v-if="formatAttachmentUrl(msg.attachmentUrls)" class="pt-1.5 border-t border-blue-400/40">
+                                                    <a :href="formatAttachmentUrl(msg.attachmentUrls)" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-white/20 bg-blue-700/50 hover:bg-blue-700 transition">
+                                                        <img :src="formatAttachmentUrl(msg.attachmentUrls)" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
                                                         <div class="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-xs text-white rounded text-[9px] flex items-center space-x-1 opacity-90 group-hover:opacity-100 transition">
                                                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                                                             <span>Xem ảnh gốc</span>
@@ -1662,7 +1549,6 @@
                                             </div>
                                         </div>
                                     </div>
-
                                     <div v-else :data-message-id="msg.id" class="flex items-start space-x-2 chat-bubble-in">
                                         <div class="w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 border mt-1"
                                             :class="isStaffUser ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-blue-100 text-blue-700 border-blue-200'">
@@ -1674,9 +1560,9 @@
                                             </div>
                                             <div class="bg-white text-slate-800 rounded-2xl rounded-tl-xs border border-slate-200 p-3 shadow-2xs text-xs leading-relaxed space-y-2 chat-bubble-wrap break-words break-all">
                                                 <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
-                                                <div v-if="msg.attachmentUrls" class="pt-1.5 border-t border-slate-100">
-                                                    <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition">
-                                                        <img :src="msg.attachmentUrls" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
+                                                <div v-if="formatAttachmentUrl(msg.attachmentUrls)" class="pt-1.5 border-t border-slate-100">
+                                                    <a :href="formatAttachmentUrl(msg.attachmentUrls)" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition">
+                                                        <img :src="formatAttachmentUrl(msg.attachmentUrls)" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
                                                         <div class="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-xs text-white rounded text-[9px] flex items-center space-x-1 opacity-90 group-hover:opacity-100 transition">
                                                             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                                                             <span>Xem ảnh gốc</span>
@@ -1689,9 +1575,7 @@
                                             </div>
                                         </div>
                                     </div>
-
                                 </template>
-
                                 <div v-if="activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED'" class="tab-content-enter p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
                                     <div class="flex items-center space-x-2 text-emerald-800 font-bold text-xs">
                                         <span class="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">✓</span>
@@ -1706,7 +1590,6 @@
                                         <span class="text-slate-500 font-medium">Bưu chính Waybill</span>
                                     </div>
                                 </div>
-
                                 <div v-else-if="activeTicket.status === 'REJECTED'" class="tab-content-enter p-3.5 bg-rose-50 border border-rose-200 rounded-xl space-y-2">
                                     <div class="flex items-center space-x-2 text-rose-800 font-bold text-xs">
                                         <span class="w-4 h-4 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px]">✕</span>
@@ -1722,13 +1605,10 @@
                                     </div>
                                 </div>
                             </template>
-
                             <div v-else class="h-full flex flex-col items-center justify-center text-slate-400 text-xs py-16 space-y-2">
                                 <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                                 <span>Vui lòng chọn hoặc tra cứu một mã hồ sơ để mở cuộc hội thoại.</span>
                             </div>
-
-
 <div v-for="pending in pendingMessages" :key="pending.clientMessageId" class="flex justify-end">
     <div class="max-w-[85%] space-y-1 text-sm">
         <div class="bg-blue-50 border border-blue-200 text-slate-800 rounded-xl p-3 break-words">{{ pending.content }}</div>
@@ -1740,7 +1620,6 @@
     </div>
 </div>
 </div>
-
                         <div v-if="activeTicket && activeTicket.status !== 'RESOLVED' && activeTicket.status !== 'CLOSED' && activeTicket.status !== 'REJECTED'" class="px-3.5 py-2 bg-slate-100/70 border-t border-slate-200/60 flex flex-wrap items-center gap-1.5 text-[11px] shrink-0">
                             <span class="text-slate-400 text-[10px] font-medium shrink-0">{{ isStaffUser ? 'Mẫu phản hồi CSKH:' : 'Gợi ý nhanh:' }}</span>
                             <button 
@@ -1753,7 +1632,6 @@
                                 {{ reply }}
                             </button>
                         </div>
-
                         <div v-if="selectedAttachmentUrl" class="px-3.5 py-2 bg-blue-50/90 border-t border-blue-100 flex items-center justify-between shrink-0">
                             <div class="flex items-center space-x-2.5">
                                 <div class="relative w-11 h-11 rounded-lg overflow-hidden border border-blue-200 bg-white shrink-0 shadow-2xs">
@@ -1775,7 +1653,6 @@
                                 Hủy đính kèm
                             </button>
                         </div>
-
                         <div class="p-3 bg-white border-t border-slate-200 flex items-center space-x-2 shrink-0" :class="activeTicket && (activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED') ? 'opacity-50 pointer-events-none' : ''">
                             <button 
                                 type="button" 
@@ -1793,7 +1670,6 @@
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                                 </svg>
                             </button>
-
                             <input 
                                 type="text" 
                                 v-model="chatInput" 
@@ -1815,14 +1691,10 @@
                                 </svg>
                             </button>
                         </div>
-
                     </div>
-
                 </div>
-
                 <div v-if="currentSubTab === 'ops' && isStaffUser" class="tab-content-enter space-y-3.5">
-
-                    <!-- Top control bar: Search, Status filter, Mode Switcher -->
+                    
                     <div class="b2b-card rounded-xl p-3 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
                         <div class="flex flex-wrap items-center gap-2 flex-1">
                             <div class="relative w-full sm:w-64">
@@ -1834,7 +1706,6 @@
                                     class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-blue-600 transition"
                                 />
                             </div>
-
                             <select v-model="opsFilterStatus" class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:bg-white focus:outline-none focus:border-blue-600 transition">
                                 <option value="ALL">Tất cả trạng thái</option>
                                 <option value="OPEN">Chờ tiếp nhận (OPEN)</option>
@@ -1842,14 +1713,12 @@
                                 <option value="IN_PROGRESS">Đang xử lý (IN_PROGRESS)</option>
                                 <option value="RESOLVED">Đã giải quyết (RESOLVED)</option>
                             </select>
-
                             <span class="text-xs text-slate-400 hidden xl:inline">|</span>
                             <span class="text-xs text-slate-500 font-medium">
                                 <strong>{{ filteredOpsTickets.length }}</strong> hồ sơ
                             </span>
                         </div>
-
-                        <!-- Mode Switcher -->
+                        
                         <div class="flex items-center space-x-1.5 self-start md:self-auto bg-slate-100 p-1 rounded-xl border border-slate-200/80">
                             <button 
                                 type="button" 
@@ -1862,7 +1731,6 @@
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                                 <span>Dạng Bảng</span>
                             </button>
-
                             <button 
                                 type="button" 
                                 @click="opsViewMode = 'desk'; if (!activeTicket && filteredOpsTickets.length) selectActiveTicket(filteredOpsTickets[0]);"
@@ -1879,8 +1747,7 @@
                             </button>
                         </div>
                     </div>
-
-                    <!-- MODE 1: DẠNG BẢNG DANH SÁCH -->
+                    
                     <div v-if="opsViewMode === 'table'" class="b2b-card rounded-xl shadow-sm overflow-hidden tab-content-enter">
                         <div class="overflow-x-auto">
                             <table class="w-full text-left text-xs text-slate-600">
@@ -1965,7 +1832,6 @@
                                             </button>
                                         </td>
                                     </tr>
-
                                     <tr v-if="filteredOpsTickets.length === 0">
                                         <td colspan="7" class="text-center py-10 text-slate-400 text-xs">
                                             Không có hồ sơ nào phù hợp với bộ lọc hiện tại.
@@ -1975,11 +1841,9 @@
                             </table>
                         </div>
                     </div>
-
-                    <!-- MODE 2: TRỰC CHAT CSKH (2 CỘT) -->
+                    
                     <div v-else class="tab-content-enter grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-stretch w-full max-w-full min-w-0">
-
-                        <!-- Cột Trái: Danh Sách Phiếu Chờ Xử Lý (col-span-5) -->
+                        
                         <div class="lg:col-span-5 min-w-0 flex flex-col space-y-3">
                             <div class="b2b-card rounded-xl p-3 shadow-xs space-y-2">
                                 <div class="flex items-center justify-between pb-1.5 border-b border-slate-100">
@@ -1992,7 +1856,6 @@
                                         <span>Trực Tuyến</span>
                                     </span>
                                 </div>
-
                                 <div class="space-y-1.5 max-h-[580px] overflow-y-auto pr-0.5">
                                     <div 
                                         v-for="t in filteredOpsTickets" 
@@ -2016,9 +1879,7 @@
                                                 <span>{{ formatStatusText(t.status) }}</span>
                                             </span>
                                         </div>
-
                                         <p class="text-[11.5px] font-semibold text-slate-800 truncate">{{ t.creatorName }} <span class="text-slate-400 font-mono font-normal">({{ t.creatorPhone }})</span></p>
-
                                         <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono pt-0.5">
                                             <span class="text-blue-600 font-bold truncate">Đơn: {{ t.trackingCode || 'Chưa gắn' }}</span>
                                             <div class="flex items-center space-x-1.5 shrink-0">
@@ -2032,18 +1893,15 @@
                                             </div>
                                         </div>
                                     </div>
-
                                     <div v-if="filteredOpsTickets.length === 0" class="text-center py-10 text-[11px] text-slate-400">
                                         Không có hồ sơ nào phù hợp bộ lọc.
                                     </div>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Cột Phải: Khung Hội Thoại Nghiệp Vụ CSKH (col-span-7) -->
+                        
                         <div class="lg:col-span-7 min-w-0 b2b-card rounded-xl shadow-xs overflow-hidden bg-white flex flex-col border border-slate-200 h-[620px] lg:h-[680px]">
-
-                            <!-- Header thông tin khách hàng & thao tác CSKH -->
+                            
                             <div class="bg-white px-3.5 py-2.5 border-b border-slate-200 flex items-center justify-between shrink-0">
                                 <div class="flex items-center space-x-2.5 min-w-0">
                                     <div class="relative shrink-0">
@@ -2071,7 +1929,6 @@
                                         </div>
                                     </div>
                                 </div>
-
                                 <div class="flex items-center space-x-1.5 shrink-0">
                                     <button 
                                         v-if="activeTicket && (activeTicket.status === 'OPEN' || activeTicket.status === 'ESCALATED')"
@@ -2081,7 +1938,6 @@
                                     >
                                         Tiếp Nhận
                                     </button>
-
                                     <button 
                                         v-if="activeTicket && activeTicket.status !== 'RESOLVED' && activeTicket.status !== 'CLOSED'"
                                         type="button" 
@@ -2091,15 +1947,13 @@
                                     >
                                         <span>Duyệt Chi / Chốt</span>
                                     </button>
-
                                     <span class="inline-flex items-center text-[10px] font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
                                         <span class="w-1.5 h-1.5 rounded-full mr-1.5" :class="isWsConnected ? 'bg-emerald-500 animate-pulse' : 'bg-blue-400'"></span>
                                         <span>{{ isWsConnected ? 'Đã kết nối' : 'Đang kết nối lại' }}</span>
                                     </span>
                                 </div>
                             </div>
-
-                            <!-- Feed tin nhắn Live Desk -->
+                            
                             <div class="px-3 py-2 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2 text-xs bg-white" aria-live="polite">
     <span class="inline-flex items-center gap-1.5 text-slate-700"><span class="w-2 h-2 rounded-full" :class="counterpartOnline ? 'bg-emerald-500' : 'bg-slate-400'" aria-hidden="true"></span>{{ presenceText }}</span>
     <button type="button" @click="toggleChatSound" :aria-pressed="soundEnabled" class="px-2 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-600">{{ soundEnabled ? 'Âm báo: Bật' : 'Âm báo: Tắt' }}</button>
@@ -2108,24 +1962,21 @@
 <div id="chatMessagesFeedDesk" @scroll.passive="onChatScroll" role="log" aria-label="Tin nhắn hỗ trợ" class="p-3.5 space-y-3 flex-1 overflow-y-auto overflow-x-hidden min-h-0 bg-[#f8fafc]">
 <div v-if="hasOlderMessages" class="text-center"><button type="button" @click="loadOlderMessages" :disabled="loadingHistory" class="px-3 py-2 text-sm text-blue-700 hover:underline disabled:opacity-50">{{ loadingHistory ? 'Đang tải…' : 'Tải tin nhắn cũ' }}</button></div>
 <div v-if="historyError" role="status" class="text-sm text-rose-700">{{ historyError }} <button type="button" @click="manualRefreshChat" class="underline">Thử đồng bộ lại</button></div>
-
                                 <template v-if="activeTicket">
                                     <div class="flex justify-center">
                                         <span class="px-3 py-1 rounded-full bg-slate-200/80 text-slate-600 text-[10px] font-medium border border-slate-300/40 text-center">
                                             {{ formatTime(activeTicket.createdAt) }} • Tiếp nhận hồ sơ khiếu nại {{ activeTicket.ticketCode }}
                                         </span>
                                     </div>
-
                                     <template v-for="msg in activeTicket.messages" :key="msg.id">
-
-                                        <!-- CSKH gửi (bên phải, màu xanh) -->
+                                        
                                         <div v-if="isMyMessage(msg)" :data-message-id="msg.id" class="flex justify-end chat-bubble-in">
                                             <div class="max-w-[85%] sm:max-w-[75%] min-w-0 space-y-1">
                                                 <div class="bg-blue-600 text-white rounded-2xl rounded-tr-xs p-3 shadow-xs text-xs leading-relaxed space-y-2 chat-bubble-wrap break-words break-all">
                                                     <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
-                                                    <div v-if="msg.attachmentUrls" class="pt-1.5 border-t border-blue-400/40">
-                                                        <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-white/20 bg-blue-700/50 hover:bg-blue-700 transition">
-                                                            <img :src="msg.attachmentUrls" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
+                                                    <div v-if="formatAttachmentUrl(msg.attachmentUrls)" class="pt-1.5 border-t border-blue-400/40">
+                                                        <a :href="formatAttachmentUrl(msg.attachmentUrls)" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-white/20 bg-blue-700/50 hover:bg-blue-700 transition">
+                                                            <img :src="formatAttachmentUrl(msg.attachmentUrls)" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
                                                             <div class="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-xs text-white rounded text-[9px] flex items-center space-x-1 opacity-90 group-hover:opacity-100 transition">
                                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                                                                 <span>Xem ảnh gốc</span>
@@ -2138,8 +1989,7 @@
                                                 </div>
                                             </div>
                                         </div>
-
-                                        <!-- Khách hàng gửi (bên trái, màu trắng với avatar KH) -->
+                                        
                                         <div v-else :data-message-id="msg.id" class="flex items-start space-x-2 chat-bubble-in">
                                             <div class="w-7 h-7 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-[10px] shrink-0 border border-amber-200 mt-1">
                                                 KH
@@ -2150,9 +2000,9 @@
                                                 </div>
                                                 <div class="bg-white text-slate-800 rounded-2xl rounded-tl-xs border border-slate-200 p-3 shadow-2xs text-xs leading-relaxed space-y-2 chat-bubble-wrap break-words break-all">
                                                     <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
-                                                    <div v-if="msg.attachmentUrls" class="pt-1.5 border-t border-slate-100">
-                                                        <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition">
-                                                            <img :src="msg.attachmentUrls" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
+                                                    <div v-if="formatAttachmentUrl(msg.attachmentUrls)" class="pt-1.5 border-t border-slate-100">
+                                                        <a :href="formatAttachmentUrl(msg.attachmentUrls)" target="_blank" rel="noopener noreferrer" class="block group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition">
+                                                            <img :src="formatAttachmentUrl(msg.attachmentUrls)" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-56 rounded-xl object-contain mx-auto" loading="lazy" />
                                                             <div class="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-xs text-white rounded text-[9px] flex items-center space-x-1 opacity-90 group-hover:opacity-100 transition">
                                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                                                                 <span>Xem ảnh gốc</span>
@@ -2165,9 +2015,7 @@
                                                 </div>
                                             </div>
                                         </div>
-
                                     </template>
-
                                     <div v-if="activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED'" class="tab-content-enter p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
                                         <div class="flex items-center space-x-2 text-emerald-800 font-bold text-xs">
                                             <span class="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">✓</span>
@@ -2179,12 +2027,10 @@
                                         </div>
                                     </div>
                                 </template>
-
                                 <div v-else class="h-full flex flex-col items-center justify-center text-slate-400 text-xs py-16 space-y-2">
                                     <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                                     <span>Vui lòng chọn một hồ sơ khiếu nại trong danh sách bên trái để mở hội thoại.</span>
                                 </div>
-
 <div v-for="pending in pendingMessages" :key="pending.clientMessageId" class="flex justify-end">
     <div class="max-w-[85%] space-y-1 text-sm">
         <div class="bg-blue-50 border border-blue-200 text-slate-800 rounded-xl p-3 break-words">{{ pending.content }}</div>
@@ -2196,8 +2042,7 @@
     </div>
 </div>
 </div>
-
-                            <!-- Mẫu phản hồi nhanh CSKH -->
+                            
                             <div v-if="activeTicket && activeTicket.status !== 'RESOLVED' && activeTicket.status !== 'CLOSED' && activeTicket.status !== 'REJECTED'" class="px-3.5 py-2 bg-slate-100/70 border-t border-slate-200/60 flex flex-wrap items-center gap-1.5 text-[11px] shrink-0">
                                 <span class="text-slate-400 text-[10px] font-medium shrink-0">Mẫu phản hồi CSKH:</span>
                                 <button 
@@ -2210,8 +2055,7 @@
                                     {{ reply }}
                                 </button>
                             </div>
-
-                            <!-- Attachment preview -->
+                            
                             <div v-if="selectedAttachmentUrl" class="px-3.5 py-2 bg-blue-50/90 border-t border-blue-100 flex items-center justify-between shrink-0">
                                 <div class="flex items-center space-x-2.5">
                                     <div class="relative w-11 h-11 rounded-lg overflow-hidden border border-blue-200 bg-white shrink-0 shadow-2xs">
@@ -2233,8 +2077,7 @@
                                     Hủy đính kèm
                                 </button>
                             </div>
-
-                            <!-- Ô nhập tin nhắn -->
+                            
                             <div class="p-3 bg-white border-t border-slate-200 flex items-center space-x-2 shrink-0" :class="activeTicket && (activeTicket.status === 'RESOLVED' || activeTicket.status === 'CLOSED') ? 'opacity-50 pointer-events-none' : ''">
                                 <button 
                                     type="button" 
@@ -2252,7 +2095,6 @@
                                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                                     </svg>
                                 </button>
-
                                 <input 
                                     type="text" 
                                     v-model="chatInput" 
@@ -2274,13 +2116,9 @@
                                     </svg>
                                 </button>
                             </div>
-
                         </div>
-
                     </div>
-
                 </div>
-
                 <teleport to="body">
                     <div v-if="showResolveModal && modalTicket" class="fixed inset-0 z-[100] modal-backdrop-enter bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3">
                     <div class="modal-box-enter bg-white rounded-xl shadow-xl border border-slate-200 max-w-4xl w-full overflow-hidden text-xs">
@@ -2292,7 +2130,6 @@
                             </div>
                             <button type="button" @click="closeResolveModal" class="text-slate-400 hover:text-slate-600 font-bold text-base p-1 leading-none">✕</button>
                         </div>
-
                         <div class="p-4 grid grid-cols-1 md:grid-cols-12 gap-4">
                             <div class="md:col-span-6 space-y-3 border-r md:pr-4 border-slate-100">
                                 <div class="font-bold text-slate-800 uppercase tracking-wider text-[11px]">Thông Tin Thẩm Định Lỗi Vận Chuyển</div>
@@ -2301,7 +2138,6 @@
                                     <div><span class="text-slate-400">Phân loại sự cố:</span> {{ formatCategory(modalTicket.category) }}</div>
                                     <div><span class="text-slate-400">Tiêu đề:</span> {{ modalTicket.title }}</div>
                                 </div>
-
                                 <div class="pt-2 border-t border-slate-100 space-y-2.5">
                                     <div>
                                         <label class="block font-bold text-slate-700 mb-1">Số tiền bồi thường duyệt chi (VNĐ):</label>
@@ -2313,7 +2149,6 @@
                                             step="10000"
                                         />
                                     </div>
-
                                     <div>
                                         <div class="flex items-center justify-between mb-1">
                                             <label class="block font-bold text-slate-700">Kết luận xử lý &amp; Trách nhiệm bưu cục:</label>
@@ -2328,7 +2163,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <div class="md:col-span-6 flex flex-col justify-between border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
                                 <div class="bg-white px-3 py-2 border-b border-slate-200 flex items-center justify-between">
                                     <div class="flex items-center space-x-2">
@@ -2337,7 +2171,6 @@
                                     </div>
                                     <span class="text-[10px] text-slate-400">{{ modalTicket.creatorName }}</span>
                                 </div>
-
                                 <div class="px-3 py-2 border-b border-slate-200 flex items-center justify-between flex-wrap gap-2 text-xs bg-white" aria-live="polite">
     <span class="inline-flex items-center gap-1.5 text-slate-700"><span class="w-2 h-2 rounded-full" :class="counterpartOnline ? 'bg-emerald-500' : 'bg-slate-400'" aria-hidden="true"></span>{{ presenceText }}</span>
     <button type="button" @click="toggleChatSound" :aria-pressed="soundEnabled" class="px-2 py-1 rounded border border-slate-300 text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-blue-600">{{ soundEnabled ? 'Âm báo: Bật' : 'Âm báo: Tắt' }}</button>
@@ -2346,9 +2179,6 @@
 <div id="chatMessagesFeedModal" @scroll.passive="onChatScroll" role="log" aria-label="Tin nhắn với khách hàng" class="h-60 overflow-y-auto overflow-x-hidden min-w-0 p-3 space-y-3 bg-[#f8fafc]">
 <div v-if="hasOlderMessages" class="text-center"><button type="button" @click="loadOlderMessages" :disabled="loadingHistory" class="px-3 py-2 text-sm text-blue-700 hover:underline disabled:opacity-50">{{ loadingHistory ? 'Đang tải…' : 'Tải tin nhắn cũ' }}</button></div>
 <div v-if="historyError" role="status" class="text-sm text-rose-700">{{ historyError }} <button type="button" @click="manualRefreshChat" class="underline">Thử đồng bộ lại</button></div>
-
-
-
                                     <template v-for="msg in modalTicket.messages" :key="msg.id">
                                         <div v-if="msg.senderRole === 'CUSTOMER'" :data-message-id="msg.id" class="flex items-start space-x-2 chat-bubble-in">
                                             <div class="w-6 h-6 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">
@@ -2358,23 +2188,22 @@
                                                 <div class="text-[10px] text-slate-500">{{ msg.senderName }} • {{ formatTime(msg.createdAt) }}</div>
                                                 <div class="p-2.5 bg-white text-slate-700 rounded-2xl rounded-tl-xs border border-slate-200 shadow-2xs text-[11px] leading-relaxed space-y-1.5 chat-bubble-wrap break-words break-all">
                                                     <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
-                                                    <div v-if="msg.attachmentUrls" class="pt-1 border-t border-slate-100">
-                                                        <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
-                                                            <img :src="msg.attachmentUrls" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-40 rounded-lg object-contain mx-auto" loading="lazy" />
+                                                    <div v-if="formatAttachmentUrl(msg.attachmentUrls)" class="pt-1 border-t border-slate-100">
+                                                        <a :href="formatAttachmentUrl(msg.attachmentUrls)" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                                                            <img :src="formatAttachmentUrl(msg.attachmentUrls)" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-40 rounded-lg object-contain mx-auto" loading="lazy" />
                                                         </a>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-
                                         <div v-else :data-message-id="msg.id" class="flex justify-end chat-bubble-in">
                                             <div class="max-w-[80%] min-w-0 space-y-0.5 text-right">
                                                 <div class="text-[10px] text-slate-400">Bạn (CSKH) • {{ formatTime(msg.createdAt) }} • {{ messageStatus(msg) }}</div>
                                                 <div class="p-2.5 bg-blue-600 text-white rounded-2xl rounded-tr-xs shadow-xs text-[11px] text-left leading-relaxed space-y-1.5 chat-bubble-wrap break-words break-all">
                                                     <p v-if="msg.content" class="chat-bubble-wrap break-words break-all">{{ msg.content }}</p>
-                                                    <div v-if="msg.attachmentUrls" class="pt-1 border-t border-blue-400/40">
-                                                        <a :href="msg.attachmentUrls" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-white/20 bg-blue-700/50">
-                                                            <img :src="msg.attachmentUrls" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-40 rounded-lg object-contain mx-auto" loading="lazy" />
+                                                    <div v-if="formatAttachmentUrl(msg.attachmentUrls)" class="pt-1 border-t border-blue-400/40">
+                                                        <a :href="formatAttachmentUrl(msg.attachmentUrls)" target="_blank" rel="noopener noreferrer" class="block rounded-lg overflow-hidden border border-white/20 bg-blue-700/50">
+                                                            <img :src="formatAttachmentUrl(msg.attachmentUrls)" @error="refreshMessageAttachment(msg)" alt="Ảnh đính kèm" class="max-w-full max-h-40 rounded-lg object-contain mx-auto" loading="lazy" />
                                                         </a>
                                                     </div>
                                                 </div>
@@ -2392,7 +2221,6 @@
     </div>
 </div>
 </div>
-
                                 <div v-if="modalAttachmentUrl" class="px-2.5 py-1.5 bg-blue-50 border-t border-blue-100 flex items-center justify-between shrink-0">
                                     <div class="flex items-center space-x-2">
                                         <img :src="modalAttachmentUrl" alt="Preview" class="w-8 h-8 rounded object-cover border border-blue-200" />
@@ -2400,7 +2228,6 @@
                                     </div>
                                     <button type="button" @click="removeModalAttachment" class="text-[10px] text-rose-600 hover:underline">Hủy</button>
                                 </div>
-
                                 <div class="p-2 bg-white border-t border-slate-200 flex items-center space-x-1.5 shrink-0">
                                     <input 
                                         type="file" 
@@ -2424,7 +2251,6 @@
                                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                                         </svg>
                                     </button>
-
                                     <input 
                                         type="text" 
                                         v-model="modalCsReply" 
@@ -2444,7 +2270,6 @@
                                 </div>
                             </div>
                         </div>
-
                         <div class="bg-slate-50 px-4 py-2.5 border-t border-slate-200 flex items-center justify-end space-x-2">
                             <button type="button" @click="closeResolveModal" class="btn-press px-3.5 py-1.5 border border-slate-200 rounded-lg text-slate-600 font-semibold hover:bg-slate-100 text-xs transition">Đóng</button>
                             <button 
@@ -2461,10 +2286,8 @@
                     </div>
                 </div>
                 </teleport>
-
             </div>
         `
     };
-
     window.SupportView = SupportView;
 })();

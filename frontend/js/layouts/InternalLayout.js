@@ -2,13 +2,11 @@
     const { ref } = Vue;
     const template = `
     <div class="flex h-screen w-full overflow-hidden relative">
-        <!-- Mobile Drawer Backdrop (< 768px) -->
         <div
             v-if="isMobileDrawerOpen"
             @click="isMobileDrawerOpen = false"
             class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 md:hidden transition-opacity"
         ></div>
-
         <app-sidebar
             :current-user="currentUser"
             :current-tab="currentTab"
@@ -22,7 +20,6 @@
             @open-profile="onMobileOpenProfile"
             @logout="onMobileLogout"
         ></app-sidebar>
-
         <div class="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
             <app-topbar
                 :current-tab-title="currentTabTitle"
@@ -37,18 +34,15 @@
                 @mark-all-read="$emit('mark-all-read')"
                 @notification-click="$emit('notification-click', $event)"
             ></app-topbar>
-
             <main class="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-50 dark:!bg-[#0b1329] transition-colors duration-200">
                 <div class="max-w-7xl mx-auto relative">
                     <slot></slot>
                 </div>
             </main>
-
             <internal-footer></internal-footer>
         </div>
     </div>
     `;
-
     const InternalLayout = {
         name: 'InternalLayout',
         components: {
@@ -82,7 +76,6 @@
         ],
         setup(props, { emit }) {
             const isMobileDrawerOpen = ref(false);
-
             const onMobileSwitchTab = (tabId) => {
                 isMobileDrawerOpen.value = false;
                 emit('switch-tab', tabId);
@@ -99,7 +92,6 @@
                 isMobileDrawerOpen.value = false;
                 emit('logout');
             };
-
             return {
                 isMobileDrawerOpen,
                 onMobileSwitchTab,
@@ -109,6 +101,5 @@
             };
         }
     };
-
     window.InternalLayout = InternalLayout;
 })();

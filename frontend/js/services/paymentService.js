@@ -8,7 +8,6 @@
             }
             return response.json();
         },
-
         async getPayment(paymentCode) {
             const response = await Api.get(`/api/payments/${paymentCode}`);
             if (!response.ok) {
@@ -17,7 +16,6 @@
             }
             return response.json();
         },
-
         async getPaymentByTracking(trackingCode) {
             const response = await Api.get(`/api/payments/tracking/${trackingCode}`);
             if (!response.ok) {
@@ -25,7 +23,6 @@
             }
             return response.json();
         },
-
         async getPaidTrackingCodes() {
             const response = await Api.get('/api/payments/paid-codes', {}, { silent: true });
             if (!response.ok) {
@@ -33,7 +30,6 @@
             }
             return response.json();
         },
-
         async mockPay(trackingCode) {
             const response = await Api.post(`/api/payments/mock-pay/${trackingCode}`, {});
             if (!response.ok) {
@@ -42,7 +38,6 @@
             }
             return response.json();
         },
-
         async getTransactions(params = {}) {
             const query = new URLSearchParams();
             if (params.page !== undefined && params.page !== null) query.append('page', params.page);
@@ -54,7 +49,6 @@
             if (params.customerCode) query.append('customerCode', params.customerCode);
             if (params.fromDate) query.append('fromDate', params.fromDate);
             if (params.toDate) query.append('toDate', params.toDate);
-
             const qs = query.toString();
             const endpoint = `/api/payments${qs ? '?' + qs : ''}`;
             const response = await Api.get(endpoint);
@@ -65,7 +59,6 @@
             }
             return response.json();
         },
-
         async getStats(customerCode = null) {
             let endpoint = '/api/payments/stats';
             if (customerCode) {
@@ -78,7 +71,6 @@
             }
             return response.json();
         },
-
         async confirmCashPayment(payload) {
             const response = await Api.post('/api/payments/confirm-cash', payload);
             if (!response.ok) {
@@ -88,6 +80,5 @@
             return response.json();
         }
     };
-
     window.PaymentService = PaymentService;
 })();

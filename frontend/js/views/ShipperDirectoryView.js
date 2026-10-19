@@ -1,6 +1,5 @@
 (function () {
     const { ref, reactive, computed, watch, onMounted } = Vue;
-
     const STATIONS = [
         { code: 'POST-HN-CG', label: 'Bưu cục Cầu Giấy' },
         { code: 'POST-HN-DDA', label: 'Bưu cục Đống Đa' },
@@ -19,7 +18,6 @@
         { code: 'HUB-HCM-01', label: 'Siêu HUB TP.HCM' },
         { code: 'HUB-CT-01', label: 'HUB Cần Thơ' }
     ];
-
     const emptyForm = () => ({
         id: null,
         courierCode: '',
@@ -31,7 +29,6 @@
         shiftStatus: 'ON_DUTY',
         maxOrdersPerShift: 40
     });
-
     const ShipperDirectoryView = {
         name: 'ShipperDirectoryView',
         setup() {
@@ -39,27 +36,22 @@
             const isLoading = ref(false);
             const isSaving = ref(false);
             const showModal = ref(false);
-
             const searchQuery = ref('');
             const statusFilter = ref('ALL');
             const stationFilter = ref('ALL');
             const shiftFilter = ref('ALL');
             const currentPage = ref(1);
             const pageSize = ref(10);
-
             const form = reactive(emptyForm());
-
             const confirmDialog = reactive({
                 show: false,
                 item: null,
                 isProcessing: false
             });
-
             const stationLabel = (code) => {
                 const found = STATIONS.find(item => item.code === code);
                 return found ? found.label : (code || 'Chưa gán trạm');
             };
-
             const loadShippers = async () => {
                 if (typeof ShipperDirectoryService === 'undefined') return;
                 isLoading.value = true;
@@ -75,56 +67,43 @@
                     isLoading.value = false;
                 }
             };
-
             const activeShippersCount = computed(() => {
                 return shippers.value.filter(item => item.status === 'ACTIVE').length;
             });
-
             const onDutyCount = computed(() => {
                 return shippers.value.filter(item => item.shiftStatus === 'ON_DUTY').length;
             });
-
             const offDutyCount = computed(() => {
                 return shippers.value.filter(item => item.shiftStatus === 'OFF_DUTY').length;
             });
-
             const telegramLinkedCount = computed(() => {
                 return shippers.value.filter(item => item.hasLinkedTelegram).length;
             });
-
             const stationCoverageCount = computed(() => {
                 const set = new Set(shippers.value.map(item => item.stationCode).filter(Boolean));
                 return set.size;
             });
-
             const totalCapacity = computed(() => {
                 return shippers.value.reduce((sum, item) => sum + (item.maxOrdersPerShift || 40), 0);
             });
-
             const totalAssignedOrders = computed(() => {
                 return shippers.value.reduce((sum, item) => sum + (item.currentOrdersCount || 0), 0);
             });
-
             const averageWorkloadPercent = computed(() => {
                 if (!totalCapacity.value) return 0;
                 return Math.round((totalAssignedOrders.value / totalCapacity.value) * 100);
             });
-
             const filteredShippers = computed(() => {
                 let list = shippers.value;
-
                 if (statusFilter.value !== 'ALL') {
                     list = list.filter(item => item.status === statusFilter.value);
                 }
-
                 if (stationFilter.value !== 'ALL') {
                     list = list.filter(item => item.stationCode === stationFilter.value);
                 }
-
                 if (shiftFilter.value !== 'ALL') {
                     list = list.filter(item => item.shiftStatus === shiftFilter.value);
                 }
-
                 const query = searchQuery.value.trim().toLowerCase();
                 if (query) {
                     list = list.filter(item => {
@@ -133,45 +112,36 @@
                             .some(value => String(value || '').toLowerCase().includes(query));
                     });
                 }
-
                 return list;
             });
-
             const totalPages = computed(() => {
                 if (pageSize.value === -1) return 1;
                 return Math.ceil(filteredShippers.value.length / pageSize.value) || 1;
             });
-
             const startIndex = computed(() => {
                 if (filteredShippers.value.length === 0) return 0;
                 return (currentPage.value - 1) * pageSize.value + 1;
             });
-
             const endIndex = computed(() => {
                 if (pageSize.value === -1) return filteredShippers.value.length;
                 return Math.min(currentPage.value * pageSize.value, filteredShippers.value.length);
             });
-
             const paginatedShippers = computed(() => {
                 if (pageSize.value === -1) return filteredShippers.value;
                 const start = (currentPage.value - 1) * pageSize.value;
                 return filteredShippers.value.slice(start, start + pageSize.value);
             });
-
             watch([searchQuery, statusFilter, stationFilter, shiftFilter, pageSize], () => {
                 currentPage.value = 1;
             });
-
             const goToPage = (page) => {
                 if (page >= 1 && page <= totalPages.value) {
                     currentPage.value = page;
                 }
             };
-
             const hasActiveFilter = computed(() => {
                 return searchQuery.value.trim() !== '' || statusFilter.value !== 'ALL' || stationFilter.value !== 'ALL' || shiftFilter.value !== 'ALL';
             });
-
             const resetFilters = () => {
                 searchQuery.value = '';
                 statusFilter.value = 'ALL';
@@ -179,24 +149,20 @@
                 shiftFilter.value = 'ALL';
                 currentPage.value = 1;
             };
-
             const getWorkloadPercent = (item) => {
                 const max = item.maxOrdersPerShift || 40;
                 const cur = item.currentOrdersCount || 0;
                 return Math.min(100, Math.round((cur / max) * 100));
             };
-
             const isManualChatIdOpen = ref(false);
             const isSendingTest = ref(false);
             const copiedTelegramCommand = ref(false);
-
             const maskChatId = (chatId) => {
                 if (!chatId) return '';
                 const str = String(chatId).trim();
                 if (str.length <= 4) return str;
                 return `${str.slice(0, 3)}••••${str.slice(-2)}`;
             };
-
             const copyTelegramCommand = async () => {
                 const code = form.courierCode ? form.courierCode.trim().toUpperCase() : '';
                 const cmd = `/link ${code || '<MÃ_BƯU_TÁ>'}`;
@@ -220,12 +186,10 @@
                     if (window.Utils) window.Utils.showToast('Sao chép thất bại', cmd, 'warning');
                 }
             };
-
             const unlinkTelegram = () => {
                 form.telegramChatId = '';
                 if (window.Utils) window.Utils.showToast('Đã xóa liên kết', 'Bấm "Lưu Thông Tin" để hoàn tất gỡ bỏ liên kết Telegram.', 'info');
             };
-
             const sendTelegramTest = async () => {
                 const chatId = (form.telegramChatId || '').trim();
                 if (!chatId) {
@@ -249,13 +213,11 @@
                     isSendingTest.value = false;
                 }
             };
-
             const openCreate = () => {
                 Object.assign(form, emptyForm());
                 isManualChatIdOpen.value = false;
                 showModal.value = true;
             };
-
             const openEdit = (item) => {
                 Object.assign(form, {
                     id: item.id,
@@ -271,7 +233,6 @@
                 isManualChatIdOpen.value = false;
                 showModal.value = true;
             };
-
             const validate = () => {
                 if (!form.courierCode.trim() || !form.fullName.trim()) {
                     return 'Mã bưu tá và họ tên không được để trống';
@@ -285,7 +246,6 @@
                 }
                 return '';
             };
-
             const save = async () => {
                 const message = validate();
                 if (message) {
@@ -319,7 +279,6 @@
                     isSaving.value = false;
                 }
             };
-
             const toggleShiftStatus = async (item) => {
                 const newStatus = item.shiftStatus === 'ON_DUTY' ? 'OFF_DUTY' : 'ON_DUTY';
                 const originalStatus = item.shiftStatus;
@@ -333,12 +292,10 @@
                     if (window.Utils) window.Utils.showToast('Lỗi đổi ca', error.message, 'error');
                 }
             };
-
             const toggleAllShippersShift = async () => {
                 const currentOn = shippers.value.filter(x => x.shiftStatus === 'ON_DUTY').length;
                 const target = currentOn > (shippers.value.length / 2) ? 'OFF_DUTY' : 'ON_DUTY';
                 const targetLabel = target === 'ON_DUTY' ? 'BẬT CA TOÀN BỘ' : 'NGHỈ CA TOÀN BỘ';
-                
                 try {
                     isLoading.value = true;
                     const promises = filteredShippers.value.map(s => {
@@ -357,19 +314,16 @@
                     isLoading.value = false;
                 }
             };
-
             const confirmToggleStatus = (item) => {
                 confirmDialog.item = item;
                 confirmDialog.show = true;
             };
-
             const executeToggleStatus = async () => {
                 const item = confirmDialog.item;
                 if (!item || !item.id) {
                     confirmDialog.show = false;
                     return;
                 }
-
                 confirmDialog.isProcessing = true;
                 try {
                     if (item.status === 'INACTIVE') {
@@ -387,9 +341,7 @@
                     confirmDialog.isProcessing = false;
                 }
             };
-
             onMounted(loadShippers);
-
             return {
                 shippers,
                 isLoading,
@@ -439,10 +391,8 @@
         },
         template: `
             <div class="space-y-3.5 pb-8 text-slate-800">
-                <!-- TOP BANNER KPI -->
                 <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-sm relative overflow-hidden">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
-
                     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
                         <div>
                             <div class="text-xs font-medium text-blue-100">
@@ -455,8 +405,7 @@
                                 Quản lý trực tiếp trạng thái trực tuyến (ON_DUTY / OFF_DUTY), phân bổ địa bàn trạm bưu cục, giám sát giới hạn tải đơn tuyến phát và kết nối Telegram Bot nhận đơn toàn trình.
                             </p>
                         </div>
-
-                        <!-- KPI CARDS ON BANNER -->
+                        
                         <div class="flex items-center space-x-2 self-start md:self-auto flex-wrap sm:flex-nowrap gap-y-2">
                             <div class="px-3 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[78px]">
                                 <div class="text-base font-extrabold leading-tight text-white font-mono">{{ shippers.length }}</div>
@@ -480,8 +429,7 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- FILTER BAR CARD -->
+                
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                     <div class="flex flex-wrap items-center gap-2 flex-1">
                         <div class="relative w-full sm:w-64">
@@ -502,7 +450,6 @@
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                             </button>
                         </div>
-
                         <select 
                             v-model="stationFilter" 
                             class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition max-w-[200px]"
@@ -510,7 +457,6 @@
                             <option value="ALL">Tất cả bưu cục / trạm</option>
                             <option v-for="s in stations" :key="s.code" :value="s.code">{{ s.label }}</option>
                         </select>
-
                         <select 
                             v-model="shiftFilter" 
                             class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
@@ -519,7 +465,6 @@
                             <option value="ON_DUTY">Đang bật ca (ON_DUTY)</option>
                             <option value="OFF_DUTY">Đang nghỉ ca (OFF_DUTY)</option>
                         </select>
-
                         <select 
                             v-model="statusFilter" 
                             class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
@@ -528,7 +473,6 @@
                             <option value="ACTIVE">Đang hoạt động</option>
                             <option value="INACTIVE">Tạm dừng hoạt động</option>
                         </select>
-
                         <button 
                             v-if="hasActiveFilter" 
                             @click="resetFilters" 
@@ -538,7 +482,6 @@
                             <span>Xóa lọc</span>
                         </button>
                     </div>
-
                     <div class="flex items-center space-x-2">
                         <button 
                             @click="toggleAllShippersShift" 
@@ -548,7 +491,6 @@
                             <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                             <span>Chuyển Ca Nhanh</span>
                         </button>
-
                         <button 
                             @click="loadShippers()" 
                             :disabled="isLoading"
@@ -557,7 +499,6 @@
                         >
                             {{ isLoading ? 'Đang Tải...' : 'Làm Mới' }}
                         </button>
-
                         <button 
                             @click="openCreate()" 
                             class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-sm shadow-blue-500/20 transition flex items-center space-x-1"
@@ -566,8 +507,7 @@
                         </button>
                     </div>
                 </div>
-
-                <!-- SHIPPERS TABLE CARD -->
+                
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse table-b2b">
@@ -584,7 +524,6 @@
                             </thead>
                             <tbody class="divide-y divide-slate-100 text-xs">
                                 <tr v-for="item in paginatedShippers" :key="item.id" class="hover:bg-slate-50/80 transition">
-                                    <!-- MÃ & HỌ TÊN -->
                                     <td class="py-2.5 px-3.5">
                                         <div class="flex items-center gap-2.5">
                                             <div 
@@ -603,16 +542,14 @@
                                             </div>
                                         </div>
                                     </td>
-
-                                    <!-- BƯU CỤC TUYẾN PHÁT -->
+                                    
                                     <td class="py-2.5 px-3.5">
                                         <div class="space-y-0.5">
                                             <div class="font-semibold text-slate-800 text-xs">{{ stationLabel(item.stationCode) }}</div>
                                             <div class="font-mono text-[10px] text-slate-400">{{ item.stationCode }}</div>
                                         </div>
                                     </td>
-
-                                    <!-- TRẠNG THÁI CA TRỰC (INTERACTIVE BUTTON) -->
+                                    
                                     <td class="py-2.5 px-3.5 text-center whitespace-nowrap">
                                         <button 
                                             type="button"
@@ -625,8 +562,7 @@
                                             <span>{{ item.shiftStatus === 'ON_DUTY' ? 'Đang trực ca' : 'Nghỉ ca' }}</span>
                                         </button>
                                     </td>
-
-                                    <!-- TẢI ĐƠN TRONG CA -->
+                                    
                                     <td class="py-2.5 px-3.5">
                                         <div class="w-36">
                                             <div class="flex justify-between text-[10.5px] mb-1 font-mono">
@@ -644,16 +580,14 @@
                                             </div>
                                         </div>
                                     </td>
-
-                                    <!-- ĐÁNH GIÁ (SAO) -->
+                                    
                                     <td class="py-2.5 px-3.5 text-center">
                                         <span class="inline-flex items-center gap-1 font-mono font-semibold text-slate-700 text-xs">
                                             <svg class="w-3.5 h-3.5 text-amber-500 fill-current shrink-0" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
                                             <span>{{ (item.ratingAvg != null ? item.ratingAvg : 5.0).toFixed(1) }}</span>
                                         </span>
                                     </td>
-
-                                    <!-- TELEGRAM BOT -->
+                                    
                                     <td class="py-2.5 px-3.5 text-center">
                                         <span 
                                             v-if="item.hasLinkedTelegram" 
@@ -672,8 +606,7 @@
                                             <span>Chưa nối</span>
                                         </span>
                                     </td>
-
-                                    <!-- THAO TÁC / ĐIỀU PHỐI -->
+                                    
                                     <td class="py-2.5 px-3.5 text-right whitespace-nowrap">
                                         <div class="inline-flex items-center gap-1.5 justify-end">
                                             <button 
@@ -686,7 +619,6 @@
                                             >
                                                 {{ item.shiftStatus === 'ON_DUTY' ? 'Nghỉ Ca' : 'Bật Ca' }}
                                             </button>
-
                                             <button 
                                                 type="button" 
                                                 @click="openEdit(item)" 
@@ -695,7 +627,6 @@
                                             >
                                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                                             </button>
-
                                             <button 
                                                 type="button" 
                                                 @click="confirmToggleStatus(item)" 
@@ -712,7 +643,6 @@
                                         </div>
                                     </td>
                                 </tr>
-
                                 <tr v-if="filteredShippers.length === 0">
                                     <td colspan="7" class="text-center py-10 text-slate-400 text-xs">
                                         <div class="flex flex-col items-center justify-center space-y-1.5">
@@ -726,8 +656,7 @@
                             </tbody>
                         </table>
                     </div>
-
-                    <!-- PAGINATION -->
+                    
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50/50 text-xs text-slate-600 gap-2">
                         <div class="flex items-center space-x-2">
                             <span>Hiển thị <b>{{ startIndex }}</b> - <b>{{ endIndex }}</b> trên tổng <b>{{ filteredShippers.length }}</b> bưu tá</span>
@@ -743,7 +672,6 @@
                                 <option :value="-1">Tất cả</option>
                             </select>
                         </div>
-
                         <div v-if="totalPages > 1" class="flex items-center space-x-1 self-end sm:self-auto">
                             <button 
                                 @click="goToPage(currentPage - 1)" 
@@ -775,8 +703,7 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- MODAL CREATE / EDIT -->
+                
                 <teleport to="body">
                     <Transition name="modal">
                         <div v-if="showModal" class="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
@@ -790,13 +717,11 @@
                                     </div>
                                     <button @click="showModal = false" class="text-slate-400 hover:text-slate-700 text-lg font-bold">×</button>
                                 </div>
-
                                 <form @submit.prevent="save" class="p-5 space-y-4">
                                     <div class="space-y-3">
                                         <div class="text-[11px] font-black uppercase tracking-wider text-blue-700 border-b border-blue-100 pb-1">
                                             1. Thông Tin Nhận Diện &amp; Tuyến Phát
                                         </div>
-
                                         <div class="grid grid-cols-2 gap-3">
                                             <div>
                                                 <label class="block text-[11px] font-bold text-slate-700 mb-1">Mã Bưu Tá <span class="text-rose-500">*</span></label>
@@ -818,7 +743,6 @@
                                                 </select>
                                             </div>
                                         </div>
-
                                         <div>
                                             <label class="block text-[11px] font-bold text-slate-700 mb-1">Họ và Tên Bưu Tá <span class="text-rose-500">*</span></label>
                                             <input 
@@ -829,7 +753,6 @@
                                                 class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition" 
                                             />
                                         </div>
-
                                         <div class="grid grid-cols-2 gap-3">
                                             <div>
                                                 <label class="block text-[11px] font-bold text-slate-700 mb-1">Số Điện Thoại</label>
@@ -852,7 +775,6 @@
                                                 />
                                             </div>
                                         </div>
-
                                         <div class="grid grid-cols-2 gap-3">
                                             <div>
                                                 <label class="block text-[11px] font-bold text-slate-700 mb-1">Ca Trực Hiện Tại</label>
@@ -876,7 +798,6 @@
                                             </div>
                                         </div>
                                     </div>
-
                                     <div class="space-y-3 pt-2">
                                         <div class="text-[11px] font-black uppercase tracking-wider text-sky-700 border-b border-sky-100 pb-1 flex items-center justify-between">
                                             <span class="flex items-center space-x-1.5">
@@ -887,7 +808,6 @@
                                             </span>
                                             <span class="text-[10px] text-sky-600 font-semibold">Tự động nhận đơn</span>
                                         </div>
-
                                         <div v-if="form.telegramChatId" class="p-3 rounded-xl bg-emerald-50/80 border border-emerald-200 space-y-2.5">
                                             <div class="flex items-center justify-between">
                                                 <div class="flex items-center space-x-2">
@@ -898,11 +818,9 @@
                                                     Chat ID: {{ maskChatId(form.telegramChatId) }}
                                                 </span>
                                             </div>
-
                                             <p class="text-[11px] text-emerald-700 leading-relaxed">
                                                 Bưu tá đang nhận thông báo điều phối đơn, dự báo ca trực và kế hoạch giao hàng tự động qua Telegram cá nhân.
                                             </p>
-
                                             <div class="flex items-center space-x-2 pt-1 border-t border-emerald-100">
                                                 <button
                                                     type="button"
@@ -916,7 +834,6 @@
                                                     </svg>
                                                     <span>Gửi Tin Nhắn Thử Nghiệm</span>
                                                 </button>
-
                                                 <button
                                                     type="button"
                                                     @click="unlinkTelegram()"
@@ -927,7 +844,6 @@
                                                 </button>
                                             </div>
                                         </div>
-
                                         <div v-else class="space-y-2.5">
                                             <div class="p-3.5 rounded-xl bg-sky-50/80 border border-sky-200 space-y-2.5">
                                                 <div class="flex items-center justify-between">
@@ -937,11 +853,9 @@
                                                     </span>
                                                     <span class="text-[10.5px] text-slate-500">Liên kết 1 chạm</span>
                                                 </div>
-
                                                 <p class="text-[11px] text-slate-600 leading-normal">
                                                     Bưu tá chỉ cần mở Bot Telegram để tự động kích hoạt nhận ca mà không cần nhớ hay nhập ID:
                                                 </p>
-
                                                 <div class="flex flex-wrap items-center gap-2 pt-1">
                                                     <a
                                                         :href="'https://t.me/NovaWay_Bill_Bot?start=link_' + (form.courierCode || '')"
@@ -957,7 +871,6 @@
                                                         </svg>
                                                         <span>Mở Bot Telegram (Tự động liên kết)</span>
                                                     </a>
-
                                                     <button
                                                         type="button"
                                                         @click="copyTelegramCommand()"
@@ -969,12 +882,10 @@
                                                         <span>{{ copiedTelegramCommand ? 'Đã chép lệnh!' : 'Sao chép cú pháp' }}</span>
                                                     </button>
                                                 </div>
-
                                                 <div class="text-[10.5px] text-slate-500 pt-0.5">
                                                     Cú pháp thủ công: <code class="px-1.5 py-0.5 rounded bg-white border border-slate-200 font-mono text-sky-800 font-bold">/link {{ form.courierCode || '&lt;MÃ_BƯU_TÁ&gt;' }}</code> gửi tới <strong>@NovaWay_Bill_Bot</strong>
                                                 </div>
                                             </div>
-
                                             <div>
                                                 <button
                                                     type="button"
@@ -986,7 +897,6 @@
                                                     </svg>
                                                     <span>Nhập Telegram Chat ID thủ công (Dành cho Quản trị viên)</span>
                                                 </button>
-
                                                 <div v-show="isManualChatIdOpen" class="mt-2 space-y-1">
                                                     <input
                                                         v-model="form.telegramChatId"
@@ -1001,7 +911,6 @@
                                             </div>
                                         </div>
                                     </div>
-
                                     <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
                                         <button 
                                             type="button" 
@@ -1023,8 +932,7 @@
                         </div>
                     </Transition>
                 </teleport>
-
-                <!-- CONFIRM DIALOG -->
+                
                 <teleport to="body">
                     <Transition name="modal">
                         <div v-if="confirmDialog.show" class="fixed inset-0 z-[110] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
@@ -1045,11 +953,9 @@
                                         </p>
                                     </div>
                                 </div>
-
                                 <p class="text-xs text-slate-600 leading-relaxed">
                                     Bạn có chắc chắn muốn <b :class="confirmDialog.item?.status === 'ACTIVE' ? 'text-rose-600' : 'text-emerald-600'">{{ confirmDialog.item?.status === 'ACTIVE' ? 'TẠM DỪNG' : 'KÍCH HOẠT' }}</b> bưu tá <b>{{ confirmDialog.item?.fullName }}</b> (<span class="font-mono">{{ confirmDialog.item?.courierCode }}</span>)?
                                 </p>
-
                                 <div class="flex items-center justify-end space-x-2 pt-2">
                                     <button 
                                         type="button"
@@ -1078,6 +984,5 @@
             </div>
         `
     };
-
     window.ShipperDirectoryView = ShipperDirectoryView;
 })();

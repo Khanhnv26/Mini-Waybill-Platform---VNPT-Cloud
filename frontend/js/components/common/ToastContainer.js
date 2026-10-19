@@ -21,12 +21,10 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
             </div>
-
             <div class="flex-1 min-w-0 pr-1">
                 <div class="font-bold text-xs mb-0.5 text-slate-900 dark:text-white">{{ toast.title }}</div>
                 <div class="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300 break-words">{{ toast.message }}</div>
             </div>
-
             <button 
                 type="button"
                 @click="toast.show = false"
@@ -40,7 +38,6 @@
         </div>
     </Transition>
     `;
-
     const ToastContainer = {
         name: 'ToastContainer',
         template,
@@ -51,6 +48,5 @@
             }
         }
     };
-
     window.ToastContainer = ToastContainer;
 })();

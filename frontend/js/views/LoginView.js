@@ -1,6 +1,5 @@
 (function () {
     const { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
-
     const LoginView = {
         name: 'LoginView',
         props: {
@@ -13,7 +12,6 @@
         template: `
             <div class="min-h-screen flex items-center justify-center p-3 sm:p-6 auth-custom-bg text-slate-800 selection:bg-vnpt-500 selection:text-white font-sans relative">
                 
-                <!-- Floating Theme Toggle Capsule Switch -->
                 <div class="fixed top-4 right-4 z-50">
                     <button 
                         type="button"
@@ -30,9 +28,7 @@
                             ? 'bg-slate-900/90 border border-slate-700/80 shadow-slate-950/50' 
                             : 'bg-slate-200/90 hover:bg-slate-300/80 border border-slate-300/80 shadow-blue-900/10'"
                     >
-                        <!-- Track Ambient: Day Sky Dots / Night Twinkling Stars -->
                         <span class="absolute inset-0 flex items-center pointer-events-none select-none overflow-hidden rounded-full">
-                            <!-- Night Twinkling Stars (Visible when Dark on left side) -->
                             <span 
                                 class="absolute left-1.5 top-1.5 flex items-center space-x-1 transition-all duration-300"
                                 :class="isKnobDark ? 'opacity-100 scale-100' : 'opacity-0 scale-50 pointer-events-none'"
@@ -44,8 +40,7 @@
                                     <path d="M12 0L14.2 9.8L24 12L14.2 14.2L12 24L9.8 14.2L0 12L9.8 9.8L12 0Z"/>
                                 </svg>
                             </span>
-
-                            <!-- Day Warm Sky Dots (Visible when Light on right side) -->
+                            
                             <span 
                                 class="absolute right-2 top-2 flex items-center space-x-1 transition-all duration-300"
                                 :class="!isKnobDark ? 'opacity-80 scale-100' : 'opacity-0 scale-50 pointer-events-none'"
@@ -54,8 +49,7 @@
                                 <span class="w-2 h-2 rounded-full bg-amber-400/80"></span>
                             </span>
                         </span>
-
-                        <!-- Sliding Thumb / Knob with 3D Flip -->
+                        
                         <span 
                             class="theme-toggle-knob keep-white relative w-6 h-6 rounded-full flex items-center justify-center shadow-md pointer-events-none [perspective:400px]"
                             :class="[
@@ -66,18 +60,15 @@
                             ]"
                             :style="knobStyle"
                         >
-                            <!-- 3D Card Flipper Container -->
                             <span 
                                 class="theme-knob-flipper relative w-full h-full flex items-center justify-center"
                                 :class="{ 'rotate-y-180': isKnobDark }"
                             >
-                                <!-- Sun Face (Front) -->
                                 <span class="absolute inset-0 flex items-center justify-center [backface-visibility:hidden]">
                                     <svg class="w-3.5 h-3.5 text-amber-500 transition-transform duration-300 group-hover:rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                                     </svg>
                                 </span>
-                                <!-- Moon Face (Back) -->
                                 <span class="absolute inset-0 flex items-center justify-center [backface-visibility:hidden] [transform:rotateY(180deg)]">
                                     <svg class="w-3.5 h-3.5 text-amber-300 transition-transform duration-300 group-hover:-rotate-12" fill="currentColor" viewBox="0 0 20 20">
                                         <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
@@ -87,21 +78,17 @@
                         </span>
                     </button>
                 </div>
-
-                <!-- Background ambient lights -->
+                
                 <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
                     <div class="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-blue-600/25 blur-[120px] animate-float-1"></div>
                     <div class="absolute -bottom-24 -right-24 w-96 h-96 rounded-full bg-cyan-500/20 blur-[120px] animate-float-2"></div>
                     <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] rounded-full bg-indigo-600/10 blur-[140px]"></div>
                 </div>
-
                 <div class="relative z-10 max-w-5xl w-full bg-white rounded-3xl shadow-2xl shadow-black/40 border border-slate-700/20 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-0 lg:min-h-[640px] card-entrance">
                     
-                    <!-- Left Column: Branding & Value Proposition -->
                     <div class="lg:col-span-5 vnpt-gradient text-white p-5 sm:p-8 lg:p-10 flex flex-col justify-between relative overflow-hidden border-b lg:border-b-0 lg:border-r border-blue-900/30">
                         <div class="absolute inset-0 opacity-10 pointer-events-none grid-pulse" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 20px 20px;"></div>
                         <div class="absolute -right-20 -top-20 w-64 h-64 bg-blue-400/20 rounded-full blur-3xl pointer-events-none"></div>
-
                         <div class="relative z-10 space-y-3 stagger-1">
                             <div class="flex items-center space-x-3">
                                 <div class="h-10 px-3.5 rounded-xl bg-white text-vnpt-500 font-black flex items-center justify-center text-xs tracking-wider shadow-md">
@@ -116,7 +103,6 @@
                                 </div>
                             </div>
                         </div>
-
                         <div class="hidden lg:block relative z-10 my-8 space-y-4 stagger-2">
                             <div>
                                 <span class="text-[10px] uppercase tracking-widest font-mono font-semibold text-blue-200">Hệ sinh thái số toàn trình</span>
@@ -127,7 +113,6 @@
                                     Kết nối trực thông toàn diện chuỗi cung ứng bưu chính, đảm bảo luân chuyển và kiểm soát chính xác từng bưu gửi.
                                 </p>
                             </div>
-
                             <div class="grid grid-cols-2 gap-3 pt-2">
                                 <div class="p-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15 kpi-card-hover cursor-pointer">
                                     <div class="text-lg font-bold font-mono text-white">99.98%</div>
@@ -139,17 +124,14 @@
                                 </div>
                             </div>
                         </div>
-
                         <div class="hidden lg:flex relative z-10 pt-4 border-t border-white/15 items-center justify-between text-[11px] text-blue-100/70 stagger-3">
                             <span>HỆ THỐNG ĐIỀU PHỐI VẬN ĐƠN BƯU CHÍNH</span>
                             <span class="font-mono text-[10px]">WAYBILL 2026</span>
                         </div>
                     </div>
-
-                    <!-- Right Column: Authentication Forms -->
+                    
                     <div class="lg:col-span-7 p-6 sm:p-10 lg:p-12 flex flex-col justify-between bg-white">
                         <div>
-                            <!-- Tab Switcher -->
                             <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-6 stagger-1">
                                 <div class="flex space-x-6 text-xs font-semibold">
                                     <button 
@@ -168,23 +150,19 @@
                                     </button>
                                 </div>
                             </div>
-
-                            <!-- Alert Messages -->
+                            
                             <div v-if="alert.show" 
                                 :class="alert.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-rose-50 text-rose-800 border-rose-300'"
                                 class="p-3 rounded-xl text-xs font-medium mb-4 flex items-center justify-between border transition-all">
                                 <span>{{ alert.message }}</span>
                                 <button type="button" @click="alert.show = false" class="text-slate-400 hover:text-slate-600 text-xs font-bold ml-2">ĐÓNG</button>
                             </div>
-
                             <transition name="form-slide" mode="out-in" @enter="handleFormEnter" @after-enter="handleFormAfterEnter">
-                                <!-- Mode: Login -->
                                 <div v-if="authMode === 'login'" key="login" class="space-y-4">
                                     <div class="stagger-2">
                                         <h2 class="text-lg font-bold text-slate-900 tracking-tight">Đăng nhập Cổng Dịch Vụ Vận Đơn</h2>
                                         <p class="text-xs text-slate-500 mt-0.5">Cổng truy cập dành cho Khách hàng gửi hàng, Bưu tá, Kho Hub &amp; Quản trị viên</p>
                                     </div>
-
                                     <form @submit.prevent="handleEmailLogin" class="space-y-3.5 pt-1">
                                         <div class="stagger-3">
                                             <label class="block text-xs font-semibold text-slate-700 mb-1">Email tài khoản</label>
@@ -195,7 +173,6 @@
                                                 placeholder="name@company.com" 
                                                 class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-vnpt-500 input-glow-focus transition-all" />
                                         </div>
-
                                         <div class="stagger-4">
                                             <div class="flex items-center justify-between mb-1">
                                                 <label class="text-xs font-semibold text-slate-700">Mật khẩu</label>
@@ -210,7 +187,6 @@
                                                 placeholder="••••••••" 
                                                 class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-vnpt-500 input-glow-focus transition-all" />
                                         </div>
-
                                         <div class="stagger-5">
                                             <button 
                                                 type="submit" 
@@ -221,7 +197,6 @@
                                             </button>
                                         </div>
                                     </form>
-
                                     <div class="relative flex items-center justify-center my-4 stagger-5">
                                         <div class="absolute inset-0 flex items-center">
                                             <div class="w-full border-t border-slate-200"></div>
@@ -230,7 +205,6 @@
                                             <span class="bg-white px-3 text-[10px] uppercase tracking-wider text-slate-400 font-mono font-semibold">Hoặc tiếp tục với</span>
                                         </div>
                                     </div>
-
                                     <div class="flex flex-col items-center justify-center w-full space-y-2 stagger-5">
                                         <div id="spaGoogleBtnLogin" class="flex justify-center w-full min-h-[44px]" style="color-scheme: light;"></div>
                                         <div v-if="googleLoading" class="text-xs font-semibold text-vnpt-500 animate-pulse">
@@ -238,14 +212,12 @@
                                         </div>
                                     </div>
                                 </div>
-
-                                <!-- Mode: Register -->
+                                
                                 <div v-else-if="authMode === 'register'" key="register" class="space-y-4">
                                     <div>
                                         <h2 class="text-lg font-bold text-slate-900 tracking-tight">Đăng ký Tài khoản Khách hàng gửi hàng</h2>
                                         <p class="text-xs text-slate-500 mt-0.5">Tạo tài khoản để tạo vận đơn hàng loạt, theo dõi lộ trình và đối soát tiền thu hộ COD</p>
                                     </div>
-
                                     <form @submit.prevent="handleRegister" class="space-y-3 pt-1">
                                         <div>
                                             <label class="block text-xs font-semibold text-slate-700 mb-1">Họ và tên người gửi / Doanh nghiệp</label>
@@ -287,7 +259,6 @@
                                                     class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-vnpt-500 input-glow-focus transition-all" />
                                             </div>
                                         </div>
-
                                         <button 
                                             type="submit" 
                                             :disabled="loading" 
@@ -296,7 +267,6 @@
                                             <span v-else>Đang xử lý đăng ký...</span>
                                         </button>
                                     </form>
-
                                     <div class="relative flex items-center justify-center my-3">
                                         <div class="absolute inset-0 flex items-center">
                                             <div class="w-full border-t border-slate-200"></div>
@@ -305,7 +275,6 @@
                                             <span class="bg-white px-3 text-[10px] uppercase tracking-wider text-slate-400 font-mono font-semibold">Hoặc đăng ký nhanh với</span>
                                         </div>
                                     </div>
-
                                     <div class="flex flex-col items-center justify-center w-full space-y-2">
                                         <div id="spaGoogleBtnRegister" class="flex justify-center w-full min-h-[44px]" style="color-scheme: light;"></div>
                                         <div v-if="googleLoading" class="text-xs font-semibold text-vnpt-500 animate-pulse">
@@ -313,8 +282,7 @@
                                         </div>
                                     </div>
                                 </div>
-
-                                <!-- Mode: Forgot Password Step 1 -->
+                                
                                 <div v-else-if="authMode === 'forgot_step1'" key="forgot_step1" class="space-y-4">
                                     <div class="flex items-center justify-between text-xs text-slate-500 pb-1">
                                         <button type="button" @click="switchMode('login')" class="text-vnpt-500 hover:underline font-semibold">
@@ -322,12 +290,10 @@
                                         </button>
                                         <span class="font-mono text-slate-500 font-bold">BƯỚC 1 / 2</span>
                                     </div>
-
                                     <div>
                                         <h2 class="text-lg font-bold text-slate-900 tracking-tight">Yêu cầu cấp lại mật khẩu</h2>
                                         <p class="text-xs text-slate-500 mt-0.5">Nhập email tài khoản của bạn để nhận mã OTP xác thực đổi mật khẩu</p>
                                     </div>
-
                                     <form @submit.prevent="handleSendOtp" class="space-y-4 pt-2">
                                         <div>
                                             <label class="block text-xs font-semibold text-slate-700 mb-1">Email đăng ký tài khoản</label>
@@ -338,7 +304,6 @@
                                                 placeholder="name@company.com" 
                                                 class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-300 focus:border-vnpt-500 focus:ring-2 focus:ring-blue-600/20 focus:outline-none input-glow-focus font-medium transition-all" />
                                         </div>
-
                                         <button 
                                             type="submit" 
                                             :disabled="loading" 
@@ -348,8 +313,7 @@
                                         </button>
                                     </form>
                                 </div>
-
-                                <!-- Mode: Forgot Password Step 2 -->
+                                
                                 <div v-else-if="authMode === 'forgot_step2'" key="forgot_step2" class="space-y-4">
                                     <div class="flex items-center justify-between text-xs text-slate-500 pb-1">
                                         <button type="button" @click="switchMode('forgot_step1')" class="text-vnpt-500 hover:underline font-semibold">
@@ -357,21 +321,18 @@
                                         </button>
                                         <span class="font-mono text-vnpt-500 font-bold">BƯỚC 2 / 2</span>
                                     </div>
-
                                     <div>
                                         <h2 class="text-lg font-bold text-slate-900 tracking-tight">Nhập mã OTP và Mật khẩu mới</h2>
                                         <p class="text-xs text-slate-500 mt-0.5">
                                             Mã OTP gồm 6 chữ số đã được gửi tới: <span class="font-mono font-semibold text-slate-800">{{ forgotForm.email }}</span>
                                         </p>
                                     </div>
-
                                     <form @submit.prevent="handleResetPassword" class="space-y-4 pt-1">
                                         <div>
                                             <div class="flex items-center justify-between mb-2">
                                                 <label class="text-xs font-semibold text-slate-700">Mã OTP (6 chữ số)</label>
                                                 <span class="text-[11px] font-mono text-slate-400">Hiệu lực trong 15 phút</span>
                                             </div>
-                                            
                                             <div class="flex items-center justify-center gap-2 sm:gap-2.5 my-2">
                                                 <input 
                                                     v-for="(digit, idx) in otpDigits" 
@@ -384,7 +345,6 @@
                                                     @paste="handleOtpPaste($event)"
                                                     class="w-10 sm:w-11 h-12 text-center text-lg font-mono font-bold rounded-xl border border-slate-300 focus:border-vnpt-500 focus:ring-2 focus:ring-blue-600/20 focus:outline-none bg-slate-50/50 focus:bg-white input-glow-focus transition-all shadow-sm" />
                                             </div>
-
                                             <div class="flex items-center justify-center mt-2.5 text-xs">
                                                 <button 
                                                     type="button" 
@@ -396,7 +356,6 @@
                                                 </button>
                                             </div>
                                         </div>
-
                                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                                             <div>
                                                 <label class="block text-xs font-semibold text-slate-700 mb-1">Mật khẩu mới (≥ 6 ký tự)</label>
@@ -419,7 +378,6 @@
                                                     class="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-300 focus:border-vnpt-500 focus:ring-2 focus:ring-blue-600/20 focus:outline-none input-glow-focus transition-all" />
                                             </div>
                                         </div>
-
                                         <button 
                                             type="submit" 
                                             :disabled="loading" 
@@ -431,7 +389,6 @@
                                 </div>
                             </transition>
                         </div>
-
                         <div class="pt-6 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
                             <button type="button" @click="goToHome" class="text-vnpt-500 hover:underline font-medium">
                                 ← Quay lại trang tra cứu vận đơn
@@ -444,36 +401,30 @@
         `,
         setup(props, { emit }) {
             const GOOGLE_CLIENT_ID = "530674460360-7q1qf5lchbkj7sp7kslvttf7mqt92klg.apps.googleusercontent.com";
-
             const authMode = ref('login');
             const loading = ref(false);
             const googleLoading = ref(false);
             const cooldownSeconds = ref(60);
             let timerInterval = null;
-
             const alert = reactive({
                 show: false,
                 type: 'error',
                 message: ''
             });
-
             const loginForm = reactive({ email: '', password: '' });
             const registerForm = reactive({ fullName: '', email: '', password: '', confirmPassword: '' });
             const forgotForm = reactive({ email: '' });
             const resetForm = reactive({ newPassword: '', confirmPassword: '' });
             const otpDigits = ref(['', '', '', '', '', '']);
-
             function showAlert(msg, isSuccess = false) {
                 alert.show = true;
                 alert.type = isSuccess ? 'success' : 'error';
                 alert.message = msg;
             }
-
             function clearAlert() {
                 alert.show = false;
                 alert.message = '';
             }
-
             function switchMode(mode) {
                 clearAlert();
                 authMode.value = mode;
@@ -488,7 +439,6 @@
                     }, 250);
                 }
             }
-
             function handleFormEnter(el) {
                 if (authMode.value === 'login' || authMode.value === 'register') {
                     renderGoogleButton();
@@ -497,7 +447,6 @@
                     if (firstBox) firstBox.focus();
                 }
             }
-
             function handleFormAfterEnter(el) {
                 if (authMode.value === 'login' || authMode.value === 'register') {
                     renderGoogleButton();
@@ -506,7 +455,6 @@
                     if (firstBox) firstBox.focus();
                 }
             }
-
             function startCooldown() {
                 clearInterval(timerInterval);
                 cooldownSeconds.value = 60;
@@ -517,7 +465,6 @@
                     }
                 }, 1000);
             }
-
             function handleOtpKeyUp(idx, event) {
                 const key = event.key;
                 if (key >= '0' && key <= '9') {
@@ -532,7 +479,6 @@
                     }
                 }
             }
-
             function handleOtpPaste(event) {
                 event.preventDefault();
                 const pasteData = (event.clipboardData || window.clipboardData).getData('text').trim();
@@ -544,13 +490,11 @@
                     if (lastBox) lastBox.focus();
                 }
             }
-
             function finishLoginSuccess(data) {
                 Auth.setSession(data.accessToken, data);
                 showAlert('Đăng nhập thành công! Đang chuyển tiếp...', true);
                 emit('login-success', data);
             }
-
             async function handleEmailLogin() {
                 clearAlert();
                 loading.value = true;
@@ -570,7 +514,6 @@
                     loading.value = false;
                 }
             }
-
             async function handleRegister() {
                 clearAlert();
                 if (registerForm.password !== registerForm.confirmPassword) {
@@ -595,7 +538,6 @@
                     loading.value = false;
                 }
             }
-
             async function handleSendOtp() {
                 clearAlert();
                 loading.value = true;
@@ -616,12 +558,10 @@
                     loading.value = false;
                 }
             }
-
             async function handleResendOtp() {
                 if (cooldownSeconds.value > 0) return;
                 await handleSendOtp();
             }
-
             async function handleResetPassword() {
                 clearAlert();
                 const otp = otpDigits.value.join('').trim();
@@ -633,7 +573,6 @@
                     showAlert('Mật khẩu mới xác nhận không khớp!');
                     return;
                 }
-
                 loading.value = true;
                 try {
                     const res = await Api.post('/api/auth/reset-password', {
@@ -657,7 +596,6 @@
                     loading.value = false;
                 }
             }
-
             async function handleGoogleLoginResponse(googleResponse) {
                 clearAlert();
                 googleLoading.value = true;
@@ -684,14 +622,11 @@
                     googleLoading.value = false;
                 }
             }
-
             function renderGoogleButton(force = false) {
                 if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
                     try {
                         window.initGoogleIdentity(GOOGLE_CLIENT_ID, handleGoogleLoginResponse);
-
                         const googleTheme = isDarkMode.value ? 'filled_black' : 'outline';
-
                         const loginContainer = document.getElementById('spaGoogleBtnLogin');
                         if (loginContainer && (force || !loginContainer.hasChildNodes())) {
                             loginContainer.innerHTML = '';
@@ -707,7 +642,6 @@
                                 }
                             );
                         }
-
                         const registerContainer = document.getElementById('spaGoogleBtnRegister');
                         if (registerContainer && (force || !registerContainer.hasChildNodes())) {
                             registerContainer.innerHTML = '';
@@ -730,7 +664,6 @@
                 }
                 return false;
             }
-
             function goToHome() {
                 if (window.navigateTo) {
                     window.navigateTo('/tracking');
@@ -738,10 +671,8 @@
                     window.location.href = '/tracking';
                 }
             }
-
             const themeBackgrounds = [];
             onMounted(() => {
-                // Warm both CSS backgrounds here, without blocking mount or fetching them on other pages.
                 if (typeof window.Image === 'function') {
                     for (const src of ['/images/my-bg.jpg', '/images/login-dark-bg.jpg?v=2']) {
                         const image = new window.Image();
@@ -762,13 +693,11 @@
                     }, 150);
                 }
             });
-
             onUnmounted(() => {
                 if (timerInterval) clearInterval(timerInterval);
                 themeBackgrounds.length = 0;
             });
-
-            // Reactive local theme state
+            
             const detectInitialDark = () => {
                 if (typeof props.isDarkMode === 'boolean') {
                     return props.isDarkMode;
@@ -782,9 +711,7 @@
                 }
                 return false;
             };
-
             const isDarkMode = ref(detectInitialDark());
-
             const onThemeChanged = (e) => {
                 if (e && e.detail && typeof e.detail.isDark === 'boolean') {
                     isDarkMode.value = e.detail.isDark;
@@ -795,66 +722,55 @@
             if (typeof window !== 'undefined') {
                 window.addEventListener('theme-changed', onThemeChanged);
             }
-
             if (typeof watch === 'function') {
                 watch(() => props.isDarkMode, (newVal) => {
                     if (typeof newVal === 'boolean') {
                         isDarkMode.value = newVal;
                     }
                 }, { immediate: true });
-
                 watch(isDarkMode, () => {
                     renderGoogleButton(true);
                 });
             }
-
             const isDragging = ref(false);
             const dragX = ref(null);
             let dragStartX = isDarkMode.value ? 26 : 2;
             let dragPointerX = null;
             let justSwiped = false;
             let cleanupDrag = null;
-
             const isKnobDark = computed(() => {
                 if (dragX.value !== null) {
                     return dragX.value > 14;
                 }
                 return isDarkMode.value;
             });
-
             const currentKnobX = computed(() => {
                 if (dragX.value !== null) {
                     return dragX.value;
                 }
                 return isDarkMode.value ? 26 : 2;
             });
-
             const knobStyle = computed(() => ({
                 transform: `translateX(${currentKnobX.value}px)`,
                 transition: isDragging.value ? 'none' : 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
             }));
-
             const handleToggle = (targetMode, origin) => {
                 const nextMode = typeof targetMode === 'boolean' ? targetMode : !isDarkMode.value;
                 isDarkMode.value = nextMode;
-                // The root handler is the only owner of the store update and theme event.
                 emit('toggle-dark-mode', nextMode, origin);
             };
-
             const onPointerDown = (e) => {
                 if (e.pointerType === 'mouse' && e.button !== 0) return;
                 try { e.preventDefault(); } catch (_) {}
                 if (cleanupDrag) {
                     cleanupDrag();
                 }
-
                 dragPointerX = e.clientX;
                 let lastPointerX = e.clientX;
                 dragStartX = isDarkMode.value ? 26 : 2;
                 isDragging.value = false;
                 dragX.value = dragStartX;
                 justSwiped = false;
-
                 const onMove = (ev) => {
                     if (dragPointerX === null) return;
                     lastPointerX = ev.clientX;
@@ -865,47 +781,38 @@
                         dragX.value = Math.max(2, Math.min(26, targetX));
                     }
                 };
-
                 const commitDrag = (finalClientX, originY) => {
                     if (dragPointerX === null) return;
                     const clientX = (typeof finalClientX === 'number' && finalClientX > 0) ? finalClientX : lastPointerX;
                     const dx = clientX - dragPointerX;
                     const wasDrag = isDragging.value || Math.abs(dx) >= 3;
-
                     if (wasDrag) {
                         const finalX = dragX.value ?? (isDarkMode.value ? 26 : 2);
                         const startDark = isDarkMode.value;
                         let targetMode = startDark;
-
                         if (startDark) {
-                            // Currently Dark: dragging left switches to Light
                             if (dx <= -4 || finalX < 14) {
                                 targetMode = false;
                             } else {
                                 targetMode = true;
                             }
                         } else {
-                            // Currently Light: dragging right switches to Dark
                             if (dx >= 4 || finalX > 14) {
                                 targetMode = true;
                             } else {
                                 targetMode = false;
                             }
                         }
-
                         const origin = { 
                             x: clientX, 
                             y: (typeof originY === 'number' && originY > 0) ? originY : 32 
                         };
-
                         const targetKnobX = targetMode ? 26 : 2;
                         dragX.value = targetKnobX;
                         isDragging.value = false;
                         justSwiped = true;
-
-                        // Immediately update local isDarkMode ref so knob NEVER reverts
+                        
                         isDarkMode.value = targetMode;
-
                         if (targetMode !== startDark) {
                             handleToggle(targetMode, origin);
                         }
@@ -914,14 +821,11 @@
                             dragX.value = null;
                         }, 350);
                     } else {
-                        // Not a drag gesture (user tapped statically without moving): return to current state
                         isDragging.value = false;
                         dragX.value = null;
                     }
-
                     dragPointerX = null;
                 };
-
                 const onEnd = (ev) => {
                     const clientX = ev.clientX;
                     const clientY = ev.clientY;
@@ -930,33 +834,27 @@
                     }
                     commitDrag(clientX, clientY);
                 };
-
                 const onCancel = () => {
                     if (cleanupDrag) {
                         cleanupDrag();
                     }
                     commitDrag(lastPointerX, 32);
                 };
-
                 cleanupDrag = () => {
                     cleanupDrag = null;
                     window.removeEventListener('pointermove', onMove);
                     window.removeEventListener('pointerup', onEnd);
                     window.removeEventListener('pointercancel', onCancel);
                 };
-
                 window.addEventListener('pointermove', onMove, { passive: true });
                 window.addEventListener('pointerup', onEnd);
                 window.addEventListener('pointercancel', onCancel);
             };
-
             const onClick = (e) => {
                 if (e && typeof e.preventDefault === 'function') {
                     e.preventDefault();
                 }
-                // Drag-only toggle: ignore simple click!
             };
-
             const onKeyDown = (e) => {
                 if (e.key === 'ArrowLeft') {
                     e.preventDefault();
@@ -970,7 +868,6 @@
                     }
                 }
             };
-
             onUnmounted(() => {
                 if (cleanupDrag) {
                     cleanupDrag();
@@ -979,7 +876,6 @@
                     window.removeEventListener('theme-changed', onThemeChanged);
                 }
             });
-
             return {
                 isDarkMode,
                 isKnobDark,
@@ -1013,6 +909,5 @@
             };
         }
     };
-
     window.LoginView = LoginView;
 })();

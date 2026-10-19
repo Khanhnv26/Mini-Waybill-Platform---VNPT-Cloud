@@ -9,7 +9,6 @@
                 >
                     <span class="absolute w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-blue-400 pointer-events-none animate-chatbot-radar-1"></span>
                     <span class="absolute w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-blue-500 pointer-events-none animate-chatbot-radar-2"></span>
-
                     <button 
                         @click="openChat"
                         title="Trò chuyện với Trợ lý ảo Waybill 24/7"
@@ -21,7 +20,6 @@
                                 {{ unreadCount }}
                             </span>
                         </span>
-
                         <div class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center transform group-hover:rotate-12 transition-transform duration-300">
                             <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-sm">
                                 <defs>
@@ -44,7 +42,6 @@
                         </div>
                     </button>
                 </div>
-
                 <div 
                     v-show="isOpen"
                     :class="[
@@ -64,7 +61,6 @@
                                 </svg>
                                 <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border-2 border-blue-700 rounded-full animate-pulse"></span>
                             </div>
-
                             <div>
                                 <div class="flex items-center space-x-1.5">
                                     <h3 class="font-bold text-sm tracking-tight leading-none">Trợ lý ảo Waybill</h3>
@@ -76,7 +72,6 @@
                                 </p>
                             </div>
                         </div>
-
                         <div class="flex items-center space-x-1 text-blue-100">
                             <button 
                                 @click="toggleMute" 
@@ -111,7 +106,6 @@
                             </button>
                         </div>
                     </div>
-
                     <div 
                         ref="messagesContainer" 
                         class="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-50/80 text-xs"
@@ -135,7 +129,6 @@
                                     <circle cx="37" cy="35" r="5" fill="#ffffff"/>
                                 </svg>
                             </div>
-
                             <div :class="['space-y-1 max-w-[88%] min-w-0', msg.sender === 'user' ? 'text-right' : '']">
                                 <div
                                     v-if="msg.type === 'text' && msg.sender === 'user'"
@@ -146,7 +139,6 @@
                                     class="rounded-2xl p-3.5 leading-relaxed text-left inline-block shadow-sm chat-bubble-wrap bg-white border border-slate-200/90 text-slate-700 rounded-tl-sm break-words break-all"
                                     v-html="msg.html"
                                 ></div>
-
                                 <div 
                                     v-else-if="msg.type === 'tracking_card'"
                                     class="bg-white border border-slate-200/90 rounded-2xl rounded-tl-sm p-3.5 shadow-md space-y-2.5 text-left"
@@ -161,7 +153,6 @@
                                             <span>{{ msg.data.statusLabel }}</span>
                                         </span>
                                     </div>
-
                                     <div class="bg-slate-50 border border-slate-200/70 rounded-xl p-2.5 space-y-2">
                                         <div class="relative w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                                             <div 
@@ -193,7 +184,6 @@
                                             </span>
                                         </div>
                                     </div>
-
                                     <div class="bg-blue-50/60 border border-blue-100/80 rounded-xl p-2.5 space-y-1.5 text-[11px]">
                                         <div v-if="msg.data.receiverName" class="flex justify-between">
                                             <span class="text-slate-500">Người nhận:</span>
@@ -219,7 +209,6 @@
                                             <span class="text-slate-700 font-medium">{{ msg.data.lastMilestone }}</span>
                                         </div>
                                     </div>
-
                                     <div class="flex space-x-2 pt-1">
                                         <button 
                                             @click="viewOnTrackingTab(msg.data.trackingCode)"
@@ -236,10 +225,8 @@
                                         </button>
                                     </div>
                                 </div>
-
                                 <span class="text-[10px] text-slate-400 block px-1">{{ msg.time || 'Vừa xong' }}</span>
                             </div>
-
                             <div 
                                 v-if="msg.sender === 'user'" 
                                 class="w-7 h-7 rounded-lg bg-slate-200 text-slate-700 font-bold text-[10px] flex-shrink-0 flex items-center justify-center shadow-2xs border border-slate-300"
@@ -247,7 +234,6 @@
                                 Tôi
                             </div>
                         </div>
-
                         <div v-if="isTyping" class="flex items-start space-x-2 animate-chatbot-thinking-in">
                             <div class="w-7 h-7 rounded-lg vnpt-gradient text-white flex-shrink-0 flex items-center justify-center p-1 shadow-sm chatbot-avatar-glow">
                                 <svg viewBox="0 0 100 100" class="w-full h-full">
@@ -276,7 +262,6 @@
                                 </div>
                             </div>
                         </div>
-
                         <div v-if="messages.length <= 2" class="pl-9 space-y-1.5 pt-1 animate-chatbot-msg">
                             <p class="text-[11px] font-medium text-slate-500">Gợi ý câu hỏi:</p>
                             <div class="flex flex-wrap gap-1.5">
@@ -306,9 +291,7 @@
                                 </button>
                             </div>
                         </div>
-
                     </div>
-
                     <div class="p-3 bg-white border-t border-slate-200 flex flex-col space-y-2 select-none">
                         <form @submit.prevent="submitUserMessage" class="flex items-center space-x-2 min-w-0">
                             <div class="relative flex-1 min-w-0">
@@ -333,7 +316,6 @@
                                 </svg>
                             </button>
                         </form>
-
                         <div class="flex items-center justify-between px-1 text-[10px] text-slate-400">
                             <span class="flex items-center space-x-1">
                                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
@@ -342,9 +324,7 @@
                             <span>Hotline CSKH: <strong class="text-slate-600 hover:text-blue-600 cursor-pointer">1900 54 54 81</strong></span>
                         </div>
                     </div>
-
                 </div>
-
             </div>
         `,
         props: {
@@ -428,7 +408,6 @@
                 } catch (e) {
                     console.warn('[Chatbot] Không đọc được session:', e);
                 }
-
                 this.messages = [
                     {
                         id: 'init_1',
@@ -465,13 +444,11 @@
                 const now = new Date();
                 return now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
             },
-
             submitUserMessage() {
                 const text = this.inputText.trim();
                 if (!text || this.isTyping) return;
                 this.inputText = '';
                 this.unlockAudio();
-
                 this.messages.push({
                     id: 'usr_' + Date.now(),
                     sender: 'user',
@@ -481,10 +458,8 @@
                 });
                 this.saveSessionMessages();
                 this.scrollToBottom();
-
                 this.processUserIntent(text);
             },
-
             async typeBotResponse(fullText, extraData = null) {
                 if (!this.isTyping) {
                     this.typingMessage = 'Trợ lý AI đang suy nghĩ...';
@@ -493,7 +468,6 @@
                     await new Promise(r => setTimeout(r, 250));
                 }
                 this.isTyping = false;
-
                 const botMsg = {
                     id: 'bot_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
                     sender: 'bot',
@@ -503,18 +477,14 @@
                     data: extraData ? extraData.data : null,
                     time: this.getCurrentTime()
                 };
-
                 this.messages.push(botMsg);
                 this.saveSessionMessages();
                 this.scrollToBottom();
-
                 if (!this.isOpen) {
                     this.unreadCount++;
                 }
-
                 this.playNotificationSound();
             },
-
             determineThinkingMessage(query) {
                 if (!query) return 'Trợ lý AI đang suy nghĩ...';
                 const text = String(query).trim();
@@ -537,11 +507,9 @@
                 }
                 return 'Trợ lý AI đang suy nghĩ...';
             },
-
             async processUserIntent(rawText) {
                 const text = rawText.trim();
                 this.typingMessage = this.determineThinkingMessage(text);
-
                 const trackingMatch = text.match(/\b(WB[-_A-Za-z0-9]+)\b/i);
                 const isShortQuery = text.length <= 25 || text.toLowerCase().startsWith('tra cứu') || text.toLowerCase().startsWith('kiểm tra');
                 if (trackingMatch && isShortQuery) {
@@ -549,14 +517,11 @@
                     await this.fetchAndDisplayShipment(trackingCode);
                     return;
                 }
-
                 this.isTyping = true;
                 this.scrollToBottom();
-
                 const baseUrl = (['3000', '80', '443', ''].includes(window.location.port) && window.location.protocol.startsWith('http')) ? '' : 'http://localhost:8080';
                 const payload = JSON.stringify({ message: text, sessionId: this.sessionId });
-
-                // Thử nhận phản hồi dạng Stream (Server-Sent Events) để chữ tuôn ra tức thì
+                
                 try {
                     const streamRes = await fetch(`${baseUrl}/api/support/ai/stream`, {
                         method: 'POST',
@@ -568,14 +533,12 @@
                         body: payload,
                         signal: AbortSignal.timeout(60000)
                     });
-
                     if (streamRes.ok && streamRes.body && typeof streamRes.body.getReader === 'function') {
                         let botMsg = null;
                         const reader = streamRes.body.getReader();
                         const decoder = new TextDecoder();
                         let accumulatedText = '';
                         let buffer = '';
-
                         const ensureBotMsg = () => {
                             if (!botMsg) {
                                 this.isTyping = false;
@@ -591,14 +554,12 @@
                                 this.messages.push(botMsg);
                             }
                         };
-
                         while (true) {
                             const { done, value } = await reader.read();
                             if (done) break;
                             buffer += decoder.decode(value, { stream: true });
                             const lines = buffer.split('\n');
                             buffer = lines.pop();
-
                             for (const line of lines) {
                                 if (!line || line.startsWith(':')) continue;
                                 let token = line;
@@ -637,7 +598,6 @@
                             this.unreadCount++;
                         }
                         this.playNotificationSound();
-
                         if (trackingMatch) {
                             await this.fetchAndDisplayShipment(trackingMatch[1].toUpperCase());
                         }
@@ -646,8 +606,7 @@
                 } catch (streamErr) {
                     console.warn('[Chatbot] Stream không khả dụng, chuyển sang chế độ chuẩn:', streamErr);
                 }
-
-                // Chế độ dự phòng: Gọi endpoint /chat chuẩn
+                
                 try {
                     let response = null;
                     try {
@@ -670,14 +629,12 @@
                     } catch (e1) {
                         console.warn('[Chatbot] Gateway không phản hồi:', e1);
                     }
-
                     if (response && response.ok) {
                         const data = await response.json();
                         this.isTyping = false;
                         if (data && data.reply) {
                             const formatted = this.formatMarkdown(data.reply);
                             await this.typeBotResponse(formatted);
-
                             if (trackingMatch) {
                                 await this.fetchAndDisplayShipment(trackingMatch[1].toUpperCase());
                             }
@@ -692,7 +649,6 @@
                     await this.typeBotResponse('Không kết nối được gateway. Quý khách thử lại sau.');
                 }
             },
-
             async readGatewayMessage(response) {
                 try {
                     const data = response ? await response.json() : null;
@@ -709,32 +665,26 @@
                     .replace(/>/g, '&gt;')
                     .replace(/"/g, '&quot;');
             },
-
             formatMarkdown(text) {
                 if (!text) return '';
                 let safe = text
                     .replace(/&/g, '&amp;')
                     .replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;');
-
                 safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
                 safe = safe.replace(/\*(.*?)\*/g, '<em>$1</em>');
                 safe = safe.replace(/`([^`]+)`/g, '<code class="bg-blue-50 text-blue-700 px-1 py-0.5 rounded text-[11px] font-mono border border-blue-100">$1</code>');
                 safe = safe.replace(/^[\*\-]\s+(.*)$/gm, '• $1');
                 safe = safe.replace(/\n\n+/g, '<br><br>').replace(/\n/g, '<br>');
-
                 return safe;
             },
-
             async fetchAndDisplayShipment(trackingCode) {
                 this.typingMessage = 'Đang tra cứu hành trình ' + trackingCode + '...';
                 this.isTyping = true;
                 this.scrollToBottom();
-
                 try {
                     let trackingData = null;
                     let shipmentData = null;
-
                     if (window.TrackingService && typeof window.TrackingService.getFullTracking === 'function') {
                         try {
                             trackingData = await window.TrackingService.getFullTracking(trackingCode);
@@ -742,7 +692,6 @@
                             console.warn('[Chatbot] Tra cứu Tracking:', e);
                         }
                     }
-
                     if (window.ShipmentService && typeof window.ShipmentService.getByCode === 'function') {
                         try {
                             shipmentData = await window.ShipmentService.getByCode(trackingCode);
@@ -750,7 +699,6 @@
                             console.warn('[Chatbot] Tra cứu Shipment:', e);
                         }
                     }
-
                     if (!trackingData && !shipmentData) {
                         await this.typeBotResponse(
                             `Rất tiếc, em không tìm thấy bưu phẩm mã: <strong class="text-rose-600">${this.escapeHtml(trackingCode)}</strong> trên hệ thống bưu cục.<br>` +
@@ -758,7 +706,6 @@
                         );
                         return;
                     }
-
                     const status = (
                         trackingData?.currentStatus
                         || shipmentData?.currentStatus
@@ -766,7 +713,6 @@
                         || 'RECEIVED'
                     ).toUpperCase();
                     const statusConfig = this.mapStatusDetails(status);
-
                     const cardData = {
                         trackingCode: trackingCode,
                         status: status,
@@ -788,18 +734,15 @@
                                 || null)
                             : null
                     };
-
                     await this.typeBotResponse('', {
                         type: 'tracking_card',
                         data: cardData
                     });
-
                 } catch (err) {
                     console.error('[Chatbot] Lỗi kết nối tra cứu:', err);
                     await this.typeBotResponse(`Hệ thống tra cứu đang bận hoặc tạm thời gián đoạn. Anh/Chị vui lòng thử lại sau ít phút hoặc gọi hotline <strong>1900 54 54 81</strong> để được hỗ trợ ngay ạ.`);
                 }
             },
-
             mapStatusDetails(status) {
                 switch (status) {
                     case 'RECEIVED':
@@ -899,7 +842,6 @@
                         };
                 }
             },
-
             async handleQuickAction(action) {
                 if (action === 'track_sample') {
                     let targetCode = null;
@@ -911,7 +853,6 @@
                             }
                         }
                     } catch (e) {}
-
                     if (targetCode) {
                         this.messages.push({
                             id: 'usr_' + Date.now(),
@@ -935,7 +876,6 @@
                         this.scrollToBottom();
                         await this.typeBotResponse('Quý khách vui lòng nhập mã bưu gửi (ví dụ: <code>WB2026...</code>) vào ô chat bên dưới để em tra cứu chi tiết nhé.');
                     }
-
                 } else if (action === 'calc') {
                     this.messages.push({
                         id: 'usr_' + Date.now(),
@@ -947,7 +887,6 @@
                     this.saveSessionMessages();
                     this.scrollToBottom();
                     await this.processUserIntent('Tính cước phí vận chuyển');
-
                 } else if (action === 'claim') {
                     this.messages.push({
                         id: 'usr_' + Date.now(),
@@ -959,7 +898,6 @@
                     this.saveSessionMessages();
                     this.scrollToBottom();
                     await this.processUserIntent('Hướng dẫn khiếu nại bưu phẩm');
-
                 } else if (action === 'hotline') {
                     this.messages.push({
                         id: 'usr_' + Date.now(),
@@ -973,7 +911,6 @@
                     await this.processUserIntent('hotline');
                 }
             },
-
             viewOnTrackingTab(trackingCode) {
                 this.closeChat();
                 if (window.navigateTo) {
@@ -982,7 +919,6 @@
                 const event = new CustomEvent('navigate-to-tracking', { detail: { trackingCode } });
                 window.dispatchEvent(event);
             },
-
             initClaimFor(trackingCode) {
                 const code = (trackingCode || '').trim();
                 this.closeChat();
@@ -991,7 +927,6 @@
                 }
                 window.dispatchEvent(new CustomEvent('navigate-to-support', { detail: { trackingCode: code } }));
             },
-
             toggleMute() {
                 this.isMuted = !this.isMuted;
                 try {
@@ -1002,7 +937,6 @@
                     this.playNotificationSound();
                 }
             },
-
             unlockAudio() {
                 try {
                     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -1017,7 +951,6 @@
                     console.debug('[Chatbot Audio]:', e);
                 }
             },
-
             playNotificationSound() {
                 if (this.isMuted) return;
                 try {
@@ -1032,7 +965,6 @@
                     const ctx = this.audioCtx;
                     const emitBeep = () => {
                         const now = ctx.currentTime;
-
                         const osc1 = ctx.createOscillator();
                         const gain1 = ctx.createGain();
                         osc1.type = 'sine';
@@ -1044,7 +976,6 @@
                         gain1.connect(ctx.destination);
                         osc1.start(now);
                         osc1.stop(now + 0.26);
-
                         const osc2 = ctx.createOscillator();
                         const gain2 = ctx.createGain();
                         osc2.type = 'sine';
@@ -1056,7 +987,6 @@
                         gain2.connect(ctx.destination);
                         osc2.start(now + 0.08);
                         osc2.stop(now + 0.44);
-
                         if (ctx.state !== 'running') {
                             this.flashTabTitle();
                         }
@@ -1071,7 +1001,6 @@
                     this.flashTabTitle();
                 }
             },
-
             flashTabTitle() {
                 if (this.isOpen || this.titleFlashTimer) return;
                 this.baseTitle = document.title;
@@ -1082,7 +1011,6 @@
                 }, 900);
                 this.titleFlashTimeout = setTimeout(() => this.stopTitleFlash(), 9000);
             },
-
             stopTitleFlash() {
                 if (this.titleFlashTimer) {
                     clearInterval(this.titleFlashTimer);
@@ -1099,6 +1027,5 @@
             }
         }
     };
-
     window.ChatbotWidget = ChatbotWidget;
 })();

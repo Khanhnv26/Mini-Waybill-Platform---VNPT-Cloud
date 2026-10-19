@@ -1,6 +1,5 @@
 (function () {
     const { ref, reactive, computed, onMounted, watch } = Vue;
-
     const HUBS = [
         { code: 'HUB-HN-01', label: 'Siêu HUB Hà Nội (HUB-HN-01)' },
         { code: 'HUB-DN-01', label: 'Siêu HUB Đà Nẵng (HUB-DN-01)' },
@@ -19,14 +18,12 @@
         { code: 'POST-HCM-TB', label: 'Bưu cục Tân Bình (POST-HCM-TB)' },
         { code: 'POST-HCM-BT', label: 'Bưu cục Bình Thạnh (POST-HCM-BT)' }
     ];
-
     const VEHICLE_TYPES = [
         { code: 'TRUCK_1_5T', label: 'Tải 1.5T (Gom hàng nội đô)', defaultCapacity: 1500 },
         { code: 'TRUCK_2_5T', label: 'Tải 2.5T (Trung chuyển Feeder)', defaultCapacity: 2500 },
         { code: 'TRUCK_5T', label: 'Tải 5.0T (Liên tỉnh / Linehaul)', defaultCapacity: 5000 },
         { code: 'CONTAINER', label: 'Container 15.0T (Trục Bắc - Nam)', defaultCapacity: 15000 }
     ];
-
     const emptyAddForm = () => ({
         vehiclePlate: '',
         modelName: '',
@@ -36,7 +33,6 @@
         assignedDriverName: '',
         driverPhone: ''
     });
-
     const emptyEditForm = () => ({
         id: null,
         vehiclePlate: '',
@@ -48,7 +44,6 @@
         assignedDriverName: '',
         driverPhone: ''
     });
-
     const FleetView = {
         name: 'FleetView',
         props: {
@@ -58,18 +53,14 @@
             const vehicles = ref([]);
             const isLoading = ref(false);
             const isSaving = ref(false);
-
             const searchQuery = ref('');
             const hubFilter = ref('ALL');
             const statusFilter = ref('ALL');
             const typeFilter = ref('ALL');
-
             const showAddModal = ref(false);
             const showEditModal = ref(false);
-
             const addForm = reactive(emptyAddForm());
             const editForm = reactive(emptyEditForm());
-
             const loadVehicles = async () => {
                 if (typeof RoutingService === 'undefined') return;
                 isLoading.value = true;
@@ -88,7 +79,6 @@
                     isLoading.value = false;
                 }
             };
-
             const kpiStats = computed(() => {
                 const total = vehicles.value.length;
                 const available = vehicles.value.filter(v => v.status === 'AVAILABLE').length;
@@ -97,7 +87,6 @@
                 const disabled = vehicles.value.filter(v => v.status === 'DISABLED').length;
                 return { total, available, onTrip, maintenance, disabled };
             });
-
             const filteredVehicles = computed(() => {
                 let list = vehicles.value;
                 const q = searchQuery.value.trim().toLowerCase();
@@ -111,53 +100,43 @@
                 }
                 return list;
             });
-
             const currentPage = ref(1);
             const pageSize = ref(10);
-
             const totalPages = computed(() => {
                 if (pageSize.value === -1) return 1;
                 return Math.ceil(filteredVehicles.value.length / pageSize.value) || 1;
             });
-
             const startIndex = computed(() => {
                 if (filteredVehicles.value.length === 0) return 0;
                 return (currentPage.value - 1) * pageSize.value + 1;
             });
-
             const endIndex = computed(() => {
                 if (pageSize.value === -1) return filteredVehicles.value.length;
                 return Math.min(currentPage.value * pageSize.value, filteredVehicles.value.length);
             });
-
             const paginatedVehicles = computed(() => {
                 if (pageSize.value === -1) return filteredVehicles.value;
                 const start = (currentPage.value - 1) * pageSize.value;
                 return filteredVehicles.value.slice(start, start + pageSize.value);
             });
-
             watch([searchQuery, hubFilter, statusFilter, typeFilter, pageSize], () => {
                 currentPage.value = 1;
             });
-
             const goToPage = (page) => {
                 if (page >= 1 && page <= totalPages.value) {
                     currentPage.value = page;
                 }
             };
-
             const handleTypeChangeInAdd = () => {
                 const found = VEHICLE_TYPES.find(t => t.code === addForm.vehicleType);
                 if (found) {
                     addForm.payloadCapacity = found.defaultCapacity;
                 }
             };
-
             const openAddModal = () => {
                 Object.assign(addForm, emptyAddForm());
                 showAddModal.value = true;
             };
-
             const openEditModal = (v) => {
                 Object.assign(editForm, {
                     id: v.id,
@@ -172,7 +151,6 @@
                 });
                 showEditModal.value = true;
             };
-
             const submitAddVehicle = async () => {
                 if (!addForm.vehiclePlate.trim() || !addForm.modelName.trim() || !addForm.currentHub) {
                     if (window.Utils) window.Utils.showToast('Thiếu thông tin', 'Vui lòng nhập biển số, dòng xe và Hub quản lý!', 'warning');
@@ -198,7 +176,6 @@
                     isSaving.value = false;
                 }
             };
-
             const submitEditVehicle = async () => {
                 if (!editForm.id) return;
                 isSaving.value = true;
@@ -221,7 +198,6 @@
                     isSaving.value = false;
                 }
             };
-
             const toggleQuickStatus = async (v, targetStatus) => {
                 if (!v || !v.id) return;
                 try {
@@ -239,7 +215,6 @@
                     if (window.Utils) window.Utils.showToast('Không đổi được trạng thái', error.message, 'error');
                 }
             };
-
             const getStatusBadge = (status) => {
                 switch (status) {
                     case 'AVAILABLE':
@@ -254,19 +229,15 @@
                         return { text: status, dotClass: 'bg-slate-400', indicatorClass: 'status-indicator-slate' };
                 }
             };
-
             const getVehicleTypeBadge = (type) => {
                 const found = VEHICLE_TYPES.find(t => t.code === type);
                 return found ? found.label : type;
             };
-
             const getHubLabel = (code) => {
                 const found = HUBS.find(h => h.code === code);
                 return found ? found.label : code;
             };
-
             onMounted(loadVehicles);
-
             return {
                 vehicles,
                 isLoading,
@@ -306,7 +277,6 @@
             <div class="space-y-3.5 pb-8 text-slate-800">
                 <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-sm relative overflow-hidden">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
-
                     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
                         <div>
                             <div class="text-xs font-medium text-blue-100">
@@ -319,7 +289,6 @@
                                 Quản lý tập trung toàn bộ phương tiện vận tải đường trục và xe gom Feeder. Tự động liên kết trực tiếp với thuật toán tính thời gian giao hàng (ETA), tự động kích hoạt cảnh báo dời ETA (+12h) khi HUB xuất phát hết xe sẵn sàng.
                             </p>
                         </div>
-
                         <div class="flex items-center space-x-2 self-start md:self-auto flex-wrap sm:flex-nowrap gap-y-2">
                             <div class="px-3 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[74px]">
                                 <div class="text-base font-extrabold leading-tight text-white font-mono">{{ kpiStats.total }}</div>
@@ -344,7 +313,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                     <div class="flex flex-wrap items-center gap-2 flex-1">
                         <div class="relative w-full sm:w-64">
@@ -358,7 +326,6 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                             </svg>
                         </div>
-
                         <select 
                             v-model="hubFilter" 
                             @change="loadVehicles" 
@@ -367,7 +334,6 @@
                             <option value="ALL">Tất cả HUB / Bưu cục</option>
                             <option v-for="h in hubs" :key="h.code" :value="h.code">{{ h.label }}</option>
                         </select>
-
                         <select 
                             v-model="statusFilter" 
                             @change="loadVehicles" 
@@ -379,7 +345,6 @@
                             <option value="MAINTENANCE">MAINTENANCE - Bảo dưỡng</option>
                             <option value="DISABLED">DISABLED - Vô hiệu hóa</option>
                         </select>
-
                         <select 
                             v-model="typeFilter" 
                             @change="loadVehicles" 
@@ -389,7 +354,6 @@
                             <option v-for="t in vehicleTypes" :key="t.code" :value="t.code">{{ t.label }}</option>
                         </select>
                     </div>
-
                     <div class="flex items-center gap-2">
                         <button 
                             type="button"
@@ -402,7 +366,6 @@
                             </svg>
                             <span>Làm Mới</span>
                         </button>
-
                         <button 
                             type="button"
                             @click="openAddModal" 
@@ -415,7 +378,6 @@
                         </button>
                     </div>
                 </div>
-
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
@@ -449,34 +411,28 @@
                                             </div>
                                         </div>
                                     </td>
-
                                     <td class="py-2.5 px-3.5">
                                         <div class="font-bold text-slate-800">{{ v.modelName }}</div>
                                         <div class="text-[10.5px] text-slate-500 font-medium">{{ getVehicleTypeBadge(v.vehicleType) }}</div>
                                     </td>
-
                                     <td class="py-2.5 px-3.5 font-mono font-bold text-slate-700">
                                         {{ Number(v.payloadCapacity || 0).toLocaleString() }} kg
                                     </td>
-
                                     <td class="py-2.5 px-3.5">
                                         <div class="font-semibold text-slate-800 text-xs">
                                             {{ v.currentHub }}
                                         </div>
                                     </td>
-
                                     <td class="py-2.5 px-3.5">
                                         <div class="font-semibold text-slate-800">{{ v.assignedDriverName || 'Chưa gán tài xế' }}</div>
                                         <div class="text-[10px] text-slate-500 font-mono">{{ v.driverPhone || '—' }}</div>
                                     </td>
-
                                     <td class="py-2.5 px-3.5 text-center">
                                         <span class="status-indicator" :class="getStatusBadge(v.status).indicatorClass">
                                             <span :class="['status-dot', getStatusBadge(v.status).dotClass]"></span>
                                             <span>{{ getStatusBadge(v.status).text }}</span>
                                         </span>
                                     </td>
-
                                     <td class="py-2.5 px-3.5 text-right whitespace-nowrap">
                                         <div class="inline-flex items-center gap-1.5">
                                             <button 
@@ -488,7 +444,6 @@
                                             >
                                                 Bảo Dưỡng
                                             </button>
-
                                             <button 
                                                 v-else-if="v.status === 'MAINTENANCE' || v.status === 'DISABLED'"
                                                 type="button"
@@ -498,7 +453,6 @@
                                             >
                                                 Sẵn Sàng
                                             </button>
-
                                             <button 
                                                 type="button"
                                                 @click="openEditModal(v)" 
@@ -507,7 +461,6 @@
                                             >
                                                 Sửa Xe
                                             </button>
-
                                             <button 
                                                 v-if="v.status !== 'ON_TRIP' && v.status !== 'DISABLED'"
                                                 type="button"
@@ -538,7 +491,6 @@
                                 <option :value="-1">Tất cả</option>
                             </select>
                         </div>
-
                         <div v-if="totalPages > 1" class="flex items-center space-x-1 self-end sm:self-auto">
                             <button 
                                 @click="goToPage(currentPage - 1)" 
@@ -570,7 +522,6 @@
                         </div>
                     </div>
                 </div>
-
                 <teleport to="body">
                     <div v-if="showAddModal" class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
                         <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in duration-150">
@@ -585,7 +536,6 @@
                                 </div>
                                 <button @click="showAddModal = false" class="text-slate-400 hover:text-slate-600 text-sm cursor-pointer">&times;</button>
                             </div>
-
                             <form @submit.prevent="submitAddVehicle" class="space-y-3.5 mt-4 text-xs">
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
@@ -597,7 +547,6 @@
                                         <input v-model="addForm.modelName" type="text" placeholder="VD: Isuzu Forward 5T" required maxlength="50" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-medium focus:bg-white outline-none" />
                                     </div>
                                 </div>
-
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
                                         <label class="block font-bold text-slate-700 mb-1">Phân Loại Xe *</label>
@@ -610,14 +559,12 @@
                                         <input v-model.number="addForm.payloadCapacity" type="number" min="100" max="30000" step="100" required class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold focus:bg-white outline-none" />
                                     </div>
                                 </div>
-
                                 <div>
                                     <label class="block font-bold text-slate-700 mb-1">HUB Đỗ Ban Đầu *</label>
                                     <select v-model="addForm.currentHub" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-bold text-blue-700 focus:bg-white outline-none">
                                         <option v-for="h in hubs" :key="h.code" :value="h.code">{{ h.label }}</option>
                                     </select>
                                 </div>
-
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
                                         <label class="block font-bold text-slate-700 mb-1">Tài Xế Phụ Trách</label>
@@ -628,7 +575,6 @@
                                         <input v-model="addForm.driverPhone" type="text" placeholder="VD: 0912.888.999" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono focus:bg-white outline-none" />
                                     </div>
                                 </div>
-
                                 <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                                     <button type="button" @click="showAddModal = false" class="px-3.5 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg font-bold transition cursor-pointer">Hủy</button>
                                     <button type="submit" :disabled="isSaving" class="px-4 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-lg font-bold transition shadow-xs cursor-pointer disabled:opacity-50">
@@ -639,7 +585,6 @@
                         </div>
                     </div>
                 </teleport>
-
                 <teleport to="body">
                     <div v-if="showEditModal" class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
                         <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in duration-150">
@@ -654,7 +599,6 @@
                                 </div>
                                 <button @click="showEditModal = false" class="text-slate-400 hover:text-slate-600 text-sm cursor-pointer">&times;</button>
                             </div>
-
                             <form @submit.prevent="submitEditVehicle" class="space-y-3.5 mt-4 text-xs">
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
@@ -666,7 +610,6 @@
                                         <input v-model.number="editForm.payloadCapacity" type="number" min="100" max="30000" step="100" required class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold focus:bg-white outline-none" />
                                     </div>
                                 </div>
-
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
                                         <label class="block font-bold text-slate-700 mb-1">HUB Đỗ Hiện Tại</label>
@@ -684,7 +627,6 @@
                                         </select>
                                     </div>
                                 </div>
-
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
                                         <label class="block font-bold text-slate-700 mb-1">Tài Xế Phụ Trách</label>
@@ -695,7 +637,6 @@
                                         <input v-model="editForm.driverPhone" type="text" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono focus:bg-white outline-none" />
                                     </div>
                                 </div>
-
                                 <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                                     <button type="button" @click="showEditModal = false" class="px-3.5 py-1.5 text-slate-600 hover:bg-slate-100 rounded-lg font-bold transition cursor-pointer">Hủy</button>
                                     <button type="submit" :disabled="isSaving" class="px-4 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-lg font-bold transition shadow-xs cursor-pointer disabled:opacity-50">
@@ -709,6 +650,5 @@
             </div>
         `
     };
-
     window.FleetView = FleetView;
 })();

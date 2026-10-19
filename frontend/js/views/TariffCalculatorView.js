@@ -1,6 +1,5 @@
 (function () {
     const { ref, reactive, computed, watch, onMounted } = Vue;
-
     const DISTRICTS_MAP = {
         'Hà Nội': ['Q. Hoàn Kiếm', 'Q. Ba Đình', 'Q. Cầu Giấy', 'Q. Đống Đa', 'Q. Hai Bà Trưng', 'Q. Nam Từ Liêm', 'Q. Bắc Từ Liêm', 'Q. Hà Đông', 'Q. Long Biên', 'Q. Thanh Xuân', 'Q. Tây Hồ'],
         'Hồ Chí Minh': ['Q. 1', 'Q. 3', 'Q. 5', 'Q. 6', 'Q. 7', 'Q. 8', 'Q. 10', 'Q. 11', 'Q. 12', 'Q. Bình Thạnh', 'Q. Gò Vấp', 'Q. Tân Bình', 'Q. Tân Phú', 'TP. Thủ Đức'],
@@ -8,14 +7,12 @@
         'Hải Phòng': ['Q. Hồng Bàng', 'Q. Ngô Quyền', 'Q. Lê Chân', 'Q. Hải An', 'Q. Kiến An', 'Q. Đồ Sơn'],
         'Cần Thơ': ['Q. Ninh Kiều', 'Q. Bình Thủy', 'Q. Cái Răng', 'Q. Ô Môn', 'Q. Thốt Nốt']
     };
-
     const TariffCalculatorView = {
         name: 'TariffCalculatorView',
         emits: ['back-home', 'create-shipment-from-tariff'],
         setup(props, { emit }) {
             const isCalculating = ref(false);
             const selectedPlanCode = ref('STANDARD');
-
             const form = reactive({
                 senderProvince: 'Hà Nội',
                 senderDistrict: 'Q. Hoàn Kiếm',
@@ -28,12 +25,9 @@
                 widthCm: 15,
                 heightCm: 10
             });
-
             const calculationResult = ref(null);
-
             const availableProvinces = ref(['Hà Nội', 'Hồ Chí Minh', 'Đà Nẵng', 'Hải Phòng', 'Cần Thơ']);
             const availableDistrictsMap = ref({ ...DISTRICTS_MAP });
-
             const loadHubsFromNetwork = async () => {
                 if (typeof RoutingService === 'undefined' || typeof RoutingService.getAllHubs !== 'function') return;
                 try {
@@ -42,7 +36,6 @@
                         const provSet = new Set();
                         const distMap = {};
                         const hubCodeToProv = {};
-
                         hubs.forEach(h => {
                             if (h.province && (h.hubLevel === 1 || !h.hubLevel || h.hubType === 'SUPER_HUB' || h.hubType === 'LOCAL_HUB')) {
                                 provSet.add(h.province);
@@ -50,7 +43,6 @@
                                 if (!distMap[h.province]) distMap[h.province] = [];
                             }
                         });
-
                         hubs.forEach(h => {
                             let prov = h.province;
                             if (h.parentHubCode && hubCodeToProv[h.parentHubCode]) {
@@ -63,7 +55,6 @@
                                 }
                             }
                         });
-
                         Object.keys(DISTRICTS_MAP).forEach(p => {
                             provSet.add(p);
                             if (!distMap[p] || distMap[p].length === 0) {
@@ -76,7 +67,6 @@
                                 });
                             }
                         });
-
                         if (provSet.size > 0) {
                             availableProvinces.value = Array.from(provSet);
                             availableDistrictsMap.value = distMap;
@@ -85,22 +75,18 @@
                 } catch (e) {
                 }
             };
-
             const senderDistrictsList = computed(() => {
                 return availableDistrictsMap.value[form.senderProvince] || DISTRICTS_MAP[form.senderProvince] || ['Khu vực trung tâm'];
             });
-
             const receiverDistrictsList = computed(() => {
                 return availableDistrictsMap.value[form.receiverProvince] || DISTRICTS_MAP[form.receiverProvince] || ['Khu vực trung tâm'];
             });
-
             const volumetricGram = computed(() => {
                 const l = Number(form.lengthCm) || 0;
                 const w = Number(form.widthCm) || 0;
                 const h = Number(form.heightCm) || 0;
                 return Math.round(((l * w * h) / 5000) * 1000);
             });
-
             watch(() => form.senderProvince, (newProv) => {
                 const list = availableDistrictsMap.value[newProv] || DISTRICTS_MAP[newProv] || [];
                 if (list.length > 0 && !list.includes(form.senderDistrict)) {
@@ -108,7 +94,6 @@
                 }
                 scheduleCalculation();
             });
-
             watch(() => form.receiverProvince, (newProv) => {
                 const list = availableDistrictsMap.value[newProv] || DISTRICTS_MAP[newProv] || [];
                 if (list.length > 0 && !list.includes(form.receiverDistrict)) {
@@ -116,13 +101,10 @@
                 }
                 scheduleCalculation();
             });
-
             watch([() => form.senderDistrict, () => form.receiverDistrict, () => form.weightGram, () => form.codAmount, () => form.declaredValue, () => form.lengthCm, () => form.widthCm, () => form.heightCm], () => {
                 scheduleCalculation();
             });
-
             const selectedBoxSize = ref('M');
-
             const selectBoxSize = (size) => {
                 selectedBoxSize.value = size;
                 if (size === 'S') {
@@ -140,12 +122,10 @@
                 }
                 scheduleCalculation();
             };
-
             const onCustomDimensionChange = () => {
                 selectedBoxSize.value = 'CUSTOM';
                 scheduleCalculation();
             };
-
             const executeCalculation = async () => {
                 isCalculating.value = true;
                 const payload = {
@@ -160,7 +140,6 @@
                     widthCm: Number(form.widthCm) || 15,
                     heightCm: Number(form.heightCm) || 10
                 };
-
                 try {
                     if (window.PricingService) {
                         calculationResult.value = await window.PricingService.calculateTariff(payload);
@@ -173,18 +152,14 @@
                     isCalculating.value = false;
                 }
             };
-
             let calculationTimer = null;
-
             const scheduleCalculation = () => {
                 if (calculationTimer) clearTimeout(calculationTimer);
                 calculationTimer = setTimeout(executeCalculation, 300);
             };
-
             const selectPlan = (code) => {
                 selectedPlanCode.value = code;
             };
-
             const handleCreateShipment = (plan) => {
                 const data = {
                     senderProvince: form.senderProvince,
@@ -197,10 +172,8 @@
                     planName: plan.serviceName,
                     estimatedFee: plan.totalFee
                 };
-
                 emit('create-shipment-from-tariff', data);
             };
-
             const swapLocations = () => {
                 const tempProv = form.senderProvince;
                 const tempDist = form.senderDistrict;
@@ -210,20 +183,16 @@
                 form.receiverDistrict = tempDist;
                 scheduleCalculation();
             };
-
             const goBack = () => {
                 emit('back-home');
             };
-
             const formatMoney = (val) => {
                 return (Number(val) || 0).toLocaleString('vi-VN');
             };
-
             onMounted(async () => {
                 await loadHubsFromNetwork();
                 executeCalculation();
             });
-
             return {
                 form,
                 isCalculating,
@@ -264,7 +233,6 @@
                             <p class="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl leading-relaxed">Dự toán cước bưu chính chính xác theo khoảng cách địa lý, kích thước thể tích chuẩn IATA và dịch vụ cộng thêm.</p>
                         </div>
                     </div>
-
                     <div class="flex items-center space-x-3 self-start md:self-center flex-shrink-0">
                         <div class="px-4 py-2.5 rounded-2xl bg-white border border-blue-200/80 shadow-xs text-center min-w-[110px] flex-shrink-0">
                             <span class="text-[10.5px] uppercase font-bold text-slate-400 block tracking-wider whitespace-nowrap">Biểu Phí</span>
@@ -276,14 +244,12 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-4 hover:border-blue-200 transition-colors duration-300">
                     <div class="flex items-center pb-2 border-b border-slate-100">
                         <span class="text-xs font-extrabold uppercase tracking-wider text-slate-500">
                             1. Thông Tin Tuyến Vận Chuyển &amp; Kiện Hàng
                         </span>
                     </div>
-
                     <div class="space-y-3">
                         <div class="flex flex-col md:flex-row items-center gap-2.5">
                             <div class="flex-1 w-full bg-slate-50/80 rounded-lg p-3 border border-slate-200/80 space-y-1.5">
@@ -306,7 +272,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <div class="flex-shrink-0">
                                 <button 
                                     type="button" 
@@ -319,7 +284,6 @@
                                     </svg>
                                 </button>
                             </div>
-
                             <div class="flex-1 w-full bg-slate-50/80 rounded-lg p-3 border border-slate-200/80 space-y-1.5">
                                 <div class="text-[10.5px] font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
                                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
@@ -341,7 +305,6 @@
                                 </div>
                             </div>
                         </div>
-
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-start pt-1">
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-700 mb-1">Trọng lượng (Gram) <span class="text-rose-500">*</span></label>
@@ -351,7 +314,6 @@
                                 </div>
                                 <p class="text-[10px] text-slate-400 mt-0.5">VD: 500g, 1000g, 2500g</p>
                             </div>
-
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-700 mb-1">Tiền thu hộ COD (VNĐ)</label>
                                 <div class="relative">
@@ -360,7 +322,6 @@
                                 </div>
                                 <p class="text-[10px] text-slate-400 mt-0.5">Nhập 0 nếu không thu COD</p>
                             </div>
-
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-700 mb-1">Giá trị khai báo (VNĐ)</label>
                                 <div class="relative">
@@ -369,7 +330,6 @@
                                 </div>
                                 <p class="text-[10px] text-slate-400 mt-0.5">Phí bảo hiểm 0,5% nếu có khai giá</p>
                             </div>
-
                             <div class="relative">
                                 <div class="flex items-center justify-between mb-1">
                                     <label class="block text-[11px] font-bold text-slate-700">Cỡ hộp (D×R×C)</label>
@@ -431,7 +391,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <div>
                                 <label class="hidden lg:block text-[11px] font-bold text-transparent select-none mb-1">Thao tác</label>
                                 <button 
@@ -449,7 +408,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="space-y-3">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
                         <span class="text-xs font-extrabold uppercase tracking-wider text-slate-500">
@@ -460,7 +418,6 @@
                             <span>Tuyến: {{ calculationResult?.routeDescription || (form.senderDistrict + ' → ' + form.receiverDistrict) }}</span>
                         </span>
                     </div>
-
                     <div 
                         class="grid grid-cols-1 md:grid-cols-3 gap-3.5 transition-all duration-300"
                         :class="isCalculating ? 'opacity-50 scale-[0.99]' : ''"
@@ -478,7 +435,6 @@
                             <div v-if="plan.serviceCode === 'STANDARD'" class="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md bg-blue-600 text-white font-semibold text-[10px] shadow-xs">
                                 Phổ biến
                             </div>
-
                             <div class="space-y-2.5" :class="plan.serviceCode === 'STANDARD' ? 'pt-1' : ''">
                                 <div class="flex items-center justify-between">
                                     <span class="status-indicator font-semibold text-xs text-slate-700 status-indicator-slate">
@@ -504,7 +460,6 @@
                                         <span class="text-[11px] font-bold text-slate-500">VNĐ</span>
                                     </div>
                                 </div>
-
                                 <div class="space-y-1.5 pt-2.5 border-t border-slate-100 text-[11.5px] text-slate-500">
                                     <div class="flex justify-between">
                                         <span>Cước chính:</span>
@@ -524,7 +479,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <button 
                                 type="button" 
                                 @click.stop="handleCreateShipment(plan)"
@@ -535,7 +489,6 @@
                             </button>
                         </div>
                     </div>
-
                     <div class="bg-blue-50/70 border border-blue-100/90 rounded-lg p-3 text-xs text-blue-900 flex items-start space-x-2 transition-all">
                         <svg class="w-3.5 h-3.5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         <div class="text-[11.5px]">
@@ -543,7 +496,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="space-y-3">
                     <div class="flex items-center justify-between px-1">
                         <span class="text-xs font-extrabold uppercase tracking-wider text-slate-500">
@@ -551,7 +503,6 @@
                         </span>
                         <span class="text-[11px] text-slate-400 font-medium hidden sm:inline">Tiêu chuẩn nghiệp vụ Waybill 2026</span>
                     </div>
-
                     <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                         <div class="overflow-x-auto">
                             <table class="w-full text-xs text-left">
@@ -610,7 +561,6 @@
                             </table>
                         </div>
                     </div>
-
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                         <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm flex items-start space-x-3 hover:border-blue-300 transition">
                             <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
@@ -621,7 +571,6 @@
                                 <p class="text-[11.5px] text-slate-500 mt-0.5 leading-relaxed">Mỗi kiện hàng đều được cấp mã vận đơn số hóa và giám sát vị trí liên tục qua từng bưu cục.</p>
                             </div>
                         </div>
-
                         <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm flex items-start space-x-3 hover:border-blue-300 transition">
                             <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -631,7 +580,6 @@
                                 <p class="text-[11.5px] text-slate-500 mt-0.5 leading-relaxed">Thanh toán tiền thu hộ định kỳ tự động qua tài khoản ngân hàng, minh bạch và không phát sinh phí ẩn.</p>
                             </div>
                         </div>
-
                         <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm flex items-start space-x-3 hover:border-blue-300 transition">
                             <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
@@ -646,6 +594,5 @@
             </div>
         `
     };
-
     window.TariffCalculatorView = TariffCalculatorView;
 })();

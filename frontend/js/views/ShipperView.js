@@ -1,7 +1,6 @@
 
 (function () {
     const { ref, computed, watch, onMounted } = Vue;
-
     const ShipperView = {
         name: 'ShipperView',
         emits: ['view-tracking'],
@@ -10,12 +9,10 @@
             const isDockCollapsed = ref(false);
             const isLoading = ref(false);
             const isActionRunning = ref(false);
-
             const shipmentsList = ref([]);
             const paidTrackingCodes = ref(new Set());
             const searchQuery = ref('');
             const selectedStatusFilter = ref('ALL');
-
             const isShipmentPaidOnline = (shipment) => {
                 if (!shipment) return false;
                 const code = shipment.trackingCode ? String(shipment.trackingCode).trim() : '';
@@ -24,39 +21,29 @@
                 if (shipment.codSettlementStatus === 'SETTLED' && shipment.codSettledBy === 'VIETQR_GATEWAY') return true;
                 return false;
             };
-
             const currentPage = ref(1);
             const pageSize = ref(10);
-
-
-            // Phép chiếu tồn kho/lịch sử tác nghiệp là dữ liệu phụ trợ. Không để việc
-            // nạp phụ trợ làm hỏng danh sách vận đơn legacy nếu endpoint chưa tồn tại.
+            
             const routingProjections = ref({});
             const routingProjectionPromises = new Map();
-
             const getShipmentStatus = (shipment) => String(
                 shipment?.currentStatus || shipment?.status || ''
             ).trim().toUpperCase();
-
             const firstNonBlank = (...values) => values.find(value =>
                 value !== null && value !== undefined && String(value).trim()
             );
-
             const normalizeLocationCode = (value) => {
                 const location = firstNonBlank(value?.code, value);
                 return location ? String(location).trim().toUpperCase() : '';
             };
-
             const isPostOfficeLocation = (locationCode) => {
                 const location = normalizeLocationCode(locationCode);
                 return location.startsWith('POST-');
             };
-
             const getNestedRouteMetadata = (shipment) => {
                 if (!shipment) return {};
                 return shipment.routingAssignment || shipment.routeAssignment || shipment.routing || shipment.route || {};
             };
-
             const getEmbeddedOperationHistory = (shipment) => {
                 if (!shipment) return null;
                 const candidates = [
@@ -69,7 +56,6 @@
                 const embedded = candidates.find(Array.isArray);
                 return Array.isArray(embedded) ? embedded : null;
             };
-
             const extractOperationArray = (payload) => {
                 if (Array.isArray(payload)) return payload;
                 if (!payload || typeof payload !== 'object') return [];
@@ -83,14 +69,12 @@
                     payload.content
                 ].find(Array.isArray) || (payload.trackingCode ? [payload] : []);
             };
-
             const getOperationTimestamp = (operation) => firstNonBlank(
                 operation?.occurredAt,
                 operation?.timestamp,
                 operation?.createdAt,
                 operation?.updatedAt
             );
-
             const getLatestOperation = (operations) => {
                 if (!Array.isArray(operations) || operations.length === 0) return null;
                 return operations.reduce((latest, operation, index) => {
@@ -106,15 +90,12 @@
                     return { operation, index };
                 }, null)?.operation || null;
             };
-
             const getOperationLocation = (operation) => normalizeLocationCode(
                 operation?.locationCode || operation?.location || operation?.physicalLocationCode
             );
-
             const getOperationType = (operation) => String(
                 operation?.operationType || operation?.type || operation?.operation || ''
             ).trim().toUpperCase();
-
             const getDestinationPostOfficeInfo = (shipment, operations = null, allowAddressFallback = true) => {
                 const route = getNestedRouteMetadata(shipment);
                 const directCode = [
@@ -130,7 +111,6 @@
                     route?.destinationLocationCode
                 ].map(normalizeLocationCode).find(isPostOfficeLocation) || '';
                 let code = directCode;
-
                 const operationList = Array.isArray(operations)
                     ? operations
                     : getEmbeddedOperationHistory(shipment) || [];
@@ -148,9 +128,7 @@
                         .map(normalizeLocationCode);
                     if (postOfficeCodes.length > 0) code = postOfficeCodes[postOfficeCodes.length - 1];
                 }
-
-                // Chỉ dùng địa chỉ để bổ sung tên/đích hiển thị khi backend chưa phát
-                // metadata tuyến. Quyền đủ điều kiện vẫn dựa trên locationCode thật.
+                
                 if (!code && allowAddressFallback && shipment?.receiverAddress && window.MapManager?.getPostOfficeForAddress) {
                     const found = window.MapManager.getPostOfficeForAddress(
                         shipment.receiverAddress,
@@ -158,7 +136,6 @@
                     );
                     if (found?.code) code = normalizeLocationCode(found.code);
                 }
-
                 const hubInfo = code && window.MapManager?.hubCoordinates?.[code];
                 return {
                     code: code || null,
@@ -166,12 +143,10 @@
                     source: directCode ? 'routing' : (code ? 'history-or-address' : 'unknown')
                 };
             };
-
             const getProjection = (shipment) => {
                 const code = shipment?.trackingCode;
                 return code ? routingProjections.value[code] || shipment?._routingProjection || null : null;
             };
-
             const getEmbeddedInventory = (shipment) => {
                 const source = shipment?.inventory || shipment?.routingInventory;
                 if (Array.isArray(source)) {
@@ -179,7 +154,6 @@
                 }
                 return source && typeof source === 'object' ? source : null;
             };
-
             const getPhysicalLocationCode = (shipment, projection = getProjection(shipment)) => {
                 const latestOperation = getLatestOperation(projection?.operations || getEmbeddedOperationHistory(shipment) || []);
                 const embeddedInventory = getEmbeddedInventory(shipment);
@@ -196,56 +170,46 @@
                     getOperationLocation(latestOperation)
                 );
             };
-
             const hasRoutingProjection = (projection) => Boolean(
                 projection?.operationsAvailable || projection?.inventoryAvailable || projection?.trackingHistoryAvailable
             );
-
             const hasAuthoritativeRoutingProjection = (projection) => Boolean(
                 projection?.operationEndpointAvailable ||
                 projection?.inventoryEndpointAvailable ||
                 (projection?.operationsAvailable && !projection?.trackingHistoryAvailable) ||
                 (projection?.inventoryAvailable && projection?.inventory)
             );
-
             const isAtDestinationPostOffice = (shipment) => {
                 const projection = getProjection(shipment);
                 const physicalLocation = getPhysicalLocationCode(shipment, projection);
                 if (physicalLocation === 'DELIVERY_OFFICE') {
-                    return !hasAuthoritativeRoutingProjection(projection); // legacy sentinel only
+                    return !hasAuthoritativeRoutingProjection(projection); 
                 }
                 const destination = getDestinationPostOfficeInfo(shipment, projection?.operations, true);
                 if (isPostOfficeLocation(physicalLocation)) {
                     return !destination.code || destination.code === physicalLocation;
                 }
-                // Nếu physicalLocation chưa có nhưng destination xác định được mã bưu cục phát hợp lệ
                 if (destination.code && isPostOfficeLocation(destination.code)) {
                     return true;
                 }
                 return !hasAuthoritativeRoutingProjection(projection);
             };
-
             const isLegacyDeliveryProjection = (shipment) => {
                 const projection = getProjection(shipment);
                 const physicalLocation = getPhysicalLocationCode(shipment, projection);
-                // A legacy shipment has no physical-location contract at all. In that
-                // case OUT_FOR_DELIVERY remains the compatibility proof of handoff.
+                
                 return !physicalLocation && !hasRoutingProjection(projection);
             };
-
             const canShowDeliveryActions = (shipment) => {
                 const status = getShipmentStatus(shipment);
                 if (status !== 'OUT_FOR_DELIVERY') return false;
-                // Khi đơn đã có trạng thái OUT_FOR_DELIVERY, bưu tá đang cầm hàng đi phát nên luôn hiển thị nút xử lý giao.
-                // Không chặn nút giao bằng kiểm tra vị trí để tránh deadlock cho đơn hàng.
+                
                 return true;
             };
-
             const isReadyForCourierHandoff = (shipment) => {
                 if (getShipmentStatus(shipment) !== 'ARRIVED_DEST_HUB') return false;
                 const projection = getProjection(shipment);
                 if (!isAtDestinationPostOffice(shipment)) return false;
-
                 const inventory = projection?.inventory;
                 if (projection?.inventoryEndpointAvailable && !inventory) return false;
                 if (projection?.inventoryAvailable && inventory) {
@@ -257,12 +221,10 @@
                 const latestOperation = getLatestOperation(projection?.operations || []);
                 return getOperationType(latestOperation) !== 'HANDED_TO_COURIER';
             };
-
             const canRetryDelivery = (shipment) => {
                 if (getShipmentStatus(shipment) !== 'DELIVERY_FAILED') return false;
                 return true;
             };
-
             const getLastMileLocation = (shipment) => {
                 const projection = getProjection(shipment);
                 const physicalLocation = getPhysicalLocationCode(shipment, projection);
@@ -270,7 +232,6 @@
                 const destination = getDestinationPostOfficeInfo(shipment, projection?.operations, true);
                 return destination.code || (physicalLocation === 'DELIVERY_OFFICE' ? 'DELIVERY_OFFICE' : 'DELIVERY_OFFICE');
             };
-
             const getCourierIdentifier = () => {
                 const user = typeof Auth !== 'undefined' ? Auth.getUser?.() : null;
                 const identifier = firstNonBlank(
@@ -282,7 +243,6 @@
                 );
                 return identifier ? String(identifier).trim() : '';
             };
-
             const formatShipmentStatus = (status) => {
                 switch (String(status || '').toUpperCase()) {
                     case 'RETURNING': return 'Đang chuyển hoàn về người gửi';
@@ -292,7 +252,6 @@
                     default: return Utils.formatStatusText(status);
                 }
             };
-
             const getShipmentStatusBadgeClass = (status) => {
                 switch (String(status || '').toUpperCase()) {
                     case 'RETURNING': return 'bg-orange-50 text-orange-700 border-orange-200';
@@ -301,25 +260,21 @@
                     default: return Utils.getStatusBadgeClass(status);
                 }
             };
-
             const parseApiError = async (response, fallback) => {
                 const payload = await response.json().catch(() => ({}));
                 return payload.message || payload.error || fallback;
             };
-
             const loadRoutingProjection = async (shipment, force = false) => {
                 const code = shipment?.trackingCode;
                 if (!code) return null;
                 if (!force && routingProjections.value[code]) return routingProjections.value[code];
                 if (routingProjectionPromises.has(code)) return routingProjectionPromises.get(code);
-
                 const promise = (async () => {
                     const embeddedOperations = getEmbeddedOperationHistory(shipment);
                     let operations = embeddedOperations || [];
                     let operationsAvailable = Array.isArray(embeddedOperations);
                     let operationEndpointAvailable = false;
                     let operationEndpointUnavailable = false;
-
                     if (!operationsAvailable && typeof Api !== 'undefined' && Api.get) {
                         try {
                             const response = await Api.get(`/api/routing/shipments/${encodeURIComponent(code)}/operations`);
@@ -334,9 +289,7 @@
                             console.warn('[ShipperView] Không nạp được lịch sử routing:', error);
                         }
                     }
-
-                    // Tracking history là phương án tương thích khi routing-service cũ
-                    // chưa có operation-history endpoint; không coi nó là inventory thật.
+                    
                     let trackingHistoryAvailable = false;
                     if (!operationsAvailable) {
                         try {
@@ -346,10 +299,8 @@
                                 trackingHistoryAvailable = true;
                             }
                         } catch (error) {
-                            // Legacy tracking có thể không có lịch sử phụ trợ.
                         }
                     }
-
                     const latestOperation = getLatestOperation(operations);
                     const directLocation = getPhysicalLocationCode(shipment, {
                         operations: [],
@@ -362,7 +313,6 @@
                         getOperationLocation(latestOperation),
                         destination.code
                     ].filter(location => isPostOfficeLocation(location));
-
                     let inventory = getEmbeddedInventory(shipment);
                     let inventoryAvailable = Boolean(inventory);
                     let inventoryEndpointAvailable = false;
@@ -382,7 +332,6 @@
                             console.warn('[ShipperView] Không nạp được tồn kho routing:', error);
                         }
                     }
-
                     const projection = {
                         operations,
                         operationsAvailable,
@@ -399,7 +348,6 @@
                     routingProjections.value = { ...routingProjections.value, [code]: projection };
                     return projection;
                 })();
-
                 routingProjectionPromises.set(code, promise);
                 try {
                     return await promise;
@@ -407,26 +355,21 @@
                     routingProjectionPromises.delete(code);
                 }
             };
-
             const refreshRoutingProjections = async (shipments, force = false) => {
                 const candidates = (Array.isArray(shipments) ? shipments : []).filter(shipment =>
                     ['ARRIVED_DEST_HUB', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED'].includes(getShipmentStatus(shipment))
                 );
                 await Promise.all(candidates.map(shipment => loadRoutingProjection(shipment, force).catch(() => null)));
             };
-
             const refreshServerProjections = async (trackingCode) => {
                 await loadShipmentsData(true);
                 const current = shipmentsList.value.find(item => item.trackingCode === trackingCode);
                 if (current) await loadRoutingProjection(current, true).catch(() => null);
-                // Shipment projection is Kafka-backed; one delayed read keeps the UI
-                // aligned without removing the existing optimistic-response guard.
+                
                 setTimeout(() => {
                     loadShipmentsData(true).catch(() => null);
                 }, 600);
             };
-
-
             const loadShipmentsData = async (silent = false) => {
                 if (!silent) isLoading.value = true;
                 try {
@@ -448,7 +391,6 @@
                     }
                     const data = dataRes.value;
                     if (Array.isArray(data)) {
-                        // Bảo vệ trạng thái vừa cập nhật lạc quan trong vòng 4s phòng trường hợp Kafka consumer chưa commit kịp
                         shipmentsList.value = data.map(newItem => {
                             const existing = shipmentsList.value.find(s => s.trackingCode === newItem.trackingCode);
                             if (existing && existing._optimisticTimestamp && (Date.now() - existing._optimisticTimestamp < 4000)) {
@@ -478,7 +420,6 @@
                     if (!silent) isLoading.value = false;
                 }
             };
-
             const isAdmin = computed(() => {
                 try {
                     return typeof Auth !== 'undefined' && typeof Auth.hasRole === 'function'
@@ -487,7 +428,6 @@
                     return false;
                 }
             });
-
             const userStation = computed(() => {
                 try {
                     const user = typeof Auth !== 'undefined' && typeof Auth.getUser === 'function' ? Auth.getUser() : null;
@@ -498,7 +438,6 @@
                     return '';
                 }
             });
-
             const deliveryShipments = computed(() => {
                 const finalMileStatuses = new Set([
                     'ARRIVED_DEST_HUB', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED',
@@ -514,12 +453,9 @@
                 }
                 return items;
             });
-
-            // 3. Lọc theo trạng thái + tìm kiếm. "Chờ nhận đi phát" chỉ gồm kiện đã
-            // thực sự về bưu cục phát, khớp đúng KPI kpiAwaitingDispatch.
+            
             const filteredShipments = computed(() => {
                 let list = deliveryShipments.value;
-
                 const statusFilter = String(selectedStatusFilter.value || 'ALL').toUpperCase();
                 if (statusFilter !== 'ALL') {
                     if (statusFilter === 'ARRIVED_DEST_HUB') {
@@ -529,7 +465,6 @@
                         list = list.filter(s => getShipmentStatus(s) === statusFilter);
                     }
                 }
-
                 if (searchQuery.value.trim()) {
                     const q = searchQuery.value.trim().toLowerCase();
                     list = list.filter(s => 
@@ -539,53 +474,42 @@
                         (s.receiverAddress && s.receiverAddress.toLowerCase().includes(q))
                     );
                 }
-
                 return list;
             });
-
             const totalPages = computed(() => {
                 if (pageSize.value === -1) return 1;
                 return Math.ceil(filteredShipments.value.length / pageSize.value) || 1;
             });
-
             const paginatedShipments = computed(() => {
                 if (pageSize.value === -1) return filteredShipments.value;
                 const start = (currentPage.value - 1) * pageSize.value;
                 return filteredShipments.value.slice(start, start + pageSize.value);
             });
-
             watch([selectedStatusFilter, searchQuery, pageSize], () => {
                 currentPage.value = 1;
             });
-
             const kpiAwaitingDispatch = computed(() => {
                 return deliveryShipments.value.filter(s => getShipmentStatus(s) === 'ARRIVED_DEST_HUB' && isAtDestinationPostOffice(s)).length;
             });
-
             const kpiOutForDelivery = computed(() => {
                 return deliveryShipments.value.filter(s => getShipmentStatus(s) === 'OUT_FOR_DELIVERY').length;
             });
-
             const kpiDeliveredCount = computed(() => {
                 return deliveryShipments.value.filter(s => getShipmentStatus(s) === 'DELIVERED').length;
             });
-
             const kpiTotalDeliveredCod = computed(() => {
                 return deliveryShipments.value
                     .filter(s => getShipmentStatus(s) === 'DELIVERED')
                     .reduce((acc, cur) => acc + (cur.codAmount || 0), 0);
             });
-
             const kpiPendingCod = computed(() => {
                 return deliveryShipments.value
                     .filter(s => getShipmentStatus(s) === 'OUT_FOR_DELIVERY')
                     .reduce((acc, cur) => acc + (cur.codAmount || 0), 0);
             });
-
             const kpiReturningCount = computed(() => {
                 return deliveryShipments.value.filter(s => getShipmentStatus(s) === 'RETURNING' || getShipmentStatus(s) === 'OUT_FOR_RETURN').length;
             });
-
             const updateOptimisticShipment = (trackingCode, status, locationCode = null) => {
                 const target = shipmentsList.value.find(s => s.trackingCode === trackingCode);
                 if (!target) return;
@@ -594,7 +518,6 @@
                 if (locationCode) target.locationCode = locationCode;
                 target._optimisticTimestamp = Date.now();
             };
-
             const recordLocalOperation = (trackingCode, operationType, locationCode, note) => {
                 const current = routingProjections.value[trackingCode] || {};
                 const operations = Array.isArray(current.operations) ? current.operations : [];
@@ -614,11 +537,9 @@
                     }
                 };
             };
-
             const getActionStatus = (response, fallback) => String(
                 response?.status || response?.currentStatus || response?.newStatus || fallback
             ).trim().toUpperCase();
-
             const showDeliveryActionModal = ref(false);
             const deliveryTargetShipment = ref(null);
             const deliveryActiveTab = ref('SUCCESS');
@@ -626,7 +547,6 @@
             const deliverySuccessNote = ref('');
             const failedReason = ref('KHONG_NGHE_MAY');
             const failedNote = ref('');
-
             const qrTargetShipment = ref(null);
             const qrPaymentData = ref(null);
             const isQrLoading = ref(false);
@@ -635,7 +555,6 @@
             const isQrPaidSuccess = ref(false);
             let qrInterval = null;
             let qrPollInterval = null;
-
             const showReturnActionModal = ref(false);
             const returnTargetShipment = ref(null);
             const returnPaymentMethod = ref('CASH');
@@ -647,13 +566,11 @@
             const isReturnQrPaidSuccess = ref(false);
             let returnQrInterval = null;
             let returnQrPollInterval = null;
-
             const formatCountdown = (seconds) => {
                 const m = Math.floor(seconds / 60);
                 const s = seconds % 60;
                 return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
             };
-
             const closeDeliveryActionModal = () => {
                 if (qrInterval) clearInterval(qrInterval);
                 if (qrPollInterval) clearInterval(qrPollInterval);
@@ -665,7 +582,6 @@
                 isMockPaying.value = false;
                 isQrPaidSuccess.value = false;
             };
-
             const handlePaymentSuccessRealtime = async (payment) => {
                 if (qrInterval) clearInterval(qrInterval);
                 if (qrPollInterval) clearInterval(qrPollInterval);
@@ -689,7 +605,6 @@
                     closeDeliveryActionModal();
                 }, 1800);
             };
-
             const generateDeliveryQr = async (shipment) => {
                 if (!shipment) return;
                 if (getShipmentStatus(shipment) === 'CANCELLED') {
@@ -700,7 +615,6 @@
                 isQrLoading.value = true;
                 isQrPaidSuccess.value = false;
                 qrCountdown.value = 600;
-
                 try {
                     const custCode = shipment.customerCode || shipment.customerId ? String(shipment.customerCode || shipment.customerId) : null;
                     const res = await PaymentService.createQrPayment({
@@ -712,7 +626,6 @@
                     });
                     qrPaymentData.value = res;
                     isQrLoading.value = false;
-
                     if (qrInterval) clearInterval(qrInterval);
                     qrInterval = setInterval(() => {
                         if (qrCountdown.value > 0) {
@@ -721,7 +634,6 @@
                             clearInterval(qrInterval);
                         }
                     }, 1000);
-
                     if (qrPollInterval) clearInterval(qrPollInterval);
                     qrPollInterval = setInterval(async () => {
                         try {
@@ -741,14 +653,12 @@
                     Utils.showToast('Lỗi Tạo QR', err.message || 'Không thể tạo mã VietQR', 'error');
                 }
             };
-
             const switchDeliveryPaymentMethod = async (method) => {
                 deliveryPaymentMethod.value = method;
                 if (method === 'QR' && !qrPaymentData.value && deliveryTargetShipment.value) {
                     await generateDeliveryQr(deliveryTargetShipment.value);
                 }
             };
-
             const openDeliveryActionModal = async (shipment) => {
                 if (!canShowDeliveryActions(shipment)) {
                     Utils.showToast('Chưa Thể Phát', 'Bưu gửi chưa có xác nhận đang ở bưu cục phát hoặc trạng thái đã thay đổi. Vui lòng làm mới dữ liệu.', 'warning');
@@ -769,8 +679,7 @@
                 if (qrInterval) clearInterval(qrInterval);
                 if (qrPollInterval) clearInterval(qrPollInterval);
                 showDeliveryActionModal.value = true;
-
-                // Kiểm tra thời gian thực trạng thái thanh toán đơn từ PaymentService
+                
                 if (shipment?.trackingCode && typeof PaymentService !== 'undefined' && typeof PaymentService.getPaymentByTracking === 'function') {
                     try {
                         const tx = await PaymentService.getPaymentByTracking(shipment.trackingCode);
@@ -782,7 +691,6 @@
                     } catch (e) {}
                 }
             };
-
             const submitDeliverySuccess = async (isCash = true) => {
                 if (!deliveryTargetShipment.value) return;
                 const shipment = deliveryTargetShipment.value;
@@ -792,7 +700,6 @@
                     await loadRoutingProjection(shipment, true).catch(() => null);
                     return;
                 }
-
                 isActionRunning.value = true;
                 try {
                     const locationCode = getLastMileLocation(shipment) || 'DELIVERY_OFFICE';
@@ -805,7 +712,6 @@
                     const noteText = deliverySuccessNote.value && deliverySuccessNote.value.trim()
                         ? `${defaultNote} - Ghi chú: ${deliverySuccessNote.value.trim()}`
                         : defaultNote;
-
                     const result = await TrackingService.updateStatus(
                         shipment.trackingCode,
                         'DELIVERED',
@@ -820,7 +726,6 @@
                         locationCode,
                         noteText
                     );
-
                     Utils.showToast(
                         savedStatus === 'DELIVERED' ? 'Thành Công' : 'Đã Cập Nhật',
                         savedStatus === 'DELIVERED'
@@ -837,7 +742,6 @@
                     isActionRunning.value = false;
                 }
             };
-
             const handleMockQrPay = async () => {
                 if (!deliveryTargetShipment.value || isMockPaying.value) return;
                 if (getShipmentStatus(deliveryTargetShipment.value) === 'CANCELLED') {
@@ -855,10 +759,8 @@
                     isMockPaying.value = false;
                 }
             };
-
             const handleDeliverFailed = async () => {
                 if (!deliveryTargetShipment.value) return;
-
                 const shipment = shipmentsList.value.find(
                     item => item.trackingCode === deliveryTargetShipment.value.trackingCode
                 ) || deliveryTargetShipment.value;
@@ -868,7 +770,6 @@
                     await loadRoutingProjection(shipment, true).catch(() => null);
                     return;
                 }
-
                 const code = shipment.trackingCode;
                 const reasonLabels = {
                     'KHONG_NGHE_MAY': 'Khách không nghe máy / Thuê bao',
@@ -876,12 +777,10 @@
                     'HEN_LAI_NGAY': 'Người nhận hẹn giao lại vào ngày sau',
                     'TU_CHOI_NHAN': 'Người nhận từ chối nhận hàng'
                 };
-
                 const reasonText = reasonLabels[failedReason.value] || failedReason.value;
                 const note = failedNote.value.trim()
                     ? `Phát không thành công: ${reasonText} (${failedNote.value.trim()})`
                     : `Phát không thành công: ${reasonText}`;
-
                 isActionRunning.value = true;
                 try {
                     const locationCode = getLastMileLocation(shipment) || 'DELIVERY_OFFICE';
@@ -894,7 +793,6 @@
                     const savedStatus = getActionStatus(result, 'DELIVERY_FAILED');
                     updateOptimisticShipment(code, savedStatus, locationCode);
                     recordLocalOperation(code, savedStatus, locationCode, note);
-
                     Utils.showToast(
                         savedStatus === 'RETURNING' ? 'Đã Chuyển Hoàn' : 'Đã Ghi Nhận',
                         savedStatus === 'RETURNING'
@@ -911,7 +809,6 @@
                     isActionRunning.value = false;
                 }
             };
-
             const returnRequestCache = new Map();
             const getReturnRequestInfo = async (trackingCode) => {
                 if (!trackingCode) return null;
@@ -927,7 +824,6 @@
                 } catch (e) {}
                 return null;
             };
-
             const getReturnFee = (shipment) => {
                 if (!shipment) return 17500;
                 const cachedReq = returnRequestCache.get(shipment.trackingCode);
@@ -942,7 +838,6 @@
                 const baseFee = Number(shipment.shippingFee || shipment.totalFee || 35000);
                 return Math.round(baseFee * 0.5);
             };
-
             const closeReturnActionModal = () => {
                 if (returnQrInterval) clearInterval(returnQrInterval);
                 if (returnQrPollInterval) clearInterval(returnQrPollInterval);
@@ -953,7 +848,6 @@
                 isReturnMockPaying.value = false;
                 isReturnQrPaidSuccess.value = false;
             };
-
             const openReturnActionModal = async (shipment) => {
                 returnTargetShipment.value = shipment;
                 returnPaymentMethod.value = 'CASH';
@@ -967,7 +861,6 @@
                 await getReturnRequestInfo(shipment.trackingCode);
                 showReturnActionModal.value = true;
             };
-
             const handleAcceptReturnDelivery = async (shipment) => {
                 if (!shipment) return;
                 const req = await getReturnRequestInfo(shipment.trackingCode);
@@ -1002,7 +895,6 @@
                     isActionRunning.value = false;
                 }
             };
-
             const handleReturnPaymentSuccessRealtime = async (payment) => {
                 if (returnQrInterval) clearInterval(returnQrInterval);
                 if (returnQrPollInterval) clearInterval(returnQrPollInterval);
@@ -1020,7 +912,6 @@
                 Utils.showToast('Thanh Toán Thành Công', `Đã nhận cước hoàn ${Utils.formatCurrency(payment.amount)} qua VietQR!`, 'success');
                 await submitReturnSuccess(false);
             };
-
             const generateReturnQr = async (shipment) => {
                 if (!shipment) return;
                 if (getShipmentStatus(shipment) === 'CANCELLED') {
@@ -1032,7 +923,6 @@
                 isReturnQrPaidSuccess.value = false;
                 returnQrCountdown.value = 600;
                 const returnFee = getReturnFee(shipment);
-
                 try {
                     const custCode = shipment.customerCode || shipment.customerId ? String(shipment.customerCode || shipment.customerId) : null;
                     const res = await PaymentService.createQrPayment({
@@ -1044,7 +934,6 @@
                     });
                     returnQrPaymentData.value = res;
                     isReturnQrLoading.value = false;
-
                     if (returnQrInterval) clearInterval(returnQrInterval);
                     returnQrInterval = setInterval(() => {
                         if (returnQrCountdown.value > 0) {
@@ -1053,7 +942,6 @@
                             clearInterval(returnQrInterval);
                         }
                     }, 1000);
-
                     if (returnQrPollInterval) clearInterval(returnQrPollInterval);
                     returnQrPollInterval = setInterval(async () => {
                         try {
@@ -1073,14 +961,12 @@
                     Utils.showToast('Lỗi Tạo QR', err.message || 'Không thể tạo mã VietQR thu cước hoàn', 'error');
                 }
             };
-
             const switchReturnPaymentMethod = async (method) => {
                 returnPaymentMethod.value = method;
                 if (method === 'QR' && !returnQrPaymentData.value && returnTargetShipment.value) {
                     await generateReturnQr(returnTargetShipment.value);
                 }
             };
-
             const handleMockReturnQrPay = async () => {
                 if (!returnTargetShipment.value || isReturnMockPaying.value) return;
                 if (getShipmentStatus(returnTargetShipment.value) === 'CANCELLED') {
@@ -1098,7 +984,6 @@
                     isReturnMockPaying.value = false;
                 }
             };
-
             const submitReturnSuccess = async (isCash = true) => {
                 if (!returnTargetShipment.value) return;
                 const shipment = returnTargetShipment.value;
@@ -1113,7 +998,6 @@
                     const noteText = returnSuccessNote.value && returnSuccessNote.value.trim()
                         ? `${defaultNote} - Ghi chú: ${returnSuccessNote.value.trim()}`
                         : defaultNote;
-
                     const result = await TrackingService.updateStatus(
                         shipment.trackingCode,
                         'RETURNED',
@@ -1123,7 +1007,6 @@
                     const savedStatus = getActionStatus(result, 'RETURNED');
                     updateOptimisticShipment(shipment.trackingCode, savedStatus, locationCode);
                     recordLocalOperation(shipment.trackingCode, savedStatus, locationCode, noteText);
-
                     Utils.showToast('Hoàn Thành Phát Hoàn', `Đã hoàn trả bưu gửi ${shipment.trackingCode} về cho người gửi.`);
                     closeReturnActionModal();
                     await refreshServerProjections(shipment.trackingCode);
@@ -1135,26 +1018,21 @@
                     isActionRunning.value = false;
                 }
             };
-
-            // Bàn giao mới phải đi qua routing inventory. Chỉ retry legacy mới dùng
-            // TrackingService.updateStatus để giữ tương thích state machine cũ.
+            
             const handleReDispatch = async (shipment) => {
                 const status = getShipmentStatus(shipment);
                 if (status !== 'ARRIVED_DEST_HUB' && status !== 'DELIVERY_FAILED') return;
-
                 if (status === 'ARRIVED_DEST_HUB') {
                     if (!isReadyForCourierHandoff(shipment)) {
                         Utils.showToast('Chưa Thể Nhận Đi Phát', 'Bưu gửi chưa được xác nhận nằm tại đúng bưu cục phát hoặc tồn kho chưa sẵn sàng.', 'warning');
                         await loadRoutingProjection(shipment, true).catch(() => null);
                         return;
                     }
-
                     const locationCode = getPhysicalLocationCode(shipment);
                     if (!isPostOfficeLocation(locationCode)) {
                         Utils.showToast('Thiếu Dữ Liệu Bàn Giao', 'Không xác định được bưu cục phát hoặc dịch vụ tồn kho chưa sẵn sàng. Không thể tự ý bàn giao.', 'error');
                         return;
                     }
-
                     const destination = getDestinationPostOfficeInfo(
                         shipment,
                         getProjection(shipment)?.operations,
@@ -1207,14 +1085,12 @@
                     }
                     return;
                 }
-
-                // DELIVERY_FAILED -> OUT_FOR_DELIVERY là chuyển retry legacy hợp lệ.
+                
                 if (!canRetryDelivery(shipment)) {
                     Utils.showToast('Chưa Thể Phát Lại', 'Bưu gửi chưa có xác nhận đang ở bưu cục phát hoặc trạng thái đã thay đổi.', 'warning');
                     await loadRoutingProjection(shipment, true).catch(() => null);
                     return;
                 }
-
                 isActionRunning.value = true;
                 try {
                     const locationCode = getLastMileLocation(shipment) || 'DELIVERY_OFFICE';
@@ -1241,17 +1117,14 @@
                     isActionRunning.value = false;
                 }
             };
-
             const viewTrackingDetail = (code) => {
                 if (code && code.trim()) {
                     emit('view-tracking', code.trim(), 'shipper');
                 }
             };
-
             const selectedCodCodes = ref([]);
             const isSubmittingSettlement = ref(false);
             const showSettlementModal = ref(false);
-
             const deliveredCodShipments = computed(() => {
                 return deliveryShipments.value.filter(s => {
                     const status = getShipmentStatus(s);
@@ -1259,7 +1132,6 @@
                     return status === 'DELIVERED' && cod > 0;
                 });
             });
-
             const unsettledCodShipments = computed(() => {
                 return deliveredCodShipments.value.filter(s => {
                     if (isShipmentPaidOnline(s)) return false;
@@ -1267,33 +1139,26 @@
                     return st === 'UNSETTLED';
                 });
             });
-
             const pendingCodShipments = computed(() => {
                 return deliveredCodShipments.value.filter(s => !isShipmentPaidOnline(s) && s.codSettlementStatus === 'PENDING_SETTLEMENT');
             });
-
             const settledCodShipments = computed(() => {
                 return deliveredCodShipments.value.filter(s => s.codSettlementStatus === 'SETTLED' || isShipmentPaidOnline(s));
             });
-
             const kpiSettledCodAmount = computed(() => {
                 return settledCodShipments.value.reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0);
             });
-
             const kpiPendingSettlementCodAmount = computed(() => {
                 return pendingCodShipments.value.reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0);
             });
-
             const kpiUnsettledCodAmount = computed(() => {
                 return unsettledCodShipments.value.reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0);
             });
-
             const isAllCodSelected = computed(() => {
                 const available = unsettledCodShipments.value;
                 if (available.length === 0) return false;
                 return available.every(s => selectedCodCodes.value.includes(s.trackingCode));
             });
-
             const toggleSelectAllCod = () => {
                 if (isAllCodSelected.value) {
                     selectedCodCodes.value = [];
@@ -1301,7 +1166,6 @@
                     selectedCodCodes.value = unsettledCodShipments.value.map(s => s.trackingCode);
                 }
             };
-
             const toggleSelectCod = (code) => {
                 const idx = selectedCodCodes.value.indexOf(code);
                 if (idx > -1) {
@@ -1310,13 +1174,11 @@
                     selectedCodCodes.value.push(code);
                 }
             };
-
             const selectedCodTotalAmount = computed(() => {
                 return deliveryShipments.value
                     .filter(s => selectedCodCodes.value.includes(s.trackingCode))
                     .reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0);
             });
-
             const openSettlementConfirmModal = () => {
                 if (selectedCodCodes.value.length === 0) {
                     Utils.showToast('Chưa Chọn Đơn', 'Vui lòng tích chọn ít nhất 1 vận đơn để nộp quỹ', 'warning');
@@ -1324,7 +1186,6 @@
                 }
                 showSettlementModal.value = true;
             };
-
             const handleSelectAllAndOpenModal = () => {
                 const available = unsettledCodShipments.value;
                 if (available.length === 0) {
@@ -1334,7 +1195,6 @@
                 selectedCodCodes.value = available.map(s => s.trackingCode);
                 showSettlementModal.value = true;
             };
-
             const executeCodSettlement = async () => {
                 if (selectedCodCodes.value.length === 0) return;
                 isSubmittingSettlement.value = true;
@@ -1342,27 +1202,23 @@
                     const user = typeof Auth !== 'undefined' && Auth.getUser ? Auth.getUser() : null;
                     const courierId = user ? (user.email || user.fullName || String(user.userId || '')) : 'Bưu tá';
                     await ShipmentService.submitCodSettlement(selectedCodCodes.value, courierId);
-
                     selectedCodCodes.value.forEach(code => {
                         const target = shipmentsList.value.find(s => s.trackingCode === code);
                         if (target) {
                             target.codSettlementStatus = 'PENDING_SETTLEMENT';
                         }
                     });
-
                     Utils.showToast(
                         'Nộp Quỹ Thành Công',
                         `Đã gửi yêu cầu nộp quỹ cho ${selectedCodCodes.value.length} đơn (${Utils.formatCurrency(selectedCodTotalAmount.value)}). Vui lòng bàn giao tiền mặt cho thủ quỹ!`,
                         'success'
                     );
-
                     window.dispatchEvent(new CustomEvent('system-notification-created', {
                         detail: {
                             title: 'Bàn giao nộp quỹ COD',
                             message: `Bưu tá đã gửi yêu cầu nộp ${selectedCodCodes.value.length} đơn COD (${Utils.formatCurrency(selectedCodTotalAmount.value)}) vào quỹ bưu cục.`
                         }
                     }));
-
                     selectedCodCodes.value = [];
                     showSettlementModal.value = false;
                     await loadShipmentsData(true);
@@ -1373,7 +1229,6 @@
                     isSubmittingSettlement.value = false;
                 }
             };
-
             const getCodSettlementVisuals = (status, item = null) => {
                 if (item && isShipmentPaidOnline(item)) {
                     return {
@@ -1403,10 +1258,8 @@
                     isPulse: false
                 };
             };
-
             const shipperForecast = ref(null);
             const isForecastLoading = ref(false);
-
             const loadShipperForecast = async () => {
                 const user = typeof Auth !== 'undefined' && typeof Auth.getUser === 'function' ? Auth.getUser() : null;
                 const courierCode = firstNonBlank(
@@ -1426,12 +1279,10 @@
                     isForecastLoading.value = false;
                 }
             };
-
             onMounted(() => {
                 loadShipmentsData();
                 loadShipperForecast();
             });
-
             return {
                 isAdmin,
                 userStation,
@@ -1532,7 +1383,6 @@
         <div class="space-y-3.5 pb-8 text-slate-800 relative">
             <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                 <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
-
                 <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                         <div class="flex items-center space-x-2">
@@ -1548,7 +1398,6 @@
                             Quản lý các bưu gửi chặng cuối, xác nhận phát tận tay người nhận, thu tiền hộ COD và quyết toán nộp quỹ bưu cục.
                         </p>
                     </div>
-
                     <div class="grid grid-cols-2 sm:flex sm:items-stretch gap-2 w-full sm:w-auto">
                         <div class="flex flex-col justify-center px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[88px]">
                             <div class="text-sm sm:text-base font-bold leading-tight text-amber-300">{{ kpiAwaitingDispatch }}</div>
@@ -1573,11 +1422,9 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Sub-Banner Action Bar: Compact Segmented Pill Bar -->
+            
             <div class="bg-white/95 backdrop-blur-md text-slate-700 rounded-2xl shadow-xs border border-slate-200/90 p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
                 <div class="bg-slate-100/90 p-1 rounded-xl border border-slate-200/70 inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full flex-1 sm:flex-none">
-                    <!-- Bưu Gửi Phát Tab Button -->
                     <button
                         type="button"
                         @click="currentSubtab = 'active'"
@@ -1596,8 +1443,7 @@
                             {{ (kpiOutForDelivery + kpiAwaitingDispatch) }}
                         </span>
                     </button>
-
-                    <!-- Quyết Toán COD Tab Button -->
+                    
                     <button
                         type="button"
                         @click="currentSubtab = 'cod'"
@@ -1617,8 +1463,7 @@
                         </span>
                     </button>
                 </div>
-
-                <!-- Right Live Status & Mini Refresh Button -->
+                
                 <div class="flex items-center space-x-2 shrink-0 px-1 py-0.5">
                     <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/70">
                         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -1637,7 +1482,6 @@
                     </button>
                 </div>
             </div>
-
             <transition name="subtab" mode="out-in">
                 <div v-if="currentSubtab === 'active'" key="active" class="space-y-3">
                     <div v-if="shipperForecast" class="bg-gradient-to-r from-blue-50/90 via-sky-50/50 to-indigo-50/70 border border-blue-200/90 rounded-xl p-3.5 shadow-xs">
@@ -1661,7 +1505,6 @@
                                     </p>
                                 </div>
                             </div>
-
                             <div class="flex items-center space-x-2 self-end sm:self-auto text-xs">
                                 <span v-if="shipperForecast.hasLinkedTelegram" class="inline-flex items-center px-2 py-0.5 rounded text-[10.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                     <svg class="w-3 h-3 mr-1 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
@@ -1682,7 +1525,6 @@
                                 </button>
                             </div>
                         </div>
-
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-2.5 text-xs">
                             <div class="bg-white/90 rounded-lg p-2.5 border border-blue-100">
                                 <div class="text-[11px] text-slate-500 font-medium">Số đơn dự kiến phát</div>
@@ -1694,7 +1536,6 @@
                                     <div :style="{ width: Math.min(100, shipperForecast.utilizationRate || 0) + '%' }" class="h-full bg-blue-600 rounded-full"></div>
                                 </div>
                             </div>
-
                             <div class="bg-white/90 rounded-lg p-2.5 border border-blue-100">
                                 <div class="text-[11px] text-slate-500 font-medium">Ước tính tiền thu hộ (COD)</div>
                                 <div class="font-mono text-base font-bold text-emerald-700 mt-0.5">
@@ -1702,7 +1543,6 @@
                                 </div>
                                 <div class="text-[10px] text-slate-400 mt-1">Chuẩn bị tiền lẻ trả khách &amp; ví quỹ</div>
                             </div>
-
                             <div class="bg-white/90 rounded-lg p-2.5 border border-blue-100">
                                 <div class="text-[11px] text-slate-500 font-medium">Thời gian xuất ca khuyến nghị</div>
                                 <div class="font-mono text-base font-bold text-blue-700 mt-0.5">
@@ -1712,7 +1552,6 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="b2b-card bg-white border border-slate-200 rounded-xl p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm text-xs">
                     <div class="flex flex-wrap items-center gap-2 flex-1 w-full">
                         <div class="relative w-full sm:w-64">
@@ -1724,7 +1563,6 @@
                                 class="w-full pl-3 pr-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                             />
                         </div>
-
                         <select 
                             v-model="selectedStatusFilter"
                             class="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white focus:border-blue-600 outline-none transition"
@@ -1738,7 +1576,6 @@
                             <option value="OUT_FOR_RETURN">Đang Đi Phát Hoàn</option>
                             <option value="RETURNED">Đã Hoàn Về Người Gửi</option>
                         </select>
-
                         <select 
                             v-model.number="pageSize"
                             class="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-medium focus:bg-white outline-none"
@@ -1748,24 +1585,19 @@
                             <option :value="-1">Tất cả bản ghi</option>
                         </select>
                     </div>
-
                     <div class="text-[11px] text-slate-500 font-medium self-end sm:self-auto">
                         Tổng số: <strong class="text-slate-800">{{ filteredShipments.length }}</strong> bưu gửi
                     </div>
                 </div>
-
                 <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden text-xs">
                     <div v-if="isLoading" class="p-8 text-center text-slate-400">
                         <div class="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
                         <span>Đang nạp danh sách bưu gửi phát...</span>
                     </div>
-
                     <div v-else-if="paginatedShipments.length === 0" class="p-8 text-center text-slate-400">
                         <span>Không tìm thấy bưu gửi nào cần xử lý.</span>
                     </div>
-
                     <template v-else>
-                        <!-- Mobile Card List (< 768px) -->
                         <div class="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
                             <div v-for="item in paginatedShipments" :key="'mob-' + item.id" class="p-3.5 space-y-2.5">
                                 <div class="flex items-start justify-between gap-2">
@@ -1781,7 +1613,6 @@
                                         <span>{{ formatShipmentStatus(getShipmentStatus(item)) }}</span>
                                     </span>
                                 </div>
-
                                 <div class="bg-slate-50 dark:bg-slate-900/60 rounded-lg p-2.5 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
                                     <div class="flex items-center justify-between gap-2">
                                         <div class="font-bold text-slate-800 dark:text-slate-100 text-xs truncate">
@@ -1801,7 +1632,6 @@
                                         {{ (['RETURNING', 'OUT_FOR_RETURN', 'RETURNED'].includes(getShipmentStatus(item)) ? item.senderAddress : item.receiverAddress) || 'Chưa có địa chỉ' }}
                                     </div>
                                 </div>
-
                                 <div class="flex items-center justify-between pt-0.5">
                                     <div>
                                         <span class="text-[10px] text-slate-400 uppercase font-semibold block">
@@ -1816,7 +1646,6 @@
                                             </span>
                                         </div>
                                     </div>
-
                                     <div>
                                         <template v-if="getShipmentStatus(item) === 'OUT_FOR_DELIVERY' && canShowDeliveryActions(item)">
                                             <button
@@ -1871,8 +1700,7 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Desktop Table (>= 768px) -->
+                        
                         <div class="hidden md:block overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
@@ -1954,7 +1782,6 @@
                                                 Chưa Xác Nhận Ở Bưu Cục Phát
                                             </span>
                                         </template>
-
                                         <template v-else-if="getShipmentStatus(item) === 'ARRIVED_DEST_HUB' && isReadyForCourierHandoff(item)">
                                             <button
                                                 @click="handleReDispatch(item)"
@@ -1974,7 +1801,6 @@
                                                 Chờ Về Bưu Cục Phát
                                             </span>
                                         </template>
-
                                         <template v-else-if="getShipmentStatus(item) === 'DELIVERY_FAILED' && canRetryDelivery(item)">
                                             <button
                                                 @click="handleReDispatch(item)"
@@ -2018,7 +1844,6 @@
                                                 Đã Hoàn Về Người Gửi
                                             </span>
                                         </template>
-
                                         <template v-else-if="getShipmentStatus(item) === 'IN_TRANSIT'">
                                             <span
                                                 class="inline-flex items-center gap-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-1 rounded-md"
@@ -2028,7 +1853,6 @@
                                                 Xe Luân Chuyển Đang Tới
                                             </span>
                                         </template>
-
                                         <span v-else class="text-slate-400 text-xs italic">
                                             Đã hoàn tất
                                         </span>
@@ -2038,7 +1862,6 @@
                         </table>
                         </div>
                     </template>
-
                     <div class="px-4 py-2.5 bg-slate-50/50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                         <div class="text-slate-500">
                             Hiển thị trang {{ currentPage }} / {{ totalPages }} (Tổng số {{ filteredShipments.length }} kết quả)
@@ -2075,20 +1898,17 @@
                     </div>
                 </div>
             </div>
-
             <div v-else-if="currentSubtab === 'cod'" key="cod" class="space-y-3.5">
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
                     <div>
                         <h2 class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Quyết Toán Tiền Mặt Thu Hộ (COD)</h2>
                         <p class="text-slate-500 text-[11px] mt-0.5">Bảng kê chi tiết các khoản tiền mặt đã thu từ người nhận cần nộp lại quỹ bưu cục</p>
                     </div>
-
                     <div class="flex items-center space-x-3 bg-blue-50 p-2.5 rounded-lg border border-blue-200">
                         <span class="text-blue-900 font-bold">Tổng COD đã thu trong ca:</span>
                         <span class="font-mono text-base font-extrabold text-blue-700">{{ Utils.formatCurrency(kpiTotalDeliveredCod) }}</span>
                     </div>
                 </div>
-
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                     <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
                         <div class="flex items-center justify-between">
@@ -2101,7 +1921,6 @@
                             {{ Utils.formatCurrency(kpiUnsettledCodAmount) }}
                         </div>
                     </div>
-
                     <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
                         <div class="flex items-center justify-between">
                             <span class="text-slate-500 font-medium">Chờ Bưu Cục Xác Nhận</span>
@@ -2114,7 +1933,6 @@
                             {{ Utils.formatCurrency(kpiPendingSettlementCodAmount) }}
                         </div>
                     </div>
-
                     <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
                         <div class="flex items-center justify-between">
                             <span class="text-slate-500 font-medium">Đã Thu Quỹ Bưu Cục</span>
@@ -2127,7 +1945,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="operation-action-bar p-3 sm:p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
                     <div class="flex items-center space-x-2 text-xs">
                         <input 
@@ -2145,7 +1962,6 @@
                             Đã chọn: <strong class="font-mono font-bold">{{ selectedCodCodes.length }}</strong> đơn — <strong class="font-mono font-bold text-emerald-700 dark:text-emerald-400">{{ Utils.formatCurrency(selectedCodTotalAmount) }}</strong>
                         </span>
                     </div>
-
                     <div class="flex items-center space-x-2 w-full sm:w-auto">
                         <button 
                             @click="openSettlementConfirmModal" 
@@ -2165,9 +1981,7 @@
                         </button>
                     </div>
                 </div>
-
                 <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden text-xs">
-                    <!-- Mobile Card List (< 768px) -->
                     <div class="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
                         <div v-if="deliveredCodShipments.length === 0" class="py-10 px-4 text-center text-slate-400">
                             Chưa có đơn hàng nào phát thành công có tiền COD trong ca để quyết toán.
@@ -2195,12 +2009,10 @@
                                     {{ getCodSettlementVisuals(item.codSettlementStatus, item).label }}
                                 </span>
                             </div>
-
                             <div class="text-xs text-slate-700 dark:text-slate-300">
                                 <div class="font-bold text-slate-800 dark:text-slate-100">{{ item.receiverName }}</div>
                                 <div class="text-[11px] text-slate-500 truncate mt-0.5">{{ item.receiverAddress }}</div>
                             </div>
-
                             <div class="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800">
                                 <div class="font-mono font-extrabold text-emerald-700 text-sm">
                                     {{ Utils.formatCurrency(item.codAmount) }}
@@ -2224,8 +2036,7 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Desktop Table (>= 768px) -->
+                    
                     <div class="hidden md:block overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
@@ -2308,9 +2119,6 @@
                 </div>
             </div>
             </transition>
-
-
-
             <teleport to="body">
             <Transition name="modal">
             <div v-if="showSettlementModal" class="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -2329,7 +2137,6 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
                     </div>
-
                     <div class="space-y-3 bg-slate-50 p-3.5 rounded-lg border border-slate-100">
                         <div class="flex justify-between items-center">
                             <span class="text-slate-600">Số lượng vận đơn nộp quỹ:</span>
@@ -2343,7 +2150,6 @@
                             ⚠️ <strong>Lưu ý:</strong> Sau khi gửi yêu cầu, trạng thái các đơn sẽ chuyển thành <span class="text-blue-700 font-bold">"Chờ Bưu Cục Xác Nhận"</span>. Vui lòng bàn giao tiền mặt thực tế cho Thủ quỹ / Giao dịch viên bưu cục để được xác nhận vào quỹ.
                         </div>
                     </div>
-
                     <div class="border-t border-slate-100 pt-3 flex justify-end space-x-2">
                         <button @click="showSettlementModal = false" :disabled="isSubmittingSettlement" class="px-3.5 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold transition">
                             Hủy Bỏ
@@ -2356,7 +2162,6 @@
             </div>
             </Transition>
             </teleport>
-
             <teleport to="body">
             <Transition name="modal">
             <div v-if="showDeliveryActionModal" class="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -2379,7 +2184,6 @@
                             </svg>
                         </button>
                     </div>
-
                     <div class="p-5 space-y-4">
                         <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-xs space-y-1">
                             <div class="flex items-center justify-between">
@@ -2395,7 +2199,6 @@
                                 <span class="text-slate-700 text-right">{{ deliveryTargetShipment?.receiverAddress || 'Chưa có địa chỉ' }}</span>
                             </div>
                         </div>
-
                         <div class="grid grid-cols-2 p-1 bg-slate-100 rounded-xl text-xs font-bold">
                             <button
                                 type="button"
@@ -2418,7 +2221,6 @@
                                 <span>Báo Thất Bại</span>
                             </button>
                         </div>
-
                         <div v-if="deliveryActiveTab === 'SUCCESS'" class="space-y-3.5">
                             <template v-if="isShipmentPaidOnline(deliveryTargetShipment)">
                                 <div class="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-3.5 space-y-2">
@@ -2453,7 +2255,6 @@
                                     <span>Xác Nhận Giao Hàng Thành Công</span>
                                 </button>
                             </template>
-
                             <template v-else-if="deliveryTargetShipment?.codAmount && deliveryTargetShipment.codAmount > 0">
                                 <div class="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between">
                                     <div>
@@ -2464,7 +2265,6 @@
                                         {{ Utils.formatCurrency(deliveryTargetShipment.codAmount) }}
                                     </div>
                                 </div>
-
                                 <div>
                                     <label class="block text-xs font-bold text-slate-700 mb-2">Chọn phương thức thu tiền:</label>
                                     <div class="grid grid-cols-2 gap-2">
@@ -2483,7 +2283,6 @@
                                                 <div class="text-[10px] text-slate-500 font-normal">Cầm tiền mặt</div>
                                             </div>
                                         </button>
-
                                         <button
                                             type="button"
                                             @click="switchDeliveryPaymentMethod('QR')"
@@ -2501,7 +2300,6 @@
                                         </button>
                                     </div>
                                 </div>
-
                                 <div v-if="deliveryPaymentMethod === 'CASH'" class="space-y-3 pt-1">
                                     <div class="p-2.5 bg-amber-50/70 border border-amber-200 rounded-xl text-[11px] text-amber-800 flex items-start gap-2">
                                         <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2525,7 +2323,6 @@
                                         <span>Xác Nhận Đã Thu Tiền & Giao Hàng</span>
                                     </button>
                                 </div>
-
                                 <div v-else-if="deliveryPaymentMethod === 'QR'" class="space-y-3 pt-1">
                                     <div v-if="isQrPaidSuccess" class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-center space-y-1">
                                         <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
@@ -2534,7 +2331,6 @@
                                         <h4 class="font-extrabold text-emerald-900 text-xs">Thanh Toán VietQR Thành Công!</h4>
                                         <p class="text-[11px] text-emerald-700">Đã tự động quyết toán COD và hoàn tất phát hàng.</p>
                                     </div>
-
                                     <div v-else class="flex flex-col items-center p-3 bg-slate-50 border border-slate-200 rounded-xl relative">
                                         <div class="absolute top-2 right-2 flex items-center gap-1 text-[10px] font-mono text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                                             <span>{{ formatCountdown(qrCountdown) }}</span>
@@ -2558,7 +2354,6 @@
                                             <span>Đang chờ khách quét mã thanh toán...</span>
                                         </div>
                                     </div>
-
                                     <div v-if="!isQrPaidSuccess" class="pt-1">
                                         <button
                                             type="button"
@@ -2572,7 +2367,6 @@
                                     </div>
                                 </div>
                             </template>
-
                             <template v-else>
                                 <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 flex items-start gap-2">
                                     <svg class="w-4 h-4 text-blue-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2597,7 +2391,6 @@
                                 </button>
                             </template>
                         </div>
-
                         <div v-else-if="deliveryActiveTab === 'FAILED'" class="space-y-3 pt-1">
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 mb-1">Lý do phát không thành công:</label>
@@ -2632,7 +2425,6 @@
             </div>
             </Transition>
             </teleport>
-
             <teleport to="body">
             <Transition name="modal">
             <div v-if="showReturnActionModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -2655,7 +2447,6 @@
                             </svg>
                         </button>
                     </div>
-
                     <div class="p-5 space-y-4">
                         <div class="bg-amber-50/60 border border-amber-200 rounded-xl p-3 text-xs space-y-1">
                             <div class="flex items-center justify-between">
@@ -2671,7 +2462,6 @@
                                 <span class="text-slate-700 text-right">{{ returnTargetShipment?.senderAddress || 'Chưa có địa chỉ' }}</span>
                             </div>
                         </div>
-
                         <div class="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-xl p-3 flex items-center justify-between">
                             <div>
                                 <span class="text-[11px] font-bold uppercase tracking-wider text-orange-900">Cước hoàn trả (50%):</span>
@@ -2681,7 +2471,6 @@
                                 {{ Utils.formatCurrency(getReturnFee(returnTargetShipment)) }}
                             </div>
                         </div>
-
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-2">Phương thức thu cước hoàn:</label>
                             <div class="grid grid-cols-2 gap-2">
@@ -2700,7 +2489,6 @@
                                         <div class="text-[10px] text-slate-500 font-normal">Thu trực tiếp</div>
                                     </div>
                                 </button>
-
                                 <button
                                     type="button"
                                     @click="switchReturnPaymentMethod('QR')"
@@ -2718,7 +2506,6 @@
                                 </button>
                             </div>
                         </div>
-
                         <div v-if="returnPaymentMethod === 'CASH'" class="space-y-3 pt-1">
                             <div class="p-2.5 bg-orange-50/70 border border-orange-200 rounded-xl text-[11px] text-orange-800 flex items-start gap-2">
                                 <svg class="w-4 h-4 text-orange-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2742,7 +2529,6 @@
                                 <span>Xác Nhận Đã Thu Cước & Hoàn Hàng Cho Người Gửi</span>
                             </button>
                         </div>
-
                         <div v-else-if="returnPaymentMethod === 'QR'" class="space-y-3 pt-1">
                             <div v-if="isReturnQrPaidSuccess" class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-center space-y-1">
                                 <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
@@ -2751,7 +2537,6 @@
                                 <h4 class="font-extrabold text-emerald-900 text-xs">Thanh Toán Cước Hoàn Thành Công!</h4>
                                 <p class="text-[11px] text-emerald-700">Đã ghi nhận thanh toán cước hoàn qua VietQR.</p>
                             </div>
-
                             <div v-else class="flex flex-col items-center p-3 bg-slate-50 border border-slate-200 rounded-xl relative">
                                 <div class="absolute top-2 right-2 flex items-center gap-1 text-[10px] font-mono text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                                     <span>{{ formatCountdown(returnQrCountdown) }}</span>
@@ -2775,7 +2560,6 @@
                                     <span>Đang chờ người gửi quét mã thanh toán cước hoàn...</span>
                                 </div>
                             </div>
-
                             <div v-if="!isReturnQrPaidSuccess" class="pt-1">
                                 <button
                                     type="button"
@@ -2796,6 +2580,5 @@
         </div>
         `
     };
-
     window.ShipperView = ShipperView;
 })();

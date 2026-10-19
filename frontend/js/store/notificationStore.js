@@ -1,12 +1,10 @@
 import { reactive } from 'vue';
-
 const state = reactive({
     notifications: [],
     showDropdown: false,
     showDetailModal: false,
     activeDetail: null
 });
-
 const formatTime = (sentAt) => {
     if (!sentAt) return 'Vừa xong';
     try {
@@ -21,7 +19,6 @@ const formatTime = (sentAt) => {
         return 'Vừa xong';
     }
 };
-
 const getVisuals = (title = '', message = '') => {
     const text = (title + ' ' + message).toUpperCase();
     if (text.includes('THANH TOÁN') || text.includes('VIETQR') || text.includes('CƯỚC') || text.includes('COD') || text.includes('TIỀN')) {
@@ -53,24 +50,19 @@ const getVisuals = (title = '', message = '') => {
         iconBg: 'bg-blue-600'
     };
 };
-
 export const notificationStore = {
     state,
-
     get notifications() { return state.notifications; },
     get unreadCount() { return state.notifications.filter(n => !n.isRead).length; },
     get showDropdown() { return state.showDropdown; },
     get showDetailModal() { return state.showDetailModal; },
     get activeDetail() { return state.activeDetail; },
-
     toggleDropdown() {
         state.showDropdown = !state.showDropdown;
     },
-
     closeDropdown() {
         state.showDropdown = false;
     },
-
     async fetchNotifications() {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         if (!token) {
@@ -99,7 +91,6 @@ export const notificationStore = {
             console.warn('[notificationStore] Lỗi tải thông báo:', err);
         }
     },
-
     async markAllAsRead() {
         try {
             if (window.NotificationService && window.NotificationService.markAllAsRead) {
@@ -110,7 +101,6 @@ export const notificationStore = {
             console.warn('[notificationStore] Lỗi đánh dấu đã đọc:', err);
         }
     },
-
     openDetail(item, entityCode = null, type = 'GENERAL') {
         state.activeDetail = {
             ...item,
@@ -120,7 +110,6 @@ export const notificationStore = {
         state.showDetailModal = true;
         this.closeDropdown();
     },
-
     closeDetail() {
         state.showDetailModal = false;
         state.activeDetail = null;

@@ -12,7 +12,6 @@
         }
         return msg || defaultMsg;
     }
-
     const ShipperDirectoryService = {
         async list(params = {}) {
             const query = new URLSearchParams();
@@ -26,7 +25,6 @@
             }
             return response.json();
         },
-
         async create(payload) {
             const response = await Api.post('/api/shippers', payload);
             if (!response.ok) {
@@ -35,7 +33,6 @@
             }
             return response.json();
         },
-
         async update(id, payload) {
             const response = await Api.put(`/api/shippers/${encodeURIComponent(id)}`, payload);
             if (!response.ok) {
@@ -44,7 +41,6 @@
             }
             return response.json();
         },
-
         async updateShiftStatus(id, shiftStatus) {
             const response = await Api.patch(`/api/shippers/${encodeURIComponent(id)}/shift-status?shiftStatus=${encodeURIComponent(shiftStatus)}`);
             if (!response.ok) {
@@ -53,7 +49,6 @@
             }
             return response.json();
         },
-
         async getStationCapacity(stationCode) {
             const response = await Api.get(`/api/shippers/stations/${encodeURIComponent(stationCode)}/capacity`);
             if (!response.ok) {
@@ -62,7 +57,6 @@
             }
             return response.json();
         },
-
         async deactivate(id) {
             const response = await Api.delete(`/api/shippers/${encodeURIComponent(id)}`);
             if (!response.ok) {
@@ -72,6 +66,5 @@
             return response.json();
         }
     };
-
     window.ShipperDirectoryService = ShipperDirectoryService;
 })();

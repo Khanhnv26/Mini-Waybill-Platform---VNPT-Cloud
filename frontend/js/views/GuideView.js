@@ -1,43 +1,35 @@
 (function () {
     const { ref, computed } = Vue;
-
     const GuideView = {
         name: 'GuideView',
         emits: ['back-home', 'switch-tab'],
         setup(props, { emit }) {
             const currentSubTab = ref('packaging');
-
             const calcLength = ref(30);
             const calcWidth = ref(20);
             const calcHeight = ref(15);
-
             const iataGram = computed(() => {
                 const l = Number(calcLength.value) || 0;
                 const w = Number(calcWidth.value) || 0;
                 const h = Number(calcHeight.value) || 0;
                 return Math.round(((l * w * h) / 5000) * 1000);
             });
-
             const iataKg = computed(() => {
                 return (iataGram.value / 1000).toFixed(2);
             });
-
             const goToCalculator = () => {
                 if (emit) {
                     emit('switch-tab', 'calculator');
                 }
             };
-
             const goToNetwork = () => {
                 if (emit) {
                     emit('switch-tab', 'network');
                 }
             };
-
             const goBack = () => {
                 emit('back-home');
             };
-
             return {
                 currentSubTab,
                 calcLength,
@@ -69,7 +61,6 @@
                             <p class="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl leading-relaxed">Hướng dẫn chi tiết quy cách đóng gói an toàn cho 4 nhóm hàng, danh mục hàng cấm gửi và chính sách bảo hiểm bưu gửi 100%.</p>
                         </div>
                     </div>
-
                     <div class="flex items-center space-x-3 self-start md:self-center flex-shrink-0">
                         <div class="px-4 py-2.5 rounded-2xl bg-white border border-indigo-200/80 shadow-xs text-center min-w-[110px] flex-shrink-0">
                             <span class="text-[10.5px] uppercase font-bold text-slate-400 block tracking-wider whitespace-nowrap">Tiêu Chuẩn</span>
@@ -81,7 +72,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="flex items-center space-x-2 border-b border-slate-200 pb-2 text-xs font-bold">
                     <button 
                         type="button"
@@ -132,7 +122,6 @@
                         Bảo Hiểm &amp; Bồi Thường
                     </button>
                 </div>
-
                 <transition name="subtab" mode="out-in">
                     <div v-if="currentSubTab === 'packaging'" key="packaging" class="space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -159,7 +148,6 @@
                                 </li>
                             </ul>
                         </div>
-
                         <div class="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-2.5 hover:border-blue-300 transition">
                             <div class="flex items-center justify-between">
                                 <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100">
@@ -183,7 +171,6 @@
                                 </li>
                             </ul>
                         </div>
-
                         <div class="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-2.5 hover:border-blue-300 transition">
                             <div class="flex items-center justify-between">
                                 <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
@@ -207,7 +194,6 @@
                                 </li>
                             </ul>
                         </div>
-
                         <div class="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-2.5 hover:border-blue-300 transition">
                             <div class="flex items-center justify-between">
                                 <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-100">
@@ -232,7 +218,6 @@
                             </ul>
                         </div>
                     </div>
-
                     <div class="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 space-y-1">
                         <span class="text-[11px] font-bold uppercase tracking-wider text-amber-800">Khuyến Cáo "3 Không" Khi Gửi Bưu Phẩm</span>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1 text-[11px] text-amber-800">
@@ -242,7 +227,6 @@
                         </div>
                     </div>
                 </div>
-
                     <div v-else-if="currentSubTab === 'prohibited'" key="prohibited" class="space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                         <div class="bg-white border border-rose-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-2.5">
@@ -274,7 +258,6 @@
                                 </div>
                             </div>
                         </div>
-
                         <div class="bg-white border border-amber-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-2.5">
                             <div class="flex items-center justify-between pb-1 border-b border-amber-100">
                                 <h3 class="font-bold text-amber-900 text-xs sm:text-sm">Hàng Gửi Có Điều Kiện</h3>
@@ -302,7 +285,6 @@
                         </div>
                     </div>
                 </div>
-
                     <div v-else-if="currentSubTab === 'iata'" key="iata" class="space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-3.5">
                         <div class="md:col-span-6 bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-2.5">
@@ -314,14 +296,12 @@
                                     <p class="text-[11px] text-slate-500">• Chiều dài tối đa 1 cạnh: <strong>1.5 mét</strong></p>
                                     <p class="text-[11px] text-slate-500">• Chu vi tổng: Dài + 2(Rộng + Cao) &le; <strong>3.0 mét</strong></p>
                                 </div>
-
                                 <div class="p-2.5 bg-blue-50/60 rounded-lg border border-blue-100 space-y-1">
                                     <div class="font-bold text-blue-800 text-xs">Hàng Hóa Cồng Kềnh Ngoại Cỡ:</div>
                                     <p class="text-[11px] text-slate-500">• Kiện hàng vượt quá kích thước chuẩn sẽ áp dụng bảng cước tải trọng riêng hoặc luân chuyển bằng xe tải nguyên chuyến.</p>
                                 </div>
                             </div>
                         </div>
-
                         <div class="md:col-span-6 bg-white border border-blue-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-2.5">
                             <div class="flex items-center justify-between">
                                 <h3 class="font-bold text-blue-900 text-xs sm:text-sm">Công Cụ Tính Nhanh Thể Tích IATA</h3>
@@ -360,7 +340,6 @@
                                     />
                                 </div>
                             </div>
-
                             <div class="p-2.5 bg-blue-50 rounded-lg border border-blue-200 flex items-center justify-between text-xs">
                                 <div>
                                     <span class="text-slate-500 text-[10.5px]">Trọng lượng thể tích quy đổi:</span>
@@ -373,7 +352,6 @@
                         </div>
                     </div>
                 </div>
-
                     <div v-else-if="currentSubTab === 'policy'" key="policy" class="space-y-3.5">
                     <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                         <table class="w-full text-xs text-left">
@@ -403,7 +381,6 @@
                             </tbody>
                         </table>
                     </div>
-
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div class="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
                             <span class="text-xs font-bold text-blue-700">Bước 1: Giữ Hiện Trạng</span>
@@ -420,7 +397,6 @@
                     </div>
                 </div>
                 </transition>
-
                 <div class="flex flex-col sm:flex-row items-center justify-between bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm gap-3">
                     <div class="flex items-center space-x-3">
                         <div class="w-10 h-10 rounded-xl vnpt-gradient text-white flex items-center justify-center shadow-md shadow-blue-600/25 border border-white/20 flex-shrink-0 select-none">
@@ -451,6 +427,5 @@
             </div>
         `
     };
-
     window.GuideView = GuideView;
 })();

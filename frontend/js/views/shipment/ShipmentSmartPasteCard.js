@@ -1,6 +1,5 @@
 (function () {
     const { ref } = Vue;
-
     const template = `
     <div class="bg-gradient-to-r from-blue-50/80 via-indigo-50/50 to-white rounded-2xl border border-blue-200/80 p-4 mb-5 shadow-xs">
         <div class="flex items-center justify-between mb-2">
@@ -17,7 +16,6 @@
             </div>
             <span class="text-[10px] font-semibold text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-md">Tiết kiệm 80% thời gian</span>
         </div>
-
         <div class="flex flex-col sm:flex-row gap-2 mt-2">
             <input 
                 v-model="rawInput" 
@@ -50,14 +48,12 @@
         </div>
     </div>
     `;
-
     const ShipmentSmartPasteCard = {
         name: 'ShipmentSmartPasteCard',
         template,
         emits: ['parsed'],
         setup(props, { emit }) {
             const rawInput = ref('');
-
             const VIETNAM_PROVINCES = [
                 'Hà Nội', 'Hồ Chí Minh', 'Đà Nẵng', 'Hải Phòng', 'Cần Thơ',
                 'An Giang', 'Bà Rịa - Vũng Tàu', 'Bắc Giang', 'Bắc Kạn', 'Bạc Liêu',
@@ -73,11 +69,9 @@
                 'Thanh Hóa', 'Thừa Thiên Huế', 'Tiền Giang', 'Trà Vinh', 'Tuyên Quang',
                 'Vĩnh Long', 'Vĩnh Phúc', 'Yên Bái'
             ];
-
             const handleParse = () => {
                 const text = rawInput.value.trim();
                 if (!text) return;
-
                 const phoneMatch = text.match(/(?:(?:\+|00)84|0)([35789][0-9]{8})/);
                 let phone = '';
                 let textWithoutPhone = text;
@@ -87,7 +81,6 @@
                         : phoneMatch[0];
                     textWithoutPhone = text.replace(phoneMatch[0], '').trim();
                 }
-
                 let matchedProvince = '';
                 for (const p of VIETNAM_PROVINCES) {
                     const regex = new RegExp(`\\b${p.replace(/-/g, '[-–]')}\\b`, 'i');
@@ -103,15 +96,12 @@
                     else if (/hai phong|hp/i.test(textWithoutPhone)) matchedProvince = 'Hải Phòng';
                     else if (/can tho/i.test(textWithoutPhone)) matchedProvince = 'Cần Thơ';
                 }
-
                 let parts = textWithoutPhone
                     .split(/[,;\n\-]/)
                     .map(s => s.trim())
                     .filter(Boolean);
-
                 let name = '';
                 let detail = '';
-
                 if (parts.length > 1) {
                     name = parts[0];
                     detail = parts.slice(1).join(', ');
@@ -124,25 +114,21 @@
                         name = textWithoutPhone;
                     }
                 }
-
                 emit('parsed', {
                     name: name.trim(),
                     phone: phone.trim(),
                     province: matchedProvince || 'Hà Nội',
                     detail: detail.trim()
                 });
-
                 if (window.Utils && window.Utils.showToast) {
                     window.Utils.showToast('Bóc Tách Thành Công', `Đã nhận diện: ${name} (${phone || 'Chưa có SĐT'})`, 'success');
                 }
             };
-
             return {
                 rawInput,
                 handleParse
             };
         }
     };
-
     window.ShipmentSmartPasteCard = ShipmentSmartPasteCard;
 })();

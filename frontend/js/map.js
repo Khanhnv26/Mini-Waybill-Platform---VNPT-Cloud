@@ -1,10 +1,5 @@
 
 (function () {
-    /**
-     * Bảng trạng thái ĐỒNG BỘ TUYỆT ĐỐI với enum backend
-     * org.app.trackingservice.entity.ShipmentStatus.
-     * Không được thêm mã ngoài danh sách này, vì backend sẽ ném lỗi ở valueOf().
-     */
     const STATUS_RATIOS = {
         'CREATED': 0.0,
         'PENDING_ROUTING': 0.0,
@@ -16,7 +11,6 @@
         'DELIVERED': 1.0,
         'DELIVERY_FAILED': 1.0
     };
-
     const STATUS_NAMES = {
         'CREATED': 'Đã Tiếp Nhận Tại Bưu Cục',
         'PENDING_ROUTING': 'Đang Chờ Phân Tuyến',
@@ -28,9 +22,7 @@
         'DELIVERED': 'Giao Hàng Thành Công',
         'DELIVERY_FAILED': 'Phát Không Thành Công'
     };
-
     const ROUTE_CACHE_PREFIX = 'vnpt.route.v1.';
-
     const MapManager = {
         map: null,
         polylineLayer: null,
@@ -85,7 +77,6 @@
                 lng: 105.746857, 
                 level: 1 
             },
-
             'POST-HN-CG': { 
                 name: 'Bưu Cục Cầu Giấy', 
                 address: 'Số 165 Cầu Giấy, Phường Dịch Vọng, Quận Cầu Giấy, Hà Nội',
@@ -136,7 +127,6 @@
                 level: 2, 
                 parent: 'HUB-HN-01' 
             },
-
             'POST-HCM-Q1': { 
                 name: 'Bưu Cục Bến Nghé (Quận 1)', 
                 address: 'Số 2 Công Xã Paris, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh',
@@ -187,7 +177,6 @@
                 level: 2, 
                 parent: 'HUB-HCM-01' 
             },
-
             'POST-DN-HC': { 
                 name: 'Bưu Cục Hải Châu', 
                 address: 'Số 4 Lê Duẩn, Phường Hải Châu 1, Quận Hải Châu, Đà Nẵng',
@@ -218,7 +207,6 @@
                 level: 2, 
                 parent: 'HUB-DN-01' 
             },
-
             'POST-HP-NQ': { 
                 name: 'Bưu Cục Ngô Quyền', 
                 address: 'Số 147 Lương Khánh Thiện, Phường Cầu Đất, Quận Ngô Quyền, Hải Phòng',
@@ -239,7 +227,6 @@
                 level: 2, 
                 parent: 'HUB-HP-01' 
             },
-
             'POST-CT-NK': { 
                 name: 'Bưu Cục Ninh Kiều', 
                 address: 'Số 2 Hòa Bình, Phường Tân An, Quận Ninh Kiều, Cần Thơ',
@@ -261,7 +248,6 @@
                 parent: 'HUB-CT-01' 
             }
         },
-
         updateHubs(list) {
             if (!Array.isArray(list)) return;
             list.forEach(h => {
@@ -281,7 +267,6 @@
                 }
             });
         },
-
         getHubCoord(code) {
             if (!code) return null;
             const trimmed = String(code).trim();
@@ -289,7 +274,6 @@
             if (hub) return { code: trimmed, ...hub };
             return null;
         },
-
         currentContainerId: null,
         routeCache: {},
         routePoints: [],
@@ -301,8 +285,7 @@
         feederDestPolyline: null,
         lastMilePolyline: null,
         shipperMarker: null,
-
-        // State riêng cho bản đồ chuyến xe; không dùng chung với tracking map của bưu gửi.
+        
         tripMap: null,
         tripContainerId: null,
         tripMapOwned: false,
@@ -312,8 +295,7 @@
         tripMarker: null,
         tripMarkerAnimFrame: null,
         tripState: null,
-
-        // Mạng lưới trạm chốt hành lang nội địa dọc QL1A và Cao tốc Bắc - Nam CT01
+        
         vietnamCorridorWaypoints: [
             { name: 'Ninh Bình (CT01)', lat: 20.2506, lng: 105.9745 },
             { name: 'Thanh Hóa (QL1A)', lat: 19.8067, lng: 105.7852 },
@@ -331,7 +313,6 @@
             { name: 'Phan Thiết (Bình Thuận)', lat: 10.9274, lng: 108.1021 },
             { name: 'Long Khánh (Đồng Nai)', lat: 10.9431, lng: 107.2410 }
         ],
-
         getPostOfficeForAddress(address, parentHubCode) {
             if (!address) return null;
             const addrLower = address.toLowerCase();
@@ -349,7 +330,6 @@
             }
             return null;
         },
-
         getCentralHubForAddress(address) {
             if (!address) return null;
             const addrLower = address.toLowerCase();
@@ -370,43 +350,35 @@
             if (addrUnaccent.includes('can tho') || addrUnaccent.includes('ct')) return { code: 'HUB-CT-01', ...this.hubCoordinates['HUB-CT-01'] };
             return null;
         },
-
-        // Xây dựng danh sách trạm mốc hành lang giao thông đường bộ Việt Nam (QL1A & Cao tốc Bắc - Nam CT01)
+        
         buildVietnamWaypoints(sourceCoord, destCoord) {
             const isNorthToSouth = sourceCoord.lat > destCoord.lat;
             const minLat = Math.min(sourceCoord.lat, destCoord.lat);
             const maxLat = Math.max(sourceCoord.lat, destCoord.lat);
-
                 const intermediates = this.vietnamCorridorWaypoints.filter(wp => {
                 return wp.lat > minLat + 0.35 && wp.lat < maxLat - 0.35;
             });
-
             if (isNorthToSouth) {
                 intermediates.sort((a, b) => b.lat - a.lat);
             } else {
                 intermediates.sort((a, b) => a.lat - b.lat);
             }
-
             return [sourceCoord, ...intermediates, destCoord];
         },
-
-        // Khởi tạo bản đồ Leaflet với dữ liệu bản đồ tiếng Việt và lớp Chủ Quyền Quốc Gia
+        
         init(containerId = 'tracking-map') {
             const el = document.getElementById(containerId);
             if (!el) return null;
-
-            // Nếu container chưa hiển thị hoặc chưa có kích thước thực tế (v-show 0x0), không khởi tạo sớm
+            
             if (el.offsetWidth === 0 || el.offsetHeight === 0) {
                 return null;
             }
-
-            // Nếu map đã tồn tại trên container này và đang hoạt động, lên lịch tính lại kích thước sau khi layout ổn định
+            
             if (this.map && this.currentContainerId === containerId && el._leaflet_id) {
                 this.scheduleInvalidateSize();
                 return this.map;
             }
-
-            // Nếu trip map đang dùng chung container này, xoá layer riêng trước khi huỷ map.
+            
             if (this.tripMap === this.map) {
                 this.clearTripLayers();
                 this.tripMap = null;
@@ -415,8 +387,7 @@
                 this.tripMarkersGroup = null;
                 this.tripStopsGroup = null;
             }
-
-            // Nếu đổi sang container khác hoặc map cũ bị mất, dọn dẹp an toàn
+            
             if (this.map) {
                 try {
                     this.map.remove();
@@ -425,9 +396,7 @@
                 }
                 this.map = null;
             }
-
-            // Map bị huỷ thì mọi layer tham chiếu tới nó đều không còn hợp lệ.
-            // Phải xoá tham chiếu, nếu không lần vẽ sau sẽ thao tác trên layer mồ côi.
+            
             this.completedPolyline = null;
             this.remainingPolyline = null;
             this.radarMarker = null;
@@ -435,17 +404,13 @@
             this.currentRouteKey = null;
             this.lastRatio = 0;
             this.cancelPendingRenders();
-
             this.currentContainerId = containerId;
-
             this.map = L.map(containerId, {
                 zoomControl: true,
                 minZoom: 4,
                 maxZoom: 20
             });
-
             const BLANK_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-
             const roadLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {
                 attribution: '&copy; Google Bản đồ Việt Nam | Bưu chính Waybill',
                 subdomains: ['0', '1', '2', '3'],
@@ -454,7 +419,6 @@
                 updateWhenIdle: false,
                 errorTileUrl: BLANK_TILE
             });
-
             const hybridLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&hl=vi', {
                 attribution: '&copy; Google Vệ tinh | Bưu chính Waybill',
                 subdomains: ['0', '1', '2', '3'],
@@ -463,7 +427,6 @@
                 updateWhenIdle: false,
                 errorTileUrl: BLANK_TILE
             });
-
             const darkLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {
                 attribution: '&copy; Google Bản đồ (Chế độ Đêm) | Bưu chính Waybill',
                 subdomains: ['0', '1', '2', '3'],
@@ -473,24 +436,20 @@
                 className: 'map-tiles-night',
                 errorTileUrl: BLANK_TILE
             });
-
             this.roadLayer = roadLayer;
             this.hybridLayer = hybridLayer;
             this.darkLayer = darkLayer;
-
             const isDarkInit = document.documentElement.classList.contains('dark');
             if (isDarkInit) {
                 darkLayer.addTo(this.map);
             } else {
                 roadLayer.addTo(this.map);
             }
-
             this.baseLayers = {
                 'Google Maps': roadLayer,
                 'Google Vệ tinh': hybridLayer,
                 'Bản Đồ Đêm': darkLayer
             };
-
             if (!this._themeListenerBound) {
                 this._themeListenerBound = true;
                 window.addEventListener('theme-changed', (e) => {
@@ -508,23 +467,18 @@
                     }
                 });
             }
-
             this.markersGroup = L.layerGroup().addTo(this.map);
-
             this.layerControl = L.control.layers(this.baseLayers, null, {
                 position: 'topright',
                 collapsed: false
             }).addTo(this.map);
-
             this.initQuickNavControl();
             this.fitVietnamView();
             this.scheduleInvalidateSize();
             return this.map;
         },
-
         updateTheme() {},
-
-        // Lên lịch tính lại kích thước nhiều đợt sau khi layout DOM/Flexbox/Grid ổn định hoàn toàn
+        
         scheduleInvalidateSize(callback) {
             if (!this.map) return;
             try { this.map.invalidateSize(); } catch (e) {}
@@ -547,8 +501,7 @@
                 }
             }, 300);
         },
-
-        // Yêu cầu Leaflet tính lại kích thước khung (sau khi tab hiện lại hoặc layout đổi)
+        
         invalidateSize() {
             if (this.map) {
                 try {
@@ -556,12 +509,7 @@
                 } catch (e) {}
             }
         },
-
-        /**
-         * Vô hiệu hoá mọi lượt renderRoute đang chạy dở.
-         * Bắt buộc gọi trước khi bắt đầu lượt vẽ mới, vì renderRoute có await (OSRM ~4.5s)
-         * trong khi polling có thể kích hoạt lượt vẽ khác chỉ sau 3s -> ghi đè layer lẫn nhau.
-         */
+        
         cancelPendingRenders() {
             this.renderToken++;
             if (this.markerAnimFrame) {
@@ -570,11 +518,9 @@
             }
             return this.renderToken;
         },
-
         setLoading(message) {
             const el = this.currentContainerId ? document.getElementById(this.currentContainerId) : null;
             if (!el || !el.parentElement) return;
-
             let overlay = el.parentElement.querySelector('.map-loading-overlay');
             if (!message) {
                 if (overlay) overlay.remove();
@@ -587,7 +533,6 @@
             }
             overlay.textContent = message;
         },
-
         readPersistedRoute(cacheKey) {
             try {
                 const raw = localStorage.getItem(ROUTE_CACHE_PREFIX + cacheKey);
@@ -599,17 +544,14 @@
                 return null;
             }
         },
-
         persistRoute(cacheKey, payload) {
             try {
                 localStorage.setItem(ROUTE_CACHE_PREFIX + cacheKey, JSON.stringify(payload));
             } catch (e) {
                     }
         },
-
         initQuickNavControl() {
             if (!this.map) return;
-
             const self = this;
             const QuickNav = L.Control.extend({
                 options: { position: 'topleft' },
@@ -624,7 +566,6 @@
                         </button>
                     `;
                     L.DomEvent.disableClickPropagation(container);
-
                     setTimeout(() => {
                         const btnVn = container.querySelector('#btn-fit-vietnam');
                         if (btnVn) {
@@ -641,28 +582,23 @@
                             });
                         }
                     }, 50);
-
                     return container;
                 }
             });
-
             new QuickNav().addTo(this.map);
         },
-
-        // 1-Click: Thu phóng bao quát toàn bộ lãnh thổ đất liền và 2 quần đảo Hoàng Sa, Trường Sa
+        
         fitVietnamView() {
             if (!this.map) return;
-            // Khung kinh/vĩ độ chuẩn bao gồm Hoàng Sa [16.5, 112.0], Trường Sa [9.5, 114.0], Phú Quốc [10.2, 103.9] và toàn bộ đất liền
             const vnBounds = [
-                [7.2, 102.0],  // Cực Nam - Tây Nam (biển phía Nam quần đảo Trường Sa)
-                [23.6, 117.2]  // Cực Bắc - Đông Bắc (Hoàng Sa & Trường Sa)
+                [7.2, 102.0],  
+                [23.6, 117.2]  
             ];
             this.map.fitBounds(vnBounds, {
                 padding: [15, 15],
                 maxZoom: 7
             });
         },
-
         fitRouteView() {
             if (!this.map) return;
             if (this.routePoints && this.routePoints.length > 0) {
@@ -675,10 +611,8 @@
                 this.fitVietnamView();
             }
         },
-
         updateHubs(hubs) {
             if (!Array.isArray(hubs)) return;
-
             const movedHubs = [];
             hubs.forEach(h => {
                 const latitude = Number(h.latitude);
@@ -700,8 +634,7 @@
                     };
                 }
             });
-
-            // Toạ độ Hub đổi thì tuyến đã cache không còn đúng nữa, phải xoá để tính lại
+            
             movedHubs.forEach(code => {
                 Object.keys(this.routeCache).forEach(key => {
                     if (key.includes(code)) {
@@ -713,20 +646,13 @@
                 });
             });
         },
-
         getHubCoord(hubCode) {
             return hubCode ? this.hubCoordinates[hubCode] || null : null;
         },
-
-        /**
-         * Các helper dưới đây phục vụ riêng cho bản đồ chuyến xe.
-         * Không dùng STATUS_RATIOS, routePoints, radarMarker hoặc marker animation
-         * của tracking map để tránh chuyến xe làm thay đổi vị trí bưu gửi.
-         */
+        
         hasLeaflet() {
             return typeof L !== 'undefined' && L !== null && typeof L.map === 'function';
         },
-
         getTripText(value) {
             if (value === null || value === undefined) return '';
             if (typeof value === 'object') {
@@ -734,13 +660,11 @@
             }
             return String(value).trim();
         },
-
         getTripNumber(value) {
             if (value === null || value === undefined || value === '' || typeof value === 'boolean') return null;
             const number = Number(value);
             return Number.isFinite(number) ? number : null;
         },
-
         normalizeTripCoordinate(latitude, longitude) {
             const lat = this.getTripNumber(latitude);
             const lng = this.getTripNumber(longitude);
@@ -749,22 +673,17 @@
             }
             return { lat, lng };
         },
-
         getTripCoordinate(value) {
             if (!value) return null;
-
             if (Array.isArray(value) && value.length >= 2) {
                 return this.normalizeTripCoordinate(value[0], value[1]);
             }
-
             if (typeof value !== 'object') return null;
-
             const nested = value.coordinates || value.coordinate || value.location || value.hub;
             if (nested && nested !== value) {
                 const nestedCoordinate = this.getTripCoordinate(nested);
                 if (nestedCoordinate) return nestedCoordinate;
             }
-
             return this.normalizeTripCoordinate(
                 value.latitude !== undefined
                     ? value.latitude
@@ -780,7 +699,6 @@
                             : (value.stopLongitude !== undefined ? value.stopLongitude : value.hubLongitude)))
             );
         },
-
         normalizeTripArguments(input, mapId, currentLocationCode, currentLatitude, currentLongitude, progressPercent, vehiclePlate, stops, legacyMapId) {
             if (input && typeof input === 'object' && !Array.isArray(input)) {
                 return {
@@ -788,8 +706,7 @@
                     mapId: typeof mapId === 'string' && mapId.trim() ? mapId.trim() : input.mapId
                 };
             }
-
-            // Tương thích với caller cũ truyền positional arguments.
+            
             return {
                 payload: {
                     tripCode: input,
@@ -804,7 +721,6 @@
                 mapId: legacyMapId
             };
         },
-
         normalizeTripPayload(payload) {
             const source = payload && typeof payload === 'object' ? payload : {};
             const currentHub = source.currentHub !== undefined ? source.currentHub : source.hub;
@@ -819,7 +735,6 @@
                         ? source.locationCode
                         : (currentLocation.code || currentLocation.locationCode || currentLocation.hubCode || currentHubCode))
             );
-
             const currentLatitude = source.currentLatitude !== undefined
                 ? source.currentLatitude
                 : (source.currentLat !== undefined
@@ -842,19 +757,16 @@
                             : (currentLocation.longitude !== undefined
                                 ? currentLocation.longitude
                                 : (currentHub && typeof currentHub === 'object' ? currentHub.longitude : undefined)))));
-
             let progressPercent = source.progressPercent;
             if (progressPercent === undefined) progressPercent = source.progressPercentage;
             if (progressPercent === undefined) progressPercent = source.progress;
             if (progressPercent === undefined) progressPercent = source.percent;
             const numericProgress = this.getTripNumber(progressPercent);
-
             const stops = Array.isArray(source.stops)
                 ? source.stops
                 : (Array.isArray(source.stopList)
                     ? source.stopList
                     : (Array.isArray(source.routeStops) ? source.routeStops : []));
-
             return {
                 ...source,
                 tripCode: source.tripCode !== undefined ? source.tripCode : (source.tripId !== undefined ? source.tripId : source.code),
@@ -872,14 +784,12 @@
                 stops
             };
         },
-
         resolveTripState(payload) {
             const normalized = this.normalizeTripPayload(payload);
             const stops = Array.isArray(normalized.stops) ? normalized.stops : [];
             const currentCode = this.getTripText(normalized.currentLocationCode).toUpperCase();
             const currentHubCode = this.getTripText(normalized.currentHub).toUpperCase();
             const codes = [currentCode, currentHubCode].filter(Boolean);
-
             let currentStop = null;
             if (codes.length > 0) {
                 currentStop = stops.find(stop => {
@@ -900,22 +810,19 @@
                     return stopCode && codes.includes(stopCode);
                 }) || null;
             }
-
-            // Chỉ dùng cờ rõ ràng từ stop; tuyệt đối không suy ra vị trí từ shipment status.
+            
             if (!currentStop) {
                 currentStop = stops.find(stop => stop && typeof stop === 'object' && (
                     stop.isCurrent === true || stop.current === true || stop.active === true || stop.isActive === true
                 )) || null;
             }
             if (!currentStop && stops.length === 1) currentStop = stops[0];
-
             const backendCoordinate = this.normalizeTripCoordinate(
                 normalized.currentLatitude,
                 normalized.currentLongitude
             );
             const stopCoordinate = currentStop ? this.getTripCoordinate(currentStop) : null;
             const coordinate = backendCoordinate || stopCoordinate;
-
             return {
                 ...normalized,
                 currentLocationCode: this.getTripText(normalized.currentLocationCode) || null,
@@ -924,14 +831,11 @@
                 currentStop
             };
         },
-
         ensureTripMap(mapId) {
             if (!this.hasLeaflet()) return null;
-
             const requestedId = typeof mapId === 'string' && mapId.trim()
                 ? mapId.trim()
                 : (this.tripContainerId || 'trip-map');
-
             if (this.tripMap && this.tripContainerId === requestedId) {
                 try {
                     if (typeof this.tripMap.invalidateSize === 'function') this.tripMap.invalidateSize();
@@ -946,7 +850,6 @@
                     this.tripMarker = null;
                 }
             }
-
             const oldTripMap = this.tripMap;
             if (oldTripMap && oldTripMap !== this.map && this.tripMapOwned) {
                 try {
@@ -957,8 +860,7 @@
             this.tripMap = null;
             this.tripContainerId = null;
             this.tripMapOwned = false;
-
-            // Chỉ dùng map tracking khi caller truyền đúng container một cách tường minh.
+            
             if (requestedId === this.currentContainerId && this.map) {
                 this.tripMap = this.map;
                 this.tripContainerId = requestedId;
@@ -966,14 +868,11 @@
                 this.createTripLayerGroups();
                 return this.tripMap;
             }
-
             if (typeof document === 'undefined' || !document.getElementById) return null;
             const element = document.getElementById(requestedId);
             if (!element) return null;
-
-            // Không đụng vào một Leaflet map khác nếu không phải map đang được quản lý ở đây.
+            
             if (element._leaflet_id) return null;
-
             try {
                 this.tripMap = L.map(requestedId, {
                     zoomControl: true,
@@ -982,7 +881,6 @@
                 });
                 this.tripContainerId = requestedId;
                 this.tripMapOwned = true;
-
                 if (typeof L.tileLayer === 'function') {
                     const baseLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
                         attribution: '&copy; OpenStreetMap | Bưu chính Waybill',
@@ -1005,10 +903,8 @@
                 return null;
             }
         },
-
         createTripLayerGroups() {
             if (!this.tripMap || typeof L === 'undefined' || typeof L.layerGroup !== 'function') return;
-
             if (!this.tripMarkersGroup) {
                 this.tripMarkersGroup = L.layerGroup();
                 if (this.tripMarkersGroup && typeof this.tripMarkersGroup.addTo === 'function') {
@@ -1022,13 +918,11 @@
                 }
             }
         },
-
         clearTripLayers() {
             if (this.tripMarkerAnimFrame && typeof cancelAnimationFrame === 'function') {
                 cancelAnimationFrame(this.tripMarkerAnimFrame);
             }
             this.tripMarkerAnimFrame = null;
-
             if (this.tripStopsGroup && typeof this.tripStopsGroup.clearLayers === 'function') {
                 this.tripStopsGroup.clearLayers();
             }
@@ -1043,7 +937,6 @@
             this.tripRouteLayer = null;
             this.tripMarker = null;
         },
-
         escapeTripHtml(value) {
             return String(value === null || value === undefined ? '' : value)
                 .replace(/&/g, '&amp;')
@@ -1052,7 +945,6 @@
                 .replace(/\"/g, '&quot;')
                 .replace(/'/g, '&#39;');
         },
-
         buildTripTooltip(state) {
             const tripCode = this.escapeTripHtml(state.tripCode || 'Chuyến xe');
             const tripType = this.escapeTripHtml(state.tripType || '');
@@ -1061,7 +953,6 @@
             const progress = state.progressPercent === null || state.progressPercent === undefined
                 ? 'Chưa cập nhật'
                 : `${Math.round(state.progressPercent)}%`;
-
             return `
                 <div style="font-size: 11px; font-weight: 700; color: #0f172a;">${tripCode}</div>
                 ${tripType ? `<div style="font-size: 10px; color: #475569;">Loại chuyến: ${tripType}</div>` : ''}
@@ -1070,7 +961,6 @@
                 <div style="font-size: 10px; color: #475569;">Biển số: ${plate}</div>
             `;
         },
-
         getTripIcon(className, size = 16) {
             if (typeof L === 'undefined' || typeof L.divIcon !== 'function') return null;
             return L.divIcon({
@@ -1079,7 +969,6 @@
                 iconAnchor: [Math.round(size / 2), Math.round(size / 2)]
             });
         },
-
         addTripLayer(layer, group) {
             if (!layer || !this.tripMap) return false;
             if (group && typeof group.addLayer === 'function') {
@@ -1092,19 +981,16 @@
             }
             return false;
         },
-
         renderTripStops(state) {
             if (this.tripStopsGroup && typeof this.tripStopsGroup.clearLayers === 'function') {
                 this.tripStopsGroup.clearLayers();
             }
             if (!this.tripMap || typeof L === 'undefined' || typeof L.marker !== 'function') return [];
-
             const points = [];
             (Array.isArray(state.stops) ? state.stops : []).forEach((stop, index) => {
                 const coordinate = this.getTripCoordinate(stop);
                 if (!coordinate) return;
                 points.push([coordinate.lat, coordinate.lng]);
-
                 const stopName = this.getTripText(
                     stop && (stop.stopName || stop.hubName || stop.name || stop.locationName || stop.stopCode || stop.hubCode || stop.code)
                 ) || `Điểm dừng ${index + 1}`;
@@ -1126,7 +1012,6 @@
                     this.addTripLayer(marker, this.tripStopsGroup);
                 } catch (e) {}
             });
-
             if (points.length > 1 && typeof L.polyline === 'function') {
                 try {
                     this.tripRouteLayer = L.polyline(points, {
@@ -1142,23 +1027,18 @@
                     this.tripRouteLayer = null;
                 }
             }
-
             return points;
         },
-
         animateTripMarkerTo(targetPoint, duration = 700) {
             if (!this.tripMarker || !targetPoint || typeof this.tripMarker.setLatLng !== 'function') return;
-
             if (this.tripMarkerAnimFrame && typeof cancelAnimationFrame === 'function') {
                 cancelAnimationFrame(this.tripMarkerAnimFrame);
                 this.tripMarkerAnimFrame = null;
             }
-
             if (typeof this.tripMarker.getLatLng !== 'function' || typeof requestAnimationFrame !== 'function') {
                 this.tripMarker.setLatLng(targetPoint);
                 return;
             }
-
             const from = this.tripMarker.getLatLng();
             if (!from || !Number.isFinite(Number(from.lat)) || !Number.isFinite(Number(from.lng))) {
                 this.tripMarker.setLatLng(targetPoint);
@@ -1171,7 +1051,6 @@
                 this.tripMarker.setLatLng(targetPoint);
                 return;
             }
-
             const startTime = typeof performance !== 'undefined' && typeof performance.now === 'function'
                 ? performance.now()
                 : Date.now();
@@ -1191,7 +1070,6 @@
             };
             this.tripMarkerAnimFrame = requestAnimationFrame(step);
         },
-
         buildTripResult(state) {
             const currentPoint = state && state.currentPoint ? [state.currentPoint[0], state.currentPoint[1]] : null;
             return {
@@ -1210,25 +1088,18 @@
                 marker: this.tripMarker || null
             };
         },
-
-        /**
-         * Vẽ các điểm dừng và marker chuyến xe trên trip map riêng.
-         * Không suy ra vị trí từ status của bưu gửi; chỉ dùng tọa độ backend hoặc stop hiện tại.
-         */
+        
         renderTripProgress(payload, mapId) {
             const args = this.normalizeTripArguments.apply(this, arguments);
             const state = this.resolveTripState(args.payload);
             this.tripState = state;
-
             const tripMap = this.ensureTripMap(args.mapId);
             if (!tripMap) return null;
-
             this.clearTripLayers();
             this.createTripLayerGroups();
             const stopPoints = this.renderTripStops(state);
             const result = this.updateTripMarker(state, args.mapId);
-
-            // Chỉ tự căn khung khi đây là bản đồ chuyến xe do MapManager tạo.
+            
             if (this.tripMapOwned && typeof tripMap.fitBounds === 'function') {
                 const boundsPoints = state.currentPoint ? [state.currentPoint, ...stopPoints] : stopPoints;
                 if (boundsPoints.length > 0 && typeof L !== 'undefined' && typeof L.latLngBounds === 'function') {
@@ -1237,13 +1108,9 @@
                     } catch (e) {}
                 }
             }
-
             return result || this.buildTripResult(state);
         },
-
-        /**
-         * Cập nhật riêng marker chuyến xe, không đụng tới radar marker của shipment tracking.
-         */
+        
         updateTripMarker(payload, mapId) {
             const args = this.normalizeTripArguments.apply(this, arguments);
             const previousTripCode = this.tripState && this.tripState.tripCode;
@@ -1256,23 +1123,19 @@
             });
             const state = this.resolveTripState(mergedPayload);
             this.tripState = state;
-
             const tripMap = this.ensureTripMap(args.mapId);
             if (!tripMap) return null;
             if (previousTripCode && state.tripCode && previousTripCode !== state.tripCode) {
                 this.clearTripLayers();
             }
             this.createTripLayerGroups();
-
             const tooltipHtml = this.buildTripTooltip(state);
             if (this.tripMarker && typeof this.tripMarker.setTooltipContent === 'function') {
                 this.tripMarker.setTooltipContent(tooltipHtml);
             }
-
             if (state.currentPoint && typeof L !== 'undefined' && typeof L.marker === 'function') {
                 const icon = this.getTripIcon('trip-vehicle-marker', 22);
                 const options = icon ? { icon, zIndexOffset: 1200 } : { zIndexOffset: 1200 };
-
                 if (!this.tripMarker) {
                     try {
                         this.tripMarker = L.marker(state.currentPoint, options);
@@ -1292,13 +1155,10 @@
                     this.animateTripMarkerTo(state.currentPoint);
                 }
             }
-
             return this.buildTripResult(state);
         },
-
         updateProgress(status, note = '', currentLocationCode = null) {
             if (!this.map || !this.routePoints || this.routePoints.length === 0) return null;
-
             let matchedHubCoord = null;
             if (currentLocationCode && this.hubCoordinates[currentLocationCode]) {
                 matchedHubCoord = this.hubCoordinates[currentLocationCode];
@@ -1308,12 +1168,10 @@
                     matchedHubCoord = this.hubCoordinates[foundCode];
                 }
             }
-
-            // Trạng thái không nằm trong enum backend: giữ nguyên vị trí hiện tại
+            
             let ratio = STATUS_RATIOS[status] !== undefined ? STATUS_RATIOS[status] : this.lastRatio;
             let targetIdx = Math.min(this.routePoints.length - 1, Math.max(0, Math.round(ratio * (this.routePoints.length - 1))));
-
-            // Nếu đang IN_TRANSIT và có vị trí Hub cụ thể (ví dụ: xe cập bến HUB-DN-01)
+            
             if (status === 'IN_TRANSIT' && matchedHubCoord) {
                 let bestIdx = 0;
                 let minDistance = Infinity;
@@ -1328,10 +1186,8 @@
                 targetIdx = bestIdx;
                 ratio = this.routePoints.length > 1 ? bestIdx / (this.routePoints.length - 1) : 0.5;
             }
-
             let currentPoint = this.routePoints[targetIdx];
             let percent = Math.round(ratio * 100);
-
             if (['CREATED', 'PENDING_ROUTING', 'ROUTE_ASSIGNED'].includes(status)) {
                     if (this.originPostCoord) {
                     currentPoint = [this.originPostCoord.lat, this.originPostCoord.lng];
@@ -1366,7 +1222,6 @@
                 }
                 percent = 100;
             }
-
             if (['CREATED', 'PENDING_ROUTING', 'ROUTE_ASSIGNED', 'PICKED_UP'].includes(status) || ratio === 0) {
                 if (this.completedPolyline) {
                     this.completedPolyline.setLatLngs([]);
@@ -1385,11 +1240,9 @@
                     this.completedPolyline.setLatLngs(completedCoords);
                 }
             }
-
             const remainingCoords = ['CREATED', 'PENDING_ROUTING', 'ROUTE_ASSIGNED', 'PICKED_UP'].includes(status) || ratio === 0
                 ? this.routePoints
                 : this.routePoints.slice(targetIdx);
-
             if (!this.remainingPolyline) {
                 this.remainingPolyline = L.polyline(remainingCoords, {
                     color: '#6366f1',
@@ -1402,7 +1255,6 @@
             } else {
                 this.remainingPolyline.setLatLngs(remainingCoords);
             }
-
             if (this.feederOriginPolyline) {
                 const isOriginCompleted = ['PICKED_UP', 'IN_TRANSIT', 'ARRIVED_DEST_HUB', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(status);
                 this.feederOriginPolyline.setStyle({
@@ -1411,7 +1263,6 @@
                     opacity: isOriginCompleted ? 0.95 : 0.75
                 });
             }
-
             if (this.feederDestPolyline) {
                 const isDestCompleted = ['OUT_FOR_DELIVERY', 'DELIVERED'].includes(status);
                 this.feederDestPolyline.setStyle({
@@ -1420,7 +1271,6 @@
                     opacity: isDestCompleted ? 0.95 : 0.75
                 });
             }
-
             if (this.lastMilePolyline) {
                 const isDelivered = status === 'DELIVERED';
                 const isDelivering = status === 'OUT_FOR_DELIVERY';
@@ -1430,7 +1280,6 @@
                     opacity: (isDelivered || isDelivering) ? 0.95 : 0.45
                 });
             }
-
             if (status === 'OUT_FOR_DELIVERY') {
                 if (!this.shipperMarker && this.destPostCoord && this.recipientCoord) {
                     const shipperLat = (this.destPostCoord.lat + this.recipientCoord[0]) / 2;
@@ -1449,7 +1298,6 @@
                 this.map.removeLayer(this.shipperMarker);
                 this.shipperMarker = null;
             }
-
             const statusNames = STATUS_NAMES;
             const labelText = statusNames[status] || status;
             let subText = `TIẾN ĐỘ: ${percent}%`;
@@ -1460,7 +1308,6 @@
                 <div style="font-size: 11px; font-weight: 700; color: #0f172a;">${labelText}</div>
                 <div style="font-size: 10px; color: #0066cc; font-family: monospace; font-weight: 600;">${subText}</div>
             `;
-
             if (!this.radarMarker) {
                 const radarIcon = L.divIcon({
                     className: 'hub-pin-current',
@@ -1474,9 +1321,7 @@
                 this.radarMarker.setTooltipContent(tooltipHtml);
                 this.animateMarkerTo(currentPoint);
             }
-
             this.lastRatio = ratio;
-
             return {
                 ratio,
                 percent,
@@ -1484,29 +1329,21 @@
                 status
             };
         },
-
-        /**
-         * Trượt pin radar tới toạ độ mới bằng requestAnimationFrame thay vì nhảy cóc.
-         * Chỉ animate khi quãng nhảy đủ lớn để tránh giật vặt khi polling.
-         */
+        
         animateMarkerTo(targetPoint, duration = 700) {
             if (!this.radarMarker || !targetPoint) return;
-
             if (this.markerAnimFrame) {
                 cancelAnimationFrame(this.markerAnimFrame);
                 this.markerAnimFrame = null;
             }
-
             const from = this.radarMarker.getLatLng();
             const toLat = targetPoint[0];
             const toLng = targetPoint[1];
-
             const delta = Math.abs(from.lat - toLat) + Math.abs(from.lng - toLng);
             if (delta < 0.0005) {
                 this.radarMarker.setLatLng(targetPoint);
                 return;
             }
-
             const startTime = performance.now();
             const step = (now) => {
                 const t = Math.min(1, (now - startTime) / duration);
@@ -1524,15 +1361,12 @@
             };
             this.markerAnimFrame = requestAnimationFrame(step);
         },
-
         async renderRoute(history = [], currentStatus = 'ROUTE_ASSIGNED', shouldFitBounds = true, extraMeta = {}) {
             if (!this.map) this.init();
             if (!this.map) return null;
-
-            // Huỷ mọi lượt vẽ đang chạy dở và lấy token cho lượt hiện tại
+            
             const token = this.cancelPendingRenders();
             const isStale = () => token !== this.renderToken || !this.map;
-
             if (this.markersGroup) this.markersGroup.clearLayers();
             if (this.completedPolyline) {
                 this.map.removeLayer(this.completedPolyline);
@@ -1562,7 +1396,6 @@
                 this.map.removeLayer(this.radarMarker);
                 this.radarMarker = null;
             }
-
             this.routePoints = [];
             this.lastRatio = 0;
             this.originPostCoord = null;
@@ -1570,13 +1403,11 @@
             this.destCoord = null;
             this.destPostCoord = null;
             this.recipientCoord = null;
-
             let sourceHub = null;
             let destHub = null;
             let originPostOffice = null;
             let destPostOffice = null;
             let routeCode = null;
-
             if (extraMeta) {
                 sourceHub = extraMeta.sourceHub || extraMeta.originHubCode || extraMeta.sourceHubCode || null;
                 destHub = extraMeta.destinationHub || extraMeta.destHub || extraMeta.destHubCode || null;
@@ -1584,7 +1415,6 @@
                 destPostOffice = extraMeta.destPostOffice || extraMeta.destinationPostOffice || extraMeta.destPostCode || null;
                 routeCode = extraMeta.routeCode || null;
             }
-
             (Array.isArray(history) ? history : []).forEach(item => {
                 const text = item && (item.node || item.note || '');
                 if (text) {
@@ -1612,7 +1442,6 @@
                     }
                 }
             });
-
             if (!originPostOffice && extraMeta?.senderAddress) {
                 const found = this.getPostOfficeForAddress(extraMeta.senderAddress, sourceHub);
                 if (found) {
@@ -1627,7 +1456,6 @@
                     if (!destHub && found.parent) destHub = found.parent;
                 }
             }
-
             if (!sourceHub && originPostOffice) {
                 const poCoord = this.getHubCoord(originPostOffice);
                 if (poCoord?.parent) sourceHub = poCoord.parent;
@@ -1636,7 +1464,6 @@
                 const poCoord = this.getHubCoord(destPostOffice);
                 if (poCoord?.parent) destHub = poCoord.parent;
             }
-
             if (!sourceHub && extraMeta?.senderAddress) {
                 const foundHub = this.getCentralHubForAddress(extraMeta.senderAddress);
                 if (foundHub) sourceHub = foundHub.code;
@@ -1645,34 +1472,28 @@
                 const foundHub = this.getCentralHubForAddress(extraMeta.receiverAddress);
                 if (foundHub) destHub = foundHub.code;
             }
-
             if (!routeCode && sourceHub && destHub) {
                 routeCode = `ROUTE-${sourceHub}-TO-${destHub}`;
             }
-
             const sourceCoord = this.getHubCoord(sourceHub);
             const destCoord = this.getHubCoord(destHub);
             const originPostCoord = this.getHubCoord(originPostOffice);
             const destPostCoord = this.getHubCoord(destPostOffice);
-
             if (!sourceCoord || !destCoord) {
                 this.setLoading('Chưa có tuyến Hub đã xác thực để hiển thị trên bản đồ.');
                 return null;
             }
-
             let recipientCoord = null;
             if (extraMeta?.receiverLatitude && extraMeta?.receiverLongitude) {
                 recipientCoord = [extraMeta.receiverLatitude, extraMeta.receiverLongitude];
             } else if (extraMeta?.verifiedAddress?.lat && extraMeta?.verifiedAddress?.lon) {
                 recipientCoord = [parseFloat(extraMeta.verifiedAddress.lat), parseFloat(extraMeta.verifiedAddress.lon)];
             }
-
             this.originPostCoord = originPostCoord;
             this.sourceCoord = sourceCoord;
             this.destCoord = destCoord;
             this.destPostCoord = destPostCoord;
             this.recipientCoord = recipientCoord;
-
             if (originPostCoord && (originPostCoord.lat !== sourceCoord.lat || originPostCoord.lng !== sourceCoord.lng)) {
                 const origIcon = L.divIcon({ className: 'hub-pin-postoffice', iconSize: [14, 14], iconAnchor: [7, 7] });
                 L.marker([originPostCoord.lat, originPostCoord.lng], { icon: origIcon })
@@ -1686,8 +1507,7 @@
                     `)
                     .addTo(this.markersGroup);
             }
-
-            // Mốc 2: Kho Tổng Gửi (Cấp 1)
+            
             const sourceIcon = L.divIcon({ className: 'hub-pin-source', iconSize: [16, 16], iconAnchor: [8, 8] });
             L.marker([sourceCoord.lat, sourceCoord.lng], { icon: sourceIcon })
                 .bindPopup(`
@@ -1698,8 +1518,7 @@
                     </div>
                 `)
                 .addTo(this.markersGroup);
-
-            // Mốc 3: Kho Tổng Đích (Cấp 1)
+            
             const destIcon = L.divIcon({ className: 'hub-pin-dest', iconSize: [16, 16], iconAnchor: [8, 8] });
             L.marker([destCoord.lat, destCoord.lng], { icon: destIcon })
                 .bindPopup(`
@@ -1710,8 +1529,7 @@
                     </div>
                 `)
                 .addTo(this.markersGroup);
-
-            // Mốc 4: Bưu Cục Phát (Đích địa phương Cấp 2/3)
+            
             if (destPostCoord && (destPostCoord.lat !== destCoord.lat || destPostCoord.lng !== destCoord.lng)) {
                 const destPostIcon = L.divIcon({ className: 'hub-pin-delivery-post', iconSize: [14, 14], iconAnchor: [7, 7] });
                 L.marker([destPostCoord.lat, destPostCoord.lng], { icon: destPostIcon })
@@ -1725,8 +1543,7 @@
                     `)
                     .addTo(this.markersGroup);
             }
-
-            // Mốc 5: Địa Chỉ Người Nhận (Khách hàng)
+            
             if (recipientCoord) {
                 const custIcon = L.divIcon({ className: 'customer-pin', iconSize: [16, 16], iconAnchor: [8, 8] });
                 const receiverLabel = extraMeta?.receiverAddress || 'Điểm giao hàng tận tay người nhận';
@@ -1739,8 +1556,7 @@
                     `)
                     .addTo(this.markersGroup);
             }
-
-            // Mốc 6: Nếu tuyến Bắc - Nam đi qua Đà Nẵng, hoặc có trạm trung gian trong lịch sử
+            
             const renderedHubCodes = new Set([sourceHub, destHub]);
             const isNorthSouth = (sourceHub === 'HUB-HN-01' && destHub === 'HUB-HCM-01') || (sourceHub === 'HUB-HCM-01' && destHub === 'HUB-HN-01');
             if (isNorthSouth) {
@@ -1759,8 +1575,7 @@
                         .addTo(this.markersGroup);
                 }
             }
-
-            // Quét lịch sử bổ sung bất kỳ Hub trung gian nào xe đã ghé qua
+            
             (Array.isArray(history) ? history : []).forEach(item => {
                 const loc = item && (item.locationCode || item.location);
                 if (loc && loc.startsWith('HUB-') && !renderedHubCodes.has(loc)) {
@@ -1780,7 +1595,6 @@
                     }
                 }
             });
-
             if (originPostCoord && (originPostCoord.lat !== sourceCoord.lat || originPostCoord.lng !== sourceCoord.lng)) {
                 const isOriginCompleted = ['PICKED_UP', 'IN_TRANSIT', 'ARRIVED_DEST_HUB', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(currentStatus);
                 this.feederOriginPolyline = L.polyline([
@@ -1794,7 +1608,6 @@
                     lineJoin: 'round'
                 }).addTo(this.map);
             }
-
             if (destPostCoord && (destPostCoord.lat !== destCoord.lat || destPostCoord.lng !== destCoord.lng)) {
                 const isDestCompleted = ['OUT_FOR_DELIVERY', 'DELIVERED'].includes(currentStatus);
                 this.feederDestPolyline = L.polyline([
@@ -1808,7 +1621,6 @@
                     lineJoin: 'round'
                 }).addTo(this.map);
             }
-
             if (recipientCoord && destPostCoord) {
                 const isDelivered = currentStatus === 'DELIVERED';
                 const isDelivering = currentStatus === 'OUT_FOR_DELIVERY';
@@ -1822,7 +1634,6 @@
                     dashArray: isDelivered ? null : (isDelivering ? '4, 4' : '6, 8'),
                     lineJoin: 'round'
                 }).addTo(this.map);
-
                 if (currentStatus === 'OUT_FOR_DELIVERY') {
                     const shipperLat = (destPostCoord.lat + recipientCoord[0]) / 2;
                     const shipperLng = (destPostCoord.lng + recipientCoord[1]) / 2;
@@ -1837,14 +1648,11 @@
                         .addTo(this.map);
                 }
             }
-
             let distanceKm = null;
             let durationHours = null;
             let isRealRoad = false;
-
             const cacheKey = `${sourceHub}_${destHub}`;
             const cached = this.routeCache[cacheKey] || this.readPersistedRoute(cacheKey);
-
             if (cached) {
                 this.routeCache[cacheKey] = cached;
                 this.routePoints = cached.routePoints;
@@ -1853,19 +1661,15 @@
                 isRealRoad = cached.isRealRoad;
             } else {
                 this.setLoading('Đang tính tuyến đường bộ nội địa…');
-
                 let osrmPoints = null;
                 try {
                     const waypoints = this.buildVietnamWaypoints(sourceCoord, destCoord);
                     const waypointsQuery = waypoints.map(pt => `${pt.lng},${pt.lat}`).join(';');
                     const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${waypointsQuery}?overview=full&geometries=geojson`;
-
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 8000);
-
                     const res = await fetch(osrmUrl, { signal: controller.signal });
                     clearTimeout(timeoutId);
-
                     if (res.ok) {
                         const data = await res.json();
                         if (data.routes && data.routes.length > 0) {
@@ -1879,11 +1683,8 @@
                 } catch (e) {
                     console.warn('[MapManager] OSRM không phản hồi hoặc bị gián đoạn, chuyển sang fallback hành lang:', e);
                 }
-
                 this.setLoading(null);
-
                 if (isStale()) return null;
-
                 if (osrmPoints && osrmPoints.length > 0) {
                     this.routePoints = osrmPoints;
                     const payload = { routePoints: osrmPoints, distanceKm, durationHours, isRealRoad: true };
@@ -1907,11 +1708,8 @@
                     isRealRoad = false;
                 }
             }
-
             if (isStale()) return null;
-
             this.currentRouteKey = cacheKey;
-
             let latestLoc = null;
             let latestNote = '';
             if (Array.isArray(history) && history.length > 0) {
@@ -1931,7 +1729,6 @@
                 latestNote = latestItem.node || latestItem.note || '';
             }
             this.updateProgress(currentStatus, latestNote, latestLoc);
-
             if (shouldFitBounds) {
                 try {
                     this.fitRouteView();
@@ -1942,7 +1739,6 @@
                     });
                 } catch (e) {}
             }
-
             return {
                 sourceHub,
                 destHub,
@@ -1955,6 +1751,5 @@
             };
         }
     };
-
     window.MapManager = MapManager;
 })();

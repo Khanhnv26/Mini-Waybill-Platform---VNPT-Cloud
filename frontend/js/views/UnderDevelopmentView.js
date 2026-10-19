@@ -1,7 +1,6 @@
 
 (function () {
     const { computed } = Vue;
-
     const FEATURES_DATA = {
         network: {
             title: 'Mạng Lưới Hub & Bưu Cục Toàn Quốc',
@@ -44,7 +43,6 @@
             ]
         }
     };
-
     const UnderDevelopmentView = {
         name: 'UnderDevelopmentView',
         props: {
@@ -67,11 +65,9 @@
                     ]
                 };
             });
-
             const goBack = () => {
                 emit('back-home');
             };
-
             return {
                 currentFeature,
                 goBack
@@ -99,19 +95,15 @@
                         <span>← Quay Lại Trang Chủ</span>
                     </button>
                 </div>
-
                 <div class="b2b-card bg-white border border-slate-200 rounded-2xl p-8 sm:p-12 shadow-sm text-center max-w-2xl mx-auto space-y-6">
                     <div class="relative w-28 h-28 mx-auto flex items-center justify-center">
                         <div class="absolute inset-0 rounded-full border-2 border-slate-100"></div>
                         <div class="absolute inset-0 rounded-full border-2 border-transparent border-t-blue-600 border-r-blue-400 animate-spin" style="animation-duration: 1.2s;"></div>
-                        
                         <div class="absolute inset-3 rounded-full border-2 border-transparent border-b-cyan-500 border-l-cyan-300 animate-spin" style="animation-duration: 2s; animation-direction: reverse;"></div>
-
                         <div class="w-12 h-12 rounded-xl vnpt-gradient text-white font-black text-xs flex items-center justify-center shadow-md shadow-blue-500/25 z-10 select-none">
                             WB
                         </div>
                     </div>
-
                     <div class="space-y-2">
                         <h2 class="text-base sm:text-lg font-extrabold text-slate-800">
                             Chức Năng Đang Được Hoàn Thiện
@@ -120,7 +112,6 @@
                             {{ currentFeature.desc }}
                         </p>
                     </div>
-
                     <div class="p-4 bg-slate-50 rounded-xl border border-slate-200/80 text-left max-w-md mx-auto space-y-2.5">
                         <span class="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
                             Hạng Mục Đang Xây Dựng:
@@ -130,7 +121,6 @@
                             <span>{{ item }}</span>
                         </div>
                     </div>
-
                     <div class="pt-2">
                         <button 
                             type="button" 
@@ -145,6 +135,5 @@
             </div>
         `
     };
-
     window.UnderDevelopmentView = UnderDevelopmentView;
 })();

@@ -9,7 +9,6 @@
             @switch-tab="$emit('switch-tab', $event)"
             @guest-tab-click="$emit('guest-tab-click', $event)"
         ></public-header>
-
         <div v-if="notifications.length" class="bg-white border-b border-slate-200 px-4 py-2">
             <div id="notification-bell-dropdown" class="max-w-7xl mx-auto relative flex justify-end" @keydown.esc="$emit('toggle-notifications', $event)">
                 <button type="button" @click="$emit('toggle-notifications', $event)" :aria-expanded="showNotificationDropdown"
@@ -33,19 +32,16 @@
                 </div>
             </div>
         </div>
-
         <main class="flex-1 p-4 sm:p-8 bg-gradient-to-b from-blue-50/30 via-slate-50 to-slate-100 dark:bg-none dark:!bg-[#0b1329] transition-colors duration-200">
             <div class="max-w-7xl mx-auto relative">
                 <slot></slot>
             </div>
         </main>
-
         <public-footer
             @switch-tab="$emit('switch-tab', $event)"
         ></public-footer>
     </div>
     `;
-
     const PublicLayout = {
         name: 'PublicLayout',
         components: {
@@ -63,6 +59,5 @@
         },
         emits: ['switch-tab', 'guest-tab-click', 'toggle-dark-mode', 'toggle-notifications', 'notification-click', 'mark-all-read']
     };
-
     window.PublicLayout = PublicLayout;
 })();

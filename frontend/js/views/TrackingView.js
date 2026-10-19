@@ -1,6 +1,5 @@
 (function () {
     const { ref, computed, watch, onMounted, onUnmounted, onActivated, nextTick } = Vue;
-
     const TrackingView = {
         name: 'TrackingView',
         components: {
@@ -25,7 +24,6 @@
             const previousTab = computed(() => props.previousTab);
             const searchCode = ref(props.trackingCode || '');
             const isLoading = ref(false);
-
             const currentUser = computed(() => {
                 if (props.currentUser !== undefined && props.currentUser !== null) return props.currentUser;
                 if (typeof Auth !== 'undefined' && typeof Auth.getUser === 'function') return Auth.getUser();
@@ -36,11 +34,9 @@
                 if (typeof Auth === 'undefined' || !Auth.isAuthenticated()) return false;
                 return Auth.hasAnyRole(['ROLE_ADMIN', 'ROLE_CS', 'ROLE_POST_OFFICE_OPERATOR', 'ROLE_HUB_OPERATOR', 'ROLE_DISPATCHER', 'ROLE_SHIPPER']);
             });
-
             const publicHeroTab = ref('tracking');
             const heroBannerRef = ref(null);
             let heroRafId = null;
-
             const handleHeroMouseMove = (e) => {
                 if (!heroBannerRef.value) return;
                 const rect = heroBannerRef.value.getBoundingClientRect();
@@ -50,7 +46,6 @@
                 const centerY = rect.height / 2;
                 const parallaxX = ((x - centerX) / Math.max(1, centerX)) * -8;
                 const parallaxY = ((y - centerY) / Math.max(1, centerY)) * -6;
-
                 if (heroRafId) cancelAnimationFrame(heroRafId);
                 heroRafId = requestAnimationFrame(() => {
                     if (!heroBannerRef.value) return;
@@ -62,13 +57,11 @@
                     heroBannerRef.value.classList.remove('is-idle');
                 });
             };
-
             const handleHeroMouseEnter = () => {
                 if (heroBannerRef.value) {
                     heroBannerRef.value.classList.remove('is-idle');
                 }
             };
-
             const handleHeroMouseLeave = () => {
                 if (!heroBannerRef.value) return;
                 heroBannerRef.value.classList.add('is-idle');
@@ -79,8 +72,7 @@
                 heroBannerRef.value.style.setProperty('--glow-opacity', '0.65');
             };
             const isMapExpanded = ref(false);
-
-            // Đảm bảo DOM container của bản đồ đã được render, hiển thị và có kích thước thực tế trước khi nạp Leaflet
+            
             const ensureMapReady = async (containerId = 'tracking-map', maxRetries = 15) => {
                 for (let i = 0; i < maxRetries; i++) {
                     await nextTick();
@@ -105,7 +97,6 @@
                 }
                 return false;
             };
-
             const toggleMapExpanded = () => {
                 isMapExpanded.value = !isMapExpanded.value;
                 if (isMapExpanded.value) {
@@ -128,7 +119,6 @@
                     });
                 }
             };
-
             const quickQuote = Vue.reactive({
                 senderProvince: 'Hà Nội',
                 receiverProvince: 'Hồ Chí Minh',
@@ -144,12 +134,10 @@
             watch(() => [quickQuote.senderProvince, quickQuote.receiverProvince, quickQuote.weightGram], () => {
                 calculateQuickQuote();
             });
-
             const fillSampleCode = (code) => {
                 searchCode.value = code;
                 fetchTrackingData(code);
             };
-
             const handleResetSearch = () => {
                 currentShipment.value = null;
                 trackingHistory.value = [];
@@ -158,13 +146,11 @@
                 validationError.value = '';
                 isNotFound.value = false;
             };
-
             const navigateToSupport = () => {
                 const code = currentShipment.value?.trackingCode || searchCode.value;
                 if (!code) return;
                 emit('switch-tab', 'support', code.trim());
             };
-
             const copiedCodeTooltip = ref(false);
             const copyTrackingCode = (code) => {
                 const val = code || currentShipment.value?.trackingCode || searchCode.value;
@@ -181,18 +167,15 @@
             };
             const isLiveTracking = ref(true);
             const isWsConnected = ref(false);
-
             const validationError = ref('');
             const isNotFound = ref(false);
             const notFoundCode = ref('');
-
             const currentShipment = ref(null);
             const currentReturnRequest = ref(null);
             const trackingHistory = ref([]);
             const historyExpanded = ref(false);
             const routeInfo = ref(null);
             const lastRenderedCode = ref(null);
-
             const FINAL_STATUSES = new Set(['DELIVERED', 'CANCELLED', 'RETURNED']);
             const ROUTING_HISTORY_METHODS = [
                 'getOperationHistory',
@@ -205,19 +188,15 @@
                 'getRoutingHistory',
                 'getHistory'
             ];
-
             let livePollTimer = null;
-
             const hasValue = (value) => value !== undefined && value !== null && value !== '';
             const firstValue = (...values) => values.find(hasValue);
-
             const getUtilsApi = () => {
                 try {
                     if (typeof Utils !== 'undefined') return Utils;
                 } catch (e) {}
                 return typeof window !== 'undefined' ? window.Utils : null;
             };
-
             const callUtils = (methodName, ...args) => {
                 const utilsApi = getUtilsApi();
                 if (!utilsApi) return undefined;
@@ -230,18 +209,15 @@
                 if (typeof utilsApi[methodName] !== 'function') return undefined;
                 try {
                     const result = utilsApi[methodName](...args);
-                    // Utility wrappers may be async; callers that render synchronously use their fallback.
                     if (result && typeof result.catch === 'function') result.catch(() => {});
                     return result;
                 } catch (e) {
                     return undefined;
                 }
             };
-
             let stompClient = null;
             let currentSubscription = null;
             let activeWsTrackingCode = null;
-
             const getWsEndpoint = () => {
                 const host = window.location.hostname || 'localhost';
                 const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
@@ -254,7 +230,6 @@
                 }
                 return `${protocol}//${host}:8080/api/notifications/ws`;
             };
-
             const disconnectWebSocket = () => {
                 if (currentSubscription) {
                     try {
@@ -273,7 +248,6 @@
                 activeWsTrackingCode = null;
                 isWsConnected.value = false;
             };
-
             const subscribeTrackingTopic = (code) => {
                 if (!stompClient || !stompClient.connected) return;
                 activeWsTrackingCode = code;
@@ -281,9 +255,7 @@
                     try {
                         const eventData = JSON.parse(message.body);
                         console.log('[WebSocket Realtime] Nhận cập nhật trạng thái đơn:', code, eventData);
-
                         syncStatusInBackground();
-
                         const statusText = Utils ? Utils.formatStatusText(eventData.status, eventData.locationCode) : eventData.status;
                         showToast('Cập Nhật Thời Gian Thực (WebSocket)', `Đơn ${code}: ${statusText}`, 'info');
                     } catch (e) {
@@ -292,15 +264,12 @@
                 });
                 console.log('[WebSocket] Đã kết nối thành công! Đang lắng nghe đơn:', code);
             };
-
             const connectWebSocket = (trackingCode) => {
                 if (!trackingCode) return;
                 const cleanCode = trackingCode.trim().toUpperCase();
-
                 if (stompClient && stompClient.connected && activeWsTrackingCode === cleanCode) {
                     return;
                 }
-
                 if (stompClient && stompClient.connected) {
                     if (currentSubscription) {
                         currentSubscription.unsubscribe();
@@ -309,20 +278,16 @@
                     subscribeTrackingTopic(cleanCode);
                     return;
                 }
-
                 disconnectWebSocket();
-
                 try {
                     if (typeof SockJS === 'undefined' || typeof Stomp === 'undefined') {
                         console.warn('[WebSocket] Thư viện SockJS hoặc Stomp chưa được tải, sử dụng polling dự phòng.');
                         return;
                     }
-
                     const endpoint = getWsEndpoint();
                     const socket = new SockJS(endpoint);
                     stompClient = Stomp.over(socket);
                     stompClient.debug = null;
-
                     stompClient.connect((typeof Auth !== 'undefined' && Auth.getToken()) ? { Authorization: `Bearer ${Auth.getToken()}` } : {}, () => {
                         isWsConnected.value = true;
                         subscribeTrackingTopic(cleanCode);
@@ -338,16 +303,10 @@
                     isWsConnected.value = false;
                 }
             };
-
-
-
-
             const showToast = (...args) => callUtils('showToast', ...args);
-
             const unwrapHistoryPayload = (payload, depth = 0) => {
                 if (Array.isArray(payload)) return payload;
                 if (!payload || typeof payload !== 'object' || depth > 3) return [];
-
                 const collectionKeys = ['history', 'operationHistory', 'operations', 'events', 'items', 'records', 'content', 'data', 'result'];
                 for (const key of collectionKeys) {
                     if (!Object.prototype.hasOwnProperty.call(payload, key)) continue;
@@ -356,14 +315,12 @@
                     const unwrapped = unwrapHistoryPayload(nested, depth + 1);
                     if (unwrapped.length > 0) return unwrapped;
                 }
-
                 const looksLikeHistoryItem = [
                     'eventId', 'operationId', 'status', 'currentStatus', 'occurredAt',
                     'timestamp', 'assignedAt', 'operationType', 'note', 'node'
                 ].some(key => Object.prototype.hasOwnProperty.call(payload, key));
                 return looksLikeHistoryItem ? [payload] : [];
             };
-
             const inferStatusFromOperationType = (opType, locationCode) => {
                 if (!opType) return null;
                 const normalized = String(opType).trim().toUpperCase();
@@ -402,10 +359,8 @@
                         return null;
                 }
             };
-
             const normalizeHistoryItem = (item, source) => {
                 if (!item || typeof item !== 'object') return null;
-
                 const metadata = item.metadata && typeof item.metadata === 'object' ? item.metadata : {};
                 const operation = item.operation && typeof item.operation === 'object' ? item.operation : {};
                 const actor = item.actor && typeof item.actor === 'object' ? item.actor : {};
@@ -491,7 +446,6 @@
                     metadata.timestamp,
                     operation.timestamp
                 );
-
                 return {
                     ...item,
                     eventId: eventId ?? null,
@@ -504,14 +458,12 @@
                     note: note ?? null,
                     status: status ?? null,
                     timestamp: timestamp ?? null,
-                    // Keep existing backend names available to the map and legacy template paths.
                     locationCode: hasValue(item.locationCode) ? item.locationCode : (location ?? null),
                     node: hasValue(item.node) ? item.node : (note ?? null),
                     occurredAt: hasValue(item.occurredAt) ? item.occurredAt : (timestamp ?? null),
                     historySource: source
                 };
             };
-
             const historyValue = (item, key) => {
                 if (!item) return null;
                 if (hasValue(item[key])) return item[key];
@@ -519,7 +471,6 @@
                 if (key === 'note') return firstValue(item.note, item.node);
                 return null;
             };
-
             const getHistoryKeys = (item) => {
                 const keys = [];
                 if (hasValue(item.eventId)) {
@@ -530,8 +481,7 @@
                     keys.push(`operation:${String(item.operationId)}`);
                     keys.push(`id:${String(item.operationId)}`);
                 }
-
-                // Older records may not have either identifier. Only dedupe exact, content-identical records.
+                
                 if (keys.length === 0) {
                     const fallbackParts = [
                         item.timestamp,
@@ -549,7 +499,6 @@
                 }
                 return keys;
             };
-
             const mergeHistoryItems = (existing, incoming) => {
                 const merged = { ...existing };
                 Object.keys(incoming).forEach(key => {
@@ -562,15 +511,12 @@
                 }
                 return merged;
             };
-
             const mergeHistory = (lifecycleHistory, routingHistory) => {
                 const merged = [];
                 const indexByKey = new Map();
-
                 const addHistory = (rawItem, source) => {
                     const item = normalizeHistoryItem(rawItem, source);
                     if (!item) return;
-
                     const keys = getHistoryKeys(item);
                     const existingIndex = keys.map(key => indexByKey.get(key)).find(index => index !== undefined);
                     if (existingIndex !== undefined) {
@@ -578,16 +524,13 @@
                     } else {
                         merged.push(item);
                     }
-
                     const itemIndex = existingIndex !== undefined ? existingIndex : merged.length - 1;
                     keys.forEach(key => indexByKey.set(key, itemIndex));
                 };
-
                 unwrapHistoryPayload(lifecycleHistory).forEach(item => addHistory(item, 'tracking'));
                 unwrapHistoryPayload(routingHistory).forEach(item => addHistory(item, 'routing'));
                 return merged;
             };
-
             const loadRoutingOperationHistory = async (code) => {
                 let routingService;
                 try {
@@ -601,19 +544,15 @@
                     return [];
                 }
                 if (!routingService) return [];
-
                 const methodName = ROUTING_HISTORY_METHODS.find(name => typeof routingService[name] === 'function');
                 if (!methodName) return [];
-
                 try {
                     const result = await Promise.resolve(routingService[methodName](code));
                     return unwrapHistoryPayload(result);
                 } catch (e) {
-                    // Routing history is optional; tracking remains usable when that wrapper/endpoint is absent.
                     return [];
                 }
             };
-
             const loadRoutingAssignment = async (code) => {
                 let routingService;
                 try {
@@ -631,35 +570,27 @@
                 }
                 return null;
             };
-
             const safeFormatHistoryNote = (historyItem) => {
                 const fallback = firstValue(historyItem?.note, historyItem?.node, historyItem?.status, '');
                 const nodeText = firstValue(historyItem?.node, historyItem?.note);
-                // Preserve the existing node formatter for tracking records while showing an explicit operation note verbatim.
                 if (hasValue(historyItem?.note) && historyItem.note !== historyItem.node) return historyItem.note;
                 const result = callUtils('formatNodeText', nodeText, historyItem?.status);
                 return result && typeof result.then !== 'function' && hasValue(result) ? result : fallback;
             };
-
-            // Gộp mốc lịch sử: mỗi thao tác vật lý thường sinh 2-3 bản ghi
-            // (lifecycle + legacy-status, đôi khi + routing operation) nên UI bị lặp.
+            
             const HISTORY_MERGE_WINDOW_MS = 5000;
-
             const toHistoryMillis = (item) => {
                 const raw = item?.occurredAt || item?.timestamp || item?.createdAt;
                 const time = raw ? new Date(raw).getTime() : NaN;
                 return Number.isFinite(time) ? time : 0;
             };
-
             const normalizeHistoryNote = (value) => String(value ?? '')
                 .replace(/\s+/g, ' ')
                 .trim()
                 .toLowerCase();
-
             const isLegacyHistoryRecord = (item) => String(item?.eventId || '').startsWith('legacy-status:');
             const isRichHistoryRecord = (item) => !isLegacyHistoryRecord(item)
                 && Boolean(item?.operationType || item?.tripCode || item?.operationId);
-
             const getOperationStepLabel = (item) => {
                 const type = String(item?.operationType || '').trim().toUpperCase();
                 const labels = {
@@ -678,7 +609,6 @@
                 if (!type) return '';
                 return type;
             };
-
             const buildHistoryMilestone = (group) => {
                 const primary = group.find(isRichHistoryRecord)
                     || group.reduce((newest, item) => (toHistoryMillis(item) > toHistoryMillis(newest) ? item : newest), group[0]);
@@ -705,7 +635,6 @@
                     subSteps: subSteps.length > 1 ? subSteps : []
                 };
             };
-
             const collapseHistoryMilestones = (list) => {
                 if (!Array.isArray(list) || list.length === 0) return [];
                 const items = [...list].sort((a, b) =>
@@ -714,7 +643,6 @@
                 );
                 const used = new Set();
                 const milestones = [];
-
                 for (let i = 0; i < items.length; i += 1) {
                     if (used.has(i)) continue;
                     const base = items[i];
@@ -726,12 +654,10 @@
                     const groupHasType = (type) => group.some(item =>
                         String(item?.operationType || '').trim().toUpperCase() === type
                     );
-
                     for (let j = i + 1; j < items.length; j += 1) {
                         if (used.has(j)) continue;
                         const candidate = items[j];
                         const candidateTripCode = candidate?.tripCode;
-                        // Legacy record có thể không mang tripCode, nên so khớp theo cả nhóm.
                         const sameTrip = hasValue(candidateTripCode) && group.some(item =>
                             hasValue(item?.tripCode) && item.tripCode === candidateTripCode
                         );
@@ -744,10 +670,8 @@
                             used.add(j);
                             continue;
                         }
-
                         const withinWindow = (baseTime - toHistoryMillis(candidate)) <= HISTORY_MERGE_WINDOW_MS;
                         const candidateLocation = historyValue(candidate, 'location');
-                        // Một số bản ghi legacy cũ thiếu locationCode; chỉ so khớp khi cả hai đều có.
                         const sameLocation = !baseLocation || !candidateLocation || candidateLocation === baseLocation;
                         const sameNote = baseNote !== '' && normalizeHistoryNote(candidate.note) === baseNote;
                         if (withinWindow && sameLocation && sameNote) {
@@ -755,52 +679,42 @@
                             used.add(j);
                         }
                     }
-
                     milestones.push(buildHistoryMilestone(group));
                 }
                 return milestones;
             };
-
             const safeFormatStatusText = (status) => {
                 const result = callUtils('formatStatusText', status);
                 return result && typeof result.then !== 'function' && hasValue(result) ? result : (status || 'N/A');
             };
-
             const currentSourceHub = computed(() => {
                 return routeInfo.value?.sourceHub || currentShipment.value?.originHub || 'HUB-HN-01';
             });
-
             const currentDestHub = computed(() => {
                 return routeInfo.value?.destHub || currentShipment.value?.destinationHub || 'HUB-HCM-01';
             });
-
             const currentOriginPostOffice = computed(() => {
                 return routeInfo.value?.originPostOffice || currentShipment.value?.originPostOffice || 'POST-HN-CG';
             });
-
             const currentDestPostOffice = computed(() => {
                 return routeInfo.value?.destPostOffice || currentShipment.value?.destPostOffice || 'POST-HCM-Q1';
             });
-
             const getPostOfficeDisplayName = (code) => {
                 const mapH = window.MapManager?.hubCoordinates;
                 if (mapH && mapH[code]?.name) return mapH[code].name;
                 return code;
             };
-
             const getStationAddress = (code) => {
                 if (!code) return '';
                 const mapH = window.MapManager?.hubCoordinates;
                 if (mapH && mapH[code]?.address) return mapH[code].address;
                 return '';
             };
-
             const isInterProvincial = computed(() => {
                 const src = currentSourceHub.value;
                 const dst = currentDestHub.value;
                 return !!(src && dst && src !== dst);
             });
-
             const recipientShortAddress = computed(() => {
                 const addr = currentShipment.value?.receiverAddress;
                 if (!addr) return 'Người Nhận';
@@ -810,11 +724,9 @@
                 }
                 return addr;
             });
-
             const recipientFullAddress = computed(() => {
                 return currentShipment.value?.receiverAddress || 'Địa chỉ phát hàng tận tay người nhận';
             });
-
             const senderShortAddress = computed(() => {
                 const addr = currentShipment.value?.senderAddress;
                 if (!addr) return currentShipment.value?.senderName || 'Người Gửi';
@@ -824,18 +736,15 @@
                 }
                 return addr;
             });
-
             const senderFullAddress = computed(() => {
                 return currentShipment.value?.senderAddress || 'Địa chỉ người gửi ban đầu';
             });
-
             const appendReturnStage = (stages) => {
                 const status = currentShipment.value?.status;
                 if (status !== 'RETURNING' && status !== 'OUT_FOR_RETURN' && status !== 'RETURNED') return stages;
                 let subLabel = 'Đang Chuyển Hoàn Về Bưu Cục Gốc';
                 if (status === 'OUT_FOR_RETURN') subLabel = 'Bưu Tá Đang Phát Hoàn Tận Nơi';
                 if (status === 'RETURNED') subLabel = 'Đã Hoàn Về Người Gửi';
-
                 return [...stages, {
                     key: 'return-sender',
                     stageName: `${stages.length + 1}. Chuyển Hoàn`,
@@ -846,7 +755,6 @@
                     address: senderFullAddress.value
                 }];
             };
-
             const routeCheckpoints = computed(() => {
                 const inter = isInterProvincial.value;
                 const isReturningStatus = currentShipment.value?.status === 'RETURNING' || currentShipment.value?.status === 'OUT_FOR_RETURN' || currentShipment.value?.status === 'RETURNED';
@@ -945,14 +853,12 @@
                     ];
                 return appendReturnStage(stages);
             });
-
             const currentCheckpointIndex = computed(() => {
                 const s = currentShipment.value?.status;
                 const inter = isInterProvincial.value;
                 if (s === 'RETURNING' || s === 'OUT_FOR_RETURN' || s === 'RETURNED') {
                     return Math.max(0, routeCheckpoints.value.length - 1);
                 }
-
                 if (inter) {
                     if (!s || s === 'CREATED' || s === 'PENDING_ROUTING' || s === 'ROUTE_ASSIGNED') return 0;
                     if (s === 'PICKED_UP') return 1;
@@ -970,9 +876,7 @@
                     return 0;
                 }
             });
-
             const currentStageIndex = computed(() => currentCheckpointIndex.value + 1);
-
             const activePinType = computed(() => {
                 const s = currentShipment.value?.status;
                 if (s === 'DELIVERED') return 'success';
@@ -980,7 +884,6 @@
                 if (s === 'RETURNING' || s === 'OUT_FOR_RETURN' || s === 'RETURNED') return 'return';
                 return 'truck';
             });
-
             const stageProgress = computed(() => {
                 const total = routeCheckpoints.value.length;
                 if (total <= 1) return { width: '0%', left: '0%' };
@@ -992,7 +895,6 @@
                     left: `calc(18px + (100% - 36px) * ${ratio})`
                 };
             });
-
             const STATUS_CHRONO_WEIGHT = {
                 'CREATED': 1,
                 'PENDING_ROUTING': 2,
@@ -1009,52 +911,40 @@
                 'RETURNED': 11,
                 'CANCELLED': 12
             };
-
             const sortedHistory = computed(() => {
                 if (!trackingHistory.value || trackingHistory.value.length === 0) return [];
-
                 const list = [...trackingHistory.value];
-
-                // Chỉ sắp xếp các mốc server trả về; không tự tạo mốc lịch sử còn thiếu.
+                
                 const sortedList = list.sort((a, b) => {
                     const rawA = a.occurredAt || a.timestamp || a.createdAt;
                     const rawB = b.occurredAt || b.timestamp || b.createdAt;
                     const timeA = rawA ? new Date(rawA).getTime() : 0;
                     const timeB = rawB ? new Date(rawB).getTime() : 0;
-
                     if (timeA !== timeB && !isNaN(timeA) && !isNaN(timeB)) {
                         return timeB - timeA;
                     }
-
                     const idA = typeof a.id === 'number' ? a.id : 0;
                     const idB = typeof b.id === 'number' ? b.id : 0;
                     if (idA !== idB && idA > 0 && idB > 0) {
                         return idB - idA;
                     }
-
                     const weightA = STATUS_CHRONO_WEIGHT[a.status] || 0;
                     const weightB = STATUS_CHRONO_WEIGHT[b.status] || 0;
                     if (weightA !== weightB) {
                         return weightB - weightA;
                     }
-
                     return 0;
                 });
-
                 return collapseHistoryMilestones(sortedList);
             });
-
             const mergedMilestoneCount = computed(() =>
                 Math.max(0, trackingHistory.value.length - sortedHistory.value.length)
             );
-
-            // Đơn đã kết thúc hành trình thì dừng polling. DELIVERY_FAILED vẫn phải được theo dõi
-            // để giữ luồng giao lại / chuyển hoàn của nghiệp vụ hiện hữu.
+            
             const isFinalState = computed(() => {
                 const status = String(currentShipment.value?.status || '').trim().toUpperCase();
                 return FINAL_STATUSES.has(status);
             });
-
             const formatRelativeTime = (ts) => {
                 if (!ts) return '';
                 const now = Date.now();
@@ -1064,7 +954,6 @@
                 if (diff < 86400) return `Cách đây ${Math.floor(diff / 3600)} giờ`;
                 return `Cách đây ${Math.floor(diff / 86400)} ngày`;
             };
-
             const getStatusIconConfig = (status) => {
                 switch (status) {
                     case 'DELIVERED':
@@ -1094,7 +983,6 @@
                         return { bg: 'bg-slate-400', icon: 'document' };
                 }
             };
-
             const loadSecondaryData = async (code) => {
                 const trackingHistoryPromise = (async () => {
                     try {
@@ -1105,14 +993,12 @@
                     }
                 })();
                 const routingHistoryPromise = loadRoutingOperationHistory(code);
-
                 const [lifecycleHistory, routingHistory] = await Promise.all([
                     trackingHistoryPromise,
                     routingHistoryPromise
                 ]);
                 trackingHistory.value = mergeHistory(lifecycleHistory, routingHistory);
             };
-
             const shipmentDetailCache = {};
             const loadShipmentDetail = async (code) => {
                 if (Object.prototype.hasOwnProperty.call(shipmentDetailCache, code)) {
@@ -1124,7 +1010,6 @@
                 }
                 return detail;
             };
-
             const maskPhone = (phone) => {
                 if (!phone) return 'N/A';
                 if (typeof Auth !== 'undefined' && Auth.isAuthenticated()) {
@@ -1134,7 +1019,6 @@
                 if (str.length <= 6) return str;
                 return `${str.slice(0, 4)}***${str.slice(-3)}`;
             };
-
             const focusSearchInput = () => {
                 const el = document.getElementById('tracking-search-input');
                 if (el) {
@@ -1142,7 +1026,6 @@
                     el.select();
                 }
             };
-
             const fetchTrackingData = async (codeToSearch) => {
                 validationError.value = '';
                 const raw = (codeToSearch || searchCode.value || '').trim();
@@ -1150,24 +1033,19 @@
                     validationError.value = 'Vui lòng nhập mã số bưu gửi cần tra cứu.';
                     return;
                 }
-
                 const code = raw.toUpperCase();
                 searchCode.value = code;
-
                 if (!code.startsWith('WB') && !code.startsWith('VNPT')) {
                     validationError.value = 'Mã bưu gửi không đúng định dạng. Mã chuẩn bắt đầu bằng "WB" (Ví dụ: WB-HN-SG-9821 hoặc WB1788...).';
                     return;
                 }
-
                 if (code.length < 6) {
                     validationError.value = 'Mã bưu gửi quá ngắn. Vui lòng nhập tối thiểu 6 ký tự.';
                     return;
                 }
-
                 isLoading.value = true;
                 isNotFound.value = false;
                 notFoundCode.value = '';
-
                 try {
                     const rawRecents = localStorage.getItem('vnpt_waybill_recent_searches');
                     let list = rawRecents ? JSON.parse(rawRecents) : [];
@@ -1175,7 +1053,6 @@
                     list.unshift(code);
                     localStorage.setItem('vnpt_waybill_recent_searches', JSON.stringify(list.slice(0, 6)));
                 } catch {}
-
                 if (code === 'WB-HN-SG-9821' || code === 'VNPT-HN-SG-9821' || code.startsWith('WB-') || code.startsWith('VNPT-')) {
                     setTimeout(async () => {
                         currentShipment.value = {
@@ -1255,11 +1132,8 @@
                     }, 250);
                     return;
                 }
-
                 try {
-                    // Nạp trạng thái, chi tiết đơn và lịch sử định tuyến song song để tránh làm chậm
-                    // timeline khi routing service chỉ là một wrapper tùy chọn.
-                    // Thiếu lịch sử tracking không được hủy kết quả đơn đã có trong shipment-service.
+                    
                     const routingHistoryPromise = loadRoutingOperationHistory(code);
                     const routingAssignmentPromise = loadRoutingAssignment(code);
                     const trackingPromise = Promise.resolve(TrackingService.getFullTracking(code)).catch((err) => {
@@ -1279,7 +1153,6 @@
                         returnRequestPromise
                     ]);
                     currentReturnRequest.value = returnReq;
-
                     if (!data && !detail) {
                         currentShipment.value = null;
                         trackingHistory.value = [];
@@ -1289,18 +1162,14 @@
                         notFoundCode.value = code;
                         return;
                     }
-
                     const trackingStatus = (data && data.currentStatus) ? String(data.currentStatus).trim().toUpperCase() : '';
                     const detailStatus = (detail && (detail.currentStatus || detail.status)) ? String(detail.currentStatus || detail.status).trim().toUpperCase() : '';
-
-                    // So sánh trọng số tiến trình: nếu shipment-service đã hoàn tất (DELIVERED, RETURNED, CANCELLED)
-                    // hoặc có trạng thái tiến xa hơn tracking-service, ưu tiên trạng thái tiến xa hơn để tránh lệch dữ liệu.
+                    
                     const trackingWeight = STATUS_CHRONO_WEIGHT[trackingStatus] || 0;
                     const detailWeight = STATUS_CHRONO_WEIGHT[detailStatus] || 0;
                     const status = detailWeight > trackingWeight
                         ? detailStatus
                         : (trackingStatus || detailStatus || 'PENDING_ROUTING');
-
                     currentShipment.value = {
                         ...(detail || {}),
                         ...(assignment || {}),
@@ -1308,7 +1177,6 @@
                         status,
                         source: data ? data.source : 'SHIPMENT'
                     };
-
                     let rawHistory = (data && (data.history || data.lifecycleHistory || data.trackingHistory || data.events)) || [];
                     if (!rawHistory.length) {
                         rawHistory = [{
@@ -1340,7 +1208,6 @@
                             occurredAt: (detail && (detail.updatedAt || detail.codSettledAt)) || new Date().toISOString()
                         });
                     }
-
                     trackingHistory.value = mergeHistory(
                         rawHistory,
                         routingHistory
@@ -1354,8 +1221,7 @@
                             startLivePolling();
                         }
                     }
-
-                    // Lỗi bản đồ không được xóa đơn vừa tải được.
+                    
                     try {
                         await ensureMapReady('tracking-map');
                         if (window.MapManager) {
@@ -1375,11 +1241,9 @@
                     } catch (mapErr) {
                         console.warn('[TrackingView] Không vẽ được bản đồ:', mapErr);
                     }
-
                     showToast('Thành Công', data
                         ? `Đã nạp dữ liệu hành trình bưu gửi ${code}`
                         : `Đã mở vận đơn ${code}. Hành trình chi tiết sẽ cập nhật khi có mốc quét.`);
-
                     if (status === 'DELIVERED') {
                         loadRatingStatus(code);
                     } else {
@@ -1393,7 +1257,6 @@
                     trackingHistory.value = [];
                     routeInfo.value = null;
                     lastRenderedCode.value = null;
-
                     if (err.isNotFound || err.status === 404 || (err.message && err.message.toLowerCase().includes('không tìm thấy'))) {
                         isNotFound.value = true;
                         notFoundCode.value = code;
@@ -1404,7 +1267,6 @@
                     isLoading.value = false;
                 }
             };
-
             const syncStatusInBackground = async () => {
                 const code = currentShipment.value?.trackingCode;
                 if (!code) return;
@@ -1412,17 +1274,14 @@
                     stopLivePolling();
                     return;
                 }
-
                 try {
                     const st = await Promise.resolve(TrackingService.getTracking(code));
                     const newStatus = st.currentStatus;
                     if (!newStatus) return;
                     const previousStatus = currentShipment.value.status;
                     const statusChanged = newStatus !== previousStatus;
-
-                    // A trip can progress physically while its public status stays
-                    // unchanged. Always refresh the two histories during polling so
-                    // those unload/store milestones are not missed.
+                    
+                    
                     currentShipment.value = {
                         ...currentShipment.value,
                         status: newStatus,
@@ -1430,10 +1289,8 @@
                         source: st.source
                     };
                     if (isFinalState.value) {
-                        // Stop immediately; history refresh failure must not restart terminal polling.
                         stopLivePolling();
                     }
-
                     const [fullData, routingHistory] = await Promise.all([
                         Promise.resolve(TrackingService.getFullTracking(code)),
                         loadRoutingOperationHistory(code)
@@ -1443,11 +1300,9 @@
                         routingHistory
                     );
                     const latestMilestone = sortedHistory.value[0];
-
                     if (window.MapManager) {
                         window.MapManager.updateProgress(newStatus, latestMilestone?.node || '', latestMilestone?.locationCode || null);
                     }
-
                     if (statusChanged) {
                         showToast('Cập Nhật Tự Động', `Bưu gửi vừa chuyển sang: ${safeFormatStatusText(newStatus)}`);
                     }
@@ -1460,9 +1315,7 @@
                 } catch (err) {
                 }
             };
-
             const POLL_INTERVAL_MS = 5000;
-
             const startLivePolling = () => {
                 stopLivePolling();
                 livePollTimer = setInterval(() => {
@@ -1476,21 +1329,18 @@
                     syncStatusInBackground();
                 }, POLL_INTERVAL_MS);
             };
-
             const stopLivePolling = () => {
                 if (livePollTimer) {
                     clearInterval(livePollTimer);
                     livePollTimer = null;
                 }
             };
-
             watch(() => props.trackingCode, (newCode) => {
                 if (newCode) {
                     searchCode.value = newCode;
                     fetchTrackingData(newCode);
                 }
             });
-
             const handleVisibilityChange = () => {
                 if (document.hidden) return;
                 if (window.MapManager) window.MapManager.invalidateSize();
@@ -1502,53 +1352,43 @@
                     syncStatusInBackground();
                 }
             };
-
             const counterHubs = ref('03');
             const counterVolume = ref('500K+');
             const counterProvinces = ref('63');
             const counterInsurance = ref('100%');
             let counterAnimId = null;
-
             const animateNumbers = () => {
                 if (counterAnimId) {
                     cancelAnimationFrame(counterAnimId);
                 }
-
                 const duration = 1600;
                 const startTime = performance.now();
-
                 const targets = {
                     hubs: { start: 0, end: 3, format: v => (Math.round(v) < 10 ? '0' : '') + Math.round(v), set: val => { counterHubs.value = val; } },
                     volume: { start: 0, end: 500, format: v => Math.round(v) + 'K+', set: val => { counterVolume.value = val; } },
                     provinces: { start: 0, end: 63, format: v => Math.round(v).toString(), set: val => { counterProvinces.value = val; } },
                     insurance: { start: 0, end: 100, format: v => Math.round(v) + '%', set: val => { counterInsurance.value = val; } }
                 };
-
                 function easeOutQuart(x) {
                     return 1 - Math.pow(1 - x, 4);
                 }
-
                 function frame(now) {
                     const elapsed = now - startTime;
                     const progress = Math.min(elapsed / duration, 1);
                     const ease = easeOutQuart(progress);
-
                     for (const key in targets) {
                         const item = targets[key];
                         const currentVal = item.start + (item.end - item.start) * ease;
                         item.set(item.format(currentVal));
                     }
-
                     if (progress < 1) {
                         counterAnimId = requestAnimationFrame(frame);
                     } else {
                         counterAnimId = null;
                     }
                 }
-
                 counterAnimId = requestAnimationFrame(frame);
             };
-
             onMounted(() => {
                 nextTick(() => {
                     const el = document.getElementById('tracking-map');
@@ -1580,7 +1420,6 @@
                 startLivePolling();
                 document.addEventListener('visibilitychange', handleVisibilityChange);
             });
-
             onActivated(() => {
                 const codeToFetch = (props.trackingCode || searchCode.value || '').trim();
                 if (codeToFetch) {
@@ -1591,7 +1430,6 @@
                     setTimeout(() => window.MapManager.invalidateSize(), 200);
                 }
             });
-
             onUnmounted(() => {
                 if (heroRafId) cancelAnimationFrame(heroRafId);
                 if (counterAnimId) cancelAnimationFrame(counterAnimId);
@@ -1600,19 +1438,16 @@
                 document.removeEventListener('visibilitychange', handleVisibilityChange);
                 if (window.MapManager) window.MapManager.cancelPendingRenders();
             });
-
             const fitVietnamView = () => {
                 if (window.MapManager) {
                     window.MapManager.fitVietnamView();
                 }
             };
-
             const fitRouteView = () => {
                 if (window.MapManager) {
                     window.MapManager.fitRouteView();
                 }
             };
-
             const ratingState = ref({
                 canRate: false,
                 alreadyRated: false,
@@ -1631,7 +1466,6 @@
             const isSubmittingRating = ref(false);
             const ratingResultView = ref(null);
             const lastBouncedStar = ref(null);
-
             const ratingMeta = {
                 1: {
                     label: 'Rất không hài lòng',
@@ -1664,7 +1498,6 @@
                     placeholder: 'Gửi vài lời khen ngợi hoặc động viên đến shipper nhé...'
                 }
             };
-
             const loadRatingStatus = async (trackingCode) => {
                 if (!trackingCode || typeof RatingService === 'undefined') return;
                 ratingState.value.isLoading = true;
@@ -1682,7 +1515,6 @@
                     ratingState.value.isLoading = false;
                 }
             };
-
             const openRatingModal = () => {
                 if (!currentShipment.value) return;
                 serviceScore.value = ratingState.value.alreadyRated ? (ratingState.value.serviceRating || 5) : 5;
@@ -1692,7 +1524,6 @@
                 ratingComment.value = '';
                 ratingResultView.value = null;
                 selectedRatingTags.value = ['Giao siêu tốc', 'Shipper cực kỳ thân thiện'];
-
                 const rawPhone = currentShipment.value.receiverPhone || '';
                 const cleanPhone = rawPhone.replace(/\D+/g, '');
                 if (cleanPhone.length >= 4) {
@@ -1702,11 +1533,9 @@
                 }
                 isRatingModalOpen.value = true;
             };
-
             const closeRatingModal = () => {
                 isRatingModalOpen.value = false;
             };
-
             const setServiceScore = (score) => {
                 serviceScore.value = score;
                 shipperScore.value = score;
@@ -1716,7 +1545,6 @@
                         lastBouncedStar.value = null;
                     }
                 }, 450);
-
                 const meta = ratingMeta[score];
                 if (meta && meta.tags && meta.tags.length > 0) {
                     selectedRatingTags.value = [meta.tags[0]];
@@ -1725,7 +1553,6 @@
                     selectedRatingTags.value = [];
                 }
             };
-
             const toggleRatingTag = (tag) => {
                 const idx = selectedRatingTags.value.indexOf(tag);
                 if (idx > -1) {
@@ -1734,7 +1561,6 @@
                     selectedRatingTags.value.push(tag);
                 }
             };
-
             const submitRating = async () => {
                 if (!currentShipment.value) return;
                 const phone = (ratingPhone.value || '').trim();
@@ -1742,7 +1568,6 @@
                     showToast('Lỗi Xác Thực', 'Vui lòng nhập đúng 4 chữ số cuối số điện thoại nhận hàng.', 'warning');
                     return;
                 }
-
                 isSubmittingRating.value = true;
                 try {
                     const payload = {
@@ -1754,13 +1579,11 @@
                         verifiedPhone: phone,
                         courierCode: currentShipment.value.courierCode || currentShipment.value.shipperCode || null
                     };
-
                     const result = await RatingService.submitRating(payload);
                     ratingState.value.alreadyRated = true;
                     ratingState.value.canRate = false;
                     ratingState.value.serviceRating = result.serviceRating || serviceScore.value;
                     ratingState.value.shipperRating = result.shipperRating || shipperScore.value;
-
                     if (result.suggestTicket || serviceScore.value <= 2 || shipperScore.value <= 2) {
                         ratingResultView.value = 'negative';
                     } else if (serviceScore.value >= 4) {
@@ -1768,7 +1591,6 @@
                     } else {
                         ratingResultView.value = 'neutral';
                     }
-
                     showToast('Đánh Giá Thành Công', `Cảm ơn bạn đã đánh giá dịch vụ ${serviceScore.value} sao.`, 'success');
                 } catch (err) {
                     showToast('Không Thể Gửi Đánh Giá', err.message || 'Có lỗi xảy ra khi lưu đánh giá.', 'error');
@@ -1776,11 +1598,9 @@
                     isSubmittingRating.value = false;
                 }
             };
-
             const currentEta = computed(() => {
                 return Utils.getEffectiveEta(currentShipment.value);
             });
-
             const deliveredTime = computed(() => {
                 if (!currentShipment.value || currentShipment.value.status !== 'DELIVERED') return '';
                 const hist = sortedHistory.value || [];
@@ -1788,7 +1608,6 @@
                 const ts = deliveredItem ? (deliveredItem.timestamp || deliveredItem.occurredAt) : (currentShipment.value.updatedAt || currentShipment.value.createdAt);
                 return Utils.formatTime(ts);
             });
-
             return {
                 searchCode,
                 isLoading,
@@ -1902,7 +1721,6 @@
                             </p>
                         </div>
                         <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl p-2.5 sm:p-3 text-slate-800 border border-slate-100 relative z-10 transition-all duration-300">
-                            <!-- Sliding Tab Switcher -->
                             <div class="relative bg-slate-100/80 p-1 rounded-xl flex items-center mb-1">
                                 <div 
                                     class="absolute top-1 bottom-1 transition-all duration-300 ease-out bg-blue-600 rounded-lg shadow-sm"
@@ -1934,7 +1752,6 @@
                                     <span>Ước Tính Cước Nhanh</span>
                                 </button>
                             </div>
-
                             <div class="relative overflow-hidden">
                                 <transition name="hero-tab-fade" mode="out-in">
                                     <div v-if="publicHeroTab === 'tracking'" key="hero-tab-tracking" class="p-3 sm:p-4">
@@ -1974,7 +1791,6 @@
                                             <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
                                             <span>{{ validationError }}</span>
                                         </div>
-
                                         <div class="mt-2.5 flex flex-wrap items-center justify-between text-[11px] text-slate-400 px-1 gap-2">
                                             <span class="whitespace-nowrap">
                                                 Mã mẫu kiểm tra: 
@@ -1984,7 +1800,6 @@
                                             </span>
                                             <span class="hidden sm:inline text-slate-400 whitespace-nowrap">Tự động định vị chặng trung chuyển</span>
                                         </div>
-
                                         <tracking-recent-searches @select-code="fetchTrackingData($event)"></tracking-recent-searches>
                                     </div>
                                     <div v-else-if="publicHeroTab === 'quote'" key="hero-tab-quote" class="p-3 sm:p-4">
@@ -2099,7 +1914,6 @@
                                 </div>
                             </div>
                         </div>
-
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                             <div class="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-2 hover:border-blue-300 transition duration-200">
                                 <div class="text-blue-700 font-bold text-xs uppercase tracking-wider whitespace-nowrap">
@@ -2184,7 +1998,6 @@
                                 </button>
                             </div>
                         </div>
-
                         <div :class="['map-collapse-wrapper mb-6', isMapExpanded ? 'map-expanded' : 'map-collapsed']">
                             <div class="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
                                 <div class="p-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-slate-700">
@@ -2357,7 +2170,6 @@
                                             {{ currentShipment.serviceType || 'Chuyển phát tiêu chuẩn' }}
                                         </span>
                                     </div>
-
                                     <div class="space-y-3">
                                         <div class="flex justify-between items-center py-1 border-b border-slate-50">
                                             <span class="text-slate-400 font-medium">Mã bưu gửi:</span>
@@ -2373,8 +2185,7 @@
                                                 </button>
                                             </div>
                                         </div>
-
-                                        <!-- ETA Delivery Guarantee Card -->
+                                        
                                         <div v-if="currentShipment" class="p-3 border rounded-2xl space-y-1.5 text-xs transition-all"
                                              :class="currentShipment.status === 'DELIVERED' 
                                                 ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60' 
@@ -2415,12 +2226,10 @@
                                                 </span>
                                             </div>
                                         </div>
-
                                         <div class="flex justify-between items-center py-1 border-b border-slate-50">
                                             <span class="text-slate-400 font-medium">Khối lượng tính cước:</span>
                                             <span class="font-mono font-bold text-slate-800 text-sm">{{ currentShipment.weight ? currentShipment.weight + ' gram' : '500 gram' }}</span>
                                         </div>
-
                                         <div class="flex justify-between items-center py-1 border-b border-slate-50">
                                             <span class="text-slate-400 font-medium">Tiền thu hộ COD:</span>
                                             <span class="font-mono font-bold text-emerald-600 text-base">{{ currentShipment.codAmount ? Number(currentShipment.codAmount).toLocaleString('vi-VN') + ' đ' : '0 đ' }}</span>
@@ -2474,7 +2283,6 @@
                                         <span>Hotline CSKH: 1900 54 54 81</span>
                                     </a>
                                 </div>
-
                             </div>
                         </div>
                     </div>
@@ -2499,7 +2307,6 @@
                 </div>
                 <div v-if="!currentShipment" class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
-
                     <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
                             <div class="flex items-center space-x-2">
@@ -2544,8 +2351,7 @@
                         </span>
                     </div>
                 </div>
-
-                <!-- Return Flow Notification Banner -->
+                
                 <div v-if="currentShipment && (['RETURNING', 'OUT_FOR_RETURN', 'RETURNED'].includes(currentShipment.status) || currentReturnRequest)" class="b2b-card bg-amber-50/90 border border-amber-300/80 rounded-xl p-3.5 shadow-xs text-xs space-y-2">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center space-x-2">
@@ -2559,7 +2365,6 @@
                             Miễn cước (Lỗi bưu chính)
                         </span>
                     </div>
-
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-[11.5px] border-t border-amber-200/70">
                         <div>
                             <span class="text-slate-500">Người khởi tạo:</span>
@@ -2580,7 +2385,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div v-if="!currentShipment" class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-2">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div class="flex items-center space-x-2 w-full sm:w-auto flex-1 max-w-lg min-w-0">
@@ -2607,7 +2411,6 @@
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                 </button>
                             </div>
-
                             <button 
                                 @click="fetchTrackingData()"
                                 :disabled="isLoading"
@@ -2642,7 +2445,6 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                     </div>
-
                     <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-lg bg-slate-100 border border-slate-200 font-mono text-xs font-bold text-slate-700 mb-2">
                         <span>Mã đã tra cứu:</span>
                         <span class="text-rose-600 font-extrabold">{{ notFoundCode }}</span>
@@ -2670,7 +2472,6 @@
                             </span>
                             <span class="text-[11px] text-slate-400 font-medium">Thống kê thời gian thực</span>
                         </div>
-
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in delay-200">
                             <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-1.5 hover:border-blue-300 transition smooth-transition">
                                 <div class="text-[11px] font-bold text-blue-600 uppercase tracking-wider">Hạ Tầng Khai Thác</div>
@@ -2719,7 +2520,6 @@
                                 <span class="text-[11px] text-slate-400">Liên kết 3 cụm khai thác trọng điểm qua mạng lưới cao tốc và đường bay</span>
                             </div>
                         </div>
-
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                             <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
                                 <div class="flex items-center justify-between">
@@ -2762,7 +2562,6 @@
                                 Mã gồm chuỗi ký tự in dưới mã vạch trên phiếu gửi giấy (Bill gửi), hoặc trong tin nhắn SMS / Email thông báo xác nhận gửi hàng thành công từ hệ thống.
                             </p>
                         </div>
-
                         <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-2">
                             <div class="text-indigo-700 font-bold text-xs uppercase tracking-wider">
                                 02. Cam Kết Toàn Trình
@@ -2771,7 +2570,6 @@
                                 Tuyến Express hỏa tốc: <strong>12h - 24h</strong> liên tỉnh. Tuyến tiêu chuẩn đường bộ QL1A: <strong>36h - 48h</strong>. Bưu phẩm nội tỉnh phát trong ngày.
                             </p>
                         </div>
-
                         <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-2">
                             <div class="text-rose-700 font-bold text-xs uppercase tracking-wider">
                                 03. Quy Cách Đóng Gói
@@ -2793,7 +2591,6 @@
                                 <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 font-mono">
                                     {{ isInterProvincial ? 'Tuyến Liên Tỉnh (6 Chặng)' : 'Tuyến Nội Tỉnh (4 Chặng)' }}
                                 </span>
-                            
                             </div>
                             <div class="flex items-center space-x-2">
                                 <button 
@@ -2946,7 +2743,6 @@
                         </div>
                     </div>
                     <div class="order-1 lg:order-2 lg:col-span-4 space-y-3">
-                        <!-- Compact Search Card -->
                         <div class="b2b-card bg-white border border-slate-200 rounded-xl p-2.5 sm:p-3 shadow-sm space-y-2">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center space-x-1.5">
@@ -2955,7 +2751,6 @@
                                 </div>
                                 <span class="text-[9.5px] text-slate-400 font-mono">Hỗ trợ mã WB...</span>
                             </div>
-
                             <div class="space-y-1.5">
                                 <div class="flex items-center gap-1.5">
                                     <div class="relative flex-1 min-w-0">
@@ -3006,8 +2801,7 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Compact Shipment Info Card -->
+                        
                         <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm space-y-2 text-xs">
                             <div class="flex items-center justify-between border-b border-slate-100 pb-2">
                                 <span class="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center space-x-1.5">
@@ -3018,9 +2812,7 @@
                                 </span>
                                 <span v-if="currentShipment" class="font-mono text-[10.5px] text-slate-400">#{{ currentShipment.id }}</span>
                             </div>
-
                             <div v-if="currentShipment" class="space-y-2">
-                                <!-- Row 1: Tracking code & Status badge -->
                                 <div class="flex items-center justify-between gap-1.5">
                                     <div class="flex items-center space-x-1">
                                         <span class="font-mono font-extrabold text-blue-700 text-xs sm:text-[13px]">{{ currentShipment.trackingCode }}</span>
@@ -3038,8 +2830,7 @@
                                         <span>{{ Utils.formatStatusText(currentShipment.status) }}</span>
                                     </span>
                                 </div>
-
-                                <!-- Row 2: Compact ETA Delivery Guarantee Card -->
+                                
                                 <div class="p-2 px-2.5 border rounded-lg space-y-1 text-xs transition-all"
                                      :class="currentShipment.status === 'DELIVERED' 
                                         ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60' 
@@ -3080,8 +2871,7 @@
                                         </span>
                                     </div>
                                 </div>
-
-                                <!-- Row 3: 3-column stats box (Dịch vụ • Trọng lượng • COD) -->
+                                
                                 <div class="grid grid-cols-3 gap-1 py-1.5 px-2 bg-slate-50 border border-slate-100 rounded-lg text-center">
                                     <div>
                                         <span class="text-[10px] text-slate-400 block font-medium">Dịch Vụ</span>
@@ -3096,8 +2886,7 @@
                                         <span class="font-mono font-bold text-emerald-700 text-[11px] block">{{ Utils.formatCurrency(currentShipment.codAmount) }}</span>
                                     </div>
                                 </div>
-
-                                <!-- Row 4: Người gửi & Người nhận compact -->
+                                
                                 <div class="py-1 border-t border-b border-slate-100 space-y-1 text-[11px]">
                                     <div class="flex items-start justify-between gap-1.5">
                                         <span class="text-slate-400 text-[10.5px] font-medium shrink-0">Gửi:</span>
@@ -3116,8 +2905,7 @@
                                         </div>
                                     </div>
                                 </div>
-
-                                <!-- Row 5: Action buttons (1 row side-by-side) -->
+                                
                                 <div class="pt-1 grid grid-cols-2 gap-1.5">
                                     <template v-if="currentShipment.status === 'DELIVERED'">
                                         <button 
@@ -3167,7 +2955,6 @@
                                 đã gộp {{ mergedMilestoneCount }} mốc trùng
                             </span>
                         </div>
-                        
                     </div>
                     <div v-if="sortedHistory.length > 0" class="relative pl-7 sm:pl-10 space-y-3 before:absolute before:left-[17px] sm:before:left-[21px] before:top-4 before:bottom-4 before:w-[2px] before:bg-slate-200 dark:before:bg-slate-800">
                         <div v-for="(h, idx) in sortedHistory" :key="h.eventId || h.operationId || idx" class="relative flex items-start group">
@@ -3311,7 +3098,6 @@
                             </div>
                             <div class="text-center py-2 space-y-2.5 bg-slate-50/60 rounded-xl border border-slate-100 p-3.5">
                                 <p class="text-xs sm:text-sm font-bold text-slate-800">Mức độ hài lòng của bạn</p>
-                                
                                 <div class="flex items-center justify-center space-x-2">
                                     <button 
                                         v-for="star in 5" 
@@ -3340,7 +3126,6 @@
                                         </svg>
                                     </button>
                                 </div>
-
                                 <div class="h-7 flex items-center justify-center">
                                     <span :class="['px-3.5 py-0.5 rounded-full text-xs font-bold border transition-all duration-200', ratingMeta[hoveredServiceScore || serviceScore]?.badgeClass]">
                                         {{ (hoveredServiceScore || serviceScore) }} Sao: {{ ratingMeta[hoveredServiceScore || serviceScore]?.label }}
@@ -3413,7 +3198,6 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                                 </svg>
                             </div>
-
                             <div class="space-y-1">
                                 <h4 class="text-base font-extrabold text-slate-900">
                                     {{ ratingResultView === 'positive' ? 'Cảm ơn bạn đã đánh giá dịch vụ!' : 'Waybill xin lỗi vì trải nghiệm chưa tốt!' }}
@@ -3424,7 +3208,6 @@
                                         : 'Hệ thống đã tự động ghi nhận góp ý phản ánh. Đội ngũ CSKH và trưởng bưu cục sẽ kiểm tra và hỗ trợ bạn kịp thời.' }}
                                 </p>
                             </div>
-
                             <div class="p-3.5 rounded-xl border border-slate-200 text-left text-xs space-y-2 bg-slate-50 max-w-sm mx-auto">
                                 <div class="flex items-center justify-between text-xs text-slate-600">
                                     <span>Mức đánh giá:</span>
@@ -3439,7 +3222,6 @@
                                     <span class="font-bold text-[#0055bb]">1800 1060 (Miễn phí)</span>
                                 </div>
                             </div>
-
                             <div class="pt-2 flex items-center justify-center gap-2">
                                 <button 
                                     v-if="ratingResultView === 'negative'"
@@ -3467,7 +3249,6 @@
         </div>
         `
     };
-
     TrackingView.components = { ...TrackingView.components, TrackingRecentSearches: window.TrackingRecentSearches };
     window.TrackingView = TrackingView;
 })();

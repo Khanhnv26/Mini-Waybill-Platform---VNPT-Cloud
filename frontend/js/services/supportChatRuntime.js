@@ -33,7 +33,6 @@
         return `${protocol}//${hostname}${!port || ['80', '443'].includes(port) ? '' : ':8080'}/api/notifications/ws`;
     };
     const publishNotices = () => emit('support:notifications', state.notices);
-
     async function playNotice(notice) {
         if (!state.sound || !audio) return;
         const claim = async () => {
@@ -52,12 +51,11 @@
                 gain.gain.setValueAtTime(0.08, audio.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.28);
                 oscillator.start(); oscillator.stop(audio.currentTime + 0.3);
-            } catch { /* Badge and toast remain available without audio. */ }
+            } catch {  }
         };
         if (navigator.locks?.request) await navigator.locks.request('support-chat-sound', claim);
         else await claim();
     }
-
     function notify(notice) {
         if (seen.has(notice.id)) return;
         seen.add(notice.id);
@@ -66,7 +64,6 @@
             `${notice.ticketCode} · ${notice.senderName || 'Đối phương'}: ${(notice.content || '[Tệp đính kèm]').slice(0, 120)}`, 'info');
         playNotice(notice);
     }
-
     async function refresh() {
         if (!started || !hasAccess() || refreshBusy) return;
         refreshBusy = true;
@@ -78,7 +75,6 @@
                 : guestTickets().map(id => window.SupportService.chatRequest(`/api/tickets/chat/inbox?ticketId=${id}`, 'get', null, id));
             const results = await Promise.allSettled(requests);
             if (version !== generation) return;
-            // Preserve existing notices when a request fails rather than clearing the bell.
             const merged = new Map(state.notices.map(item => [item.id, item]));
             for (const result of results) if (result.status === 'fulfilled') {
                 for (const notice of result.value || []) {
@@ -102,10 +98,9 @@
                 }
             }
             publishNotices();
-        } catch { /* Reconcile on the next poll or reconnect. */ }
+        } catch {  }
         finally { if (version === generation) refreshBusy = false; }
     }
-
     async function heartbeat(leave = false) {
         if (!hasAccess() || (!leave && (!started || presenceBusy))) return;
         const version = generation;
@@ -115,14 +110,12 @@
         try { await Promise.allSettled(identity ? [send(null)] : guestTickets().map(send)); }
         finally { if (!leave && version === generation) presenceBusy = false; }
     }
-
     function inboxes() {
         if (identity) return [{ destination: `/topic/chat/inbox/user/${identity.id}` },
             ...(identity.staff ? [{ destination: '/topic/chat/inbox/staff' }] : [])];
         return guestTickets().map(id => ({ destination: `/topic/chat/inbox/guest/${id}`,
             headers: window.SupportService.ticketHeaders(id) }));
     }
-
     function receive(frame) {
         let event;
         try { event = JSON.parse(frame.body); } catch { return; }
@@ -148,7 +141,6 @@
         }
         emit('support:event', event);
     }
-
     function connect() {
         connection?.stop(); state.connected = false;
         connection = new window.SupportChatConnection({ url: endpoint(), onMessage: receive,
@@ -159,7 +151,6 @@
         connection.subscribeInboxes(inboxes());
         connection.start();
     }
-
     function activate(reconnect = false) {
         if (!started) return;
         if (!hasAccess()) {
@@ -177,7 +168,6 @@
             if (now - lastInbox >= interval) refresh();
         }, 5000);
     }
-
     function authChanged() {
         state.identityVersion++;
         const next = principal();
@@ -190,7 +180,6 @@
         baseline = false; lastInbox = 0; lastPresence = 0;
         publishNotices(); activate(true); emit('support:identity-changed');
     }
-
     function unlockAudio() {
         if (!state.sound) return;
         try {
@@ -210,7 +199,6 @@
     function accessChanged() { connection?.subscribeInboxes(inboxes()); activate(); }
     function online() { wake(true); }
     function leave() { heartbeat(true); }
-
     async function attempt(pending, version) {
         if (pending.busy || version !== generation) return;
         pending.busy = true; pending.status = 'sending';
@@ -228,7 +216,6 @@
             }
         } finally { pending.busy = false; }
     }
-
     window.SupportChatRuntime = {
         state, drafts,
         start() {
@@ -273,7 +260,6 @@
             const pending = { ticketId, clientMessageId, content: payload.content, attachmentUrls: payload.attachmentUrls,
                 createdAt: new Date().toISOString(), status: 'sending', attempts: 0, payload: { ...payload, clientMessageId } };
             state.pending[ticketId] ||= []; state.pending[ticketId].push(pending);
-            // Use Vue's proxy so completion and retry states remain reactive.
             const item = state.pending[ticketId].find(item => item.clientMessageId === clientMessageId);
             attempt(item, generation);
             return clientMessageId;

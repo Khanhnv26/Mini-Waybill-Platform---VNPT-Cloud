@@ -1,6 +1,5 @@
 (function () {
     const { ref, reactive, computed, onMounted, watch } = Vue;
-
     const STATIONS = [
         { code: 'POST-HN-CG', name: 'Bưu Cục Cầu Giấy (Hà Nội)', hub: 'HUB-HN-01', region: 'NORTH' },
         { code: 'POST-HN-DDA', name: 'Bưu Cục Đống Đa (Hà Nội)', hub: 'HUB-HN-01', region: 'NORTH' },
@@ -18,7 +17,6 @@
         { code: 'POST-HP-NQ', name: 'Bưu Cục Ngô Quyền (Hải Phòng)', hub: 'HUB-HP-01', region: 'NORTH' },
         { code: 'POST-CT-NK', name: 'Bưu Cục Ninh Kiều (Cần Thơ)', hub: 'HUB-CT-01', region: 'SOUTH' }
     ];
-
     const HUBS = [
         { code: 'HUB-HN-01', name: 'Kho Tổng Hà Nội (Bắc)', region: 'Miền Bắc', regionKey: 'NORTH' },
         { code: 'HUB-DN-01', name: 'Kho Tổng Đà Nẵng (Trung)', region: 'Miền Trung', regionKey: 'CENTRAL' },
@@ -26,7 +24,6 @@
         { code: 'HUB-HP-01', name: 'Kho Trung Chuyển Hải Phòng', region: 'Miền Bắc', regionKey: 'NORTH' },
         { code: 'HUB-CT-01', name: 'Kho Trung Chuyển Cần Thơ', region: 'Tây Nam Bộ', regionKey: 'SOUTH' }
     ];
-
     const parseDateLabel = (val) => {
         if (!val) return '';
         if (Array.isArray(val)) {
@@ -43,7 +40,6 @@
         }
         return String(val);
     };
-
     const formatDateTime = (val) => {
         if (!val) return '';
         if (Array.isArray(val)) {
@@ -66,7 +62,6 @@
         }
         return '';
     };
-
     const DashboardView = {
         name: 'DashboardView',
         props: {
@@ -82,35 +77,29 @@
                 const roles = props.currentUser?.roles || [];
                 return roles.includes('ROLE_ADMIN') || roles.includes('ADMIN');
             });
-
             const isHubStaff = computed(() => {
                 if (typeof Auth !== 'undefined' && Auth.hasRole('HUB_STAFF')) return true;
                 const roles = props.currentUser?.roles || [];
                 return roles.includes('ROLE_HUB_STAFF');
             });
-
             const isShipperRole = computed(() => {
                 if (typeof Auth !== 'undefined' && Auth.hasRole('SHIPPER')) return true;
                 const roles = props.currentUser?.roles || [];
                 return roles.includes('ROLE_SHIPPER');
             });
-
             const isPostStaff = computed(() => {
                 if (typeof Auth !== 'undefined' && Auth.hasRole('POST_STAFF')) return true;
                 const roles = props.currentUser?.roles || [];
                 return roles.includes('ROLE_POST_STAFF');
             });
-
             const defaultRole = computed(() => {
                 if (isAdmin.value) return 'ADMIN';
                 if (isHubStaff.value) return 'HUB_STAFF';
                 if (isShipperRole.value) return 'SHIPPER';
                 return 'POST_STAFF';
             });
-
             const activeRole = ref(defaultRole.value);
             const isDockCollapsed = ref(false);
-
             const rolesList = computed(() => {
                 const list = [];
                 const icons = {
@@ -119,7 +108,6 @@
                     HUB_STAFF: 'M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z',
                     SHIPPER: 'M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8h4.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h2a1 1 0 001-1'
                 };
-
                 if (isAdmin.value) {
                     list.push({ key: 'ADMIN', label: 'Điều Hành Toàn Mạng', shortLabel: 'Điều Hành', line1: 'Điều Hành', line2: 'Toàn Mạng', desc: 'KPI & Mạng lưới vĩ mô', icon: icons.ADMIN });
                     list.push({ key: 'POST_STAFF', label: 'Bưu Cục & Trạm', shortLabel: 'Bưu Cục', line1: 'Bưu Cục', line2: 'Trạm Phát', desc: 'Dự báo ca trực & Quỹ COD', icon: icons.POST_STAFF });
@@ -135,7 +123,6 @@
                 }
                 return list;
             });
-
             const roleGridClass = computed(() => {
                 const len = rolesList.value.length;
                 if (len >= 4) return 'grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5';
@@ -143,33 +130,26 @@
                 if (len === 2) return 'grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5 max-w-2xl mx-auto';
                 return 'flex items-center gap-2.5';
             });
-
             const selectedStation = ref(props.currentUser?.locationCode || props.currentUser?.postOfficeCode || 'POST-HN-CG');
             const selectedHub = ref('HUB-HN-01');
-
             const isRefreshing = ref(false);
             const isBroadcastingTelegram = ref(false);
             const telegramBroadcastMsg = ref(null);
             const stationShipmentSearch = ref('');
-
             const stationForecast = ref(null);
             const isForecastLoading = ref(false);
             const stationShippers = ref([]);
             const isShippersLoading = ref(false);
-
             const allShipments = ref([]);
             const isShipmentsLoading = ref(false);
-
             const allTrips = ref([]);
             const hubVehicles = ref([]);
             const isHubLoading = ref(false);
-
             const adminSummary = ref(null);
             const isAdminLoading = ref(false);
             const adminDateRange = ref('7days');
             const adminRegionFilter = ref('ALL');
             const adminNetworkTab = ref('hubs');
-
             const serviceHealth = reactive({
                 routing: '200 OK',
                 shipment: '200 OK',
@@ -177,23 +157,19 @@
                 shipper: '200 OK',
                 bot: 'SẴN SÀNG'
             });
-
             const activeInTransitTripsCount = computed(() => {
                 return (allTrips.value || []).filter(t => t && t.status === 'IN_TRANSIT').length;
             });
-
             const filteredByRegionShipments = computed(() => {
                 const list = allShipments.value || [];
                 const region = adminRegionFilter.value;
                 if (!region || region === 'ALL') return list;
-
                 const stationCodesInRegion = new Set(
                     STATIONS.filter(s => s.region === region).map(s => s.code)
                 );
                 const hubCodesInRegion = new Set(
                     HUBS.filter(h => h.regionKey === region).map(h => h.code)
                 );
-
                 return list.filter(s => {
                     if (!s) return false;
                     const originMatch = stationCodesInRegion.has(s.originPostOffice);
@@ -202,7 +178,6 @@
                     return originMatch || destMatch || locMatch;
                 });
             });
-
             const stationShipments = computed(() => {
                 const code = String(selectedStation.value || '').trim().toUpperCase();
                 if (!code || code === 'ALL') return allShipments.value || [];
@@ -214,7 +189,6 @@
                     return senderMatch || receiverMatch || officeMatch;
                 });
             });
-
             const filteredStationShipments = computed(() => {
                 const q = stationShipmentSearch.value.trim().toLowerCase();
                 const list = stationShipments.value;
@@ -225,19 +199,16 @@
                     (s.receiverAddress && s.receiverAddress.toLowerCase().includes(q))
                 );
             });
-
             const stationCodSummary = computed(() => {
                 let pendingAmount = 0;
                 let pendingCount = 0;
                 let settledAmount = 0;
                 let settledCount = 0;
-
                 stationShipments.value.forEach(s => {
                     if (!s) return;
                     const cod = Number(s.codAmount || 0);
                     const isDelivered = s.currentStatus === 'DELIVERED';
                     const settlementStatus = String(s.codSettlementStatus || 'UNSETTLED').toUpperCase();
-
                     if (isDelivered && (settlementStatus === 'PENDING_SETTLEMENT' || settlementStatus === 'UNSETTLED')) {
                         pendingAmount += cod;
                         pendingCount += 1;
@@ -246,10 +217,8 @@
                         settledCount += 1;
                     }
                 });
-
                 return { pendingAmount, pendingCount, settledAmount, settledCount };
             });
-
             const forecastSummary = computed(() => {
                 if (stationForecast.value && stationForecast.value.summary) {
                     return stationForecast.value.summary;
@@ -266,7 +235,6 @@
                     committedEtaCount: sla
                 };
             });
-
             const forecastCapacity = computed(() => {
                 if (stationForecast.value && stationForecast.value.capacity) {
                     const cap = stationForecast.value.capacity;
@@ -289,7 +257,6 @@
                     alertMessage: onDuty > 0 ? `Đội ${onDuty} bưu tá trực ca đáp ứng ${util}% công suất ${totalOrders} đơn.` : 'Chưa có bưu tá nào bật ca trực ON_DUTY.'
                 };
             });
-
             const forecastShippers = computed(() => {
                 if (stationForecast.value && Array.isArray(stationForecast.value.shipperAllocations) && stationForecast.value.shipperAllocations.length > 0) {
                     return stationForecast.value.shipperAllocations;
@@ -300,7 +267,6 @@
                 const count = onDutyList.length || 1;
                 const avgOrders = Math.floor(total / count);
                 const avgCod = Math.floor(totalCod / count);
-
                 return stationShippers.value.map(s => {
                     const isOnDuty = s && s.shiftStatus === 'ON_DUTY';
                     const orders = isOnDuty ? avgOrders : 0;
@@ -319,7 +285,6 @@
                     };
                 });
             });
-
             const currentStationInfo = computed(() => {
                 return STATIONS.find(s => s.code === selectedStation.value) || {
                     code: selectedStation.value,
@@ -327,13 +292,11 @@
                     hub: 'HUB-HN-01'
                 };
             });
-
             const loadStationData = async () => {
                 const code = selectedStation.value;
                 if (!code || code === 'ALL') return;
                 isForecastLoading.value = true;
                 telegramBroadcastMsg.value = null;
-
                 try {
                     const promises = [];
                     if (typeof RoutingService !== 'undefined' && RoutingService.getStationForecast) {
@@ -362,7 +325,6 @@
                     isForecastLoading.value = false;
                 }
             };
-
             const dispatchTelegramForecast = async () => {
                 const code = selectedStation.value;
                 if (!code) return;
@@ -381,11 +343,9 @@
                     isBroadcastingTelegram.value = false;
                 }
             };
-
             const currentHubInfo = computed(() => {
                 return HUBS.find(h => h.code === selectedHub.value) || HUBS[0];
             });
-
             const filteredHubTrips = computed(() => {
                 const hCode = selectedHub.value;
                 if (!hCode) return allTrips.value || [];
@@ -396,13 +356,11 @@
                     return originMatch || destMatch;
                 });
             });
-
             const hubKpi = computed(() => {
                 const trips = filteredHubTrips.value;
                 const running = trips.filter(t => t && t.status === 'IN_TRANSIT').length;
                 const vehicles = hubVehicles.value || [];
                 const availableVehicles = vehicles.filter(v => v && v.status === 'AVAILABLE').length;
-
                 return {
                     tripsRunning: running,
                     tripsTotal: trips.length,
@@ -410,7 +368,6 @@
                     vehiclesTotal: vehicles.length
                 };
             });
-
             const loadHubData = async () => {
                 isHubLoading.value = true;
                 try {
@@ -434,15 +391,12 @@
                     isHubLoading.value = false;
                 }
             };
-
             const currentCourierCode = computed(() => {
                 return props.currentUser?.courierCode || props.currentUser?.username || 'NVB-01';
             });
-
             const shipperForecast = ref(null);
             const shipperShiftStatus = ref('ON_DUTY');
             const isShipperLoading = ref(false);
-
             const myAssignedShipments = computed(() => {
                 const cCode = currentCourierCode.value;
                 return (allShipments.value || []).filter(s => {
@@ -451,7 +405,6 @@
                     return assignedCourier && String(assignedCourier).toUpperCase() === String(cCode).toUpperCase();
                 });
             });
-
             const shipperStats = computed(() => {
                 const list = myAssignedShipments.value;
                 const delivered = list.filter(s => s && s.currentStatus === 'DELIVERED').length;
@@ -461,11 +414,9 @@
                         pocketCod += Number(s.codAmount || 0);
                     }
                 });
-
                 const pct = list.length > 0 ? Math.round((delivered / list.length) * 100) : 0;
                 const tomOrders = shipperForecast.value?.estimatedOrdersCount || 0;
                 const tomCod = shipperForecast.value?.estimatedCodAmount || 0;
-
                 return {
                     totalAssigned: list.length,
                     deliveredCount: delivered,
@@ -475,7 +426,6 @@
                     tomorrowCod: tomCod
                 };
             });
-
             const loadShipperData = async () => {
                 const code = currentCourierCode.value;
                 if (!code) return;
@@ -501,7 +451,6 @@
                     isShipperLoading.value = false;
                 }
             };
-
             const toggleShipperShift = () => {
                 shipperShiftStatus.value = shipperShiftStatus.value === 'ON_DUTY' ? 'OFF_DUTY' : 'ON_DUTY';
                 if (window.Utils) {
@@ -509,7 +458,6 @@
                     window.Utils.showToast('Cập Nhật Ca Trực', msg, 'success');
                 }
             };
-
             const adminKpi = computed(() => {
                 const s = adminSummary.value || {};
                 const shipments = filteredByRegionShipments.value;
@@ -517,13 +465,11 @@
                 const totalOrders = Number(s.totalOrders != null ? s.totalOrders : (totalOrdersFromShipments || 0));
                 const delivered = Number(s.deliveredCount != null ? s.deliveredCount : (s.deliveredOrders != null ? s.deliveredOrders : (shipments.filter(x => x && x.currentStatus === 'DELIVERED').length || 0)));
                 const rate = totalOrders > 0 ? Math.round((delivered / totalOrders) * 1000) / 10 : 0;
-
                 let calcFee = 0;
                 let calcCod = 0;
                 let calcSettledCod = 0;
                 let calcInTransit = 0;
                 let calcReturning = 0;
-
                 shipments.forEach(item => {
                     if (!item) return;
                     calcFee += Number(item.shippingFee || item.totalFee || 0);
@@ -538,10 +484,8 @@
                         calcReturning += 1;
                     }
                 });
-
                 const rawSuccessRate = s.successRate != null ? Number(s.successRate) : rate;
                 const roundedSuccessRate = Math.round(rawSuccessRate * 10) / 10;
-
                 return {
                     totalShippingFee: Number(s.totalShippingFee != null ? s.totalShippingFee : (calcFee || 0)),
                     totalOrders,
@@ -553,7 +497,6 @@
                     successRate: roundedSuccessRate
                 };
             });
-
             const adminBarChartData = computed(() => {
                 if (adminSummary.value && Array.isArray(adminSummary.value.daily) && adminSummary.value.daily.length > 0) {
                     const daysCount = adminDateRange.value === 'today' ? 1 : (adminDateRange.value === '30days' ? 30 : 7);
@@ -575,7 +518,6 @@
                         };
                     });
                 }
-
                 const shipments = filteredByRegionShipments.value;
                 const daysCount = adminDateRange.value === 'today' ? 1 : (adminDateRange.value === '30days' ? 30 : 7);
                 const dailyBuckets = [];
@@ -586,7 +528,6 @@
                     const label = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
                     dailyBuckets.push({ iso, label, count: 0, fee: 0, cod: 0 });
                 }
-
                 shipments.forEach(item => {
                     if (!item) return;
                     let dateStr = '';
@@ -604,10 +545,8 @@
                         match.cod += Number(item.codAmount || 0);
                     }
                 });
-
                 const maxFee = Math.max(...dailyBuckets.map(d => d.fee), 1);
                 const maxCod = Math.max(...dailyBuckets.map(d => d.cod), 1);
-
                 return dailyBuckets.map(d => ({
                     date: d.iso,
                     label: d.label,
@@ -618,17 +557,14 @@
                     codHeight: d.cod > 0 ? `${Math.max(12, Math.round((d.cod / maxCod) * 90))}%` : '0%'
                 }));
             });
-
             const adminHubMatrix = computed(() => {
                 const trips = allTrips.value || [];
                 const vehicles = hubVehicles.value || [];
                 const shipments = allShipments.value || [];
                 const region = adminRegionFilter.value;
-
                 const targetHubs = (!region || region === 'ALL')
                     ? HUBS
                     : HUBS.filter(h => h.regionKey === region);
-
                 return targetHubs.map(h => {
                     const activeTrips = trips.filter(t => t && (t.originHub === h.code || t.destinationHub === h.code) && t.status === 'IN_TRANSIT').length;
                     const vehiclesCount = vehicles.filter(v => v && v.hub === h.code).length;
@@ -654,19 +590,16 @@
                     };
                 });
             });
-
             const adminTopStations = computed(() => {
                 const shipments = allShipments.value || [];
                 const region = adminRegionFilter.value;
                 const pool = (!region || region === 'ALL')
                     ? STATIONS
                     : STATIONS.filter(s => s.region === region);
-
                 const matchShipmentToStation = (s, st) => {
                     if (!s || !st) return false;
                     const stCode = String(st.code || '').trim().toUpperCase();
                     if (s.originPostOffice === stCode || s.destinationPostOffice === stCode || s.currentLocation === stCode) return true;
-
                     const fullText = `${s.senderAddress || ''} ${s.receiverAddress || ''} ${s.senderProvince || ''} ${s.receiverProvince || ''} ${s.senderDistrict || ''} ${s.receiverDistrict || ''}`.toLowerCase();
                     switch (st.code) {
                         case 'POST-CT-NK': return fullText.includes('cần thơ') || fullText.includes('ninh kiều');
@@ -687,7 +620,6 @@
                         default: return false;
                     }
                 };
-
                 const stats = pool.map(st => {
                     const stShipments = shipments.filter(s => matchShipmentToStation(s, st));
                     const totalCount = stShipments.length;
@@ -701,9 +633,7 @@
                     const maxCap = onDutyShippers * 30;
                     const displayOrders = tomorrowOrders > 0 ? tomorrowOrders : totalCount;
                     const util = Math.min(100, Math.round((displayOrders / maxCap) * 100));
-
                     const cleanName = typeof st.name === 'string' ? st.name.split(' (')[0] : (st.name || st.code);
-
                     return {
                         code: st.code,
                         name: cleanName,
@@ -715,17 +645,14 @@
                         alertStatus: util > 85 ? 'WARNING' : 'NORMAL'
                     };
                 });
-
                 stats.sort((a, b) => {
                     if (b.tomorrowOrders !== a.tomorrowOrders) return b.tomorrowOrders - a.tomorrowOrders;
                     if (b.totalCount !== a.totalCount) return b.totalCount - a.totalCount;
                     if (b.pendingCod !== a.pendingCod) return b.pendingCod - a.pendingCod;
                     return a.code.localeCompare(b.code);
                 });
-
                 return stats.slice(0, 5);
             });
-
             const recentShipments = computed(() => {
                 const list = [...filteredByRegionShipments.value];
                 list.sort((a, b) => {
@@ -738,7 +665,6 @@
                     };
                     return parseTime(b) - parseTime(a);
                 });
-
                 return list.slice(0, 5).map((s, idx) => {
                     return {
                         id: s?.id || idx,
@@ -753,7 +679,6 @@
                     };
                 });
             });
-
             const loadAdminData = async () => {
                 isAdminLoading.value = true;
                 try {
@@ -816,7 +741,6 @@
                     isAdminLoading.value = false;
                 }
             };
-
             const refreshCurrentDashboard = async () => {
                 isRefreshing.value = true;
                 try {
@@ -834,7 +758,6 @@
                     isRefreshing.value = false;
                 }
             };
-
             const exportAdminExcel = async () => {
                 if (typeof ReportService !== 'undefined' && ReportService.exportExcel) {
                     try {
@@ -845,14 +768,12 @@
                     }
                 }
             };
-
             const formatCurrencyShort = (val) => {
                 const num = Number(val || 0);
                 if (num >= 1000000000) return (num / 1000000000).toFixed(1) + 'B₫';
                 if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M₫';
                 return num.toLocaleString('vi-VN') + '₫';
             };
-
             const currentRoleHeader = computed(() => {
                 if (activeRole.value === 'POST_STAFF') {
                     const st = currentStationInfo.value;
@@ -910,35 +831,29 @@
                     ]
                 };
             });
-
             watch(selectedStation, () => {
                 if (activeRole.value === 'POST_STAFF') {
                     loadStationData();
                 }
             });
-
             watch(selectedHub, () => {
                 if (activeRole.value === 'HUB_STAFF') {
                     loadHubData();
                 }
             });
-
             watch(activeRole, (newRole) => {
                 if (newRole === 'POST_STAFF') loadStationData();
                 else if (newRole === 'HUB_STAFF') loadHubData();
                 else if (newRole === 'SHIPPER') loadShipperData();
                 else if (newRole === 'ADMIN') loadAdminData();
             });
-
             onMounted(() => {
-                // Load only the selected role; other role panels load when selected.
                 const loaders = {
                     POST_STAFF: loadStationData, HUB_STAFF: loadHubData,
                     SHIPPER: loadShipperData, ADMIN: loadAdminData
                 };
                 loaders[activeRole.value]?.();
             });
-
             return {
                 isAdmin,
                 isHubStaff,
@@ -1005,7 +920,6 @@
             <div class="space-y-3.5 pb-10 text-slate-800">
                 <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-sm relative overflow-hidden transition-all duration-300">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
-
                     <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
                             <div class="flex items-center space-x-2">
@@ -1031,7 +945,6 @@
                                 <span>{{ currentRoleHeader.contextScope }}</span>
                             </p>
                         </div>
-
                         <div class="flex items-center gap-2 self-start md:self-auto flex-wrap sm:flex-nowrap">
                             <div
                                 v-for="k in currentRoleHeader.kpis"
@@ -1041,7 +954,6 @@
                                 <div :class="['text-base font-extrabold leading-tight font-mono', k.colorClass || 'text-white']">{{ k.value }}</div>
                                 <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">{{ k.label }}</div>
                             </div>
-
                             <button
                                 type="button"
                                 @click="refreshCurrentDashboard"
@@ -1064,7 +976,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="bg-white/95 dark:bg-[#131e3a]/90 backdrop-blur-md text-slate-700 dark:text-slate-200 rounded-2xl shadow-xs border border-slate-200/90 dark:border-[#23345e] p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
                     <div class="bg-slate-100/90 dark:bg-[#0b1329]/90 p-1 rounded-xl border border-slate-200/70 dark:border-[#1e2e56] inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
                         <button
@@ -1085,7 +996,6 @@
                             <span class="truncate">{{ r.label }}</span>
                         </button>
                     </div>
-
                     <div class="flex items-center space-x-2 shrink-0 px-1 py-0.5">
                         <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-[#0b1329] px-2.5 py-1 rounded-lg border border-slate-200/70 dark:border-[#1e2e56]">
                             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -1104,10 +1014,8 @@
                         </button>
                     </div>
                 </div>
-
                 <transition name="subtab" mode="out-in">
                     <div v-if="activeRole === 'ADMIN'" key="role-admin" class="space-y-3.5">
-
                         <div class="b2b-card p-2.5 px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs">
                             <div class="flex flex-wrap items-center gap-2">
                                 <button 
@@ -1134,9 +1042,7 @@
                                 >
                                     30 Ngày Qua
                                 </button>
-
                                 <div class="h-4 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block"></div>
-
                                 <select v-model="adminRegionFilter" class="px-2.5 py-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer">
                                     <option value="ALL">Toàn Quốc</option>
                                     <option value="NORTH">Miền Bắc</option>
@@ -1144,13 +1050,11 @@
                                     <option value="SOUTH">Miền Nam</option>
                                 </select>
                             </div>
-
                             <button @click="exportAdminExcel" class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all duration-150 flex items-center space-x-1.5 cursor-pointer active:scale-95">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                                 <span>Xuất Excel</span>
                             </button>
                         </div>
-
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
                             <div class="b2b-card p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-default">
                                 <div class="text-slate-500 font-medium">
@@ -1162,7 +1066,6 @@
                                     <strong class="font-mono text-emerald-700">{{ adminKpi.deliveredOrders }} đơn</strong>
                                 </div>
                             </div>
-
                             <div class="b2b-card p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-default">
                                 <div class="flex items-center justify-between text-slate-500 font-medium">
                                     <span>Tỷ Lệ Đạt SLA</span>
@@ -1177,7 +1080,6 @@
                                     <strong class="font-mono text-rose-600">{{ adminKpi.returningOrders }} đơn</strong>
                                 </div>
                             </div>
-
                             <div class="b2b-card p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-default">
                                 <div class="text-slate-500 font-medium">
                                     <span>Quỹ Tiền COD</span>
@@ -1188,7 +1090,6 @@
                                     <strong class="font-mono text-emerald-700">{{ formatCurrency(adminKpi.settledCod) }}</strong>
                                 </div>
                             </div>
-
                             <div class="b2b-card p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-default">
                                 <div class="text-slate-500 font-medium">
                                     <span>Đang Luân Chuyển</span>
@@ -1200,7 +1101,6 @@
                                 </div>
                             </div>
                         </div>
-
                         <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
                             <div class="lg:col-span-8 space-y-3.5">
                                 <div class="b2b-card p-4 transition-all duration-200 hover:shadow-xs">
@@ -1219,7 +1119,6 @@
                                             </div>
                                         </div>
                                     </div>
-
                                     <div class="h-44 mt-3 flex items-end justify-between gap-3 px-2 pt-4 pb-2 border-b border-slate-100 overflow-x-auto custom-scrollbar">
                                         <div v-for="bar in adminBarChartData" :key="bar.date" class="flex-1 flex flex-col items-center min-w-[50px] group cursor-pointer">
                                             <div class="text-[10px] font-mono text-slate-500 mb-1 opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
@@ -1242,13 +1141,11 @@
                                             </div>
                                         </div>
                                     </div>
-
                                     <div class="mt-2.5 flex items-center justify-between text-[11px] text-slate-500">
                                         <span>Tổng sản lượng chu kỳ: <strong class="font-mono text-slate-800">{{ adminBarChartData.reduce((s, b) => s + b.count, 0) }} bưu gửi</strong></span>
                                         <span class="text-[10px] text-slate-400">Đơn vị: VNĐ</span>
                                     </div>
                                 </div>
-
                                 <div class="b2b-card overflow-hidden transition-all duration-200 hover:shadow-xs">
                                     <div class="p-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2 bg-slate-50/60">
                                         <div class="flex items-center space-x-2">
@@ -1257,7 +1154,6 @@
                                                 <span>Mạng Lưới Vận Tải &amp; Khai Thác Toàn Mạng</span>
                                             </h3>
                                         </div>
-
                                         <div class="inline-flex p-0.5 bg-slate-200/70 dark:bg-[#0b1329] rounded-lg text-xs font-bold border border-transparent dark:border-slate-800">
                                             <button
                                                 type="button"
@@ -1288,7 +1184,6 @@
                                             </button>
                                         </div>
                                     </div>
-
                                     <div v-if="adminNetworkTab === 'hubs' || adminNetworkTab === 'both'" class="overflow-x-auto">
                                         <table class="w-full text-left text-xs">
                                             <thead class="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold text-[11px] uppercase tracking-wider">
@@ -1322,12 +1217,10 @@
                                             </tbody>
                                         </table>
                                     </div>
-
                                     <div v-if="adminNetworkTab === 'both'" class="px-3.5 py-2 bg-slate-100/70 border-t border-b border-slate-200 text-xs font-bold text-slate-700 uppercase tracking-tight flex items-center justify-between">
                                         <span>Top Bưu Cục Đầu Tuyến</span>
                                         <span class="text-[11px] font-mono text-blue-700">{{ adminTopStations.length }} Bưu Cục</span>
                                     </div>
-
                                     <div v-if="adminNetworkTab === 'stations' || adminNetworkTab === 'both'" class="overflow-x-auto">
                                         <table class="w-full text-left text-xs">
                                             <thead class="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold text-[11px] uppercase tracking-wider">
@@ -1368,7 +1261,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <div class="lg:col-span-4 space-y-3.5">
                                 <div class="b2b-card p-3.5 transition-all duration-200 hover:shadow-xs">
                                     <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
@@ -1381,7 +1273,6 @@
                                             Trực Tuyến
                                         </span>
                                     </div>
-
                                     <div class="mt-3 space-y-2 text-xs">
                                         <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100">
                                             <span class="text-slate-700 font-semibold">Routing Service</span>
@@ -1405,7 +1296,6 @@
                                         </div>
                                     </div>
                                 </div>
-
                                 <div class="b2b-card p-3.5 transition-all duration-200 hover:shadow-xs">
                                     <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
                                         <h4 class="text-xs font-bold text-slate-900 uppercase tracking-tight flex items-center space-x-1.5">
@@ -1414,7 +1304,6 @@
                                         </h4>
                                         <span class="text-[10.5px] font-mono text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded">{{ recentShipments.length }} Đơn Mới</span>
                                     </div>
-
                                     <div class="mt-3 space-y-2.5 text-xs">
                                         <div v-for="item in recentShipments" :key="item.trackingCode" class="p-2.5 rounded-lg bg-slate-50 border border-slate-100 space-y-1.5 transition-all hover:bg-white hover:border-blue-200 hover:shadow-2xs">
                                             <div class="flex items-center justify-between text-[11px]">
@@ -1438,7 +1327,6 @@
                                             Chưa có bưu gửi nào ghi nhận.
                                         </div>
                                     </div>
-
                                     <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
                                         <span class="text-slate-400">Đồng bộ tự động</span>
                                         <button type="button" @click="$emit('switch-tab', 'shipments')" class="font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center space-x-1 cursor-pointer">
@@ -1450,7 +1338,6 @@
                             </div>
                         </div>
                     </div>
-
                     <div v-else-if="activeRole === 'POST_STAFF'" key="role-post-staff" class="space-y-3.5">
                         <div class="b2b-card p-2.5 px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs">
                             <div class="flex flex-wrap items-center gap-2">
@@ -1479,7 +1366,6 @@
                                 </button>
                             </div>
                         </div>
-
                         <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
                             <div class="lg:col-span-8 space-y-3.5">
                                 <div class="b2b-card p-4 transition-all duration-200 hover:shadow-xs">
@@ -1511,7 +1397,6 @@
                                         </div>
                                     </div>
                                 </div>
-
                                 <div class="b2b-card overflow-hidden transition-all duration-200 hover:shadow-xs">
                                     <div class="p-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/60 dark:bg-slate-900/60">
                                         <h3 class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight">Phân Bổ Tuyến Bưu Tá</h3>
@@ -1559,7 +1444,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <div class="lg:col-span-4 space-y-3.5">
                                 <div class="b2b-card p-3.5 transition-all duration-200 hover:shadow-xs">
                                     <h4 class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight pb-2 border-b border-slate-100 dark:border-slate-800 mb-3">Công Suất Ca Trực</h4>
@@ -1574,7 +1458,6 @@
                                         <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-2">{{ forecastCapacity.alertMessage }}</p>
                                     </div>
                                 </div>
-
                                 <div class="b2b-card p-3.5 transition-all duration-200 hover:shadow-xs">
                                     <h4 class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight pb-2 border-b border-slate-100 dark:border-slate-800 mb-3">Kiểm Soát Quỹ COD</h4>
                                     <div class="space-y-2 text-xs">
@@ -1590,7 +1473,6 @@
                             </div>
                         </div>
                     </div>
-
                     <div v-else-if="activeRole === 'HUB_STAFF'" key="role-hub-staff" class="space-y-3.5">
                         <div class="b2b-card p-2.5 px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs">
                             <div class="flex flex-wrap items-center gap-2">
@@ -1603,7 +1485,6 @@
                                 <span>Điều Xe Trục</span>
                             </button>
                         </div>
-
                         <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
                             <div class="lg:col-span-8 space-y-3.5">
                                 <div class="b2b-card overflow-hidden transition-all duration-200 hover:shadow-xs">
@@ -1643,7 +1524,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <div class="lg:col-span-4 space-y-3.5">
                                 <div class="b2b-card p-3.5 transition-all duration-200 hover:shadow-xs">
                                     <h4 class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight pb-2 border-b border-slate-100 dark:border-slate-800 mb-3">Đội Xe Trung Chuyển</h4>
@@ -1666,7 +1546,6 @@
                             </div>
                         </div>
                     </div>
-
                     <div v-else-if="activeRole === 'SHIPPER'" key="role-shipper" class="space-y-3.5">
                         <div class="b2b-card p-2.5 px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-xs">
                             <div class="flex items-center space-x-2">
@@ -1692,7 +1571,6 @@
                                 <span>Mở Bàn Phát Hàng</span>
                             </button>
                         </div>
-
                         <div class="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
                             <div class="lg:col-span-8 space-y-3.5">
                                 <div class="b2b-card overflow-hidden transition-all duration-200 hover:shadow-xs">
@@ -1743,7 +1621,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <div class="lg:col-span-4 space-y-3.5">
                                 <div class="b2b-card p-3.5 transition-all duration-200 hover:shadow-xs">
                                     <h4 class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-tight mb-2.5">Ví Tiền Thu Hộ COD</h4>
@@ -1761,6 +1638,5 @@
             </div>
         `
     };
-
     window.DashboardView = DashboardView;
 })();

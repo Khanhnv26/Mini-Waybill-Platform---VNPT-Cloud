@@ -18,8 +18,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 19l-7-7 7-7" />
             </svg>
         </button>
-
-        <!-- 1. Header / Logo (Pinned Top) -->
+        
         <div 
             class="h-16 flex items-center justify-between px-4 border-b border-slate-100 dark:border-slate-800 flex-shrink-0"
             :class="{ 'md:justify-center md:!px-0': isSidebarCollapsed && !isMobileDrawerOpen }"
@@ -40,8 +39,7 @@
                     <p class="text-[10.5px] text-slate-400 dark:text-slate-400 font-medium whitespace-nowrap">Quản trị &amp; Điều phối</p>
                 </div>
             </div>
-
-            <!-- Mobile Drawer Close Button -->
+            
             <button
                 type="button"
                 @click="$emit('close-mobile-drawer')"
@@ -53,13 +51,11 @@
                 </svg>
             </button>
         </div>
-
-        <!-- 2. Navigation items (Scrollable) -->
+        
         <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 space-y-1">
             <div v-show="!isSidebarCollapsed || isMobileDrawerOpen" class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                 Phân Hệ Nghiệp Vụ
             </div>
-
             <button 
                 v-for="tab in navigationTabs" 
                 :key="tab.id"
@@ -77,7 +73,6 @@
                     <svg class="w-4 h-4" :class="currentTab === tab.id ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="tab.icon || 'M4 6h16M4 12h16M4 18h16'" />
                     </svg>
-                    <!-- Floating badge in collapsed mode -->
                     <span 
                         v-if="tab.id === 'support' && chatUnread && isSidebarCollapsed && !isMobileDrawerOpen" 
                         class="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-blue-600 text-white text-[9.5px] font-bold flex items-center justify-center ring-2 ring-white dark:ring-[#0f1a38] shadow-sm pointer-events-none"
@@ -87,7 +82,6 @@
                     </span>
                 </div>
                 <span v-show="!isSidebarCollapsed || isMobileDrawerOpen" class="truncate flex-1">{{ tab.name }}</span>
-                <!-- Right-aligned badge in expanded mode -->
                 <span 
                     v-if="tab.id === 'support' && chatUnread && (!isSidebarCollapsed || isMobileDrawerOpen)" 
                     class="!ml-auto min-w-[18px] h-[18px] px-1.5 text-[10px] font-bold rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xs flex-shrink-0" 
@@ -97,8 +91,7 @@
                 </span>
             </button>
         </div>
-
-        <!-- 3. Profile / Bottom (Pinned Bottom) -->
+        
         <div class="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 flex-shrink-0">
             <div
                 class="flex items-center justify-between p-1.5 rounded-xl bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 shadow-sm"
@@ -113,7 +106,7 @@
                 >
                     <div class="w-8 h-8 rounded-lg overflow-hidden bg-blue-600 group-hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 shadow-sm transition">
                         <img 
-                            v-if="currentUser?.avatarUrl" 
+                            v-if="currentUser?.avatarUrl && (currentUser.avatarUrl.startsWith('http') || currentUser.avatarUrl.startsWith('/'))" 
                             :src="currentUser.avatarUrl" 
                             :alt="currentUser.fullName || 'Avatar'" 
                             class="w-full h-full object-cover" 
@@ -129,7 +122,6 @@
                         <div class="text-[10px] text-blue-600 dark:text-blue-400 font-semibold truncate">{{ currentUser?.email }}</div>
                     </div>
                 </button>
-
                 <button 
                     @click="$emit('logout')"
                     title="Đăng xuất khỏi hệ thống" 
@@ -144,7 +136,6 @@
         </div>
     </aside>
     `;
-
     const AppSidebar = {
         name: 'AppSidebar',
         template,
@@ -161,6 +152,5 @@
         },
         emits: ['toggle-sidebar', 'close-mobile-drawer', 'switch-tab', 'logo-click', 'open-profile', 'logout']
     };
-
     window.AppSidebar = AppSidebar;
 })();

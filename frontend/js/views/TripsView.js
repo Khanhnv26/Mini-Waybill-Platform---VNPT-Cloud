@@ -1,6 +1,5 @@
 (function () {
     const { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } = Vue;
-
     const PRESET_ROUTES = [
         {
             name: 'Trục Bắc Nam (Hà Nội - Đà Nẵng - TP.HCM)',
@@ -18,7 +17,6 @@
             stops: ['HUB-HCM-01', 'HUB-CT-01']
         }
     ];
-
     const PRESET_FEEDER_ROUTES = [
         {
             name: 'Gom Hàng Hà Nội (Cầu Giấy - Đống Đa ➔ Kho Tổng)',
@@ -51,26 +49,21 @@
             stops: ['HUB-DN-01', 'POST-DN-HC', 'POST-DN-ST']
         }
     ];
-
-    // Backend chỉ nhận đúng ba giá trị enum này. FEEDER được giữ làm alias đọc dữ liệu cũ,
-    // tuyệt đối không được đưa vào payload tạo chuyến mới.
+    
     const VALID_TRIP_TYPES = Object.freeze(['ORIGIN_FEEDER', 'LINEHAUL', 'DESTINATION_FEEDER']);
     const PRESET_ORIGIN_FEEDER_ROUTES = PRESET_FEEDER_ROUTES.filter(route => route.name.startsWith('Gom Hàng'));
     const PRESET_DESTINATION_FEEDER_ROUTES = PRESET_FEEDER_ROUTES.filter(route => route.name.startsWith('Phát Trả'));
-
     const normalizeTripType = (type, fallback = 'LINEHAUL') => {
         const normalized = String(type || '').trim().toUpperCase();
         if (VALID_TRIP_TYPES.includes(normalized)) return normalized;
         if (normalized === 'FEEDER') return 'ORIGIN_FEEDER';
         return fallback;
     };
-
     const TRIP_TYPE_LABELS = Object.freeze({
         ORIGIN_FEEDER: 'Xe gom đầu nguồn',
         LINEHAUL: 'Xe trục liên tỉnh',
         DESTINATION_FEEDER: 'Xe phát cuối nguồn'
     });
-
     const HUB_COORDINATES = {
         'HUB-HN-01': { 
             name: 'Kho Tổng Hà Nội', 
@@ -117,7 +110,6 @@
             lng: 105.746857, 
             level: 1 
         },
-
         'POST-HN-CG': { 
             name: 'Bưu Cục Cầu Giấy', 
             address: 'Số 165 Cầu Giấy, Phường Dịch Vọng, Quận Cầu Giấy, Hà Nội',
@@ -168,7 +160,6 @@
             level: 2, 
             parent: 'HUB-HN-01' 
         },
-
         'POST-HCM-Q1': { 
             name: 'Bưu Cục Bến Nghé (Quận 1)', 
             address: 'Số 2 Công Xã Paris, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh',
@@ -219,7 +210,6 @@
             level: 2, 
             parent: 'HUB-HCM-01' 
         },
-
         'POST-DN-HC': { 
             name: 'Bưu Cục Hải Châu', 
             address: 'Số 4 Lê Duẩn, Phường Hải Châu 1, Quận Hải Châu, Đà Nẵng',
@@ -250,7 +240,6 @@
             level: 2, 
             parent: 'HUB-DN-01' 
         },
-
         'POST-HP-NQ': { 
             name: 'Bưu Cục Ngô Quyền', 
             address: 'Số 147 Lương Khánh Thiện, Phường Cầu Đất, Quận Ngô Quyền, Hải Phòng',
@@ -271,7 +260,6 @@
             level: 2, 
             parent: 'HUB-HP-01' 
         },
-
         'POST-CT-NK': { 
             name: 'Bưu Cục Ninh Kiều', 
             address: 'Số 2 Hòa Bình, Phường Tân An, Quận Ninh Kiều, Cần Thơ',
@@ -293,9 +281,7 @@
             parent: 'HUB-CT-01' 
         }
     };
-
-    // Mạng lưới trạm chốt hành lang giao thông đường bộ nội địa Việt Nam (QL1A & Cao tốc Bắc - Nam CT01)
-    // Ngăn chặn triệt để hiện tượng thuật toán OSRM bẻ lái cắt qua biên giới Lào hoặc Campuchia
+    
     const VIETNAM_CORRIDOR_WAYPOINTS = [
         { name: 'Ninh Bình (CT01)', lat: 20.2506, lng: 105.9745 },
         { name: 'Thanh Hóa (QL1A)', lat: 19.8067, lng: 105.7852 },
@@ -313,7 +299,6 @@
         { name: 'Phan Thiết (Bình Thuận)', lat: 10.9274, lng: 108.1021 },
         { name: 'Long Khánh (Đồng Nai)', lat: 10.9431, lng: 107.2410 }
     ];
-
     const buildVietnamRouteWaypoints = (stopCoords) => {
         if (!Array.isArray(stopCoords) || stopCoords.length <= 1) return stopCoords || [];
         const result = [];
@@ -321,27 +306,22 @@
             const current = stopCoords[i];
             const next = stopCoords[i + 1];
             result.push(current);
-
             const isNorthToSouth = current.lat > next.lat;
             const minLat = Math.min(current.lat, next.lat);
             const maxLat = Math.max(current.lat, next.lat);
-
             const intermediates = VIETNAM_CORRIDOR_WAYPOINTS.filter(wp => {
                 return wp.lat > minLat + 0.35 && wp.lat < maxLat - 0.35;
             });
-
             if (isNorthToSouth) {
                 intermediates.sort((a, b) => b.lat - a.lat);
             } else {
                 intermediates.sort((a, b) => a.lat - b.lat);
             }
-
             intermediates.forEach(wp => result.push(wp));
         }
         result.push(stopCoords[stopCoords.length - 1]);
         return result;
     };
-
     const TripsView = {
         name: 'TripsView',
         components: {
@@ -381,7 +361,6 @@
             const tripDirectionTab = ref('OUTBOUND');
             const selectedStationHub = ref(props.currentStation || 'ALL');
             const currentStep = ref(1);
-
             const transportMode = ref('LINEHAUL');
             const feederDirectionTab = ref('OUTBOUND');
             const feederVehiclePlate = ref('29C-556.12 (Tải 1.5T)');
@@ -397,9 +376,7 @@
             const hubStoredCodes = ref(new Set());
             const hubReceivedCodes = ref(new Set());
             const isLoadingHubInventory = ref(false);
-
             const optimisticConsolidatedCodes = ref(new Set());
-
             const activeLoadedTrackingCodes = computed(() => {
                 const set = new Set(optimisticConsolidatedCodes.value);
                 (tripsList.value || []).forEach(trip => {
@@ -416,7 +393,6 @@
                 });
                 return set;
             });
-
             const getOriginPostOfficeInfo = (item, allowFallback = true) => {
                 if (!item) return allowFallback
                     ? { code: 'POST-HN-CG', name: 'Bưu Cục Cầu Giấy' }
@@ -433,7 +409,6 @@
                     ? { code: 'POST-HN-CG', name: 'Bưu Cục Cầu Giấy' }
                     : { code: '', name: 'Chưa xác định' };
             };
-
             const getDestPostOfficeInfo = (item, allowFallback = true) => {
                 if (!item) return allowFallback
                     ? { code: 'POST-DN-HC', name: 'Bưu Cục Hải Châu' }
@@ -450,7 +425,6 @@
                     ? { code: 'POST-DN-HC', name: 'Bưu Cục Hải Châu' }
                     : { code: '', name: 'Chưa xác định' };
             };
-
             const loadShipmentsData = async () => {
                 try {
                     isLoadingShipments.value = true;
@@ -462,36 +436,29 @@
                     isLoadingShipments.value = false;
                 }
             };
-
             const pendingFeederItems = computed(() => {
                 return shipmentsList.value.filter(s => {
                     if (s.currentStatus !== 'PICKED_UP') return false;
                     const code = String(s.trackingCode || '').trim().toUpperCase();
                     if (!code) return false;
-
                     if (activeLoadedTrackingCodes.value.has(code)) return false;
-
                     const hasActiveTrip = Boolean(s.activeTripId || s.activeTripCode || s.activeTrip || s.tripCode);
                     const invStatus = String(s.inventoryStatus || s.inventory_status || '').trim().toUpperCase();
                     if (hasActiveTrip || ['RESERVED', 'LOADED', 'HANDED_TO_COURIER'].includes(invStatus)) return false;
-
                     if (originFeederStation.value === 'ALL') return true;
                     const loc = String(s.locationCode || '').trim().toUpperCase();
                     if (loc) return loc === originFeederStation.value;
                     return getOriginPostOfficeInfo(s).code === originFeederStation.value;
                 });
             });
-
             const totalFeederWeight = computed(() => {
                 return pendingFeederItems.value.reduce((acc, cur) => acc + (cur.weight || 0), 0);
             });
-
             const incomingFeederItems = computed(() => {
                 return shipmentsList.value.filter(s => {
                     const code = String(s.trackingCode || '').trim().toUpperCase();
                     if (!code) return false;
                     if (activeLoadedTrackingCodes.value.has(code)) return false;
-
                     const destPO = getDestPostOfficeInfo(s).code;
                     const isForThisPO = (destinationFeederStation.value === 'ALL') || (destPO === destinationFeederStation.value);
                     if (!isForThisPO) return false;
@@ -501,14 +468,12 @@
                     const inventoryStatus = String(s.inventoryStatus || s.inventory_status || '').trim().toUpperCase();
                     const hasActiveTrip = !!(s.activeTripId || s.activeTripCode || s.activeTrip || s.tripCode);
                     if (hasActiveTrip || ['RESERVED', 'LOADED', 'HANDED_TO_COURIER'].includes(inventoryStatus)) return false;
-
                     const targetDestHub = (s.destinationHub || '').toUpperCase();
                     const isUnloadedAtDestHub = s.currentStatus === 'ARRIVED_DEST_HUB' && (loc === targetDestHub || loc.startsWith('HUB-'));
                     if (!isUnloadedAtDestHub) return false;
                     return hubStoredCodes.value.has(code);
                 });
             });
-
             const loadHubInventoryState = async () => {
                 const routing = window.RoutingService;
                 if (!routing || typeof routing.getInventory !== 'function') return;
@@ -524,7 +489,6 @@
                         hubCodes = ['HUB-HN-01', 'HUB-DN-01', 'HUB-HCM-01', 'HUB-HP-01', 'HUB-CT-01'];
                     }
                 }
-
                 isLoadingHubInventory.value = true;
                 const stored = new Set();
                 const received = new Set();
@@ -550,7 +514,6 @@
                     isLoadingHubInventory.value = false;
                 }
             };
-
             const incomingFeederPendingStoreCount = computed(() => {
                 if (hubReceivedCodes.value.size === 0) return 0;
                 return shipmentsList.value.filter(s => {
@@ -560,11 +523,9 @@
                     return hubReceivedCodes.value.has(code) && !hubStoredCodes.value.has(code);
                 }).length;
             });
-
             const totalIncomingFeederWeight = computed(() => {
                 return incomingFeederItems.value.reduce((acc, cur) => acc + (cur.weight || 0), 0);
             });
-
             const selectedOriginFeederItems = computed(() => pendingFeederItems.value.filter(item =>
                 selectedOriginFeederCodes.value.has(String(item.trackingCode || '').trim().toUpperCase())
             ));
@@ -611,22 +572,18 @@
                 selectedOriginFeederCodes.value = new Set();
                 selectedDestinationFeederCodes.value = new Set();
             };
-
             const buildFeederOperationId = (transportLeg, trackingCode, locationCode) => {
                 const leg = String(transportLeg || 'FEEDER').trim().toUpperCase();
                 const tracking = String(trackingCode || '').trim().toUpperCase();
                 const location = String(locationCode || '').trim().toUpperCase();
                 return `${leg}:RECEIVE:${tracking}:${location}`.replace(/[^A-Z0-9:_-]/g, '_');
             };
-
             const getErrorStatus = (error) => {
                 const status = error?.status ?? error?.response?.status ?? error?.details?.status;
                 const parsed = Number(status);
                 return Number.isFinite(parsed) ? parsed : null;
             };
-
             const isMigrationUnavailable = (error) => [404, 405, 501].includes(getErrorStatus(error));
-
             const receiveFeederInventory = async ({ locationCode, trackingCode, transportLeg, shipmentStatus, note }) => {
                 const request = {
                     trackingCodes: [trackingCode],
@@ -664,7 +621,6 @@
                 }
                 return response.status === 204 ? null : response.json();
             };
-
             const findScheduledFeederTrip = (tripType, originHub, destinationHub) => {
                 const type = normalizeTripType(tripType, null);
                 const origin = String(originHub || '').trim().toUpperCase();
@@ -676,7 +632,6 @@
                     && String(getTripEndpoint(trip, 'destination') || '').trim().toUpperCase() === destination
                 ) || null;
             };
-
             const dispatchFeederBatch = async ({ tripType, originHub, destinationHub, items, vehiclePlate, driverName }) => {
                 const routing = window.RoutingService;
                 if (!routing
@@ -687,14 +642,12 @@
                     error.status = 501;
                     throw error;
                 }
-
                 const type = normalizeTripType(tripType, null);
                 const origin = String(originHub || '').trim().toUpperCase();
                 const destination = String(destinationHub || '').trim().toUpperCase();
                 if (!VALID_TRIP_TYPES.includes(type) || !origin || !destination || !Array.isArray(items) || items.length === 0) {
                     throw new Error('Thiếu thông tin để lập chuyến trung chuyển');
                 }
-
                 let trip = findScheduledFeederTrip(type, origin, destination);
                 if (!trip) {
                     trip = await routing.createTrip({
@@ -705,13 +658,11 @@
                         driverName: driverName || 'Vũ Văn Gom',
                         tripType: type,
                         maxWeight: 5000,
-                        // Backend binds LocalDateTime; do not send a timezone suffix.
                         scheduledDepartureTime: getDefaultDepartureTime(),
                         cutoffBufferMinutes: 30,
                         stopHubCodes: [origin, destination]
                     });
                 }
-
                 if (!trip?.id) throw new Error('Không nhận được mã chuyến sau khi khởi tạo chuyến trung chuyển');
                 const codes = items.map(item => String(item.trackingCode || '').trim().toUpperCase()).filter(Boolean);
                 const consolidated = await routing.autoConsolidate(trip.id, {
@@ -730,11 +681,9 @@
                 if (missing.length > 0) {
                     throw new Error(`Chưa gom đủ kiện vào chuyến ${trip.tripCode || trip.id}: ${missing.join(', ')}`);
                 }
-
                 const departed = await routing.departTrip(trip.id);
                 return { trip: departed || consolidated || trip, codes };
             };
-
             const markFeederDispatch = (items, result, transportLeg, originHub, fallbackDestination) => {
                 const trip = result?.trip || {};
                 items.forEach(item => {
@@ -742,12 +691,10 @@
                     item.transportLeg = transportLeg;
                     item.tripCode = trip.tripCode || item.tripCode;
                     item.activeTripId = trip.id || item.activeTripId || null;
-                    // A real departure keeps the parcel at its pickup station until
-                    // the ordered arrive/unload action updates the inventory location.
+                    
                     item.locationCode = result?.legacy ? fallbackDestination : originHub;
                 });
             };
-
             const dispatchFeederWithMigrationFallback = async ({ tripType, originHub, destinationHub, items, vehiclePlate, driverName, legacyRequest }) => {
                 try {
                     return await dispatchFeederBatch({
@@ -760,8 +707,7 @@
                     });
                 } catch (error) {
                     if (!isMigrationUnavailable(error)) throw error;
-                    // Older deployments do not expose trip lifecycle endpoints yet.
-                    // Keep direct inventory movement only as an explicit migration fallback.
+                    
                     console.warn('[TripsView] Trip feeder workflow chưa khả dụng, dùng đường di trú:', error);
                     for (const item of items) {
                         await receiveFeederInventory({ ...legacyRequest(item), trackingCode: item.trackingCode });
@@ -769,7 +715,6 @@
                     return { legacy: true, trip: null, codes: items.map(item => item.trackingCode) };
                 }
             };
-
             const handleDispatchFeederItem = async (item) => {
                 const poInfo = getOriginPostOfficeInfo(item, false);
                 const originHub = String(poInfo.code || '').trim().toUpperCase();
@@ -785,7 +730,6 @@
                 const nextSelected = new Set(selectedOriginFeederCodes.value);
                 nextSelected.delete(cleanCode);
                 selectedOriginFeederCodes.value = nextSelected;
-
                 isFeederActionRunning.value = true;
                 try {
                     const result = await dispatchFeederWithMigrationFallback({
@@ -819,7 +763,6 @@
                     isFeederActionRunning.value = false;
                 }
             };
-
             const handleDispatchAllFeeder = async () => {
                 const batchItems = selectedOriginFeederItems.value;
                 if (batchItems.length === 0) {
@@ -830,7 +773,6 @@
                 const plate = feederVehiclePlate.value.trim() || '29C-556.12 (Tải 1.5T)';
                 const driver = feederDriverName.value.trim() || 'Vũ Văn Gom';
                 const weight = batchItems.reduce((sum, item) => sum + (Number(item.weight) || 0), 0).toFixed(1);
-
                 openConfirmation({
                     title: 'Xác Nhận Xuất Xe Gom',
                     message: `Lập và xuất chuyến xe gom cho ${batchItems.length} bưu gửi từ ${poText} về Kho Tổng?`,
@@ -841,7 +783,6 @@
                     const batchCodes = batchItems.map(i => String(i.trackingCode || '').trim().toUpperCase()).filter(Boolean);
                     batchCodes.forEach(code => optimisticConsolidatedCodes.value.add(code));
                     clearFeederSelections();
-
                     isFeederActionRunning.value = true;
                     let count = 0;
                     let skipped = 0;
@@ -859,7 +800,6 @@
                             if (!groups.has(key)) groups.set(key, { originHub, targetHub, items: [] });
                             groups.get(key).items.push(item);
                         });
-
                         for (const group of groups.values()) {
                             const result = await dispatchFeederWithMigrationFallback({
                                 tripType: 'ORIGIN_FEEDER',
@@ -895,7 +835,6 @@
                     }
                 });
             };
-
             const handleReceiveIncomingFeeder = async (item) => {
                 const targetPO = String(
                     destinationFeederStation.value !== 'ALL'
@@ -914,7 +853,6 @@
                 const nextSelected = new Set(selectedDestinationFeederCodes.value);
                 nextSelected.delete(cleanCode);
                 selectedDestinationFeederCodes.value = nextSelected;
-
                 isFeederActionRunning.value = true;
                 try {
                     const result = await dispatchFeederWithMigrationFallback({
@@ -949,7 +887,6 @@
                     isFeederActionRunning.value = false;
                 }
             };
-
             const handleReceiveAllIncomingFeeder = async () => {
                 const batchItems = selectedDestinationFeederItems.value;
                 if (batchItems.length === 0) {
@@ -958,7 +895,6 @@
                 }
                 const poCode = destinationFeederStation.value !== 'ALL' ? destinationFeederStation.value : 'các bưu cục phát đã chọn';
                 const weight = batchItems.reduce((sum, item) => sum + (Number(item.weight) || 0), 0).toFixed(1);
-
                 openConfirmation({
                     title: 'Xác Nhận Xuất Xe Phát',
                     message: `Lập và xuất xe trung chuyển từ Kho Tổng về ${poCode}?`,
@@ -969,7 +905,6 @@
                     const batchCodes = batchItems.map(i => String(i.trackingCode || '').trim().toUpperCase()).filter(Boolean);
                     batchCodes.forEach(code => optimisticConsolidatedCodes.value.add(code));
                     clearFeederSelections();
-
                     isFeederActionRunning.value = true;
                     let count = 0;
                     let skipped = 0;
@@ -990,7 +925,6 @@
                             if (!groups.has(key)) groups.set(key, { originHub, targetPO, items: [] });
                             groups.get(key).items.push(item);
                         });
-
                         const plate = feederVehiclePlate.value.trim() || '29C-556.12';
                         const driver = feederDriverName.value.trim() || 'Vũ Văn Gom';
                         for (const group of groups.values()) {
@@ -1028,7 +962,6 @@
                     }
                 });
             };
-
             const openCreateTripModal = (type = null) => {
                 if (type) {
                     setTripType(type);
@@ -1041,11 +974,9 @@
                     loadAvailableVehiclesAtHub(origin);
                 }
             };
-
             watch(() => props.currentStation, (newVal) => {
                 if (newVal) selectedStationHub.value = newVal;
             });
-
             const getDefaultDepartureTime = () => {
                 const d = new Date();
                 d.setHours(d.getHours() + 4);
@@ -1053,7 +984,6 @@
                 const pad = (n) => String(n).padStart(2, '0');
                 return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
             };
-
             const schedulerConfig = reactive({
                 enabled: true,
                 intervalSeconds: 300,
@@ -1065,7 +995,6 @@
             });
             const isUpdatingScheduler = ref(false);
             const isConsolidatingAll = ref(false);
-
             const showCreateModal = ref(false);
             const isSubmittingTrip = ref(false);
             const selectedPresetIndex = ref(0);
@@ -1082,12 +1011,10 @@
                 cutoffBufferMinutes: 30,
                 stopHubCodes: [...PRESET_ROUTES[0].stops]
             });
-
             const availableVehiclesAtHub = ref([]);
             const isLoadingAvailableVehicles = ref(false);
             const vehicleSelectionMode = ref('AUTO');
             const isVehiclePickerOpen = ref(false);
-
             const selectedVehicle = computed(() => {
                 const plate = tripForm.vehiclePlate;
                 if (!plate && availableVehiclesAtHub.value.length > 0) {
@@ -1096,7 +1023,6 @@
                 return availableVehiclesAtHub.value.find(v => (v.plateNumber === plate || v.vehiclePlate === plate)) 
                     || (availableVehiclesAtHub.value.length > 0 ? availableVehiclesAtHub.value[0] : null);
             });
-
             const selectVehicle = (v) => {
                 if (!v) return;
                 const plate = v.plateNumber || v.vehiclePlate || '';
@@ -1110,12 +1036,10 @@
                 vehicleSelectionMode.value = 'AUTO';
                 isVehiclePickerOpen.value = false;
             };
-
             const switchToManualVehicle = () => {
                 vehicleSelectionMode.value = 'MANUAL';
                 isVehiclePickerOpen.value = false;
             };
-
             const switchToAutoVehicle = () => {
                 vehicleSelectionMode.value = 'AUTO';
                 isVehiclePickerOpen.value = false;
@@ -1123,7 +1047,6 @@
                     selectVehicle(availableVehiclesAtHub.value[0]);
                 }
             };
-
             const loadAvailableVehiclesAtHub = async (hubCode) => {
                 const hub = String(hubCode || '').trim();
                 if (!hub) {
@@ -1136,9 +1059,7 @@
                     if (routing && typeof routing.getAvailableVehiclesAtHub === 'function') {
                         let list = await routing.getAvailableVehiclesAtHub(hub);
                         list = Array.isArray(list) ? list : [];
-
-                        // Fallback thông minh: Nếu điểm xuất phát là Bưu Cục (POST-...) và tại trạm chưa có xe thường trực,
-                        // tự động tìm kiếm xe khả dụng từ Kho Tổng mẹ quản lý trực tiếp (Parent HUB)
+                        
                         if (list.length === 0 && hub.startsWith('POST-')) {
                             const parentHub = HUB_COORDINATES[hub]?.parent || 'HUB-HN-01';
                             const parentVehicles = await routing.getAvailableVehiclesAtHub(parentHub);
@@ -1150,8 +1071,7 @@
                                 }));
                             }
                         }
-
-                        // Chuẩn hóa đồng bộ dữ liệu giữa VehicleResponse của backend và TripsView
+                        
                         list = list.map(v => {
                             const plate = v.vehiclePlate || v.plateNumber || '';
                             const model = v.modelName || v.model || v.vehicleType || 'Xe tải vận chuyển';
@@ -1171,7 +1091,6 @@
                                 driverPhone: phone
                             };
                         });
-
                         availableVehiclesAtHub.value = list;
                         if (list.length > 0 && vehicleSelectionMode.value === 'AUTO') {
                             const found = list.find(v => (v.plateNumber === tripForm.vehiclePlate || v.vehiclePlate === tripForm.vehiclePlate));
@@ -1186,18 +1105,15 @@
                     isLoadingAvailableVehicles.value = false;
                 }
             };
-
             const onVehicleSelected = (plateNumber) => {
                 const chosen = availableVehiclesAtHub.value.find(v => (v.plateNumber === plateNumber || v.vehiclePlate === plateNumber));
                 if (chosen) selectVehicle(chosen);
             };
-
             watch(() => tripForm.stopHubCodes?.[0], (newOrigin) => {
                 if (newOrigin && showCreateModal.value) {
                     loadAvailableVehiclesAtHub(newOrigin);
                 }
             });
-
             const isUpdatingProgress = ref(false);
             const progressForm = reactive({
                 locationCode: '',
@@ -1207,7 +1123,6 @@
                 note: ''
             });
             const progressOperationSeeds = new Map();
-
             const showDetailModal = ref(false);
             const activeTripDetail = ref(null);
             const isLoadingDetail = ref(false);
@@ -1217,13 +1132,11 @@
             const activeManifests = computed(() => {
                 return (activeTripDetail.value?.manifests || []).filter(m => m.status !== 'REMOVED');
             });
-
             const eligibleAssignments = ref([]);
             const isLoadingEligible = ref(false);
             const eligibleSearchQuery = ref('');
             const selectedEligibleCodes = ref([]);
             const isConsolidatingSelected = ref(false);
-
             const showConfirmationModal = ref(false);
             const confirmationState = reactive({
                 title: 'Xác Nhận Thao Tác',
@@ -1234,7 +1147,6 @@
                 isRunning: false,
                 onConfirm: null
             });
-
             const openConfirmation = (options, action) => {
                 confirmationState.title = options.title || 'Xác Nhận Thao Tác';
                 confirmationState.message = options.message || '';
@@ -1245,13 +1157,11 @@
                 confirmationState.onConfirm = action;
                 showConfirmationModal.value = true;
             };
-
             const closeConfirmation = () => {
                 if (confirmationState.isRunning) return;
                 showConfirmationModal.value = false;
                 confirmationState.onConfirm = null;
             };
-
             const confirmPendingAction = async () => {
                 if (confirmationState.isRunning || typeof confirmationState.onConfirm !== 'function') return;
                 confirmationState.isRunning = true;
@@ -1263,13 +1173,11 @@
                     confirmationState.onConfirm = null;
                 }
             };
-
             let leafletMap = null;
             let routeLayers = [];
             let stopMarkers = [];
             let tripRoutePoints = [];
             let radarMarker = null;
-
             const loadTrips = async () => {
                 isLoading.value = true;
                 try {
@@ -1281,7 +1189,6 @@
                     isLoading.value = false;
                 }
             };
-
             const loadHubs = async () => {
                 try {
                     const data = await RoutingService.getAllHubs();
@@ -1300,7 +1207,6 @@
                     }
                 }
             };
-
             const loadSchedulerConfig = async () => {
                 try {
                     const data = await RoutingService.getSchedulerConfig();
@@ -1317,7 +1223,6 @@
                     console.error('[TripsView] Không thể tải cấu hình scheduler:', e);
                 }
             };
-
             const toggleSchedulerMode = async () => {
                 isUpdatingScheduler.value = true;
                 try {
@@ -1334,7 +1239,6 @@
                     isUpdatingScheduler.value = false;
                 }
             };
-
             const changeSchedulerInterval = async (intervalSec) => {
                 isUpdatingScheduler.value = true;
                 try {
@@ -1350,7 +1254,6 @@
                     isUpdatingScheduler.value = false;
                 }
             };
-
             const getTripEndpoint = (trip, side) => {
                 const stops = Array.isArray(trip?.stops) ? trip.stops : [];
                 if (side === 'origin') {
@@ -1358,13 +1261,11 @@
                 }
                 return stops[stops.length - 1]?.hubCode || trip?.destinationHub || trip?.currentHub || '';
             };
-
             const isTripOutbound = (t, station) => {
                 if (!station || station === 'ALL') return true;
                 return getTripEndpoint(t, 'origin') === station;
             };
-
-            // Tab "Đến": xe đang chạy tới (IN_TRANSIT) + xe đã cập bến/hoàn thành (COMPLETED) để xem lịch sử dỡ hàng.
+            
             const isTripInbound = (t, station) => {
                 if (!t || (t.status !== 'IN_TRANSIT' && t.status !== 'COMPLETED')) return false;
                 if (!station || station === 'ALL') return true;
@@ -1374,7 +1275,6 @@
                 }
                 return getTripEndpoint(t, 'destination') === station;
             };
-
             const isFeederTrip = (trip) => {
                 if (!trip) return false;
                 const normalizedType = normalizeTripType(trip.tripType, null);
@@ -1387,15 +1287,12 @@
                 }
                 return false;
             };
-
             const linehaulTrips = computed(() => {
                 return tripsList.value.filter(t => !isFeederTrip(t));
             });
-
             const feederTrips = computed(() => {
                 return tripsList.value.filter(t => isFeederTrip(t));
             });
-
             const originFeederTrips = computed(() => {
                 return tripsList.value.filter(t => {
                     const type = normalizeTripType(t.tripType, null);
@@ -1407,7 +1304,6 @@
                     return origin.startsWith('POST-') && dest.startsWith('HUB-');
                 });
             });
-
             const destinationFeederTrips = computed(() => {
                 return tripsList.value.filter(t => {
                     const type = normalizeTripType(t.tripType, null);
@@ -1419,7 +1315,6 @@
                     return origin.startsWith('HUB-') && dest.startsWith('POST-');
                 });
             });
-
             const filteredOriginFeederTrips = computed(() => {
                 let list = originFeederTrips.value;
                 if (originFeederStation.value && originFeederStation.value !== 'ALL') {
@@ -1430,7 +1325,6 @@
                 }
                 return list;
             });
-
             const filteredDestinationFeederTrips = computed(() => {
                 let list = destinationFeederTrips.value;
                 if (destinationFeederStation.value && destinationFeederStation.value !== 'ALL') {
@@ -1441,12 +1335,10 @@
                 }
                 return list;
             });
-
             const getNextPendingStop = (trip) => {
                 if (!trip || !Array.isArray(trip.stops)) return null;
                 return trip.stops.find(s => s.status === 'PENDING') || null;
             };
-
             const getTripNextAction = (trip) => {
                 if (!trip) return { key: 'UNKNOWN', label: 'Xem chi tiết', stop: null };
                 if (trip.status === 'SCHEDULED') {
@@ -1466,7 +1358,6 @@
                 }
                 return { key: 'VIEW', label: 'Xem chuyến', stop: null };
             };
-
             const getTripLoadInfo = (trip, fallbackCapacity = 5000) => {
                 const manifests = Array.isArray(trip?.manifests) ? trip.manifests : [];
                 const activeWeight = manifests
@@ -1490,18 +1381,14 @@
                     isUnloaded: isCompleted && weight > 0
                 };
             };
-
             const tripLoadInfos = computed(() => {
                 const infos = new Map();
                 tripsList.value.forEach(trip => infos.set(trip.id, getTripLoadInfo(trip)));
                 return infos;
             });
-
             const activeTripLoadInfo = computed(() => getTripLoadInfo(activeTripDetail.value));
-
             const linehaulTripsCount = computed(() => linehaulTrips.value.length);
             const feederTripsCount = computed(() => feederTrips.value.length);
-
             const kpiStats = computed(() => {
                 const currentPool = transportMode.value === 'LINEHAUL' ? linehaulTrips.value : feederTrips.value;
                 const total = currentPool.length;
@@ -1513,7 +1400,6 @@
                 const inboundCount = currentPool.filter(t => isTripInbound(t, selectedStationHub.value)).length;
                 return { total, inTransit, scheduled, completed, totalWeightKg, outboundCount, inboundCount };
             });
-
             const filteredTrips = computed(() => {
                 let list = transportMode.value === 'LINEHAUL' ? linehaulTrips.value : feederTrips.value;
                 if (tripDirectionTab.value === 'OUTBOUND') {
@@ -1534,7 +1420,6 @@
                     );
                 }
                 if (tripDirectionTab.value === 'INBOUND') {
-                    // Xe đang chạy tới (chờ cập bến) xếp trên, lịch sử đã cập bến xếp dưới.
                     list = [...list].sort((a, b) => {
                         const rank = (t) => (t.status === 'IN_TRANSIT' ? 0 : 1);
                         return rank(a) - rank(b);
@@ -1542,49 +1427,39 @@
                 }
                 return list;
             });
-
             const currentPage = ref(1);
             const pageSize = ref(10);
-
             const totalPages = computed(() => {
                 if (pageSize.value === -1) return 1;
                 return Math.ceil(filteredTrips.value.length / pageSize.value) || 1;
             });
-
             const paginatedTrips = computed(() => {
                 if (pageSize.value === -1) return filteredTrips.value;
                 const start = (currentPage.value - 1) * pageSize.value;
                 return filteredTrips.value.slice(start, start + pageSize.value);
             });
-
             const startIndex = computed(() => {
                 if (filteredTrips.value.length === 0) return 0;
                 return (currentPage.value - 1) * pageSize.value + 1;
             });
-
             const endIndex = computed(() => {
                 return Math.min(currentPage.value * pageSize.value, filteredTrips.value.length);
             });
-
             watch([searchQuery, selectedStatusFilter, pageSize, tripDirectionTab, selectedStationHub], () => {
                 currentPage.value = 1;
             });
-
             const goToPage = (p) => {
                 if (p >= 1 && p <= totalPages.value) {
                     currentPage.value = p;
                 }
             };
-
             const currentPresets = computed(() => {
                 const type = normalizeTripType(tripForm.tripType);
                 if (type === 'ORIGIN_FEEDER') return PRESET_ORIGIN_FEEDER_ROUTES;
                 if (type === 'DESTINATION_FEEDER') return PRESET_DESTINATION_FEEDER_ROUTES;
                 return PRESET_ROUTES;
             });
-
             const isRouteNameManuallyEdited = ref(false);
-
             const updateRouteNameFromStops = () => {
                 if (isRouteNameManuallyEdited.value) return;
                 const stops = tripForm.stopHubCodes || [];
@@ -1599,7 +1474,6 @@
                     tripForm.routeName = '';
                 }
             };
-
             const applyPresetRoute = (index) => {
                 selectedPresetIndex.value = index;
                 const routes = currentPresets.value;
@@ -1611,7 +1485,6 @@
                     isRouteNameManuallyEdited.value = false;
                 }
             };
-
             const startCustomRoute = () => {
                 selectedPresetIndex.value = -1;
                 tripForm.stopHubCodes = [];
@@ -1619,19 +1492,15 @@
                 tripForm.originHub = '';
                 isRouteNameManuallyEdited.value = false;
             };
-
             const setTripType = (type) => {
                 tripForm.tripType = normalizeTripType(type);
                 selectedPresetIndex.value = 0;
                 applyPresetRoute(0);
             };
-
-
             const availableHubsToAdd = computed(() => {
                 const source = hubsList.value.length > 0 ? hubsList.value : getInitialHubs();
                 return source.filter(h => !tripForm.stopHubCodes.includes(h.hubCode));
             });
-
             const availableHubsGrouped = computed(() => {
                 const source = hubsList.value.length > 0 ? hubsList.value : getInitialHubs();
                 const unadded = source.filter(h => !tripForm.stopHubCodes.includes(h.hubCode));
@@ -1643,16 +1512,13 @@
                     total: unadded.length
                 };
             });
-
             const customStopCode = ref('');
             const isManualStopInput = ref(false);
-
             const onSelectStopChange = () => {
                 if (selectedStopToAdd.value) {
                     addNewStop();
                 }
             };
-
             const addNewStop = () => {
                 const codeToAdd = (selectedStopToAdd.value || customStopCode.value || '').trim().toUpperCase();
                 if (!codeToAdd) {
@@ -1666,7 +1532,6 @@
                 customStopCode.value = '';
                 isManualStopInput.value = false;
             };
-
             const getHubDisplayName = (code) => {
                 if (!code) return '';
                 const trimmed = String(code).trim();
@@ -1676,7 +1541,6 @@
                 if (fallback && fallback.name) return fallback.name;
                 return trimmed;
             };
-
             const getHubAddress = (code) => {
                 if (!code) return 'Chưa có địa chỉ vận hành';
                 const trimmed = String(code).trim();
@@ -1686,7 +1550,6 @@
                 if (fallback && fallback.address) return fallback.address;
                 return 'Đang cập nhật địa chỉ';
             };
-
             const getHubLocation = (stop) => {
                 const hubCode = stop.hubCode || stop;
                 const trimmed = String(hubCode).trim();
@@ -1704,7 +1567,6 @@
                     lng: longitude
                 };
             };
-
             const addStopCode = (code) => {
                 if (!code) return;
                 if (!tripForm.stopHubCodes.includes(code)) {
@@ -1716,12 +1578,10 @@
                     }
                 }
             };
-
             const removeStopCode = (index) => {
                 tripForm.stopHubCodes.splice(index, 1);
                 updateRouteNameFromStops();
             };
-
             const moveStopUp = (index) => {
                 if (index <= 0) return;
                 const temp = tripForm.stopHubCodes[index];
@@ -1729,7 +1589,6 @@
                 tripForm.stopHubCodes.splice(index - 1, 0, temp);
                 updateRouteNameFromStops();
             };
-
             const moveStopDown = (index) => {
                 if (index >= tripForm.stopHubCodes.length - 1) return;
                 const temp = tripForm.stopHubCodes[index];
@@ -1737,7 +1596,6 @@
                 tripForm.stopHubCodes.splice(index + 1, 0, temp);
                 updateRouteNameFromStops();
             };
-
             const reverseRouteStops = () => {
                 if (!tripForm.stopHubCodes || tripForm.stopHubCodes.length < 2) return;
                 tripForm.stopHubCodes.reverse();
@@ -1746,7 +1604,6 @@
                     window.Utils.showToast('Đảo Chiều', 'Đã đổi chiều đi/về của các trạm dừng trong lộ trình!', 'info');
                 }
             };
-
             const routeValidation = computed(() => {
                 const stops = tripForm.stopHubCodes || [];
                 if (stops.length < 2) {
@@ -1761,7 +1618,6 @@
                 const isOriginPO = origin.startsWith('POST-');
                 const isDestPO = dest.startsWith('POST-');
                 const type = normalizeTripType(tripForm.tripType);
-
                 if (type === 'LINEHAUL') {
                     if (isOriginPO || isDestPO) {
                         return {
@@ -1793,7 +1649,6 @@
                     message: `Lộ trình hợp lệ: ${getHubDisplayName(origin)} ➔ ${getHubDisplayName(dest)} (${stops.length} trạm).`
                 };
             });
-
             const generateTripCode = (tripType) => {
                 const typePrefix = tripType === 'LINEHAUL' ? 'LH' : (tripType === 'DESTINATION_FEEDER' ? 'DF' : 'OF');
                 const now = new Date();
@@ -1802,7 +1657,6 @@
                 const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
                 return `TRIP-${typePrefix}-${stamp}-${suffix}`;
             };
-
             const submitCreateTrip = async () => {
                 if (!tripForm.routeName || !tripForm.vehiclePlate || !tripForm.driverName) {
                     Utils.showToast('Thiếu Thông Tin', 'Vui lòng điền đủ tên tuyến, biển số xe và tài xế!', 'warning');
@@ -1812,7 +1666,6 @@
                     Utils.showToast('Lộ Trình Chưa Hợp Lệ', routeValidation.value.message, 'warning');
                     return;
                 }
-
                 const tripType = normalizeTripType(tripForm.tripType);
                 const tripCode = String(tripForm.tripCode || '').trim() || generateTripCode(tripType);
                 const requestedMaxWeight = Number.parseFloat(tripForm.maxWeight);
@@ -1821,7 +1674,6 @@
                 tripForm.tripCode = tripCode;
                 tripForm.maxWeight = maxWeight;
                 tripForm.originHub = tripForm.stopHubCodes[0];
-
                 isSubmittingTrip.value = true;
                 try {
                     await RoutingService.createTrip({
@@ -1832,7 +1684,6 @@
                         driverName: tripForm.driverName.trim(),
                         tripType,
                         maxWeight,
-                        // datetime-local already matches the backend LocalDateTime contract.
                         scheduledDepartureTime: tripForm.scheduledDepartureTime || undefined,
                         cutoffBufferMinutes: parseInt(tripForm.cutoffBufferMinutes) || 30,
                         stopHubCodes: tripForm.stopHubCodes
@@ -1846,7 +1697,6 @@
                     isSubmittingTrip.value = false;
                 }
             };
-
             const loadEligibleAssignments = async (tripId) => {
                 isLoadingEligible.value = true;
                 try {
@@ -1859,7 +1709,6 @@
                     isLoadingEligible.value = false;
                 }
             };
-
             const filteredEligibleAssignments = computed(() => {
                 const q = eligibleSearchQuery.value.trim().toLowerCase();
                 if (!q) return eligibleAssignments.value;
@@ -1869,14 +1718,12 @@
                     (item.destinationHub && item.destinationHub.toLowerCase().includes(q))
                 );
             });
-
             const selectedEligibleWeight = computed(() => {
                 return eligibleAssignments.value
                     .filter(item => selectedEligibleCodes.value.includes(item.trackingCode))
                     .reduce((sum, item) => sum + (item.weight || 0), 0)
                     .toFixed(1);
             });
-
             const toggleSelectAllEligible = () => {
                 if (selectedEligibleCodes.value.length === filteredEligibleAssignments.value.length && filteredEligibleAssignments.value.length > 0) {
                     selectedEligibleCodes.value = [];
@@ -1884,7 +1731,6 @@
                     selectedEligibleCodes.value = filteredEligibleAssignments.value.map(i => i.trackingCode);
                 }
             };
-
             const switchDetailTab = (tab) => {
                 detailActiveTab.value = tab;
                 if (tab === 'route') {
@@ -1897,7 +1743,6 @@
                     }, 150);
                 }
             };
-
             const openTripDetail = async (tripId) => {
                 isLoadingDetail.value = true;
                 showDetailModal.value = true;
@@ -1918,7 +1763,6 @@
                     isLoadingDetail.value = false;
                 }
             };
-
             const openTripByCode = async (code) => {
                 if (!code) return;
                 const clean = String(code).trim().toLowerCase();
@@ -1958,13 +1802,11 @@
                     }
                 }
             };
-
             const handleOpenTripByCodeEvent = (e) => {
                 if (e.detail && e.detail.tripCode) {
                     openTripByCode(e.detail.tripCode);
                 }
             };
-
             const fitTripVietnamView = () => {
                 if (!leafletMap) return;
                 const vnBounds = [
@@ -1973,7 +1815,6 @@
                 ];
                 leafletMap.fitBounds(vnBounds, { padding: [15, 15], maxZoom: 7 });
             };
-
             const fitTripRouteView = () => {
                 if (!leafletMap) return;
                 if (tripRoutePoints && tripRoutePoints.length > 0) {
@@ -1985,24 +1826,20 @@
                     fitTripVietnamView();
                 }
             };
-
             const initTripMap = () => {
                 const mapEl = document.getElementById('trip-leaflet-map');
                 if (!mapEl) return;
-
                 if (leafletMap) {
                     try {
                         leafletMap.remove();
                     } catch (e) {}
                     leafletMap = null;
                 }
-
                 leafletMap = L.map(mapEl, {
                     zoomControl: true,
                     minZoom: 4,
                     maxZoom: 20
                 });
-
                 const roadLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {
                     attribution: '&copy; Google Bản đồ Việt Nam | Bưu chính Waybill',
                     subdomains: ['0', '1', '2', '3'],
@@ -2010,7 +1847,6 @@
                     keepBuffer: 4,
                     updateWhenIdle: false
                 });
-
                 const hybridLayer = L.tileLayer('https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&hl=vi', {
                     attribution: '&copy; Google Vệ tinh | Bưu chính Waybill',
                     subdomains: ['0', '1', '2', '3'],
@@ -2018,14 +1854,11 @@
                     keepBuffer: 4,
                     updateWhenIdle: false
                 });
-
                 roadLayer.addTo(leafletMap);
-
                 L.control.layers({
                     'Google Maps': roadLayer,
                     'Google Vệ tinh': hybridLayer
                 }, null, { position: 'topright', collapsed: false }).addTo(leafletMap);
-
                 const QuickNav = L.Control.extend({
                     options: { position: 'topleft' },
                     onAdd: function () {
@@ -2060,11 +1893,9 @@
                 });
                 new QuickNav().addTo(leafletMap);
             };
-
             const renderLeafletMap = async (tripData) => {
                 initTripMap();
                 if (!leafletMap) return;
-
                 routeLayers.forEach(l => {
                     try { leafletMap.removeLayer(l); } catch (e) {}
                 });
@@ -2078,29 +1909,23 @@
                     radarMarker = null;
                 }
                 tripRoutePoints = [];
-
                 const stops = tripData.stops || [];
                 if (stops.length === 0) return;
-
                 const locatedStops = stops.map(stop => ({ stop, coord: getHubLocation(stop) }));
                 const missingLocations = locatedStops.filter(item => !item.coord);
                 if (missingLocations.length > 0) {
                     console.warn('[TripsView] Missing hub coordinates:', missingLocations.map(item => item.stop.hubCode));
                 }
-
                 const validStops = locatedStops.filter(item => item.coord);
                 if (validStops.length < 2) {
                     Utils.showToast('Thiếu Tọa Độ Hub', 'Không đủ Hub có tọa độ xác thực để vẽ tuyến xe.', 'warning');
                     return;
                 }
-
                 validStops.forEach(({ stop, coord }, index) => {
                     const point = [coord.lat, coord.lng];
-
                     let pinClass = 'hub-pin-transit';
                     let iconSize = [12, 12];
                     let iconAnchor = [6, 6];
-
                     if (index === 0) {
                         pinClass = 'hub-pin-source';
                         iconSize = [16, 16];
@@ -2110,13 +1935,11 @@
                         iconSize = [16, 16];
                         iconAnchor = [8, 8];
                     }
-
                     const markerIcon = L.divIcon({
                         className: pinClass,
                         iconSize: iconSize,
                         iconAnchor: iconAnchor
                     });
-
                     const marker = L.marker(point, { icon: markerIcon }).addTo(leafletMap);
                     marker.bindPopup(`
                         <div class="text-xs p-1 min-w-[210px]">
@@ -2130,10 +1953,8 @@
                     `);
                     stopMarkers.push(marker);
                 });
-
                 const stopCoords = validStops.map(item => item.coord);
                 let routePoints = [];
-
                 try {
                     const routingWaypoints = buildVietnamRouteWaypoints(stopCoords);
                     const coordsQuery = routingWaypoints.map(c => `${c.lng},${c.lat}`).join(';');
@@ -2151,14 +1972,11 @@
                 } catch (e) {
                     console.warn('[TripsView] OSRM route fallback:', e);
                 }
-
                 if (!routePoints || routePoints.length === 0) {
                     const routingWaypoints = buildVietnamRouteWaypoints(stopCoords);
                     routePoints = routingWaypoints.map(c => [c.lat, c.lng]);
                 }
-
                 tripRoutePoints = routePoints;
-
                 const findClosestPointIndex = (targetCoord, points) => {
                     let bestIdx = 0;
                     let minDist = Infinity;
@@ -2172,14 +1990,11 @@
                     }
                     return bestIdx;
                 };
-
                 const stopRouteIndices = validStops.map(s => findClosestPointIndex(s.coord, routePoints));
-
                 let currentPoint = null;
                 let targetIdx = 0;
                 let statusText = 'Chờ Khởi Hành';
                 let subText = `Tuyến: ${validStops[0].stop.hubCode} ➔ ${validStops[validStops.length - 1].stop.hubCode}`;
-
                 if (tripData.status === 'COMPLETED') {
                     currentPoint = [validStops[validStops.length - 1].coord.lat, validStops[validStops.length - 1].coord.lng];
                     targetIdx = routePoints.length - 1;
@@ -2197,7 +2012,6 @@
                             arrivedStopIdx = idx;
                         }
                     });
-
                     if (arrivedStopIdx >= 0) {
                         currentPoint = [validStops[arrivedStopIdx].coord.lat, validStops[arrivedStopIdx].coord.lng];
                         targetIdx = stopRouteIndices[arrivedStopIdx];
@@ -2221,7 +2035,6 @@
                         subText = `${validStops[lastDepartedIdx].stop.hubCode} ➔ ${validStops[nextStopIdx].stop.hubCode} (${pct}%)`;
                     }
                 }
-
                 if (targetIdx > 0) {
                     const completedCoords = routePoints.slice(0, targetIdx + 1);
                     if (completedCoords.length >= 2) {
@@ -2235,7 +2048,6 @@
                         routeLayers.push(completedPolyline);
                     }
                 }
-
                 const remainingCoords = targetIdx === 0 ? routePoints : routePoints.slice(targetIdx);
                 if (remainingCoords.length >= 2) {
                     const remainingPolyline = L.polyline(remainingCoords, {
@@ -2248,7 +2060,6 @@
                     }).addTo(leafletMap);
                     routeLayers.push(remainingPolyline);
                 }
-
                 if (currentPoint) {
                     const radarIcon = L.divIcon({
                         className: 'hub-pin-current',
@@ -2263,7 +2074,6 @@
                         .bindTooltip(tooltipHtml, { permanent: true, direction: 'top', offset: [0, -10], className: 'radar-tooltip' })
                         .addTo(leafletMap);
                 }
-
                 fitTripRouteView();
                 setTimeout(() => {
                     if (leafletMap) {
@@ -2271,7 +2081,6 @@
                     }
                 }, 250);
             };
-
             const handleConsolidateAll = async () => {
                 isConsolidatingAll.value = true;
                 try {
@@ -2291,7 +2100,6 @@
                     isConsolidatingAll.value = false;
                 }
             };
-
             const handleAutoConsolidate = async () => {
                 if (!activeTripDetail.value) return;
                 isConsolidating.value = true;
@@ -2314,7 +2122,6 @@
                     isConsolidating.value = false;
                 }
             };
-
             const handleConsolidateSelected = async () => {
                 if (!activeTripDetail.value || selectedEligibleCodes.value.length === 0) return;
                 const itemsToLoad = eligibleAssignments.value
@@ -2326,10 +2133,8 @@
                         weight: i.weight,
                         serviceType: i.serviceType
                     }));
-
                 const codes = itemsToLoad.map(i => String(i.trackingCode || '').trim().toUpperCase()).filter(Boolean);
                 codes.forEach(c => optimisticConsolidatedCodes.value.add(c));
-
                 isConsolidatingSelected.value = true;
                 try {
                     const res = await RoutingService.autoConsolidate(activeTripDetail.value.id, { items: itemsToLoad });
@@ -2346,7 +2151,6 @@
                     isConsolidatingSelected.value = false;
                 }
             };
-
             const handleRemoveItem = async (trackingCode) => {
                 if (!activeTripDetail.value) return;
                 const tripId = activeTripDetail.value.id;
@@ -2371,7 +2175,6 @@
                     }
                 });
             };
-
             const handleDepartTrip = async (tripId) => {
                 openConfirmation({
                     title: 'Xác Nhận Xuất Bến',
@@ -2397,7 +2200,6 @@
                     }
                 });
             };
-
             const handleArriveAtStation = async (trip, targetHub) => {
                 if (!trip) return;
                 let stopCode = targetHub;
@@ -2449,7 +2251,6 @@
                     }
                 });
             };
-
             const handleArriveNextStop = async () => {
                 if (!activeTripDetail.value) return;
                 const trip = activeTripDetail.value;
@@ -2460,13 +2261,11 @@
                 }
                 await handleArriveAtStation(trip, nextStop.hubCode);
             };
-
             const getTripTypeLabel = (tripOrType) => {
                 const rawType = typeof tripOrType === 'object' ? tripOrType?.tripType : tripOrType;
                 const type = normalizeTripType(rawType, null);
                 return TRIP_TYPE_LABELS[type] || type || 'Chưa xác định';
             };
-
             const getTransportLegLabel = (legOrTrip) => {
                 const rawLeg = typeof legOrTrip === 'object'
                     ? (legOrTrip?.transportLeg || legOrTrip?.tripType)
@@ -2478,13 +2277,11 @@
                 if (leg === 'LAST_MILE') return 'Phát chặng cuối';
                 return leg || 'Chưa cập nhật';
             };
-
             const formatProgress = (progress) => {
                 const value = Number(progress);
                 if (!Number.isFinite(value)) return '--';
                 return `${Math.max(0, Math.min(100, value)).toFixed(value % 1 === 0 ? 0 : 1)}%`;
             };
-
             const getTripLocationLabel = (trip) => {
                 if (!trip) return 'Chưa cập nhật';
                 const code = trip.currentHub || trip.currentLocation || trip.locationCode;
@@ -2494,7 +2291,6 @@
                 }
                 return 'Chưa cập nhật';
             };
-
             const hashProgressOperation = (value) => {
                 let hash = 2166136261;
                 for (let index = 0; index < value.length; index++) {
@@ -2503,7 +2299,6 @@
                 }
                 return (hash >>> 0).toString(36).toUpperCase();
             };
-
             const getProgressOperationId = (trip, payload) => {
                 const tripKey = String(trip?.tripCode || trip?.id || 'UNKNOWN').trim();
                 const canonical = [
@@ -2519,14 +2314,12 @@
                 }
                 return progressOperationSeeds.get(canonical);
             };
-
             const canUpdateTripProgress = computed(() => {
                 return !!(
                     (window.RoutingService && typeof window.RoutingService.updateTripProgress === 'function') ||
                     (window.Api && typeof window.Api.request === 'function')
                 );
             });
-
             const syncProgressForm = (trip) => {
                 progressForm.locationCode = trip?.currentHub || trip?.currentLocation || trip?.stops?.[0]?.hubCode || '';
                 progressForm.progressPercent = Number.isFinite(Number(trip?.progressPercent)) ? Number(trip.progressPercent) : '';
@@ -2534,7 +2327,6 @@
                 progressForm.longitude = trip?.currentLongitude ?? '';
                 progressForm.note = '';
             };
-
             const requestTripProgressUpdate = async (tripId, payload) => {
                 if (window.RoutingService && typeof window.RoutingService.updateTripProgress === 'function') {
                     return window.RoutingService.updateTripProgress(tripId, payload);
@@ -2552,7 +2344,6 @@
                 }
                 return response.json();
             };
-
             const submitTripProgress = async () => {
                 const trip = activeTripDetail.value;
                 if (!trip || !canUpdateTripProgress.value) {
@@ -2574,7 +2365,6 @@
                 if (latitude !== null && Number.isFinite(latitude)) payload.latitude = latitude;
                 if (longitude !== null && Number.isFinite(longitude)) payload.longitude = longitude;
                 payload.operationId = getProgressOperationId(trip, payload);
-
                 isUpdatingProgress.value = true;
                 try {
                     const updated = await requestTripProgressUpdate(trip.id, payload);
@@ -2590,10 +2380,8 @@
                     isUpdatingProgress.value = false;
                 }
             };
-
             const isSimulatingTrip = ref(false);
             let tripSimTimer = null;
-
             const runTripSimulation = () => {
                 if (!leafletMap || !tripRoutePoints || tripRoutePoints.length === 0) {
                     Utils.showToast('Thông Báo', 'Chưa tải được tuyến đường trên bản đồ để mô phỏng', 'warning');
@@ -2606,7 +2394,6 @@
                     Utils.showToast('Mô Phỏng', 'Đã tạm dừng mô phỏng tuyến xe', 'info');
                     return;
                 }
-
                 isSimulatingTrip.value = true;
                 const points = tripRoutePoints;
                 let curStep = 0;
@@ -2627,13 +2414,11 @@
                     }
                 }, interval);
             };
-
             const animateTruckToStop = (stopCode) => {
                 if (!leafletMap || !tripRoutePoints || tripRoutePoints.length === 0 || !radarMarker) return;
                 const targetStop = (activeTripDetail.value?.stops || []).find(s => s.hubCode === stopCode);
                 const stopLoc = getHubLocation(targetStop || stopCode);
                 if (!stopLoc) return;
-
                 const findClosest = (target) => {
                     let best = 0;
                     let minDist = Infinity;
@@ -2644,12 +2429,10 @@
                     }
                     return best;
                 };
-
                 const currentLatLng = radarMarker.getLatLng();
                 const startIdx = findClosest({ lat: currentLatLng.lat, lng: currentLatLng.lng });
                 const targetIdx = findClosest(stopLoc);
                 if (startIdx === targetIdx) return;
-
                 const durationMs = 1000;
                 const frames = 25;
                 let step = 0;
@@ -2669,7 +2452,6 @@
                     }
                 }, stepTime);
             };
-
             const handleMoveToStop = async (tripOrId, stopCode, customNote) => {
                 const trip = (tripOrId && typeof tripOrId === 'object') ? tripOrId : activeTripDetail.value;
                 if (!trip) return;
@@ -2702,7 +2484,6 @@
                     isUpdatingProgress.value = false;
                 }
             };
-
             const formatDateTime = (dt) => {
                 if (!dt) return 'Chưa thiết lập';
                 try {
@@ -2714,13 +2495,11 @@
                     return dt;
                 }
             };
-
             const isTripOverdue = (trip) => {
                 if (!trip || trip.status !== 'SCHEDULED' || !trip.scheduledDepartureTime) return false;
                 if (typeof trip.isOverdue === 'boolean') return trip.isOverdue;
                 return new Date(trip.scheduledDepartureTime).getTime() < Date.now();
             };
-
             const getCountdownInfo = (trip) => {
                 if (!trip || !trip.scheduledDepartureTime) return { text: '--', isOverdue: false, badgeClass: 'bg-slate-100 text-slate-600' };
                 if (trip.status === 'IN_TRANSIT') return { text: 'Đang hành trình', isOverdue: false, badgeClass: 'bg-blue-50 text-blue-700 border border-blue-200 font-semibold' };
@@ -2738,10 +2517,8 @@
                     return { text: `Còn ${hours > 0 ? hours + 'h ' : ''}${mins}m`, isOverdue: false, badgeClass: 'bg-amber-50 text-amber-700 border border-amber-200 font-bold' };
                 }
             };
-
             const getCountdownText = (trip) => getCountdownInfo(trip).text;
             const getCountdownBadgeClass = (trip) => getCountdownInfo(trip).badgeClass;
-
             const getCalculatedCutoffText = (depTime, bufferMin = 30) => {
                 if (!depTime) return 'Trước giờ chạy 30p';
                 try {
@@ -2753,7 +2530,6 @@
                     return 'Trước giờ chạy 30p';
                 }
             };
-
             const getTripStatusLabel = (tripOrStatus) => {
                 if (!tripOrStatus) return 'Không xác định';
                 const status = typeof tripOrStatus === 'string' ? tripOrStatus : tripOrStatus.status;
@@ -2768,14 +2544,12 @@
                 }
                 return status || 'Không xác định';
             };
-
             const getStopStatusLabel = (status) => {
                 if (typeof Utils?.formatStopStatus === 'function') {
                     return Utils.formatStopStatus(status);
                 }
                 return status || 'Chưa cập nhật';
             };
-
             const getTripStatusBadgeClass = (trip) => {
                 if (!trip) return 'bg-slate-100 text-slate-600';
                 if (trip.status === 'IN_TRANSIT') return 'bg-blue-50 text-blue-700 border border-blue-200 font-bold';
@@ -2788,7 +2562,6 @@
                 }
                 return 'bg-slate-50 text-slate-700 border border-slate-200';
             };
-
             const getTripStatusDotClass = (trip) => {
                 if (!trip) return 'bg-slate-400';
                 if (trip.status === 'IN_TRANSIT') return 'bg-blue-500 status-dot-pulse';
@@ -2801,7 +2574,6 @@
                 }
                 return 'bg-slate-400';
             };
-
             const getTripStatusIndicatorClass = (trip) => {
                 if (!trip) return 'status-indicator-slate';
                 if (trip.status === 'IN_TRANSIT') return 'status-indicator-blue';
@@ -2814,17 +2586,14 @@
                 }
                 return 'status-indicator-slate';
             };
-
             const getExpressCount = (manifests) => {
                 if (!Array.isArray(manifests)) return 0;
                 return manifests.filter(m => m.serviceType === 'EXPRESS').length;
             };
-
             const getStandardCount = (manifests) => {
                 if (!Array.isArray(manifests)) return 0;
                 return manifests.filter(m => m.serviceType !== 'EXPRESS').length;
             };
-
             const printTripManifest = (trip) => {
                 if (!trip) return;
                 const printWindow = window.open('', '_blank', 'width=900,height=700');
@@ -2855,7 +2624,6 @@
                         <td style="border: 1px solid #cbd5e1; padding: 6px 8px; text-align: center; font-size: 11px;">[  ]</td>
                     </tr>
                 `).join('');
-
                 printWindow.document.write(`
                     <!DOCTYPE html>
                     <html>
@@ -2883,7 +2651,6 @@
                                 <div style="font-size: 11px; color: #64748b;">Thời điểm in: ${new Date().toLocaleString('vi-VN')}</div>
                             </div>
                         </div>
-
                         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 12px; margin-bottom: 15px;">
                             <div><strong>Loại chuyến:</strong> ${getTripTypeLabel(trip)}</div>
                             <div><strong>Transport leg:</strong> ${getTransportLegLabel(trip)}</div>
@@ -2896,11 +2663,9 @@
                             <div><strong>Tổng số kiện nạp:</strong> ${trip.manifests?.length || 0} kiện</div>
                             <div><strong>Tổng tải trọng bàn giao:</strong> ${tripLoad.weight} / ${tripLoad.capacity} kg (${Math.round(tripLoad.percentage)}%)</div>
                         </div>
-
                         <div style="font-size: 12px; font-weight: bold; text-transform: uppercase; color: #334155; margin-bottom: 6px;">
                             Danh Sách Chi Tiết Bưu Kiện Bàn Giao Lên Xe (${trip.manifests?.length || 0} kiện)
                         </div>
-
                         <table>
                             <thead>
                                 <tr style="background: #f1f5f9;">
@@ -2917,7 +2682,6 @@
                                 ${manifestsHtml || '<tr><td colspan="7" style="text-align: center; padding: 15px; color: #94a3b8;">Không có bưu kiện nào trên chuyến xe</td></tr>'}
                             </tbody>
                         </table>
-
                         <div style="margin-top: 35px; display: flex; justify-content: space-between; font-size: 12px; page-break-inside: avoid;">
                             <div style="text-align: center; width: 220px;">
                                 <div style="font-weight: bold;">ĐẠI DIỆN HUB GIAO HÀNG</div>
@@ -2940,7 +2704,6 @@
                 `);
                 printWindow.document.close();
             };
-
             const getStatusBadge = (status) => {
                 switch (status) {
                     case 'SCHEDULED':
@@ -2955,27 +2718,22 @@
                         return 'bg-slate-50 text-slate-700 border border-slate-200';
                 }
             };
-
             const getWeightColor = (pct) => {
                 if (pct >= 95) return 'bg-rose-600';
                 if (pct >= 80) return 'bg-amber-500';
                 return 'bg-blue-600';
             };
-
             const viewTracking = (code) => {
                 if (code) {
                     emit('view-tracking', code);
                 }
             };
-
             const isReadyForDeparture = (trip) => {
                 if (!trip) return false;
                 return !!(trip.readyToDepart && trip.status === 'SCHEDULED');
             };
-
             let tripProgressClient = null;
             let tripProgressSubscription = null;
-
             const applyTripProgressEvent = (event) => {
                 if (!event || !event.tripCode) return;
                 const code = String(event.tripCode).trim().toUpperCase();
@@ -3003,7 +2761,6 @@
                     nextTick(() => renderLeafletMap(activeTripDetail.value));
                 }
             };
-
             const connectTripProgressSocket = () => {
                 if (typeof SockJS === 'undefined' || typeof Stomp === 'undefined') return;
                 if (tripProgressClient && tripProgressClient.connected) return;
@@ -3032,20 +2789,18 @@
                     console.warn('[TripsView] Không kết nối được tiến độ chuyến:', error);
                 }
             };
-
             const disconnectTripProgressSocket = () => {
                 if (tripProgressSubscription) {
-                    try { tripProgressSubscription.unsubscribe(); } catch (error) { /* socket already closed */ }
+                    try { tripProgressSubscription.unsubscribe(); } catch (error) {  }
                     tripProgressSubscription = null;
                 }
                 if (tripProgressClient) {
                     try {
                         if (tripProgressClient.connected) tripProgressClient.disconnect();
-                    } catch (error) { /* socket already closed */ }
+                    } catch (error) {  }
                     tripProgressClient = null;
                 }
             };
-
             onMounted(() => {
                 loadTrips().then(() => {
                     if (props.trackingCode) {
@@ -3059,22 +2814,18 @@
                 connectTripProgressSocket();
                 window.addEventListener('open-trip-by-code', handleOpenTripByCodeEvent);
             });
-
             onUnmounted(() => {
                 disconnectTripProgressSocket();
                 window.removeEventListener('open-trip-by-code', handleOpenTripByCodeEvent);
             });
-
             watch(() => props.trackingCode, (newCode) => {
                 if (newCode) {
                     openTripByCode(newCode);
                 }
             });
-
             watch(destinationFeederStation, () => {
                 loadHubInventoryState();
             });
-
             return {
                 tripsList, hubsList, isLoading, loadTrips, searchQuery, selectedStatusFilter,
                 tripDirectionTab, selectedStationHub, handleArriveAtStation, isTripOutbound, isTripInbound,
@@ -3130,7 +2881,6 @@
         <div :class="embedded ? 'space-y-3.5 text-slate-800' : 'p-5 max-w-7xl mx-auto space-y-4 text-slate-800'">
             <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                 <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
-
                 <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <div class="text-xs text-blue-100 font-medium mb-1">Trung tâm điều vận bưu chính</div>
@@ -3266,7 +3016,6 @@
                             <span class="subtab-counter text-xs font-normal" :class="feederSubtab === 'trips' ? 'subtab-counter-blue' : 'subtab-counter-slate'">{{ filteredOriginFeederTrips.length }}</span>
                         </button>
                     </div>
-
                     <div class="flex items-center space-x-2 text-xs">
                         <div 
                             @click="toggleSchedulerMode()"
@@ -3318,10 +3067,8 @@
                                 </optgroup>
                             </select>
                         </div>
-
           
                     </div>
-
                     <div class="text-slate-500 font-medium">
                         <span v-if="feederSubtab === 'pending'">Tổng khối lượng: <strong class="text-blue-700 font-mono">{{ totalFeederWeight.toFixed(1) }} kg</strong></span>
                         <span v-else>Tổng số xe vận hành: <strong class="text-blue-700 font-mono">{{ filteredOriginFeederTrips.length }} chuyến</strong></span>
@@ -3331,7 +3078,6 @@
                     <div v-if="pendingFeederItems.length === 0" class="p-12 text-center text-slate-400">
                         Không có bưu phẩm nào đang chờ gom tại bưu cục đã chọn.
                     </div>
-
                     <div v-else class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
@@ -3400,7 +3146,6 @@
                      <div v-if="filteredOriginFeederTrips.length === 0" class="p-12 text-center text-slate-400">
                          Chưa có chuyến xe gom nào được khởi tạo cho bưu cục đang chọn. Nhấn "Xuất Xe Gom Đã Chọn" hoặc "+ Lập Chuyến Xe Gom" để tạo chuyến.
                      </div>
-
                      <div v-else class="overflow-x-auto">
                          <table class="w-full text-left border-collapse">
                              <thead>
@@ -3502,7 +3247,6 @@
                             <span class="subtab-counter text-xs font-normal" :class="tripDirectionTab === 'INBOUND' ? 'text-emerald-600 font-medium' : 'subtab-counter-slate'">{{ kpiStats.inboundCount }}</span>
                         </button>
                     </div>
-
                     <div class="flex items-center space-x-2 text-xs">
                         <div 
                             @click="toggleSchedulerMode()"
@@ -3528,7 +3272,6 @@
                         <div class="relative w-52 sm:w-60">
                             <input v-model="searchQuery" type="search" maxlength="100" placeholder="Tìm mã chuyến, tuyến, xe..." class="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-medium outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20" />
                         </div>
-
                         <select v-model="selectedStationHub" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 font-medium text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 max-w-[210px] truncate text-xs">
                             <option value="ALL">Toàn Bộ 5 Kho Tổng Cấp 1</option>
                             <option value="HUB-HN-01">HUB-HN-01 - Kho Tổng Hà Nội</option>
@@ -3537,7 +3280,6 @@
                             <option value="HUB-HP-01">HUB-HP-01 - Kho Tổng Hải Phòng</option>
                             <option value="HUB-CT-01">HUB-CT-01 - Kho Tổng Cần Thơ</option>
                         </select>
-
                         <select v-model="selectedStatusFilter" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 font-medium outline-none focus:ring-2 focus:ring-blue-500/20 text-xs">
                             <option value="ALL">Mọi trạng thái</option>
                             <option value="SCHEDULED">Đã lập chuyến</option>
@@ -3545,7 +3287,6 @@
                             <option value="COMPLETED">Đã hoàn thành</option>
                             <option value="CANCELLED">Đã hủy</option>
                         </select>
-
                         <select v-model.number="pageSize" class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 font-medium outline-none text-xs">
                             <option :value="10">10 / trang</option>
                             <option :value="25">25 / trang</option>
@@ -3553,7 +3294,6 @@
                             <option :value="-1">Tất cả</option>
                         </select>
                     </div>
-
                     <div class="text-xs text-slate-500 font-medium">
                         Mô hình: <strong class="text-slate-800">Xe đầu kéo 30T kết nối 5 Siêu Kho Tổng</strong>
                     </div>
@@ -3562,7 +3302,6 @@
                     <div v-if="filteredTrips.length === 0" class="p-12 text-center text-slate-400">
                         Không có chuyến xe container nào phù hợp với bộ lọc hiện tại.
                     </div>
-
                     <div v-else class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
@@ -3757,7 +3496,6 @@
                             </optgroup>
                         </select>
                     </div>
-
                     <div class="flex flex-col items-end gap-1 text-[11px]">
                         <div v-if="incomingFeederPendingStoreCount > 0" class="px-2 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-800 font-semibold">
                             {{ incomingFeederPendingStoreCount }} kiện đang chờ nhập kho tại Hub — vào "Khai Thác Hub Chia Chọn" để xác nhận trước khi lập xe phát
@@ -3768,7 +3506,6 @@
                     <div v-if="incomingFeederItems.length === 0" class="p-12 text-center text-slate-400">
                         Hiện không có kiện hàng nào chờ phát về bưu cục đã chọn.
                     </div>
-
                     <div v-else class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
@@ -3837,7 +3574,6 @@
                     <div v-if="filteredDestinationFeederTrips.length === 0" class="p-12 text-center text-slate-400">
                         Chưa có chuyến xe phát nào được khởi tạo cho bưu cục đang chọn. Nhấn "Lập &amp; Xuất Xe Phát" hoặc "+ Lập Chuyến Xe Phát" để tạo chuyến.
                     </div>
-
                     <div v-else class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
@@ -3932,7 +3668,6 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
                     </div>
-
                     <form @submit.prevent="submitCreateTrip" class="flex flex-col flex-1 min-h-0 overflow-hidden">
                         <div class="p-4 sm:p-5 space-y-3.5 text-xs overflow-y-auto flex-1">
                         <div>
@@ -4032,7 +3767,6 @@
                                     <label class="block font-semibold text-slate-700 mb-1">Mã Chuyến (Tự sinh nếu trống)</label>
                                     <input v-model="tripForm.tripCode" type="text" maxlength="35" placeholder="TRIP-..." class="w-full rounded-lg border border-slate-200 px-3 py-1.5 bg-slate-50 focus:bg-white outline-none font-mono" />
                                 </div>
-                                <!-- SMART VEHICLE SELECTION -->
                                 <div class="space-y-1.5 pt-0.5 relative">
                                     <div class="flex items-center justify-between">
                                         <label class="block font-bold text-slate-700 text-xs flex items-center gap-1.5">
@@ -4066,16 +3800,13 @@
                                             <span>Chọn xe tại bãi</span>
                                         </button>
                                     </div>
-
-                                    <!-- AUTO MODE -->
+                                    
                                     <div v-if="vehicleSelectionMode === 'AUTO'" class="relative">
-                                        <!-- LOADING -->
                                         <div v-if="isLoadingAvailableVehicles" class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 flex items-center gap-2.5">
                                             <span class="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping"></span>
                                             <span>Đang kiểm tra bãi xe tại {{ tripForm.stopHubCodes[0] || 'trạm' }}...</span>
                                         </div>
-
-                                        <!-- NO VEHICLES AVAILABLE -->
+                                        
                                         <div v-else-if="availableVehiclesAtHub.length === 0" class="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
                                             <div class="flex items-center justify-between">
                                                 <div class="flex items-center gap-2 text-amber-900 font-bold text-xs">
@@ -4095,17 +3826,13 @@
                                                 Nhập thông tin xe thủ công
                                             </button>
                                         </div>
-
-                                        <!-- 2-TIER INTEGRATED B2B VEHICLE CARD -->
+                                        
                                         <div v-else>
-                                            <!-- OUTSIDE CLICK BACKDROP -->
                                             <div v-if="isVehiclePickerOpen" @click="isVehiclePickerOpen = false" class="fixed inset-0 z-20"></div>
-
                                             <div 
                                                 @click="isVehiclePickerOpen = !isVehiclePickerOpen"
                                                 class="bg-gradient-to-r from-blue-50/80 via-white to-slate-50/80 border border-blue-200 hover:border-blue-400 rounded-xl p-3 shadow-xs transition cursor-pointer group relative z-10"
                                             >
-                                                <!-- TẦNG 1: ICON + BIỂN SỐ + MODEL + BADGE TRẠNG THÁI -->
                                                 <div class="flex items-center justify-between gap-2 pb-2">
                                                     <div class="flex items-center gap-2.5 min-w-0">
                                                         <div class="w-8 h-8 rounded-lg bg-[#005baa] text-white flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
@@ -4116,7 +3843,6 @@
                                                             <span class="text-xs text-slate-600 font-semibold truncate">{{ selectedVehicle?.model || 'Xe vận chuyển' }}</span>
                                                         </div>
                                                     </div>
-
                                                     <div class="shrink-0">
                                                         <span v-if="selectedVehicle?.isDispatchedFromParent" class="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
                                                             Điều từ {{ selectedVehicle.parentHubOrigin }}
@@ -4126,8 +3852,7 @@
                                                         </span>
                                                     </div>
                                                 </div>
-
-                                                <!-- TẦNG 2: VẠCH NGĂN NHẸ + TẢI TRỌNG & TÀI XẾ SĐT -->
+                                                
                                                 <div class="pt-2 border-t border-blue-100 flex items-center justify-between gap-2 text-[11px] text-slate-600">
                                                     <div class="flex items-center gap-1.5 whitespace-nowrap">
                                                         <svg class="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path></svg>
@@ -4141,8 +3866,7 @@
                                                     </div>
                                                 </div>
                                             </div>
-
-                                            <!-- VEHICLE PICKER POPOVER DROPDOWN -->
+                                            
                                             <div 
                                                 v-if="isVehiclePickerOpen" 
                                                 class="absolute left-0 right-0 top-full mt-1.5 z-30 bg-white border border-slate-200 rounded-xl shadow-xl p-2 space-y-1.5"
@@ -4192,8 +3916,7 @@
                                             </div>
                                         </div>
                                     </div>
-
-                                    <!-- MANUAL MODE -->
+                                    
                                     <div v-else class="bg-slate-50/70 border border-slate-200 rounded-xl p-3 space-y-2">
                                         <div class="flex items-center justify-between text-xs">
                                             <span class="font-bold text-slate-700">Thông Tin Xe Nhập Thủ Công</span>
@@ -4213,7 +3936,6 @@
                                         </div>
                                     </div>
                                 </div>
-
                                     <div class="grid grid-cols-2 gap-2">
                                         <div>
                                             <label class="block font-semibold text-slate-700 mb-1">Tải Trọng Tối Đa (kg) *</label>
@@ -4241,7 +3963,6 @@
                                         Sau mốc Cut-off, xe sẽ đóng sổ không nhận thêm đơn mới để kho bãi in bảng kê và xếp hàng.
                                     </p>
                                 </div>
-
                                 <div>
                                     <div class="flex items-center justify-between mb-1.5">
                                         <label class="block font-bold text-slate-700 uppercase tracking-wider text-[10.5px]">
@@ -4258,12 +3979,10 @@
                                             <span>Đảo chiều đi/về</span>
                                         </button>
                                     </div>
-
                                     <div v-if="tripForm.stopHubCodes.length === 0" class="p-4 text-center rounded-lg border border-dashed border-slate-300 text-slate-400 text-xs bg-slate-50/50">
                                         <p class="font-medium text-slate-600">Chưa có trạm nào trong lộ trình.</p>
                                         <p class="text-[10.5px] text-slate-400 mt-0.5">Chọn trạm bên dưới để bắt đầu thêm Điểm Xuất Phát!</p>
                                     </div>
-
                                     <div v-else class="space-y-1 max-h-36 overflow-y-auto pr-1">
                                         <div 
                                             v-for="(code, sIdx) in tripForm.stopHubCodes" 
@@ -4295,7 +4014,6 @@
                                                     <span class="font-mono text-blue-600 ml-1 text-[11px]">({{ code }})</span>
                                                 </span>
                                             </div>
-
                                             <div class="flex items-center gap-1 shrink-0 ml-2">
                                                 <button 
                                                     type="button"
@@ -4326,8 +4044,7 @@
                                             </div>
                                         </div>
                                     </div>
-
-                                    <!-- Alert kiểm tra tính hợp lệ của lộ trình theo loại xe -->
+                                    
                                     <div 
                                         :class="[
                                             'mt-2 p-2 rounded-lg text-[11px] flex items-start gap-1.5 border leading-tight transition',
@@ -4490,7 +4207,6 @@
                                 <span>Tiến độ: <b class="text-blue-700">{{ formatProgress(activeTripDetail?.progressPercent) }}</b></span>
                             </div>
                         </div>
-
                         <div class="flex items-center space-x-2">
                             <button 
                                 type="button"
@@ -4556,7 +4272,6 @@
                                 </div>
                                 <div id="trip-leaflet-map" style="height: 380px;" class="rounded-xl border border-slate-200 overflow-hidden shadow-inner bg-slate-100 relative"></div>
                             </div>
-
                             <div>
                                 <div class="font-bold text-slate-700 uppercase tracking-wider text-[11px] mb-2 flex justify-between">
                                     <span>Tiến Độ Chặng Dừng</span>
@@ -4622,7 +4337,6 @@
                                     </button>
                                 </div>
                             </div>
-
                             <div class="rounded-xl border border-slate-200/80 overflow-hidden">
                                 <div v-if="!activeManifests || activeManifests.length === 0" class="p-8 text-center text-slate-400">
                                     Chưa có kiện hàng nào trên xe. Bạn có thể sang tab 'Đơn Hàng Chờ Xếp Xe' để tích chọn nạp đơn.
@@ -4701,7 +4415,6 @@
                                     </button>
                                 </div>
                             </div>
-
                             <div class="rounded-xl border border-slate-200/80 overflow-hidden">
                                 <div v-if="isLoadingEligible" class="p-8 text-center text-slate-400">
                                     Đang quét danh sách đơn chờ hợp lệ...
@@ -4754,7 +4467,6 @@
                             </div>
                         </div>
                         </transition>
-
                     </div>
                     <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex justify-end space-x-2 flex-shrink-0">
                         <button 
@@ -4785,7 +4497,6 @@
         </div>
         `
     };
-
     TripsView.components = { ...TripsView.components, TripManifestModal: window.TripManifestModal };
     window.TripsView = TripsView;
 })();

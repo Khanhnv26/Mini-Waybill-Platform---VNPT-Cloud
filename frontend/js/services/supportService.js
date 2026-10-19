@@ -12,7 +12,6 @@
         }
         return msg || defaultMsg;
     }
-
     const SupportService = {
         rememberTicketAccess(ticket) {
             if (!ticket?.accessToken) return;
@@ -28,11 +27,9 @@
                 window.dispatchEvent(new CustomEvent('support:access-changed'));
             }
         },
-
         setTicketAccess(code, token) {
             if (code && token) sessionStorage.setItem(`support_access:${code.trim().toUpperCase()}`, token.trim());
         },
-
         getTicketAccess(ticket) {
             const keys = typeof ticket === 'object' ? [ticket?.id, ticket?.ticketCode] : [ticket];
             for (const key of keys) {
@@ -41,12 +38,10 @@
             }
             return null;
         },
-
         ticketHeaders(ticket) {
             const token = this.getTicketAccess(ticket);
             return token ? { 'X-Ticket-Access-Token': token } : {};
         },
-
         async readTicket(response) {
             const ticket = await response.json();
             const token = this.getTicketAccess(ticket);
@@ -54,7 +49,6 @@
             this.rememberTicketAccess(ticket);
             return ticket;
         },
-
         async createTicket(payload) {
             const response = await Api.post('/api/tickets', payload, {}, { skip403Toast: true });
             if (!response.ok) {
@@ -65,7 +59,6 @@
             this.rememberTicketAccess(ticket);
             return ticket;
         },
-
         async getMyTickets() {
             const response = await Api.get('/api/tickets/my-tickets', {}, { skip403Toast: true, silent: true });
             if (!response.ok) {
@@ -73,7 +66,6 @@
             }
             return response.json();
         },
-
         async getTicketByCode(ticketCode) {
             const code = encodeURIComponent(ticketCode.trim().toUpperCase());
             const response = await Api.get(`/api/tickets/code/${code}?includeMessages=false`, this.ticketHeaders(ticketCode.trim().toUpperCase()), { skip403Toast: true, silent: true });
@@ -83,7 +75,6 @@
             }
             return this.readTicket(response);
         },
-
         async getTicketsByTrackingCode(trackingCode) {
             const code = encodeURIComponent(trackingCode.trim().toUpperCase());
             const response = await Api.get(`/api/tickets?trackingCode=${code}`, {}, { skip403Toast: true });
@@ -93,7 +84,6 @@
             }
             return response.json();
         },
-
         async getTicketById(id) {
             const response = await Api.get(`/api/tickets/${id}?includeMessages=false`, this.ticketHeaders(id), { skip403Toast: true, silent: true });
             if (!response.ok) {
@@ -102,7 +92,6 @@
             }
             return this.readTicket(response);
         },
-
         async getAllTickets(status = null, trackingCode = null) {
             const params = new URLSearchParams();
             if (status && status !== 'ALL') params.append('status', status);
@@ -115,7 +104,6 @@
             }
             return response.json();
         },
-
         async assignTicket(id, csName = 'Chuyên viên CSKH') {
             const response = await Api.put(`/api/tickets/${id}/assign?csName=${encodeURIComponent(csName)}`, {});
             if (!response.ok) {
@@ -124,7 +112,6 @@
             }
             return response.json();
         },
-
         async resolveTicket(id, payload) {
             const response = await Api.put(`/api/tickets/${id}/resolve`, payload);
             if (!response.ok) {
@@ -133,7 +120,6 @@
             }
             return response.json();
         },
-
         async addMessage(id, payload) {
             const response = await Api.post(`/api/tickets/${id}/messages`, payload, this.ticketHeaders(id), { skip403Toast: true });
             if (!response.ok) {
@@ -144,7 +130,6 @@
             }
             return response.json();
         },
-
         async chatRequest(url, method = 'get', payload = null, ticket = null, requestOptions = {}) {
             const options = { silent: true, skip403Toast: true, ...requestOptions };
             const headers = ticket == null ? {} : this.ticketHeaders(ticket);
@@ -158,7 +143,6 @@
             }
             return response.status === 204 ? null : response.json();
         },
-
         getMessages(id, params = {}) {
             return this.chatRequest(`/api/tickets/${id}/messages?${new URLSearchParams(params)}`, 'get', null, id);
         },
@@ -167,7 +151,6 @@
                 'put', { lastReadMessageId }, id);
         },
         getPresence(id) { return this.chatRequest(`/api/notifications/chat/presence/${id}`, 'get', null, id); },
-
         async uploadAttachment(file, ticketId) {
             if (!ticketId) throw new Error('Vui lòng mở phiếu hỗ trợ trước khi tải tệp');
             const formData = new FormData();
@@ -181,7 +164,6 @@
             return response.json();
         }
     };
-
     class SupportChatConnection {
         constructor({ url, onConnect, onDisconnect, onMessage }) {
             this.url = url;
@@ -192,7 +174,6 @@
             this.stopped = false;
             this.ticket = null;
         }
-
         start() {
             if (this.stopped || this.connecting || this.client?.connected) return;
             if (typeof SockJS === 'undefined' || typeof Stomp === 'undefined') {
@@ -224,13 +205,11 @@
                 this.retry();
             });
         }
-
         retry() {
             if (this.stopped || this.retryTimer) return;
             const delay = Math.min(30000, 1000 * 2 ** Math.min(this.attempt++, 5)) + Math.random() * 500;
             this.retryTimer = setTimeout(() => { this.retryTimer = null; this.start(); }, delay);
         }
-
         subscribe(ticket) {
             this.ticket = ticket;
             if (this.subscription) { this.subscription.unsubscribe(); this.subscription = null; }
@@ -238,7 +217,6 @@
             const destination = ticket.id ? `/topic/tickets/${ticket.id}` : `/topic/tickets/code/${ticket.ticketCode}`;
             this.subscription = this.client.subscribe(destination, this.onMessage, SupportService.ticketHeaders(ticket));
         }
-
         stop() {
             this.stopped = true;
             clearTimeout(this.retryTimer);
@@ -247,7 +225,6 @@
             if (this.socket) { try { this.socket.close(); } catch {} }
             this.client = null;
         }
-
         subscribeInboxes(inboxes) {
             this.inboxes = inboxes;
             for (const subscription of this.inboxSubscriptions || []) { try { subscription.unsubscribe(); } catch {} }
@@ -257,7 +234,6 @@
                 this.client.subscribe(inbox.destination, this.onMessage, inbox.headers || {}));
         }
     }
-
     window.SupportChatConnection = SupportChatConnection;
     window.SupportService = SupportService;
 })();

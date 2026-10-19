@@ -1,6 +1,5 @@
 (function () {
     const { ref, computed, watch, nextTick, onMounted, onUnmounted } = Vue;
-
     const template = `
     <Transition name="modal">
         <div 
@@ -15,7 +14,6 @@
             <div 
                 class="bg-white dark:bg-slate-900 rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 max-w-4xl w-full max-h-[92vh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-fade-slide transform transition-all"
             >
-                <!-- Modal Header -->
                 <div class="vnpt-gradient text-white p-4 sm:p-5 flex items-center justify-between relative overflow-hidden flex-shrink-0 shadow-md">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 14px 14px;"></div>
                     <div class="relative z-10 flex items-center space-x-3 min-w-0 pr-2">
@@ -50,8 +48,7 @@
                             </p>
                         </div>
                     </div>
-
-                    <!-- Right Header Actions -->
+                    
                     <div class="relative z-10 flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
                         <button 
                             type="button" 
@@ -62,7 +59,6 @@
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                             <span>Trang Đầy Đủ</span>
                         </button>
-
                         <button 
                             type="button" 
                             @click="printThermalLabel"
@@ -72,7 +68,6 @@
                             <svg class="w-4 h-4 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
                             <span class="hidden sm:inline">In Tem</span>
                         </button>
-
                         <button 
                             type="button" 
                             @click="closeModal" 
@@ -83,19 +78,16 @@
                         </button>
                     </div>
                 </div>
-
-                <!-- Modal Body (Scrollable) -->
+                
                 <div class="p-4 sm:p-6 overflow-y-auto flex-1 space-y-5 bg-slate-50/50 dark:bg-slate-900/60">
                     
-                    <!-- Loading Skeleton -->
                     <div v-if="isLoading" class="py-12 text-center space-y-4">
                         <div class="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
                         <div class="text-xs text-slate-500 dark:text-slate-400 font-semibold tracking-wide">
                             Đang tải chi tiết bưu phẩm &amp; hành trình luân chuyển...
                         </div>
                     </div>
-
-                    <!-- Error / Not Found State -->
+                    
                     <div v-else-if="errorMessage" class="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-2xl p-6 text-center space-y-3">
                         <div class="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-900/50 text-rose-600 flex items-center justify-center mx-auto">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
@@ -112,11 +104,9 @@
                             </button>
                         </div>
                     </div>
-
-                    <!-- Main Shipment Content -->
+                    
                     <template v-else-if="shipment">
                         
-                        <!-- Checkpoint Progress Stepper -->
                         <div class="bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
                             <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700/80 pb-3">
                                 <div class="flex items-center space-x-2">
@@ -139,8 +129,7 @@
                                     </button>
                                 </div>
                             </div>
-
-                            <!-- Stepper Points (Desktop) -->
+                            
                             <div class="hidden sm:grid gap-2 relative text-center pt-2" :style="{ gridTemplateColumns: 'repeat(' + checkpoints.length + ', minmax(0, 1fr))' }">
                                 <div class="absolute top-5 h-1 bg-slate-200 dark:bg-slate-700 z-0" :style="{ left: 'calc(' + (100 / (checkpoints.length * 2)) + '%)', right: 'calc(' + (100 / (checkpoints.length * 2)) + '%)' }">
                                     <div class="h-full bg-blue-600 transition-all duration-700" :style="{ width: ((currentCheckpointIndex / Math.max(1, checkpoints.length - 1)) * 100) + '%' }"></div>
@@ -175,8 +164,7 @@
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- Stepper Points (Mobile Card) -->
+                            
                             <div class="sm:hidden p-3 rounded-xl border flex items-center justify-between" :class="isDelivered ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900' : 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900'">
                                 <div class="flex items-center space-x-2.5">
                                     <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs text-white" :class="isDelivered ? 'bg-emerald-600' : 'bg-blue-600'">
@@ -195,8 +183,7 @@
                                     {{ currentCheckpointIndex + 1 }}/{{ checkpoints.length }}
                                 </span>
                             </div>
-
-                            <!-- Collapsible Mini Map -->
+                            
                             <div v-show="isMapOpen" class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/80">
                                 <div class="relative w-full h-56 sm:h-64 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-inner">
                                     <div id="shipment-detail-modal-map" class="w-full h-full"></div>
@@ -209,11 +196,9 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- 2-Column Info Matrix -->
+                        
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             
-                            <!-- Column 1: Sender & Receiver Details -->
                             <div class="bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
                                 <div class="flex items-center space-x-2 border-b border-slate-100 dark:border-slate-700/80 pb-2.5">
                                     <div class="w-6 h-6 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 flex items-center justify-center">
@@ -223,8 +208,7 @@
                                         Thông Tin Gửi &amp; Nhận
                                     </h4>
                                 </div>
-
-                                <!-- Sender Block -->
+                                
                                 <div class="p-3 rounded-xl bg-slate-50/80 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 space-y-1">
                                     <div class="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                                         <span>Người Gửi</span>
@@ -240,8 +224,7 @@
                                         {{ shipment.senderAddress || ((shipment.senderDetail ? shipment.senderDetail + ', ' : '') + (shipment.senderProvince || '')) || 'Đang cập nhật địa chỉ gửi' }}
                                     </div>
                                 </div>
-
-                                <!-- Receiver Block -->
+                                
                                 <div class="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 space-y-1">
                                     <div class="flex items-center justify-between text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
                                         <span>Người Nhận</span>
@@ -265,14 +248,12 @@
                                         {{ shipment.receiverAddress || ((shipment.receiverDetail ? shipment.receiverDetail + ', ' : '') + (shipment.receiverProvince || '')) || 'Đang cập nhật địa chỉ nhận' }}
                                     </div>
                                 </div>
-
-                                <!-- Delivery Note if present -->
+                                
                                 <div v-if="shipment.deliveryNote || shipment.note" class="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-2.5">
                                     <strong class="font-bold">Ghi chú giao hàng:</strong> {{ shipment.deliveryNote || shipment.note }}
                                 </div>
                             </div>
-
-                            <!-- Column 2: Package Specs & Financials -->
+                            
                             <div class="bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
                                 <div class="flex items-center space-x-2 border-b border-slate-100 dark:border-slate-700/80 pb-2.5">
                                     <div class="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
@@ -282,8 +263,7 @@
                                         Kiện Hàng &amp; Tài Chính
                                     </h4>
                                 </div>
-
-                                <!-- Financial Matrix -->
+                                
                                 <div class="grid grid-cols-2 gap-2.5">
                                     <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700">
                                         <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tiền Thu Hộ (COD)</div>
@@ -294,7 +274,6 @@
                                             {{ isPaid ? 'Đã thanh toán trên hệ thống' : (Number(shipment.codAmount || 0) > 0 ? 'Bưu tá thu khi giao' : 'Không thu COD') }}
                                         </div>
                                     </div>
-
                                     <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700">
                                         <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cước Vận Chuyển</div>
                                         <div class="text-base font-black font-mono text-blue-700 dark:text-blue-400 mt-1">
@@ -305,8 +284,7 @@
                                         </div>
                                     </div>
                                 </div>
-
-                                <!-- Package Specs -->
+                                
                                 <div class="p-3 rounded-xl bg-slate-50/70 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 space-y-2 text-xs">
                                     <div class="flex items-center justify-between">
                                         <span class="text-slate-400 text-[11px]">Trọng lượng kiện:</span>
@@ -333,8 +311,7 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Action History Timeline -->
+                        
                         <div class="bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
                             <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/80 pb-2.5">
                                 <div class="flex items-center space-x-2">
@@ -347,11 +324,9 @@
                                 </div>
                                 <span class="text-[11px] text-slate-400 font-mono">Dữ liệu thời gian thực</span>
                             </div>
-
                             <div v-if="historyEvents.length === 0" class="py-6 text-center text-xs text-slate-400 italic">
                                 Chưa có sự kiện quét mã bổ sung cho vận đơn này.
                             </div>
-
                             <div v-else class="space-y-3 relative pl-4 before:content-[''] before:absolute before:left-1.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-700">
                                 <div 
                                     v-for="(event, idx) in historyEvents" 
@@ -381,16 +356,13 @@
                                 </div>
                             </div>
                         </div>
-
                     </template>
                 </div>
-
-                <!-- Modal Footer -->
+                
                 <div class="p-3.5 sm:p-4 px-4 sm:px-6 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-wrap items-center justify-between gap-2.5 flex-shrink-0">
                     <div class="text-[11px] text-slate-400 dark:text-slate-500 hidden sm:block">
                         Waybill Platform • Bấm <kbd class="px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 dark:bg-slate-800 border rounded">ESC</kbd> hoặc click ngoài để đóng
                     </div>
-
                     <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
                         <button 
                             type="button" 
@@ -400,7 +372,6 @@
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                             <span>{{ copiedTooltip ? 'Đã Chép' : 'Sao Chép Mã' }}</span>
                         </button>
-
                         <button 
                             type="button" 
                             @click="printThermalLabel" 
@@ -409,7 +380,6 @@
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
                             <span>In Phiếu Gửi</span>
                         </button>
-
                         <button 
                             type="button" 
                             @click="closeModal" 
@@ -419,12 +389,10 @@
                         </button>
                     </div>
                 </div>
-
             </div>
         </div>
     </Transition>
     `;
-
     const ShipmentDetailModal = {
         name: 'ShipmentDetailModal',
         template,
@@ -444,8 +412,7 @@
             let modalMapInstance = null;
             let modalMarkersLayer = null;
             let modalRenderTimer = null;
-
-            // Helper to extract province name from full address string
+            
             const extractProvinceFromAddress = (address, fallback = '') => {
                 if (!address || typeof address !== 'string') return fallback;
                 const mgr = window.MapManager;
@@ -458,8 +425,7 @@
                 const parts = address.split(',').map(p => p.trim()).filter(Boolean);
                 return parts.length > 0 ? parts[parts.length - 1] : fallback;
             };
-
-            // Compute route string
+            
             const routeSummaryText = computed(() => {
                 if (!shipment.value) return 'Đang cập nhật lộ trình...';
                 const orig = shipment.value.originPostOfficeName || shipment.value.originPostOffice || shipment.value.senderProvince || 'Bưu cục gửi';
@@ -467,13 +433,11 @@
                 const dest = shipment.value.destPostOfficeName || shipment.value.destPostOffice || shipment.value.receiverProvince || 'Bưu cục phát';
                 return `${orig} → ${hub} → ${dest}`;
             });
-
-            // Delivery check
+            
             const isDelivered = computed(() => {
                 return shipment.value?.status === 'DELIVERED';
             });
-
-            // Payment check
+            
             const isPaid = computed(() => {
                 return Boolean(
                     paymentVerified.value ||
@@ -482,14 +446,12 @@
                     shipment.value?.codSettlementStatus === 'SETTLED'
                 );
             });
-
-            // Checkpoints calculation
+            
             const checkpoints = computed(() => {
                 const origName = shipment.value?.originPostOfficeName || shipment.value?.originPostOffice || 'Bưu Cục Gửi';
                 const hubName = shipment.value?.destHubName || shipment.value?.destinationHub || 'Siêu Hub Phân Loại';
                 const destPoName = shipment.value?.destPostOfficeName || shipment.value?.destPostOffice || 'Bưu Cục Phát';
                 const recName = shipment.value?.receiverName ? `Giao: ${shipment.value.receiverName}` : 'Phát Tận Nơi';
-
                 return [
                     { key: 'created', stageName: 'Tạo Vận Đơn', displayName: origName },
                     { key: 'picked_up', stageName: 'Gom Hàng / Xuất Kho', displayName: origName },
@@ -499,7 +461,6 @@
                     { key: 'delivered', stageName: 'Giao Thành Công', displayName: recName }
                 ];
             });
-
             const currentCheckpointIndex = computed(() => {
                 const st = shipment.value?.status;
                 if (!st) return 0;
@@ -525,8 +486,7 @@
                         return 1;
                 }
             });
-
-            // Tracking history events
+            
             const historyEvents = computed(() => {
                 if (trackingHistory.value && trackingHistory.value.length > 0) {
                     return [...trackingHistory.value].reverse();
@@ -536,8 +496,7 @@
                 }
                 return [];
             });
-
-            // Format ETA
+            
             const etaFormatted = computed(() => {
                 if (!shipment.value) return '1-2 ngày';
                 if (window.Utils && typeof window.Utils.formatEtaDateRange === 'function') {
@@ -549,15 +508,13 @@
                 }
                 return '1-2 ngày tới';
             });
-
-            // Helper methods
+            
             const formatWeight = (w) => {
                 if (!w) return '500 gram';
                 const num = Number(w);
                 if (num < 5) return `${Math.round(num * 1000)} gram (${num} kg)`;
                 return `${num} kg`;
             };
-
             const formatTime = (ts) => {
                 if (!ts) return '';
                 try {
@@ -573,7 +530,6 @@
                     return String(ts);
                 }
             };
-
             const getStatusBadgeClass = (status) => {
                 if (window.Utils && typeof window.Utils.getStatusBadgeClass === 'function') {
                     return window.Utils.getStatusBadgeClass(status);
@@ -582,15 +538,13 @@
                 if (status === 'CANCELLED') return 'bg-rose-50 text-rose-700 border-rose-300';
                 return 'bg-blue-50 text-blue-700 border-blue-300';
             };
-
             const formatStatusText = (status) => {
                 if (window.Utils && typeof window.Utils.formatStatusText === 'function') {
                     return window.Utils.formatStatusText(status);
                 }
                 return status || 'Đang luân chuyển';
             };
-
-            // Copy code
+            
             const copyCode = async () => {
                 if (!props.trackingCode) return;
                 try {
@@ -606,24 +560,20 @@
                     console.warn('[ShipmentDetailModal] Không thể chép mã:', e);
                 }
             };
-
-            // Close modal
+            
             const closeModal = () => {
                 destroyMap();
                 emit('close');
             };
-
             const handleBackdropClick = () => {
                 closeModal();
             };
-
-            // Open full tracking
+            
             const openFullTracking = () => {
                 destroyMap();
                 emit('open-full-tracking', props.trackingCode);
             };
-
-            // Print thermal bill
+            
             const printThermalLabel = () => {
                 if (!shipment.value) return;
                 const sh = shipment.value;
@@ -713,8 +663,7 @@
                 printWindow.document.write(html);
                 printWindow.document.close();
             };
-
-            // Map logic
+            
             const ensureModalMapReady = (attempt = 0) => {
                 if (!props.show || !isMapOpen.value || !shipment.value) return;
                 nextTick(() => {
@@ -728,7 +677,6 @@
                     initModalMap();
                 });
             };
-
             const toggleMap = () => {
                 isMapOpen.value = !isMapOpen.value;
                 if (isMapOpen.value) {
@@ -737,15 +685,12 @@
                     destroyMap();
                 }
             };
-
             const initModalMap = () => {
                 const container = document.getElementById('shipment-detail-modal-map');
                 if (!container || typeof window.L === 'undefined') return;
-
                 if (modalMapInstance && !container._leaflet_id) {
                     destroyMap();
                 }
-
                 if (!modalMapInstance) {
                     modalMapInstance = window.L.map('shipment-detail-modal-map', {
                         zoomControl: false,
@@ -753,12 +698,9 @@
                         minZoom: 4,
                         maxZoom: 20
                     }).setView([16.047079, 108.206230], 5);
-
                     window.L.control.zoom({ position: 'bottomright' }).addTo(modalMapInstance);
-
                     const isDark = document.documentElement.classList.contains('dark');
                     const BLANK_TILE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-
                     window.L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {
                         subdomains: ['0', '1', '2', '3'],
                         maxZoom: 20,
@@ -767,40 +709,32 @@
                         className: isDark ? 'map-tiles-night' : '',
                         errorTileUrl: BLANK_TILE
                     }).addTo(modalMapInstance);
-
                     modalMarkersLayer = window.L.featureGroup().addTo(modalMapInstance);
                 }
-
                 drawModalRoute();
             };
-
             const drawModalRoute = () => {
                 if (!modalMapInstance || !modalMarkersLayer || !window.L || !shipment.value) return;
                 modalMarkersLayer.clearLayers();
-
                 const L = window.L;
                 const mgr = window.MapManager;
                 const sh = shipment.value;
                 const status = sh.status || 'CREATED';
                 const history = Array.isArray(trackingHistory.value) ? trackingHistory.value : [];
-
                 const sourceHub = sh.sourceHub || 'HUB-HN-01';
                 const destHub = sh.destinationHub || 'HUB-HCM-01';
                 const originPostOffice = sh.originPostOffice || null;
                 const destPostOffice = sh.destPostOffice || null;
-
                 const getCoord = (code) => (mgr && typeof mgr.getHubCoord === 'function' ? mgr.getHubCoord(code) : null);
                 const sourceCoord = getCoord(sourceHub) || { name: 'Kho Tổng Hà Nội', lat: 21.028511, lng: 105.782000 };
                 const destCoord = getCoord(destHub) || { name: 'Kho Tổng TP. Hồ Chí Minh', lat: 10.823099, lng: 106.629664 };
                 const originPostCoord = getCoord(originPostOffice);
                 const destPostCoord = getCoord(destPostOffice);
-
                 let recipientCoord = null;
                 if (Number.isFinite(Number(sh.receiverLatitude)) && Number.isFinite(Number(sh.receiverLongitude))) {
                     recipientCoord = [Number(sh.receiverLatitude), Number(sh.receiverLongitude)];
                 }
-
-                // 1. Origin Post Office Marker & Feeder Line
+                
                 if (originPostCoord && (originPostCoord.lat !== sourceCoord.lat || originPostCoord.lng !== sourceCoord.lng)) {
                     const origIcon = L.divIcon({ className: 'hub-pin-postoffice', iconSize: [14, 14], iconAnchor: [7, 7] });
                     L.marker([originPostCoord.lat, originPostCoord.lng], { icon: origIcon })
@@ -812,7 +746,6 @@
                             </div>
                         `)
                         .addTo(modalMarkersLayer);
-
                     const isOriginCompleted = ['PICKED_UP', 'IN_TRANSIT', 'ARRIVED_DEST_HUB', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(status);
                     L.polyline([
                         [originPostCoord.lat, originPostCoord.lng],
@@ -824,8 +757,7 @@
                         dashArray: isOriginCompleted ? null : '4, 4'
                     }).addTo(modalMarkersLayer);
                 }
-
-                // 2. Source Hub Marker
+                
                 const sourceIcon = L.divIcon({ className: 'hub-pin-source', iconSize: [16, 16], iconAnchor: [8, 8] });
                 L.marker([sourceCoord.lat, sourceCoord.lng], { icon: sourceIcon })
                     .bindPopup(`
@@ -836,8 +768,7 @@
                         </div>
                     `)
                     .addTo(modalMarkersLayer);
-
-                // 3. Destination Hub Marker
+                
                 const destIcon = L.divIcon({ className: 'hub-pin-dest', iconSize: [16, 16], iconAnchor: [8, 8] });
                 L.marker([destCoord.lat, destCoord.lng], { icon: destIcon })
                     .bindPopup(`
@@ -848,8 +779,7 @@
                         </div>
                     `)
                     .addTo(modalMarkersLayer);
-
-                // 4. Transit Hub Marker (e.g. HUB-DN-01 on North-South route or history hubs)
+                
                 const renderedHubs = new Set([sourceHub, destHub]);
                 const isNorthSouth = (sourceHub === 'HUB-HN-01' && destHub === 'HUB-HCM-01') || (sourceHub === 'HUB-HCM-01' && destHub === 'HUB-HN-01');
                 if (isNorthSouth) {
@@ -880,8 +810,7 @@
                         }
                     }
                 });
-
-                // 5. Destination Post Office Marker & Feeder Line
+                
                 if (destPostCoord && (destPostCoord.lat !== destCoord.lat || destPostCoord.lng !== destCoord.lng)) {
                     const destPostIcon = L.divIcon({ className: 'hub-pin-delivery-post', iconSize: [14, 14], iconAnchor: [7, 7] });
                     L.marker([destPostCoord.lat, destPostCoord.lng], { icon: destPostIcon })
@@ -893,7 +822,6 @@
                             </div>
                         `)
                         .addTo(modalMarkersLayer);
-
                     const isDestCompleted = ['OUT_FOR_DELIVERY', 'DELIVERED'].includes(status);
                     L.polyline([
                         [destCoord.lat, destCoord.lng],
@@ -905,8 +833,7 @@
                         dashArray: isDestCompleted ? null : '4, 4'
                     }).addTo(modalMarkersLayer);
                 }
-
-                // 6. Recipient Customer Marker & Last-Mile Line
+                
                 if (recipientCoord) {
                     const custIcon = L.divIcon({ className: 'customer-pin', iconSize: [16, 16], iconAnchor: [8, 8] });
                     L.marker(recipientCoord, { icon: custIcon })
@@ -917,7 +844,6 @@
                             </div>
                         `)
                         .addTo(modalMarkersLayer);
-
                     if (destPostCoord) {
                         const delivered = status === 'DELIVERED';
                         const delivering = status === 'OUT_FOR_DELIVERY';
@@ -932,8 +858,7 @@
                         }).addTo(modalMarkersLayer);
                     }
                 }
-
-                // 7. Build Linehaul Corridor Route Points (from cache or Vietnam corridor waypoints)
+                
                 let routePoints = [];
                 const cacheKey = `${sourceHub}_${destHub}`;
                 const cached = mgr && (mgr.routeCache?.[cacheKey] || (typeof mgr.readPersistedRoute === 'function' ? mgr.readPersistedRoute(cacheKey) : null));
@@ -958,15 +883,13 @@
                         [destCoord.lat, destCoord.lng]
                     ];
                 }
-
                 const statusRatios = mgr?.STATUS_RATIOS || {
                     CREATED: 0, PENDING_ROUTING: 0, ROUTE_ASSIGNED: 0, PICKED_UP: 0,
                     IN_TRANSIT: 0.5, ARRIVED_DEST_HUB: 1, OUT_FOR_DELIVERY: 1, DELIVERED: 1, DELIVERY_FAILED: 1
                 };
                 let ratio = statusRatios[status] !== undefined ? statusRatios[status] : 0;
                 let targetIdx = Math.min(routePoints.length - 1, Math.max(0, Math.round(ratio * (routePoints.length - 1))));
-
-                // Check latest history location if IN_TRANSIT
+                
                 let matchedHubCoord = null;
                 if (history.length > 0 && mgr?.hubCoordinates) {
                     const latestItem = history[history.length - 1];
@@ -979,7 +902,6 @@
                         if (foundCode) matchedHubCoord = mgr.hubCoordinates[foundCode];
                     }
                 }
-
                 if (status === 'IN_TRANSIT' && matchedHubCoord && routePoints.length > 1) {
                     let bestIdx = 0;
                     let minDist = Infinity;
@@ -993,7 +915,6 @@
                     targetIdx = bestIdx;
                     ratio = bestIdx / (routePoints.length - 1);
                 }
-
                 const isPreTransit = ['CREATED', 'PENDING_ROUTING', 'ROUTE_ASSIGNED', 'PICKED_UP'].includes(status) || ratio === 0;
                 if (!isPreTransit && routePoints.length > 1) {
                     const completedCoords = routePoints.slice(0, targetIdx + 1);
@@ -1007,7 +928,6 @@
                         }).addTo(modalMarkersLayer);
                     }
                 }
-
                 const remainingCoords = isPreTransit ? routePoints : routePoints.slice(targetIdx);
                 if (remainingCoords.length > 1) {
                     L.polyline(remainingCoords, {
@@ -1019,11 +939,9 @@
                         lineCap: 'round'
                     }).addTo(modalMarkersLayer);
                 }
-
-                // 8. Live Current Status Pin (Radar Marker)
+                
                 let currentPoint = routePoints[targetIdx] || [sourceCoord.lat, sourceCoord.lng];
                 let percent = Math.round(ratio * 100);
-
                 if (['CREATED', 'PENDING_ROUTING', 'ROUTE_ASSIGNED'].includes(status)) {
                     currentPoint = originPostCoord ? [originPostCoord.lat, originPostCoord.lng] : [sourceCoord.lat, sourceCoord.lng];
                     percent = 0;
@@ -1054,7 +972,6 @@
                     }
                     percent = 100;
                 }
-
                 const statusNames = mgr?.STATUS_NAMES || {};
                 const labelText = statusNames[status] || formatStatusText(status);
                 const subText = (status === 'IN_TRANSIT' && matchedHubCoord)
@@ -1072,10 +989,8 @@
                 L.marker(currentPoint, { icon: radarIcon, zIndexOffset: 1000 })
                     .bindTooltip(tooltipHtml, { permanent: true, direction: 'top', offset: [0, -10], className: 'radar-tooltip' })
                     .addTo(modalMarkersLayer);
-
                 fitModalMapView();
             };
-
             const fitModalMapView = () => {
                 if (modalMapInstance && modalMarkersLayer && modalMarkersLayer.getLayers().length > 0) {
                     try {
@@ -1092,7 +1007,6 @@
                     }
                 }
             };
-
             const destroyMap = () => {
                 if (modalRenderTimer) {
                     clearTimeout(modalRenderTimer);
@@ -1108,17 +1022,14 @@
                     modalMarkersLayer = null;
                 }
             };
-
-            // Resolve hubs, post offices, and provinces from shipment + routing + tracking history
+            
             const enrichShipmentMetadata = (rawShipment, trData, rtData, historyList) => {
                 const mgr = window.MapManager;
                 const sh = { ...(rawShipment || {}) };
-
                 let sourceHub = rtData?.sourceHub || sh.sourceHub || sh.originHubCode || null;
                 let destHub = rtData?.destinationHub || sh.destinationHub || sh.destHubCode || null;
                 let originPostOffice = rtData?.originPostOffice || sh.originPostOffice || null;
                 let destPostOffice = rtData?.destPostOffice || sh.destPostOffice || null;
-
                 (Array.isArray(historyList) ? historyList : []).forEach(item => {
                     const text = item && (item.node || item.note || '');
                     if (!text) return;
@@ -1144,10 +1055,8 @@
                         sourceHub = hubMatches[0];
                     }
                 });
-
                 const senderAddr = sh.senderAddress || [sh.senderDetail, sh.senderProvince].filter(Boolean).join(', ') || '';
                 const receiverAddr = sh.receiverAddress || [sh.receiverDetail, sh.receiverProvince].filter(Boolean).join(', ') || '';
-
                 if (mgr) {
                     if (!originPostOffice && senderAddr && typeof mgr.getPostOfficeForAddress === 'function') {
                         const found = mgr.getPostOfficeForAddress(senderAddr, sourceHub);
@@ -1180,16 +1089,13 @@
                         if (foundHub) destHub = foundHub.code;
                     }
                 }
-
                 if (!sourceHub) sourceHub = 'HUB-HN-01';
                 if (!destHub) destHub = 'HUB-HCM-01';
-
                 const getCoord = (code) => (mgr && typeof mgr.getHubCoord === 'function' ? mgr.getHubCoord(code) : null);
                 const origPoCoord = getCoord(originPostOffice);
                 const srcHubCoord = getCoord(sourceHub);
                 const dstHubCoord = getCoord(destHub);
                 const dstPoCoord = getCoord(destPostOffice);
-
                 sh.sourceHub = sourceHub;
                 sh.destinationHub = destHub;
                 sh.originPostOffice = originPostOffice || sourceHub;
@@ -1198,16 +1104,13 @@
                 sh.sourceHubName = srcHubCoord?.name || sourceHub;
                 sh.destHubName = dstHubCoord?.name || destHub;
                 sh.destPostOfficeName = dstPoCoord?.name || dstHubCoord?.name || destPostOffice || 'Bưu Cục Phát';
-
                 sh.senderAddress = senderAddr;
                 sh.receiverAddress = receiverAddr;
                 sh.senderProvince = sh.senderProvince || origPoCoord?.province || srcHubCoord?.province || extractProvinceFromAddress(senderAddr, 'Hà Nội');
                 sh.receiverProvince = sh.receiverProvince || dstPoCoord?.province || dstHubCoord?.province || extractProvinceFromAddress(receiverAddr, 'TP. Hồ Chí Minh');
-
                 return sh;
             };
-
-            // Fetch data
+            
             const fetchData = async () => {
                 if (!props.trackingCode) return;
                 isLoading.value = true;
@@ -1216,7 +1119,6 @@
                 trackingHistory.value = [];
                 paymentVerified.value = false;
                 destroyMap();
-
                 try {
                     const code = props.trackingCode.trim();
                     const [shipmentRes, trackingRes, routingRes, paymentRes] = await Promise.allSettled([
@@ -1229,29 +1131,23 @@
                             ? window.PaymentService.getPaymentByTracking(code)
                             : Promise.resolve(null)
                     ]);
-
                     const shData = shipmentRes.status === 'fulfilled' ? shipmentRes.value : null;
                     const trData = trackingRes.status === 'fulfilled' ? trackingRes.value : null;
                     const rtData = routingRes.status === 'fulfilled' ? routingRes.value : null;
                     const payData = paymentRes.status === 'fulfilled' ? paymentRes.value : null;
-
                     if (!shData && !trData) {
                         throw new Error(`Không tìm thấy dữ liệu vận đơn cho mã: ${code}`);
                     }
-
                     const historyList = trData?.history || shData?.history || [];
                     trackingHistory.value = historyList;
-
                     if (payData && (payData.status === 'SUCCESS' || payData.paymentStatus === 'SUCCESS')) {
                         paymentVerified.value = true;
                     }
-
                     const rawMerged = {
                         trackingCode: code,
                         ...(shData || {}),
                         status: trData?.currentStatus || shData?.currentStatus || shData?.status || 'CREATED'
                     };
-
                     shipment.value = enrichShipmentMetadata(rawMerged, trData, rtData, historyList);
                 } catch (err) {
                     console.error('[ShipmentDetailModal] Lỗi tải dữ liệu:', err);
@@ -1263,8 +1159,7 @@
                     }
                 }
             };
-
-            // Watchers
+            
             watch(() => props.show, (newVal) => {
                 if (newVal && props.trackingCode) {
                     isMapOpen.value = true;
@@ -1274,18 +1169,15 @@
                     isMapOpen.value = true;
                 }
             });
-
             watch(() => props.trackingCode, (newCode) => {
                 if (props.show && newCode) {
                     isMapOpen.value = true;
                     fetchData();
                 }
             });
-
             onUnmounted(() => {
                 destroyMap();
             });
-
             return {
                 isLoading,
                 errorMessage,
@@ -1316,6 +1208,5 @@
             };
         }
     };
-
     window.ShipmentDetailModal = ShipmentDetailModal;
 })();

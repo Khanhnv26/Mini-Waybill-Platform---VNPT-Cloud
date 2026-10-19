@@ -1,6 +1,5 @@
 (function () {
     const { ref, reactive, computed, watch, onMounted } = Vue;
-
     const AdminRbacView = {
         name: 'AdminRbacView',
         setup() {
@@ -8,23 +7,19 @@
             const isDockCollapsed = ref(false);
             const isLoading = ref(false);
             const isSaving = ref(false);
-
             const permissionsList = ref([]);
             const rolesList = ref([]);
             const selectedModule = ref('ALL');
             const permissionSearchQuery = ref('');
             const permPageSize = ref(15);
             const permCurrentPage = ref(1);
-
             const matrixState = reactive({});
-
             const usersList = ref([]);
             const userSearchQuery = ref('');
             const selectedRoleFilter = ref('ALL');
             const selectedStatusFilter = ref('ALL');
             const userCurrentPage = ref(1);
             const userPageSize = ref(5);
-
             const stationOptions = [
                 { code: 'POST-HN-CG', label: 'Bưu cục Cầu Giấy (Hà Nội)' },
                 { code: 'POST-HN-DDA', label: 'Bưu cục Đống Đa (Hà Nội)' },
@@ -43,7 +38,6 @@
                 { code: 'HUB-HCM-01', label: 'Siêu HUB TP.HCM' },
                 { code: 'HUB-CT-01', label: 'HUB Cần Thơ' }
             ];
-
             const editingUser = ref(null);
             const userRolesForm = reactive({
                 roles: []
@@ -52,7 +46,6 @@
                 locationCode: ''
             });
             const showRoleModal = ref(false);
-
             const loadMatrixData = async () => {
                 isLoading.value = true;
                 try {
@@ -60,10 +53,8 @@
                         AdminService.getAllPermissions(),
                         AdminService.getAllRoles()
                     ]);
-
                     permissionsList.value = perms || [];
                     rolesList.value = roles || [];
-
                     roles.forEach(role => {
                         matrixState[role.id] = new Set(role.permissions || []);
                     });
@@ -74,7 +65,6 @@
                     isLoading.value = false;
                 }
             };
-
             const loadUsersData = async () => {
                 isLoading.value = true;
                 try {
@@ -87,7 +77,6 @@
                     isLoading.value = false;
                 }
             };
-
             const availableModules = computed(() => {
                 const map = {};
                 permissionsList.value.forEach(p => {
@@ -103,7 +92,6 @@
                     ...list.map(m => ({ ...m, name: `${m.name} (${m.count})` }))
                 ];
             });
-
             const filteredPermissions = computed(() => {
                 let list = permissionsList.value;
                 if (selectedModule.value !== 'ALL') {
@@ -120,27 +108,22 @@
                 }
                 return list;
             });
-
             const permTotalPages = computed(() => {
                 if (permPageSize.value === -1) return 1;
                 return Math.ceil(filteredPermissions.value.length / permPageSize.value) || 1;
             });
-
             const paginatedPermissions = computed(() => {
                 if (permPageSize.value === -1) return filteredPermissions.value;
                 const start = (permCurrentPage.value - 1) * permPageSize.value;
                 return filteredPermissions.value.slice(start, start + permPageSize.value);
             });
-
             watch([selectedModule, permissionSearchQuery, permPageSize], () => {
                 permCurrentPage.value = 1;
             });
-
             const isChecked = (roleId, permCode) => {
                 if (!matrixState[roleId]) return false;
                 return matrixState[roleId].has(permCode);
             };
-
             const togglePermission = (roleId, permCode) => {
                 if (!matrixState[roleId]) {
                     matrixState[roleId] = new Set();
@@ -151,7 +134,6 @@
                     matrixState[roleId].add(permCode);
                 }
             };
-
             const saveRolePermissions = async (role) => {
                 const permsToSave = Array.from(matrixState[role.id] || []);
                 isSaving.value = true;
@@ -164,7 +146,6 @@
                     isSaving.value = false;
                 }
             };
-
             const saveAllMatrix = async () => {
                 isSaving.value = true;
                 try {
@@ -181,28 +162,22 @@
                     isSaving.value = false;
                 }
             };
-
             const hasActiveUserFilter = computed(() => {
                 return userSearchQuery.value.trim() !== '' || selectedRoleFilter.value !== 'ALL' || selectedStatusFilter.value !== 'ALL';
             });
-
             const resetUserFilters = () => {
                 userSearchQuery.value = '';
                 selectedRoleFilter.value = 'ALL';
                 selectedStatusFilter.value = 'ALL';
             };
-
             const filteredUsers = computed(() => {
                 let list = usersList.value;
-
                 if (selectedRoleFilter.value !== 'ALL') {
                     list = list.filter(u => u.roles && u.roles.includes(selectedRoleFilter.value));
                 }
-
                 if (selectedStatusFilter.value !== 'ALL') {
                     list = list.filter(u => u.status === selectedStatusFilter.value);
                 }
-
                 const q = userSearchQuery.value.trim().toLowerCase();
                 if (q) {
                     list = list.filter(u =>
@@ -214,49 +189,39 @@
                 }
                 return list;
             });
-
             const userTotalPages = computed(() => {
                 return Math.ceil(filteredUsers.value.length / userPageSize.value) || 1;
             });
-
             const paginatedUsers = computed(() => {
                 const start = (userCurrentPage.value - 1) * userPageSize.value;
                 return filteredUsers.value.slice(start, start + userPageSize.value);
             });
-
             const userStartIndex = computed(() => {
                 if (filteredUsers.value.length === 0) return 0;
                 return (userCurrentPage.value - 1) * userPageSize.value + 1;
             });
-
             const userEndIndex = computed(() => {
                 return Math.min(userCurrentPage.value * userPageSize.value, filteredUsers.value.length);
             });
-
             watch([userSearchQuery, selectedRoleFilter, selectedStatusFilter, userPageSize], () => {
                 userCurrentPage.value = 1;
             });
-
             const goToUserPage = (p) => {
                 if (p >= 1 && p <= userTotalPages.value) {
                     userCurrentPage.value = p;
                 }
             };
-
             const openEditRolesModal = (user) => {
                 editingUser.value = user;
                 userRolesForm.roles = [...(user.roles || [])];
                 userLocationForm.locationCode = user.locationCode || '';
                 showRoleModal.value = true;
             };
-
             const toggleUserRole = (roleName) => {
-                // An toàn hệ thống: Không thể gỡ bỏ vai trò Quản trị viên (ROLE_ADMIN) khỏi tài khoản Admin
                 if (editingUser.value?.roles?.includes('ROLE_ADMIN') && roleName === 'ROLE_ADMIN') {
                     Utils.showToast('Bảo Vệ Hệ Thống', 'Không thể tước quyền Quản trị hệ thống của tài khoản này!', 'warning');
                     return;
                 }
-
                 const idx = userRolesForm.roles.indexOf(roleName);
                 if (idx >= 0) {
                     userRolesForm.roles.splice(idx, 1);
@@ -264,28 +229,23 @@
                     userRolesForm.roles.push(roleName);
                 }
             };
-
             const handleSaveUserRoles = async () => {
                 if (!editingUser.value) return;
-
-                // Tự động bảo toàn vai trò ROLE_ADMIN nếu tài khoản này vốn là Admin
+                
                 if (editingUser.value.roles?.includes('ROLE_ADMIN') && !userRolesForm.roles.includes('ROLE_ADMIN')) {
                     userRolesForm.roles.push('ROLE_ADMIN');
                 }
-
                 isSaving.value = true;
                 try {
                     const requestedLocation = String(userLocationForm.locationCode || '').trim().toUpperCase();
                     const currentLocation = String(editingUser.value.locationCode || '').trim().toUpperCase();
                     let updatedUser = editingUser.value;
-
                     if (requestedLocation !== currentLocation) {
                         updatedUser = await AdminService.updateUserLocation(
                             editingUser.value.id,
                             requestedLocation || null
                         );
                     }
-
                     updatedUser = await AdminService.updateUserRoles(editingUser.value.id, userRolesForm.roles);
                     editingUser.value.roles = [...(updatedUser.roles || userRolesForm.roles)];
                     editingUser.value.locationCode = updatedUser.locationCode ?? requestedLocation ?? null;
@@ -297,22 +257,17 @@
                     isSaving.value = false;
                 }
             };
-
             const toggleUserStatus = async (user) => {
-                // An toàn hệ thống: Không thể đình chỉ tài khoản Quản trị hệ thống
                 if (user.roles && user.roles.includes('ROLE_ADMIN')) {
                     Utils.showToast('Bảo Vệ Hệ Thống', 'Không thể tạm đình chỉ tài khoản Quản trị hệ thống!', 'warning');
                     return;
                 }
-
                 const isCurrentlyActive = user.status === 'ACTIVE';
                 const newStatus = isCurrentlyActive ? 'BLOCKED' : 'ACTIVE';
                 const actionVerb = isCurrentlyActive ? 'tạm đình chỉ giao dịch' : 'khôi phục hoạt động';
-
                 if (!confirm(`Xác nhận ${actionVerb} đối với tài khoản: ${user.email}?`)) {
                     return;
                 }
-
                 try {
                     await AdminService.updateUserStatus(user.id, newStatus);
                     user.status = newStatus;
@@ -321,12 +276,10 @@
                     Utils.showToast('Lỗi Cập Nhật', err.message, 'error');
                 }
             };
-
             onMounted(() => {
                 loadMatrixData();
                 loadUsersData();
             });
-
             return {
                 currentSubtab,
                 isLoading,
@@ -377,7 +330,6 @@
         <div class="space-y-3.5 pb-8 text-slate-800 relative">
             <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                 <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
-
                 <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                         <div class="flex items-center space-x-2">
@@ -394,7 +346,6 @@
                             Thiết lập ma trận đặc quyền (RBAC) và kiểm soát tài khoản theo phân cấp an ninh toàn trình.
                         </p>
                     </div>
-
                     <div class="flex items-center space-x-2 self-start sm:self-auto">
                         <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[68px]">
                             <div class="text-sm sm:text-base font-bold leading-tight">{{ rolesList.length }}</div>
@@ -411,7 +362,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="bg-white/95 backdrop-blur-md text-slate-700 rounded-2xl shadow-xs border border-slate-200/90 p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
                 <div class="bg-slate-100/90 p-1 rounded-xl border border-slate-200/70 inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
                     <button
@@ -432,7 +382,6 @@
                             {{ rolesList.length }}
                         </span>
                     </button>
-
                     <button
                         type="button"
                         @click="currentSubtab = 'users'"
@@ -452,7 +401,6 @@
                         </span>
                     </button>
                 </div>
-
                 <div class="flex items-center space-x-2 shrink-0 px-1 py-0.5">
                     <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/70">
                         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -471,7 +419,6 @@
                     </button>
                 </div>
             </div>
-
             <div v-if="currentSubtab === 'matrix'" class="space-y-3">
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2.5 shadow-sm">
                     <div class="flex flex-wrap items-center gap-2 flex-1">
@@ -494,7 +441,6 @@
                                 ✕
                             </button>
                         </div>
-
                         <select 
                             v-model="selectedModule"
                             class="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 focus:bg-white focus:border-blue-600 outline-none transition"
@@ -504,7 +450,6 @@
                             </option>
                         </select>
                     </div>
-
                     <button 
                         @click="saveAllMatrix" 
                         :disabled="isSaving"
@@ -517,7 +462,6 @@
                         <span>{{ isSaving ? 'Đang lưu...' : 'Áp Dụng' }}</span>
                     </button>
                 </div>
-
                 <div class="b2b-card overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse table-b2b">
@@ -539,7 +483,6 @@
                                         <div class="text-xs font-bold text-slate-900 leading-snug">{{ perm.name }}</div>
                                         <div class="text-[11px] text-slate-500 leading-normal mt-0.5">{{ perm.description }}</div>
                                     </td>
-
                                     <td v-for="role in rolesList" :key="role.id" class="text-center py-2.5 px-2">
                                         <label class="inline-flex items-center justify-center cursor-pointer p-0.5">
                                             <input 
@@ -553,7 +496,6 @@
                                         </label>
                                     </td>
                                 </tr>
-
                                 <tr v-if="filteredPermissions.length === 0">
                                     <td :colspan="rolesList.length + 1" class="text-center py-10 text-slate-400 text-xs">
                                         Không tìm thấy đặc quyền nào phù hợp với từ khóa.
@@ -562,7 +504,6 @@
                             </tbody>
                         </table>
                     </div>
-
                     <div v-if="permTotalPages > 1" class="px-3 py-2 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between text-xs">
                         <span class="text-slate-500">
                             Trang <b>{{ permCurrentPage }}</b> / <b>{{ permTotalPages }}</b> (Tổng {{ filteredPermissions.length }} quyền)
@@ -586,7 +527,6 @@
                     </div>
                 </div>
             </div>
-
             <div v-if="currentSubtab === 'users'" class="space-y-3">
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2.5 shadow-sm">
                     <div class="flex flex-wrap items-center gap-2 flex-1">
@@ -609,7 +549,6 @@
                                 ✕
                             </button>
                         </div>
-
                         <select 
                             v-model="selectedRoleFilter"
                             class="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 focus:bg-white focus:border-blue-600 outline-none transition"
@@ -619,7 +558,6 @@
                                 {{ Utils.getRoleBadgeInfo(r.name).label }}
                             </option>
                         </select>
-
                         <select 
                             v-model="selectedStatusFilter"
                             class="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 focus:bg-white focus:border-blue-600 outline-none transition"
@@ -628,7 +566,6 @@
                             <option value="ACTIVE">Đang Hoạt Động</option>
                             <option value="BLOCKED">Tạm Đình Chỉ</option>
                         </select>
-
                         <button 
                             v-if="hasActiveUserFilter"
                             @click="resetUserFilters"
@@ -638,12 +575,10 @@
                             <span>✕ Xóa lọc</span>
                         </button>
                     </div>
-
                     <div class="text-xs font-medium text-slate-500 whitespace-nowrap self-center">
                         Tổng cộng: <b class="text-slate-800">{{ filteredUsers.length }}</b> tài khoản
                     </div>
                 </div>
-
                 <div class="b2b-card overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse table-b2b">
@@ -660,7 +595,6 @@
                             <tbody class="divide-y divide-slate-100">
                                 <tr v-for="(user, idx) in paginatedUsers" :key="user.id" class="hover:bg-slate-50/80 transition">
                                     <td class="font-mono text-xs font-bold text-slate-400 py-2.5 px-3" :title="'ID hệ thống: #' + user.id">#{{ (userCurrentPage - 1) * userPageSize + idx + 1 }}</td>
-                                    
                                     <td class="py-2.5 px-3">
                                         <div class="flex items-center space-x-2.5">
                                             <div class="w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center flex-shrink-0">
@@ -672,20 +606,17 @@
                                             </div>
                                         </div>
                                     </td>
-
                                     <td class="py-2.5 px-3 whitespace-nowrap">
                                         <span class="status-indicator" :class="user.status === 'ACTIVE' ? 'status-indicator-emerald' : 'status-indicator-rose'">
                                             <span class="status-dot" :class="user.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-rose-500'"></span>
                                             <span>{{ user.status === 'ACTIVE' ? 'Hoạt Động' : 'Đình Chỉ' }}</span>
                                         </span>
                                     </td>
-
                                     <td class="py-2.5 px-3 whitespace-nowrap font-mono text-xs">
                                         <span :class="user.locationCode ? 'text-slate-800 font-semibold' : 'text-slate-400 italic'">
                                             {{ user.locationCode || 'Chưa phân công' }}
                                         </span>
                                     </td>
-
                                     <td class="py-2.5 px-3">
                                         <div class="flex flex-wrap gap-1.5">
                                             <span
@@ -697,7 +628,6 @@
                                             </span>
                                         </div>
                                     </td>
-
                                     <td class="text-right py-2.5 px-3 whitespace-nowrap">
                                         <div class="flex items-center justify-end space-x-1.5">
                                             <button 
@@ -725,7 +655,6 @@
                                         </div>
                                     </td>
                                 </tr>
-
                                 <tr v-if="filteredUsers.length === 0">
                                     <td colspan="6" class="text-center py-10 text-slate-400 text-xs">
                                         Không tìm thấy tài khoản người dùng nào phù hợp.
@@ -734,7 +663,6 @@
                             </tbody>
                         </table>
                     </div>
-
                     <div class="px-3 py-2 bg-slate-50/90 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
                         <div class="flex items-center space-x-2 text-slate-500">
                             <span>Hiển thị <b>{{ userStartIndex }}</b> - <b>{{ userEndIndex }}</b> / <b>{{ filteredUsers.length }}</b></span>
@@ -751,7 +679,6 @@
                                 </select>
                             </div>
                         </div>
-
                         <div class="flex items-center space-x-1">
                             <button 
                                 @click="goToUserPage(userCurrentPage - 1)"
@@ -761,7 +688,6 @@
                             >
                                 ◄
                             </button>
-
                             <button 
                                 v-for="p in userTotalPages" 
                                 :key="p"
@@ -775,7 +701,6 @@
                             >
                                 {{ p }}
                             </button>
-
                             <button 
                                 @click="goToUserPage(userCurrentPage + 1)"
                                 :disabled="userCurrentPage >= userTotalPages"
@@ -788,7 +713,6 @@
                     </div>
                 </div>
             </div>
-
             <teleport to="body">
             <Transition name="modal">
             <div v-if="showRoleModal" class="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -800,7 +724,6 @@
                         </div>
                         <button @click="showRoleModal = false" class="text-slate-400 hover:text-slate-600 font-bold text-sm p-1">✕</button>
                     </div>
-
                     <div class="py-3 space-y-2 max-h-[55vh] overflow-y-auto">
                         <div class="text-xs font-semibold text-slate-700 mb-1">
                             Chọn trạm tác nghiệp tin cậy cho tài khoản:
@@ -817,11 +740,9 @@
                         <p class="text-[10px] text-slate-500 leading-normal mb-3">
                             Mã này được ký trong JWT sau lần đăng nhập kế tiếp và là căn cứ backend để khóa tác nghiệp sai trạm.
                         </p>
-
                         <div class="text-xs font-semibold text-slate-700 mb-1">
                             Chọn các vai trò áp dụng cho tài khoản này:
                         </div>
-
                         <div
                             v-for="role in rolesList"
                             :key="role.id"
@@ -853,7 +774,6 @@
                             />
                         </div>
                     </div>
-
                     <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
                         <button 
                             @click="showRoleModal = false"
@@ -877,6 +797,5 @@
         </div>
         `
     };
-
     window.AdminRbacView = AdminRbacView;
 })();

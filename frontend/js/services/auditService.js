@@ -11,6 +11,5 @@
             }
         }
     };
-
     window.AuditService = AuditService;
 })();

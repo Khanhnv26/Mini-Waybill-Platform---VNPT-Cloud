@@ -12,7 +12,6 @@
         }
         return msg || defaultMsg;
     }
-
     const RatingService = {
         async getRatingStatus(trackingCode) {
             if (!trackingCode) {
@@ -25,7 +24,6 @@
             }
             return response.json();
         },
-
         async submitRating(payload) {
             const response = await Api.post('/api/ratings', payload, {}, { skip403Toast: true });
             if (!response.ok) {
@@ -34,7 +32,6 @@
             }
             return response.json();
         },
-
         async getAdminRatings(params = {}) {
             const queryParams = new URLSearchParams();
             if (params.keyword) queryParams.append('keyword', params.keyword.trim());
@@ -48,7 +45,6 @@
             queryParams.append('page', params.page ?? 0);
             queryParams.append('size', params.size ?? 20);
             if (params.sort) queryParams.append('sort', params.sort);
-
             const queryString = queryParams.toString();
             const endpoint = `/api/ratings/admin${queryString ? `?${queryString}` : ''}`;
             const response = await Api.get(endpoint);
@@ -58,7 +54,6 @@
             }
             return response.json();
         },
-
         async getRatingDetail(id) {
             const response = await Api.get(`/api/ratings/admin/${id}`);
             if (!response.ok) {
@@ -67,7 +62,6 @@
             }
             return response.json();
         },
-
         async updateRatingVisibility(id, isHidden, reason) {
             const payload = { isHidden, reason: reason || null };
             const response = await Api.patch(`/api/ratings/admin/${id}/visibility`, payload);
@@ -77,7 +71,6 @@
             }
             return response.json();
         },
-
         async getRatingStats() {
             const response = await Api.get('/api/ratings/admin/stats');
             if (!response.ok) {
@@ -87,6 +80,5 @@
             return response.json();
         }
     };
-
     window.RatingService = RatingService;
 })();

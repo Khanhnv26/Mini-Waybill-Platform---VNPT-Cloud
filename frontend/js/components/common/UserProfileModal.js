@@ -12,7 +12,7 @@
                     <div class="relative z-10 flex items-center space-x-3">
                         <div class="w-10 h-10 rounded-xl overflow-hidden bg-white/15 border border-white/25 flex items-center justify-center font-black text-sm shadow-inner">
                             <img 
-                                v-if="currentUser?.avatarUrl" 
+                                v-if="currentUser?.avatarUrl && (currentUser.avatarUrl.startsWith('http') || currentUser.avatarUrl.startsWith('/'))" 
                                 :src="currentUser.avatarUrl" 
                                 :alt="currentUser.fullName || 'Avatar'" 
                                 class="w-full h-full object-cover"
@@ -32,7 +32,6 @@
                             </p>
                         </div>
                     </div>
-
                     <button 
                         type="button" 
                         @click="$emit('close')" 
@@ -44,12 +43,10 @@
                         </svg>
                     </button>
                 </div>
-
                 <div v-if="isLoading" class="p-8 text-center space-y-3">
                     <div class="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
                     <div class="text-xs text-slate-500 font-medium">Đang tải hồ sơ bưu chính...</div>
                 </div>
-
                 <form v-else @submit.prevent="$emit('save')" class="p-5 space-y-4 text-xs text-slate-800">
                     <div v-if="isStaffUser" class="p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-xl space-y-2.5">
                         <div class="flex items-center justify-between">
@@ -79,7 +76,6 @@
                             </span>
                         </div>
                     </div>
-
                     <div v-else class="p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between">
                         <div>
                             <div class="text-[10px] uppercase font-bold text-slate-400">Mã Đối Tác / Khách Hàng</div>
@@ -94,7 +90,6 @@
                             </div>
                         </div>
                     </div>
-
                     <div>
                         <div class="flex items-center justify-between mb-1">
                             <label class="block text-[11px] font-bold text-slate-700">
@@ -122,7 +117,6 @@
                         />
                         <div id="googleLinkModalBtn" class="mt-2 hidden flex justify-center"></div>
                     </div>
-
                     <div>
                         <label class="block text-[11px] font-bold text-slate-700 mb-1">
                             {{ isStaffUser ? 'Họ Và Tên Cán Bộ / Nhân Viên' : 'Họ Và Tên / Tên Cửa Hàng (Shop)' }} <span class="text-rose-500">*</span>
@@ -136,7 +130,6 @@
                             class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                         />
                     </div>
-
                     <div v-if="!isStaffUser">
                         <label class="block text-[11px] font-bold text-slate-700 mb-1">
                             Số Điện Thoại Liên Hệ <span class="text-rose-500">*</span>
@@ -150,7 +143,6 @@
                             class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono font-semibold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition"
                         />
                     </div>
-
                     <div v-if="!isStaffUser">
                         <div class="flex items-center justify-between mb-1">
                             <label class="block text-[11px] font-bold text-slate-700">
@@ -167,11 +159,9 @@
                             class="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none transition resize-none"
                         ></textarea>
                     </div>
-
                     <div v-if="isStaffUser" class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-500 leading-relaxed">
                         <span class="font-bold text-slate-700">Lưu ý nghiệp vụ:</span> Trạm công tác và chức danh vận hành được bảo vệ và cấu hình bởi Quản trị viên hệ thống theo nguyên tắc Station Context Binding.
                     </div>
-
                     <div class="pt-2 flex items-center justify-end space-x-2 border-t border-slate-100">
                         <button 
                             type="button" 
@@ -194,7 +184,6 @@
         </div>
     </Transition>
     `;
-
     const UserProfileModal = {
         name: 'UserProfileModal',
         template,
@@ -214,6 +203,5 @@
         },
         emits: ['close', 'save', 'trigger-google-link']
     };
-
     window.UserProfileModal = UserProfileModal;
 })();

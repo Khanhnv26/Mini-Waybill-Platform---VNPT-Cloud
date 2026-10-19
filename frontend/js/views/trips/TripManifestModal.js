@@ -1,6 +1,5 @@
 (function () {
     const { ref } = Vue;
-
     const template = `
     <div v-if="show" class="fixed inset-0 z-[9999] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full overflow-hidden animate-fade-slide">
@@ -18,7 +17,6 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-
             <div class="p-5 overflow-y-auto max-h-[70vh] space-y-4 text-xs">
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
                     <div>
@@ -41,7 +39,6 @@
                         </span>
                     </div>
                 </div>
-
                 <div>
                     <h4 class="text-xs font-bold text-slate-800 mb-2">Danh Sách Bưu Gửi Trên Chuyến:</h4>
                     <div class="max-h-56 overflow-y-auto border border-slate-200 rounded-xl">
@@ -71,7 +68,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="p-4 px-5 border-t border-slate-100 bg-slate-50 flex items-center justify-end space-x-2">
                 <button @click="$emit('close')" type="button" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-xl transition cursor-pointer">
                     Đóng
@@ -84,7 +80,6 @@
         </div>
     </div>
     `;
-
     const TripManifestModal = {
         name: 'TripManifestModal',
         template,
@@ -100,6 +95,5 @@
             return { printManifest };
         }
     };
-
     window.TripManifestModal = TripManifestModal;
 })();

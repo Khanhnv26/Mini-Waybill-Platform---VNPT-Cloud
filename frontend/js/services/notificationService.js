@@ -10,7 +10,6 @@
                 return [];
             }
         },
-
         async getMyNotifications() {
             const token = localStorage.getItem('token') || sessionStorage.getItem('token');
             if (!token) return [];
@@ -22,7 +21,6 @@
                 return [];
             }
         },
-
         async markAsRead(id) {
             if (!id) return false;
             const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -34,7 +32,6 @@
                 return false;
             }
         },
-
         async markAllAsRead() {
             const token = localStorage.getItem('token') || sessionStorage.getItem('token');
             if (!token) return false;
@@ -45,7 +42,6 @@
                 return false;
             }
         },
-
         async sendTelegramTest(chatId, message) {
             const response = await Api.post('/api/notifications/telegram/send', { chatId, message });
             if (!response.ok) {
@@ -55,6 +51,5 @@
             return response.json();
         }
     };
-
     window.NotificationService = NotificationService;
 })();

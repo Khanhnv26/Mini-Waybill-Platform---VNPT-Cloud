@@ -1,6 +1,5 @@
 (function () {
     const { reactive } = Vue;
-
     const toastState = reactive({
         show: false,
         title: '',
@@ -8,7 +7,6 @@
         type: 'success',
         timer: null
     });
-
     const showToast = (title, message, type = 'success') => {
         if (toastState.timer) {
             clearTimeout(toastState.timer);
@@ -17,12 +15,10 @@
         toastState.message = message;
         toastState.type = type;
         toastState.show = true;
-
         toastState.timer = setTimeout(() => {
             toastState.show = false;
         }, 4000);
     };
-
     const hideToast = () => {
         if (toastState.timer) {
             clearTimeout(toastState.timer);
@@ -30,7 +26,6 @@
         }
         toastState.show = false;
     };
-
     const getRoleBadgeInfo = (roleName) => {
         switch (roleName) {
             case 'ROLE_ADMIN':
@@ -91,7 +86,6 @@
                 };
         }
     };
-
     const formatModuleName = (moduleCode) => {
         switch (moduleCode) {
             case 'SHIPMENT': return 'Quản Trị Bưu Gửi & Vận Đơn';
@@ -102,8 +96,7 @@
             default: return moduleCode || 'Chung';
         }
     };
-
-    // One source for shipment labels and visual tones. Existing helpers remain compatible.
+    
     const STATUS_TONES = {
         slate: { dot: 'bg-slate-400 dark:bg-slate-500', text: 'text-slate-700 dark:text-slate-300 font-medium', badge: 'bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700' },
         blue: { dot: 'bg-blue-500 status-dot-pulse', text: 'text-blue-700 dark:text-blue-400 font-medium', badge: 'bg-blue-50/70 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200/80 dark:border-blue-900/60' },
@@ -152,7 +145,6 @@
         text: formatStatusText(status, locationCode), dotClass: getStatusDotClass(status),
         textClass: getStatusTextClass(status), indicatorClass: getStatusIndicatorClass(status)
     });
-
     const OPERATION_TYPE_LABELS = {
         SHIPMENT_CREATED: 'Đã Tạo Đơn',
         ROUTE_ASSIGNED: 'Đã Phân Tuyến',
@@ -171,7 +163,6 @@
         RETURNING: 'Đang Chuyển Hoàn',
         RETURNED: 'Đã Hoàn Hàng'
     };
-
     const INVENTORY_STATUS_LABELS = {
         RECEIVED: 'Đã Tiếp Nhận',
         STORED: 'Đã Lưu Kho',
@@ -179,80 +170,68 @@
         LOADED: 'Đã Xếp Lên Xe',
         HANDED_TO_COURIER: 'Đã Bàn Giao Bưu Tá'
     };
-
     const TRANSPORT_LEG_LABELS = {
         ORIGIN_FEEDER: 'Xe Gom Đầu Nguồn',
         LINEHAUL: 'Xe Trục Liên Tỉnh',
         DESTINATION_FEEDER: 'Xe Trung Chuyển Phát',
         LAST_MILE: 'Chặng Phát Cuối'
     };
-
     const TRIP_TYPE_LABELS = {
         ORIGIN_FEEDER: 'Xe Gom Đầu Nguồn',
         LINEHAUL: 'Xe Trục Liên Tỉnh',
         DESTINATION_FEEDER: 'Xe Trung Chuyển Phát',
         FEEDER: 'Xe Trung Chuyển'
     };
-
     const TRIP_STATUS_LABELS = {
         SCHEDULED: 'Đã Lập Chuyến',
         IN_TRANSIT: 'Đang Chạy Tuyến',
         COMPLETED: 'Đã Hoàn Thành',
         CANCELLED: 'Đã Hủy Chuyến'
     };
-
     const STOP_STATUS_LABELS = {
         PENDING: 'Chờ Cập Bến',
         ARRIVED: 'Đã Cập Bến',
         DEPARTED: 'Đã Rời Trạm'
     };
-
     const enumCode = (value) => {
         if (value === undefined || value === null) return '';
         return String(value).trim().toUpperCase();
     };
-
     const formatMappedValue = (value, labels) => {
         const code = enumCode(value);
         if (!code) return 'N/A';
         return labels[code] || code.replace(/_/g, ' ');
     };
-
-    // Chuẩn hóa loại tác nghiệp trong lịch sử xử lý bưu gửi.
+    
     const formatOperationType = (operationType) => {
         const value = operationType && typeof operationType === 'object'
             ? operationType.operationType
             : operationType;
         return formatMappedValue(value, OPERATION_TYPE_LABELS);
     };
-
-    // Chuẩn hóa trạng thái tồn kho vận hành.
+    
     const formatInventoryStatus = (inventoryStatus) => {
         const value = inventoryStatus && typeof inventoryStatus === 'object'
             ? inventoryStatus.inventoryStatus
             : inventoryStatus;
         return formatMappedValue(value, INVENTORY_STATUS_LABELS);
     };
-
-    // Chuẩn hóa chặng vận chuyển của kiện hàng.
+    
     const formatTransportLeg = (transportLeg) => {
         const value = transportLeg && typeof transportLeg === 'object'
             ? transportLeg.transportLeg
             : transportLeg;
         return formatMappedValue(value, TRANSPORT_LEG_LABELS);
     };
-
-    // Chuẩn hóa loại chuyến xe, hỗ trợ cả FEEDER mà giao diện cũ đang dùng.
+    
     const formatTripType = (tripType) => {
         const value = tripType && typeof tripType === 'object'
             ? tripType.tripType
             : tripType;
         return formatMappedValue(value, TRIP_TYPE_LABELS);
     };
-
     const formatTripStatus = (status) => formatMappedValue(status, TRIP_STATUS_LABELS);
     const formatStopStatus = (status) => formatMappedValue(status, STOP_STATUS_LABELS);
-
     const formatLocationCode = (locationCode, fallback = 'Chưa xác định') => {
         if (locationCode === undefined || locationCode === null || String(locationCode).trim() === '') {
             return fallback;
@@ -264,14 +243,12 @@
         if (normalized.startsWith('POST-')) return `Bưu cục ${code}`;
         return code;
     };
-
     const isHubLocation = (locationCode) => {
         const value = locationCode && typeof locationCode === 'object'
             ? locationCode.locationCode
             : locationCode;
         return enumCode(value).startsWith('HUB-');
     };
-
     const isPostOfficeLocation = (locationCode) => {
         const value = locationCode && typeof locationCode === 'object'
             ? locationCode.locationCode
@@ -279,13 +256,11 @@
         const code = enumCode(value);
         return code.startsWith('POST-') || code === 'DELIVERY_OFFICE';
     };
-
     const getOperationId = (operation) => {
         if (!operation) return '';
         if (typeof operation === 'string') return operation;
         return operation.operationId || operation.eventId || operation.id || '';
     };
-
     const createOperationId = (prefix = 'operation') => {
         const safePrefix = String(prefix || 'operation').replace(/[^a-zA-Z0-9_-]/g, '-');
         const cryptoSource = typeof crypto !== 'undefined' ? crypto : null;
@@ -294,18 +269,15 @@
         }
         return `${safePrefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
     };
-
     const formatTime = (ts) => {
         if (!ts) return '';
         const d = new Date(ts);
         return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + d.toLocaleDateString('vi-VN');
     };
-
     const formatCurrency = (amount) => {
         if (amount === undefined || amount === null) return '0 đ';
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
     };
-
     const formatNodeText = (node, status) => {
         if (!node || node.includes('?') || node.trim() === '') {
             return formatStatusText(status);
@@ -316,7 +288,6 @@
         }
         return node;
     };
-
     const formatJson = (str) => {
         try {
             return JSON.stringify(JSON.parse(str), null, 2);
@@ -324,7 +295,6 @@
             return str;
         }
     };
-
     const formatEtaDateRange = (etaAt, etaMax) => {
         if (!etaAt) return null;
         try {
@@ -343,17 +313,14 @@
             return null;
         }
     };
-
     const getEffectiveEta = (shipment) => {
         if (!shipment) return null;
         if (shipment.estimatedDeliveryAt) {
             return formatEtaDateRange(shipment.estimatedDeliveryAt, shipment.estimatedDeliveryMax);
         }
-        // Fallback ETA calculation dựa theo SLA tiêu chuẩn khoảng cách & giờ gửi
         try {
             const baseDate = shipment.createdAt ? new Date(shipment.createdAt) : new Date();
             if (isNaN(baseDate.getTime())) return null;
-
             let isInter = true;
             const sAddr = (shipment.senderAddress || '').toLowerCase();
             const rAddr = (shipment.receiverAddress || '').toLowerCase();
@@ -364,7 +331,6 @@
                     isInter = false;
                 }
             }
-
             const daysToAdd = isInter ? 2 : 1;
             const etaMin = new Date(baseDate.getTime() + daysToAdd * 24 * 3600000);
             etaMin.setHours(isInter ? 17 : 18, 0, 0, 0);
@@ -374,7 +340,6 @@
             return null;
         }
     };
-
     const maskPhone = (phone, isStaffOrOwner = false) => {
         if (!phone) return '';
         if (isStaffOrOwner) return String(phone);
@@ -383,9 +348,22 @@
         if (clean.length < 7) return str;
         return clean.slice(0, 4) + '***' + clean.slice(-3);
     };
-
-    // Google Identity Services chi cho phep initialize() mot lan/trang. Cac man hinh (Login, lien ket Google)
-    // dung chung ham nay: initialize 1 lan, con callback duoc doi qua handler hien tai.
+    const isValidImageUrl = (url) => {
+        if (!url || typeof url !== 'string') return false;
+        const trimmed = url.trim();
+        if (!trimmed) return false;
+        return trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/') || trimmed.startsWith('/');
+    };
+    const formatAvatarUrl = (url) => {
+        if (!url || typeof url !== 'string') return null;
+        const trimmed = url.trim();
+        if (!trimmed) return null;
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/')) return trimmed;
+        if (trimmed.startsWith('/')) return trimmed;
+        if (trimmed.startsWith('support-tickets/')) return '/' + trimmed;
+        return null;
+    };
+    
     window.initGoogleIdentity = function (clientId, callback) {
         if (typeof google === 'undefined' || !google.accounts || !google.accounts.id) return false;
         window.__gsiHandler = callback;
@@ -401,7 +379,6 @@
         }
         return true;
     };
-
     window.Utils = {
         toastState,
         showToast,
@@ -432,6 +409,8 @@
         formatJson,
         formatEtaDateRange,
         getEffectiveEta,
-        maskPhone
+        maskPhone,
+        isValidImageUrl,
+        formatAvatarUrl
     };
 })();

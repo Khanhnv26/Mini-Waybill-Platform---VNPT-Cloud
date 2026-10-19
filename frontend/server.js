@@ -2,15 +2,12 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
-
 const PORT = process.env.PORT || process.argv[2] || 3000;
 const GATEWAY_HOST = process.env.GATEWAY_HOST || '127.0.0.1';
 const GATEWAY_PORT = process.env.GATEWAY_PORT || 8080;
 const FRONTEND_DIR = fs.existsSync(path.join(__dirname, 'index.html'))
     ? __dirname
     : (fs.existsSync(path.join(__dirname, 'frontend')) ? path.join(__dirname, 'frontend') : __dirname);
-
-// Bảng MIME types hỗ trợ phục vụ các file tĩnh
 const MIME_TYPES = {
     '.html': 'text/html; charset=utf-8',
     '.js': 'application/javascript; charset=utf-8',
@@ -26,7 +23,6 @@ const MIME_TYPES = {
     '.woff': 'font/woff',
     '.woff2': 'font/woff2'
 };
-
 function sendFile(req, res, filePath, stats) {
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
@@ -39,7 +35,8 @@ function sendFile(req, res, filePath, stats) {
             : versioned ? 'public, max-age=31536000, immutable' : 'public, max-age=0, must-revalidate',
         'ETag': etag,
         'Vary': 'Accept-Encoding',
-        'X-Content-Type-Options': 'nosniff'
+        'X-Content-Type-Options': 'nosniff',
+        'Cross-Origin-Opener-Policy': 'same-origin-allow-popups'
     };
     if (!isHtml && req.headers['if-none-match'] === etag) {
         res.writeHead(304, headers); res.end(); return;
@@ -60,10 +57,8 @@ function sendFile(req, res, filePath, stats) {
     } else stream.pipe(res);
     return;
 }
-
 function createServer() {
     return http.createServer((req, res) => {
-        // 1. Chuyển tiếp (Reverse Proxy) tất cả các cuộc gọi /api sang Spring Cloud Gateway :8080
         if (req.url.startsWith('/api/')) {
             const options = {
                 hostname: GATEWAY_HOST,
@@ -75,7 +70,6 @@ function createServer() {
                     host: GATEWAY_HOST + ':' + GATEWAY_PORT
                 }
             };
-
             const proxyReq = http.request(options, (proxyRes) => {
                 res.writeHead(proxyRes.statusCode, {
                     ...proxyRes.headers,
@@ -85,22 +79,17 @@ function createServer() {
                 });
                 proxyRes.pipe(res, { end: true });
             });
-
             proxyReq.on('error', (err) => {
                 res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
                 res.end(JSON.stringify({ error: 'Gateway Connection Failed: ' + err.message }));
             });
-
             req.pipe(proxyReq, { end: true });
             return;
         }
-
-
-        // 2. Chuyển hướng 301 cho các file .html cũ để tương thích ngược
+        
         const [rawPath, queryString] = req.url.split('?');
         const query = queryString ? '?' + queryString : '';
         const lowerPath = rawPath.toLowerCase();
-
         if (lowerPath === '/login.html') {
             res.writeHead(301, { 'Location': '/login' + query });
             res.end();
@@ -116,20 +105,15 @@ function createServer() {
             res.end();
             return;
         }
-
         let urlPath = rawPath;
         if (urlPath === '/' || urlPath === '') {
             urlPath = '/index.html';
         }
-
         const safePath = path.normalize(urlPath).replace(/^(\.\.[\/\\])+/, '');
         let filePath = path.join(FRONTEND_DIR, safePath);
-
         fs.stat(filePath, (err, stats) => {
-            // Nếu file không tồn tại hoặc không phải là file
             if (err || !stats.isFile()) {
-                // SPA Fallback: Nếu route không có đuôi file (ví dụ: /login, /tracking, /shipment, /trips, v.v.)
-                // thì trả về index.html (200 OK) để Vue Router / History API xử lý
+                
                 const ext = path.extname(urlPath);
                 if (!ext) {
                     const spaIndexPath = path.join(FRONTEND_DIR, 'index.html');
@@ -142,28 +126,21 @@ function createServer() {
                     });
                     return;
                 }
-
-                // File tĩnh có phần mở rộng (css, js, png, ...) mà không tìm thấy
+                
                 res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
                 res.end('404 Not Found: Không tìm thấy tệp yêu cầu ' + urlPath);
                 return;
             }
-
             sendFile(req, res, filePath, stats);
-
-
         });
     });
-
 }
-
 function start() {
     const server = createServer();
     server.listen(PORT, () => {
     console.log(`WAYBILL FRONTEND SERVER ĐANG CHẠY TẠI: http://localhost:${PORT}`);
     console.log(`Proxy chuyển tiếp /api sang Spring Cloud Gateway: http://${GATEWAY_HOST}:${GATEWAY_PORT}`);
 });
-
 return server;
 }
 module.exports = { createServer, start };

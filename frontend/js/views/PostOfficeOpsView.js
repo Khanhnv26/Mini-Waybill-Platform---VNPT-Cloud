@@ -1,6 +1,5 @@
 (function () {
     const { ref, reactive, computed, watch, onMounted } = Vue;
-
     const PostOfficeOpsView = {
         name: 'PostOfficeOpsView',
         emits: ['view-tracking', 'switch-tab'],
@@ -8,7 +7,6 @@
             const currentSubtab = ref('outbound');
             const isLoading = ref(false);
             const isActionRunning = ref(false);
-
             const shipmentsList = ref([]);
             const scanInputCode = ref('');
             const scanInputRef = ref(null);
@@ -22,7 +20,6 @@
             const selectedStatusFilter = ref('ALL');
             const normalizeCode = (value) => typeof value === 'string' ? value.trim() : '';
             const searchQuery = ref('');
-
             const getAuthUser = () => {
                 try {
                     return typeof Auth !== 'undefined' && typeof Auth.getUser === 'function'
@@ -33,7 +30,6 @@
                     return {};
                 }
             };
-
             const getAuthClaims = () => {
                 try {
                     return typeof Auth !== 'undefined' && typeof Auth.decodeJwtPayload === 'function'
@@ -43,7 +39,6 @@
                     return {};
                 }
             };
-
             const authUser = getAuthUser();
             const authClaims = getAuthClaims();
             const isAdmin = computed(() => {
@@ -51,7 +46,6 @@
                     try {
                         if (Auth.hasRole('ROLE_ADMIN') || Auth.hasRole('ADMIN')) return true;
                     } catch (err) {
-                        // Continue with the locally available role claims.
                     }
                 }
                 const roles = [];
@@ -60,7 +54,6 @@
                         const authRoles = Auth.getRoles();
                         roles.push(...(Array.isArray(authRoles) ? authRoles : (authRoles ? [authRoles] : [])));
                     } catch (err) {
-                        // Fall through to the user and JWT claims below.
                     }
                 }
                 const declaredRoles = [
@@ -77,11 +70,9 @@
                     return normalizedRole === 'ROLE_ADMIN' || normalizedRole === 'ADMIN';
                 });
             });
-
             const firstNonBlank = (...values) => values
                 .map(normalizeCode)
                 .find(value => value && value.toUpperCase() !== 'ALL') || '';
-
             const stationCode = computed(() => {
                 let authoritative = '';
                 try {
@@ -105,20 +96,16 @@
                 authClaims.profile?.postOfficeCode
                 );
             });
-
             const stationName = computed(() => {
                 const code = stationCode.value;
                 return code && window.MapManager?.hubCoordinates?.[code]?.name
                     ? window.MapManager.hubCoordinates[code].name
                     : code || 'Chưa được gán bưu cục';
             });
-
             const selectedPostOffice = ref(isAdmin.value ? 'ALL' : (stationCode.value || 'ALL'));
-
             const currentPage = ref(1);
             const pageSize = ref(10);
             const selectedTrackingCodes = ref(new Set());
-
             const syncStationSelection = () => {
                 if (isAdmin.value) {
                     if (!selectedPostOffice.value) selectedPostOffice.value = 'ALL';
@@ -127,7 +114,6 @@
                 selectedPostOffice.value = stationCode.value || 'ALL';
             };
             syncStationSelection();
-
             const inferDefaultPostOfficeFromAddress = (address) => {
                 if (!address || typeof address !== 'string') return null;
                 const lower = address.toLowerCase();
@@ -148,7 +134,6 @@
                 }
                 return null;
             };
-
             const getOriginPostOfficeInfo = (item) => {
                 if (!item) return { code: '', name: 'Chưa xác định' };
                 const directCode = normalizeCode(item.originPostOffice || item.origin_post_office || item.sourcePostOffice);
@@ -166,7 +151,6 @@
                 }
                 return { code: '', name: 'Chưa xác định' };
             };
-
             const getDestPostOfficeInfo = (item) => {
                 if (!item) return { code: '', name: 'Chưa xác định' };
                 const directCode = normalizeCode(item.destPostOffice || item.dest_post_office || item.destinationPostOffice);
@@ -184,20 +168,16 @@
                 }
                 return { code: '', name: 'Chưa xác định' };
             };
-
             const getInventoryStatus = (item) => normalizeCode(
                 item?.inventoryStatus || item?.inventory_status || item?.inventoryState
             ).toUpperCase();
-
             const isShipmentInSelectedPostOfficeScope = (item) => {
                 const selected = normalizeCode(selectedPostOffice.value).toUpperCase();
                 if (!selected || selected === 'ALL' || !item) return false;
-
                 const location = normalizeCode(item.locationCode).toUpperCase();
                 if (currentSubtab.value === 'inventory') {
                     return location === selected;
                 }
-
                 if (currentSubtab.value === 'outbound') {
                     const originPo = normalizeCode(getOriginPostOfficeInfo(item).code).toUpperCase();
                     if (originPo !== selected && location !== selected) return false;
@@ -205,26 +185,21 @@
                         normalizeCode(item.currentStatus || item.status).toUpperCase()
                     );
                 }
-
                 if (currentSubtab.value === 'inbound') {
                     const destPo = normalizeCode(getDestPostOfficeInfo(item).code).toUpperCase();
                     if (destPo !== selected) return false;
                     return location === selected || !location.startsWith('HUB-');
                 }
-
                 if (currentSubtab.value === 'cod-settlement') {
                     const destPo = normalizeCode(getDestPostOfficeInfo(item).code).toUpperCase();
                     if (destPo !== selected && location !== selected) return false;
                     return Number(item.codAmount) > 0;
                 }
-
                 const originPo = normalizeCode(getOriginPostOfficeInfo(item).code).toUpperCase();
                 const destPo = normalizeCode(getDestPostOfficeInfo(item).code).toUpperCase();
                 return location === selected || originPo === selected || destPo === selected;
             };
-
             const getShipmentStatusText = (item) => normalizeCode(item?.currentStatus || item?.status).toUpperCase();
-
             const isOutboundStaged = (item) => {
                 if (!item) return false;
                 const status = getShipmentStatusText(item);
@@ -234,7 +209,6 @@
                 return inventory === 'STORED'
                     && ['CREATED', 'PENDING_ROUTING', 'ROUTE_ASSIGNED'].includes(status);
             };
-
             const isWaitingHandoff = (item) => {
                 if (!item) return false;
                 if (getShipmentStatusText(item) !== 'ARRIVED_DEST_HUB') return false;
@@ -243,7 +217,6 @@
                 const location = normalizeCode(item.locationCode).toUpperCase();
                 return !location.startsWith('HUB-');
             };
-
             const getOutboundBucket = (item) => {
                 if (!item) return '';
                 const status = getShipmentStatusText(item);
@@ -255,7 +228,6 @@
                 if (status === 'IN_TRANSIT' || ['LOADED', 'RESERVED'].includes(inventory)) return 'IN_TRANSIT';
                 return '';
             };
-
             const isReturnReadyAtOrigin = (item) => {
                 const status = normalizeCode(item?.currentStatus || item?.status).toUpperCase();
                 if (status !== 'RETURNING') return false;
@@ -265,7 +237,6 @@
                 const isOriginScope = !poCode || poCode === 'ALL' || poCode === origin;
                 return Boolean(isOriginScope || (location && origin && location === origin));
             };
-
             const getInboundBucket = (item) => {
                 if (!item) return '';
                 const status = getShipmentStatusText(item);
@@ -277,7 +248,6 @@
                 if (status === 'RETURNED') return 'RETURNED';
                 return '';
             };
-
             const getInventoryBucket = (item) => {
                 if (!item) return '';
                 if (isOutboundStaged(item)) return 'STORED_OFFICE';
@@ -285,7 +255,6 @@
                 if (isReturnReadyAtOrigin(item)) return 'COUNTER_PICKUP';
                 return '';
             };
-
             const isOutboundShipment = (item) => {
                 if (!item) return false;
                 const poCode = normalizeCode(selectedPostOffice.value).toUpperCase();
@@ -296,7 +265,6 @@
                 }
                 return Boolean(getOutboundBucket(item));
             };
-
             const isInboundShipment = (item) => {
                 if (!item) return false;
                 const poCode = normalizeCode(selectedPostOffice.value).toUpperCase();
@@ -306,7 +274,6 @@
                 }
                 return Boolean(getInboundBucket(item));
             };
-
             const isInventoryShipment = (item) => {
                 if (!item) return false;
                 const poCode = normalizeCode(selectedPostOffice.value).toUpperCase();
@@ -318,7 +285,6 @@
                 }
                 return Boolean(getInventoryBucket(item));
             };
-
             const isCodSettlementShipment = (item) => {
                 if (!item || !(Number(item.codAmount) > 0)) return false;
                 const poCode = normalizeCode(selectedPostOffice.value).toUpperCase();
@@ -330,7 +296,6 @@
                 const status = getShipmentStatusText(item);
                 return ['DELIVERED', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED'].includes(status) || Boolean(item.codSettlementStatus);
             };
-
             const scopedShipments = computed(() => {
                 const poCode = normalizeCode(selectedPostOffice.value).toUpperCase();
                 if (!poCode || poCode === 'ALL') return shipmentsList.value;
@@ -338,14 +303,12 @@
                     return isOutboundShipment(s) || isInboundShipment(s) || isInventoryShipment(s) || isCodSettlementShipment(s);
                 });
             });
-
             const getNextPostOfficeAction = (item) => {
                 if (!item) return { key: 'LOOKUP', label: 'Tra cứu bưu gửi', targetStatus: '' };
                 const status = normalizeCode(item.currentStatus || item.status).toUpperCase();
                 const inventory = getInventoryStatus(item);
                 const location = normalizeCode(item.locationCode).toUpperCase();
                 const atPostOffice = location.startsWith('POST-') || location === 'DELIVERY_OFFICE';
-
                 if (status === 'RETURNING') {
                     const origin = normalizeCode(getOriginPostOfficeInfo(item).code).toUpperCase();
                     const poCode = normalizeCode(selectedPostOffice.value).toUpperCase();
@@ -381,25 +344,21 @@
                 }
                 return { key: 'REVIEW', label: 'Kiểm tra chi tiết', targetStatus: '' };
             };
-
             const scannedItem = computed(() => {
                 const code = normalizeCode(scanInputCode.value).toUpperCase();
                 if (!code) return null;
                 return shipmentsList.value.find(item => {
                     if (normalizeCode(item.trackingCode).toUpperCase() !== code) return false;
-                    // Keep ALL useful for lookup, but only a concrete station scope
-                    // may produce an actionable scanner result.
+                    
                     return selectedPostOffice.value === 'ALL' || isShipmentInSelectedPostOfficeScope(item);
                 }) || null;
             });
             const scannedAction = computed(() => getNextPostOfficeAction(scannedItem.value));
-
             const isAtPostOffice = (item) => {
                 if (!item) return false;
                 const loc = (item.locationCode || '').toUpperCase();
                 return loc.startsWith('POST-') || loc === 'DELIVERY_OFFICE';
             };
-
             const getCourierId = () => {
                 const sources = [
                     authUser,
@@ -420,16 +379,13 @@
                 }
                 return '';
             };
-
             const courierId = computed(getCourierId);
             const operationStoragePrefix = 'post-office-ops.operation-id';
             const operationIdCache = new Map();
-
             const getSessionOperationId = async (trackingCode, operationName, context = {}) => {
                 const cleanTrackingCode = normalizeCode(trackingCode);
                 const cleanOperationName = normalizeCode(operationName).toLowerCase() || 'operation';
-                // Scope an id to one physical handling context. Reusing a global
-                // tracking-code key can suppress a later return/re-entry operation.
+                
                 const contextParts = [
                     context.locationCode,
                     context.transportLeg,
@@ -439,7 +395,6 @@
                 ].map(value => normalizeCode(value).toUpperCase() || 'UNKNOWN');
                 const cacheKey = [cleanOperationName, cleanTrackingCode, ...contextParts].join(':');
                 if (operationIdCache.has(cacheKey)) return operationIdCache.get(cacheKey);
-
                 const storageKey = `${operationStoragePrefix}.${cacheKey}`;
                 let operationId = '';
                 try {
@@ -447,7 +402,6 @@
                 } catch (err) {
                     operationId = '';
                 }
-
                 if (!normalizeCode(operationId)) {
                     const routingService = window.RoutingService;
                     if (routingService && typeof routingService.createOperationId === 'function') {
@@ -458,7 +412,6 @@
                         }
                     }
                 }
-
                 if (!normalizeCode(operationId)) {
                     const randomPart = window.crypto?.randomUUID
                         ? window.crypto.randomUUID()
@@ -470,21 +423,17 @@
                 try {
                     sessionStorage.setItem(storageKey, operationId);
                 } catch (err) {
-                    // Private browsing can disable sessionStorage; the in-memory ID is still stable.
                 }
                 return operationId;
             };
-
             const getRoutingService = () => window.RoutingService || null;
             const getShipmentService = () => window.ShipmentService || null;
-
             const KNOWN_POST_OFFICE_CODES = Object.freeze([
                 'POST-HN-CG', 'POST-HN-DDA', 'POST-HN-HBT', 'POST-HN-TX', 'POST-HN-HD',
                 'POST-HCM-Q1', 'POST-HCM-TB', 'POST-HCM-BT', 'POST-HCM-TD', 'POST-HCM-Q7',
                 'POST-DN-HC', 'POST-DN-TK', 'POST-DN-ST', 'POST-HP-NQ', 'POST-HP-HB',
                 'POST-CT-NK', 'POST-CT-CR'
             ]);
-
             const unwrapCollection = (value) => {
                 if (Array.isArray(value)) return value;
                 if (!value || typeof value !== 'object') return [];
@@ -493,15 +442,12 @@
                 }
                 return value.trackingCode || value.code ? [value] : [];
             };
-
             const getErrorStatus = (error) => {
                 const status = error?.status ?? error?.response?.status ?? error?.details?.status;
                 const parsed = Number(status);
                 return Number.isFinite(parsed) ? parsed : null;
             };
-
             const isMigrationUnavailable = (error) => [404, 405, 501].includes(getErrorStatus(error));
-
             const normalizeInventoryItem = (item) => {
                 if (!item || typeof item !== 'object') return null;
                 const nestedShipment = item.shipment || item.parcel || item.waybill;
@@ -513,7 +459,6 @@
                 );
                 return normalized.trackingCode ? normalized : null;
             };
-
             const mergeInventoryWithShipmentProjection = (inventoryItems, shipmentItems) => {
                 const normalizedShipments = shipmentItems
                     .map(normalizeInventoryItem)
@@ -526,8 +471,7 @@
                     const trackingCode = (inventory.trackingCode || '').toUpperCase();
                     if (trackingCode) processedTrackingCodes.add(trackingCode);
                     const projection = projections.get(trackingCode) || {};
-                    // Shipment projection supplies customer-facing fields; routing inventory
-                    // remains authoritative for location, inventory state and transport data.
+                    
                     return {
                         ...projection,
                         ...inventory,
@@ -536,7 +480,6 @@
                         status: inventory.status || projection.status
                     };
                 });
-
                 normalizedShipments.forEach(shipment => {
                     const code = (shipment.trackingCode || '').toUpperCase();
                     if (code && !processedTrackingCodes.has(code)) {
@@ -557,10 +500,8 @@
                         processedTrackingCodes.add(code);
                     }
                 });
-
                 return merged;
             };
-
             const loadShipmentProjections = async () => {
                 const shipmentService = getShipmentService();
                 if (!shipmentService || typeof shipmentService.getAll !== 'function') return [];
@@ -569,13 +510,11 @@
                         .map(normalizeInventoryItem)
                         .filter(Boolean);
                 } catch (error) {
-                    // Projection enrichment is optional; never replace authoritative routing
-                    // inventory with an unscoped shipment list when this request fails.
+                    
                     console.warn('[PostOfficeOpsView] Không thể tải projection vận đơn để bổ sung thông tin:', error);
                     return [];
                 }
             };
-
             const loadPostOfficeLocations = async (routingService) => {
                 const discovered = [];
                 if (routingService && typeof routingService.getAllHubs === 'function') {
@@ -592,7 +531,6 @@
                 }
                 return [...new Set([...discovered, ...KNOWN_POST_OFFICE_CODES])];
             };
-
             const loadRoutingInventory = async (routingService, location) => {
                 const locations = location
                     ? [location]
@@ -610,8 +548,7 @@
                         throw error;
                     }
                 }));
-                // Do not turn a completely unavailable routing API into a successful
-                // empty result; this keeps the legacy migration fallback reachable.
+                
                 if (responses.every(response => !response.available)) {
                     const error = new Error('Routing inventory API chưa khả dụng');
                     error.status = 501;
@@ -621,29 +558,24 @@
                     .map(normalizeInventoryItem)
                     .filter(Boolean);
             };
-
             const loadAuthoritativeInventory = async () => {
                 const routingService = getRoutingService();
                 const location = isAdmin.value ? '' : normalizeCode(stationCode.value);
-
                 if (!isAdmin.value && !location) {
                     const error = new Error('Tài khoản chưa được gán bưu cục nên không thể tải tồn kho.');
                     error.status = 403;
                     throw error;
                 }
-
                 if (routingService && typeof routingService.getInventory === 'function') {
                     try {
                         const inventory = await loadRoutingInventory(routingService, location);
                         return mergeInventoryWithShipmentProjection(inventory, await loadShipmentProjections());
                     } catch (err) {
-                        // ShipmentService is a migration fallback only for deployments where
-                        // the routing inventory endpoint is not available at all.
+                        
                         if (!isMigrationUnavailable(err)) throw err;
                         console.warn('[PostOfficeOpsView] Routing inventory API chưa khả dụng, dùng nguồn di trú:', err);
                     }
                 }
-
                 const shipmentService = getShipmentService();
                 if (!shipmentService || typeof shipmentService.getAll !== 'function') {
                     throw new Error('Chưa có nguồn dữ liệu tồn kho bưu cục');
@@ -651,18 +583,15 @@
                 const fallback = await shipmentService.getAll();
                 return unwrapCollection(fallback).map(normalizeInventoryItem).filter(Boolean);
             };
-
             const isConflictError = (err) => {
                 const status = err?.status || err?.statusCode || err?.response?.status;
                 const text = String(err?.message || err || '').toLowerCase();
                 return Number(status) === 409 || text.includes('409') || text.includes('conflict') ||
                     text.includes('already') || text.includes('đã được') || text.includes('đã tồn tại');
             };
-
             const getActionLocation = (targetStatus, customLocation, targetShipment) => {
                 const requestedLocation = normalizeCode(customLocation);
                 const currentStation = stationCode.value;
-
                 if (!isAdmin.value) {
                     if (!currentStation) {
                         throw new Error('Tài khoản chưa được gán locationCode/postOfficeCode nên không thể thao tác.');
@@ -672,19 +601,15 @@
                     }
                     return currentStation;
                 }
-
-                // ALL is a reporting scope for administrators, never a mutation scope.
-                // Requiring an explicit selector also protects table actions that pass
-                // a location inferred from the shipment.
+                
+                
                 if (selectedPostOffice.value === 'ALL') {
                     throw new Error('Vui lòng chọn một bưu cục cụ thể trước khi tác nghiệp.');
                 }
-
                 if (requestedLocation && requestedLocation.toUpperCase() !== 'ALL') return requestedLocation;
                 if (selectedPostOffice.value && selectedPostOffice.value !== 'ALL') {
                     return normalizeCode(selectedPostOffice.value);
                 }
-
                 let derivedLocation = '';
                 if (targetStatus === 'PICKED_UP' || targetStatus === 'RETURNED') {
                     derivedLocation = getOriginPostOfficeInfo(targetShipment).code;
@@ -698,14 +623,12 @@
                 }
                 return derivedLocation;
             };
-
             const callRoutingOperation = async (operationName, trackingCode, locationCode, operationId, extra = {}) => {
                 const routingService = getRoutingService();
                 const operation = routingService?.[operationName];
                 if (typeof operation !== 'function') {
                     throw new Error(`RoutingService chưa hỗ trợ thao tác ${operationName}. Vui lòng cập nhật dịch vụ định tuyến.`);
                 }
-
                 if (operationName === 'handoffToCourier') {
                     const payload = {
                         trackingCode,
@@ -715,7 +638,6 @@
                     };
                     return operation.call(routingService, locationCode, payload, extra.courierId);
                 }
-
                 const payload = {
                     trackingCodes: [trackingCode],
                     operationId,
@@ -724,59 +646,46 @@
                 };
                 return operation.call(routingService, locationCode, payload);
             };
-
             const kpiAwaitingIntake = computed(() =>
                 scopedShipments.value.filter(s => isOutboundShipment(s) && getOutboundBucket(s) === 'WAITING_INTAKE').length
             );
-
             const kpiStagedInOffice = computed(() =>
                 scopedShipments.value.filter(s => isOutboundShipment(s) && getOutboundBucket(s) === 'STORED_OFFICE').length
             );
-
             const kpiInTransitOutbound = computed(() =>
                 scopedShipments.value.filter(s => isOutboundShipment(s) && getOutboundBucket(s) === 'IN_TRANSIT').length
             );
-
             const kpiReturningOutbound = computed(() =>
                 scopedShipments.value.filter(s => isOutboundShipment(s) && ['RETURNING', 'RETURNED'].includes(getOutboundBucket(s))).length
             );
-
             const kpiArrivedFromHub = computed(() =>
                 scopedShipments.value.filter(s => isInboundShipment(s) && getInboundBucket(s) === 'WAITING_HANDOFF').length
             );
-
             const kpiOutForDelivery = computed(() =>
                 scopedShipments.value.filter(s => isInboundShipment(s) && getInboundBucket(s) === 'OUT_FOR_DELIVERY').length
             );
-
             const kpiDeliveredInbound = computed(() =>
                 scopedShipments.value.filter(s => isInboundShipment(s) && getInboundBucket(s) === 'DELIVERED').length
             );
-
             const inventoryStagedCount = computed(() =>
                 scopedShipments.value.filter(s => isInventoryShipment(s) && getInventoryBucket(s) === 'STORED_OFFICE').length
             );
-
             const inventoryWaitingHandoffCount = computed(() =>
                 scopedShipments.value.filter(s => isInventoryShipment(s) && getInventoryBucket(s) === 'WAITING_HANDOFF').length
             );
-
             const inventoryCounterPickupCount = computed(() =>
                 scopedShipments.value.filter(s => isInventoryShipment(s) && getInventoryBucket(s) === 'COUNTER_PICKUP').length
             );
-
             const stationForecast = ref(null);
             const isForecastLoading = ref(false);
             const isDispatchingTelegram = ref(false);
             const telegramDispatchAlert = ref(null);
-
             const effectiveForecastStation = computed(() => {
                 if (selectedPostOffice.value && selectedPostOffice.value !== 'ALL') {
                     return selectedPostOffice.value;
                 }
                 return stationCode.value || 'POST-HN-CG';
             });
-
             const loadStationForecast = async () => {
                 const targetStation = effectiveForecastStation.value;
                 if (!targetStation) return;
@@ -791,7 +700,6 @@
                     isForecastLoading.value = false;
                 }
             };
-
             const dispatchTelegramAlert = async () => {
                 const targetStation = effectiveForecastStation.value;
                 if (!targetStation) return;
@@ -812,21 +720,18 @@
                     isDispatchingTelegram.value = false;
                 }
             };
-
             const isForecastExpanded = ref(true);
             const forecastTotalCount = computed(() => stationForecast.value?.summary?.totalForecastOrders || 0);
             const forecastSummary = computed(() => stationForecast.value?.summary || {});
             const forecastCapacity = computed(() => stationForecast.value?.capacity || {});
             const forecastShippers = computed(() => stationForecast.value?.shipperAllocations || []);
             const forecastZones = computed(() => stationForecast.value?.zoneBreakdown || []);
-
             const currentSubtabCount = computed(() => {
                 if (currentSubtab.value === 'outbound') return outboundCount.value;
                 if (currentSubtab.value === 'inbound') return inboundCount.value;
                 if (currentSubtab.value === 'inventory') return inventoryCount.value;
                 return codSettlementPendingCount.value;
             });
-
             let latestLoadRequestId = 0;
             const loadShipmentsData = async (silent = false) => {
                 const requestId = ++latestLoadRequestId;
@@ -846,10 +751,8 @@
                     if (!silent && requestId === latestLoadRequestId) isLoading.value = false;
                 }
             };
-
             const filteredShipments = computed(() => {
                 let list = scopedShipments.value;
-
                 if (currentSubtab.value === 'outbound') {
                     list = list.filter(s => isOutboundShipment(s));
                 } else if (currentSubtab.value === 'inbound') {
@@ -859,7 +762,6 @@
                 } else if (currentSubtab.value === 'cod-settlement') {
                     list = list.filter(s => isCodSettlementShipment(s));
                 }
-
                 const sf = normalizeCode(selectedStatusFilter.value).toUpperCase();
                 if (sf && sf !== 'ALL') {
                     if (currentSubtab.value === 'cod-settlement') {
@@ -888,7 +790,6 @@
                         });
                     }
                 }
-
                 if (searchQuery.value.trim()) {
                     const q = searchQuery.value.trim().toLowerCase();
                     list = list.filter(s => 
@@ -899,15 +800,12 @@
                         (s.receiverAddress && s.receiverAddress.toLowerCase().includes(q))
                     );
                 }
-
                 return list;
             });
-
             const outboundCount = computed(() => scopedShipments.value.filter(s => isOutboundShipment(s)).length);
             const inboundCount = computed(() => scopedShipments.value.filter(s => isInboundShipment(s)).length);
             const inventoryCount = computed(() => scopedShipments.value.filter(s => isInventoryShipment(s)).length);
             const allShipmentsCount = computed(() => scopedShipments.value.length);
-
             const allOfficeCodShipments = computed(() => scopedShipments.value.filter(s => isCodSettlementShipment(s)));
             const codSettlementPendingShipments = computed(() => allOfficeCodShipments.value.filter(s => s.codSettlementStatus === 'PENDING_SETTLEMENT'));
             const codSettlementPendingCount = computed(() => codSettlementPendingShipments.value.length);
@@ -918,19 +816,16 @@
                 return st === 'DELIVERED' && (!s.codSettlementStatus || s.codSettlementStatus === 'UNSETTLED');
             }));
             const codUnsettledCount = computed(() => codUnsettledShipments.value.length);
-
             const totalOfficeCodAmount = computed(() => allOfficeCodShipments.value.reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0));
             const pendingCodTotalAmount = computed(() => codSettlementPendingShipments.value.reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0));
             const settledCodTotalAmount = computed(() => codSettledShipments.value.reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0));
             const unsettledCodTotalAmount = computed(() => codUnsettledShipments.value.reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0));
-
             const selectedCodSettlementCodes = ref([]);
             const isAllCodSettlementSelected = computed(() => {
                 const pendings = codSettlementPendingShipments.value;
                 if (pendings.length === 0) return false;
                 return pendings.every(s => selectedCodSettlementCodes.value.includes(s.trackingCode));
             });
-
             const toggleSelectAllCodSettlement = () => {
                 if (isAllCodSettlementSelected.value) {
                     selectedCodSettlementCodes.value = [];
@@ -938,7 +833,6 @@
                     selectedCodSettlementCodes.value = codSettlementPendingShipments.value.map(s => s.trackingCode);
                 }
             };
-
             const toggleSelectCodSettlement = (code) => {
                 const idx = selectedCodSettlementCodes.value.indexOf(code);
                 if (idx > -1) {
@@ -947,28 +841,23 @@
                     selectedCodSettlementCodes.value.push(code);
                 }
             };
-
             const selectedCodSettlementTotalAmount = computed(() => {
                 return shipmentsList.value
                     .filter(s => selectedCodSettlementCodes.value.includes(s.trackingCode))
                     .reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0);
             });
-
             const showCodConfirmModal = ref(false);
             const isConfirmingSettlement = ref(false);
             const codTargetTrackingCodes = ref([]);
-
             const codTargetTrackingTotalAmount = computed(() => {
                 return shipmentsList.value
                     .filter(s => codTargetTrackingCodes.value.includes(s.trackingCode))
                     .reduce((sum, s) => sum + (Number(s.codAmount) || 0), 0);
             });
-
             const openCodConfirmModal = (code) => {
                 codTargetTrackingCodes.value = [code];
                 showCodConfirmModal.value = true;
             };
-
             const openBulkCodConfirmModal = () => {
                 if (selectedCodSettlementCodes.value.length === 0) {
                     Utils.showToast('Chưa Chọn Đơn', 'Vui lòng chọn ít nhất 1 vận đơn để thu quỹ', 'warning');
@@ -977,7 +866,6 @@
                 codTargetTrackingCodes.value = [...selectedCodSettlementCodes.value];
                 showCodConfirmModal.value = true;
             };
-
             const openAllPendingCodConfirmModal = () => {
                 const pendings = codSettlementPendingShipments.value;
                 if (pendings.length === 0) {
@@ -987,7 +875,6 @@
                 codTargetTrackingCodes.value = pendings.map(s => s.trackingCode);
                 showCodConfirmModal.value = true;
             };
-
             const executeConfirmCodSettlement = async () => {
                 if (!codTargetTrackingCodes.value || codTargetTrackingCodes.value.length === 0) return;
                 isConfirmingSettlement.value = true;
@@ -996,7 +883,6 @@
                     const targetCodes = [...codTargetTrackingCodes.value];
                     const totalAmt = codTargetTrackingTotalAmount.value;
                     await ShipmentService.confirmCodSettlement(targetCodes, officerId);
-
                     targetCodes.forEach(code => {
                         const target = shipmentsList.value.find(s => s.trackingCode === code);
                         if (target) {
@@ -1005,20 +891,17 @@
                             target.codSettledBy = officerId;
                         }
                     });
-
                     window.dispatchEvent(new CustomEvent('system-notification-created', {
                         detail: {
                             title: 'Thu quỹ COD bưu cục thành công',
                             message: `Đã xác nhận thu quỹ COD thành công cho ${targetCodes.length} đơn (${Utils.formatCurrency(totalAmt)}).`
                         }
                     }));
-
                     Utils.showToast(
                         'Thu Quỹ Thành Công',
                         `Đã xác nhận thu quỹ ${targetCodes.length} vận đơn (${Utils.formatCurrency(totalAmt)}) vào két bưu cục.`,
                         'success'
                     );
-
                     selectedCodSettlementCodes.value = [];
                     showCodConfirmModal.value = false;
                     await loadShipmentsData(true);
@@ -1029,7 +912,6 @@
                     isConfirmingSettlement.value = false;
                 }
             };
-
             const getCodSettlementVisuals = (status) => {
                 const s = (status || 'UNSETTLED').toUpperCase();
                 if (s === 'SETTLED') {
@@ -1052,18 +934,15 @@
                     isPulse: false
                 };
             };
-
             const totalPages = computed(() => {
                 if (pageSize.value === -1) return 1;
                 return Math.ceil(filteredShipments.value.length / pageSize.value) || 1;
             });
-
             const paginatedShipments = computed(() => {
                 if (pageSize.value === -1) return filteredShipments.value;
                 const start = (currentPage.value - 1) * pageSize.value;
                 return filteredShipments.value.slice(start, start + pageSize.value);
             });
-
             const BULK_POST_OFFICE_ACTION_KEYS = Object.freeze([
                 'RECEIVE_ORIGIN', 'RECEIVE_DESTINATION', 'STORE_ORIGIN', 'STORE_DESTINATION', 'HANDOFF'
             ]);
@@ -1099,7 +978,6 @@
             const selectedPostOfficeWeight = computed(() => selectedPostOfficeItems.value.reduce(
                 (total, item) => total + (Number(item.weight) || 0), 0
             ));
-
             const togglePostOfficeSelection = (item) => {
                 const code = normalizeCode(item?.trackingCode).toUpperCase();
                 if (!code || !isBulkPostOfficeAction(item) || !isShipmentInSelectedPostOfficeScope(item)) return;
@@ -1118,14 +996,12 @@
                 selectedTrackingCodes.value = next;
             };
             const clearPostOfficeSelection = () => { selectedTrackingCodes.value = new Set(); };
-
             watch(selectedPostOffice, () => {
                 currentPage.value = 1;
                 clearPostOfficeSelection();
                 selectedCodSettlementCodes.value = [];
                 loadStationForecast();
             });
-
             watch(currentSubtab, (tab) => {
                 selectedStatusFilter.value = 'ALL';
                 currentPage.value = 1;
@@ -1135,13 +1011,11 @@
                     loadStationForecast();
                 }
             });
-
             watch([selectedStatusFilter, searchQuery, pageSize], () => {
                 currentPage.value = 1;
                 clearPostOfficeSelection();
                 selectedCodSettlementCodes.value = [];
             });
-
             const executePhysicalOperation = async ({ cleanCode, targetStatus, locationCode, targetShipment, note, courierId: customCourierId }) => {
                 let hadConflict = false;
                 const run = async (operationName, extra = {}) => {
@@ -1161,8 +1035,7 @@
                         const currentStatus = normalizeCode(targetShipment?.currentStatus).toUpperCase();
                         const operationExtra = { ...extra, note };
                         if (operationName !== 'handoffToCourier') {
-                            // Receiving at the origin counter is the public transition
-                            // from ROUTE_ASSIGNED/PENDING_ROUTING to PICKED_UP.
+                            
                             const receiveStatus = operationName === 'receiveAtLocation'
                                 && ['ROUTE_ASSIGNED', 'PENDING_ROUTING', 'CREATED'].includes(currentStatus)
                                 ? 'PICKED_UP'
@@ -1185,7 +1058,6 @@
                         return null;
                     }
                 };
-
                 if (targetStatus === 'PICKED_UP' || targetStatus === 'ARRIVED_DEST_HUB') {
                     await run('receiveAtLocation');
                 } else if (targetStatus === 'OUT_FOR_DELIVERY') {
@@ -1230,17 +1102,14 @@
                 } else {
                     throw new Error(`Thao tác vật lý không hỗ trợ trạng thái ${targetStatus}.`);
                 }
-
                 return { hadConflict };
             };
-
             const handleUpdateStatus = async (trackingCode, targetStatus, customLocation, customNote, customCourierId) => {
                 if (isActionRunning.value) return;
                 if (!trackingCode || !trackingCode.trim()) {
                     Utils.showToast('Thông Báo', 'Vui lòng nhập mã bưu gửi cần xử lý', 'warning');
                     return;
                 }
-
                 const cleanCode = trackingCode.trim();
                 const targetShipment = shipmentsList.value.find(s =>
                     normalizeCode(s.trackingCode).toUpperCase() === cleanCode.toUpperCase()
@@ -1256,7 +1125,6 @@
                     Utils.showToast('Thiếu Ngữ Cảnh Bưu Cục', err.message, 'warning');
                     return;
                 }
-
                 if (targetShipment && targetStatus === 'OUT_FOR_DELIVERY') {
                     const poInfo = getDestPostOfficeInfo(targetShipment);
                     const currentLoc = (targetShipment.locationCode || poInfo.code || selectedPostOffice.value || '').toUpperCase();
@@ -1265,7 +1133,6 @@
                         return;
                     }
                 }
-
                 isActionRunning.value = true;
                 try {
                     const result = await executePhysicalOperation({
@@ -1276,9 +1143,7 @@
                         note: customNote || `Khai thác tại bưu cục ${locationCode}: ${Utils.formatStatusText(targetStatus, locationCode)}`,
                         courierId: customCourierId
                     });
-
-                    // Always reconcile with the backend. Do not leave a local
-                    // optimistic status as the source of truth after an action.
+                    
                     await loadShipmentsData(true);
                     if (result.hadConflict) {
                         Utils.showToast('Đã Đồng Bộ', `Bưu gửi ${cleanCode} đã được xử lý trước đó; tồn kho đã được tải lại.`, 'warning');
@@ -1288,8 +1153,7 @@
                     scanInputCode.value = '';
                 } catch (err) {
                     console.error('[PostOfficeOpsView] Lỗi tác nghiệp:', err);
-                    // A receive/store chain can partially succeed, so reconcile even
-                    // when the final helper reports a non-conflict failure.
+                    
                     await loadShipmentsData(true);
                     if (isConflictError(err)) {
                         Utils.showToast('Đã Có Thay Đổi', `Bưu gửi ${cleanCode} đã thay đổi trên máy chủ; dữ liệu đã được làm mới.`, 'warning');
@@ -1301,7 +1165,6 @@
                     focusScanInput();
                 }
             };
-
             const handleStoreAtLocation = (trackingCode, customLocation, customNote) => {
                 return handleUpdateStatus(
                     trackingCode,
@@ -1310,7 +1173,6 @@
                     customNote || 'Bưu cục đã xác nhận lưu kho tại địa điểm tác nghiệp'
                 );
             };
-
             const COURIER_PRESETS = [
                 { code: 'BT-HN-CG-01', name: 'Nguyễn Văn Nam', phone: '0912.345.678', station: 'POST-HN-CG', area: 'Cầu Giấy', hasLinkedTelegram: false },
                 { code: 'BT-HN-CG-02', name: 'Đỗ Văn Hùng', phone: '0912.345.679', station: 'POST-HN-CG', area: 'Dịch Vọng', hasLinkedTelegram: false },
@@ -1318,24 +1180,19 @@
                 { code: 'BT-HN-HBT-01', name: 'Trần Văn Mạnh', phone: '0912.345.681', station: 'POST-HN-HBT', area: 'Hai Bà Trưng', hasLinkedTelegram: false },
                 { code: 'BT-HN-TX-01', name: 'Vũ Văn Long', phone: '0912.345.682', station: 'POST-HN-TX', area: 'Thanh Xuân', hasLinkedTelegram: false },
                 { code: 'BT-HN-HD-01', name: 'Bùi Văn Tuấn', phone: '0912.345.683', station: 'POST-HN-HD', area: 'Hà Đông', hasLinkedTelegram: false },
-
                 { code: 'BT-DN-HC-01', name: 'Phan Văn Sơn', phone: '0913.456.789', station: 'POST-DN-HC', area: 'Hải Châu', hasLinkedTelegram: false },
                 { code: 'BT-DN-TK-01', name: 'Ngô Văn Đức', phone: '0913.456.790', station: 'POST-DN-TK', area: 'Thanh Khê', hasLinkedTelegram: false },
                 { code: 'BT-DN-ST-01', name: 'Hoàng Văn Thái', phone: '0913.456.791', station: 'POST-DN-ST', area: 'Sơn Trà', hasLinkedTelegram: false },
-
                 { code: 'BT-HCM-Q1-01', name: 'Nguyễn Văn Phát', phone: '0918.765.432', station: 'POST-HCM-Q1', area: 'Bến Nghé - Bến Thành (Quận 1)', hasLinkedTelegram: false },
                 { code: 'BT-HCM-Q1-02', name: 'Trần Thanh Bình', phone: '0918.765.433', station: 'POST-HCM-Q1', area: 'Đa Kao - Tân Định (Quận 1)', hasLinkedTelegram: false },
                 { code: 'BT-HCM-TB-01', name: 'Phạm Văn Minh', phone: '0918.765.434', station: 'POST-HCM-TB', area: 'Tân Bình', hasLinkedTelegram: false },
                 { code: 'BT-HCM-BT-01', name: 'Đặng Văn Khoa', phone: '0918.765.435', station: 'POST-HCM-BT', area: 'Bình Thạnh', hasLinkedTelegram: false },
                 { code: 'BT-HCM-TD-01', name: 'Trịnh Văn Sang', phone: '0918.765.436', station: 'POST-HCM-TD', area: 'Thủ Đức', hasLinkedTelegram: false },
                 { code: 'BT-HCM-Q7-01', name: 'Lý Văn Hải', phone: '0918.765.437', station: 'POST-HCM-Q7', area: 'Quận 7', hasLinkedTelegram: false },
-
                 { code: 'shipper@waybill.vn', name: 'Bưu Tá Hệ Thống (Mẫu RBAC)', phone: '0909.000.999', station: 'ALL', area: 'Toàn Mạng Lưới', hasLinkedTelegram: false }
             ];
-
             const shippersList = ref([]);
             const isShippersLoading = ref(false);
-
             const loadShippers = async (silent = false) => {
                 if (!silent) isShippersLoading.value = true;
                 try {
@@ -1366,7 +1223,6 @@
                     shippersList.value = [...COURIER_PRESETS];
                 }
             };
-
             const showHandoffModal = ref(false);
             const handoffForm = reactive({
                 trackingCode: '',
@@ -1381,7 +1237,6 @@
                 bulkMode: false,
                 bulkCodes: []
             });
-
             const availableCouriers = computed(() => {
                 const po = (handoffForm.postOfficeCode || selectedPostOffice.value || '').toUpperCase();
                 const source = shippersList.value.length > 0 ? shippersList.value : COURIER_PRESETS;
@@ -1389,12 +1244,10 @@
                 const others = source.filter(c => (c.station || '').toUpperCase() !== po && (c.station || '').toUpperCase() !== 'ALL');
                 return [...matched, ...others];
             });
-
             const selectedCourierInfo = computed(() => {
                 if (!handoffForm.selectedCourier || handoffForm.selectedCourier === 'CUSTOM') return null;
                 return availableCouriers.value.find(c => c.code === handoffForm.selectedCourier) || null;
             });
-
             const openHandoffModal = (item) => {
                 if (!item) return;
                 const poInfo = getDestPostOfficeInfo(item);
@@ -1407,14 +1260,12 @@
                 handoffForm.receiverAddress = item.receiverAddress || '';
                 handoffForm.codAmount = item.codAmount || 0;
                 handoffForm.weight = item.weight || 0;
-
                 const matched = availableCouriers.value.find(c => (c.station || '').toUpperCase() === String(poCode).toUpperCase());
                 handoffForm.selectedCourier = matched ? matched.code : (availableCouriers.value[0]?.code || 'shipper@waybill.vn');
                 handoffForm.customCourierId = '';
                 handoffForm.note = `Bưu cục [${poInfo.name || poCode}] bàn giao bưu gửi cho bưu tá đi phát chặng cuối`;
                 showHandoffModal.value = true;
             };
-
             const openBulkHandoffModal = () => {
                 const items = handoffSelectedItems.value;
                 if (!items.length) {
@@ -1425,11 +1276,9 @@
                     Utils.showToast('Chỉ Xem Tổng Hợp', 'Hãy chọn một bưu cục cụ thể trước khi bàn giao hàng loạt.', 'warning');
                     return;
                 }
-
                 const first = items[0];
                 const poInfo = getDestPostOfficeInfo(first);
                 const poCode = first.locationCode || poInfo.code || selectedPostOffice.value;
-
                 handoffForm.bulkMode = true;
                 handoffForm.bulkCodes = items
                     .map(item => normalizeCode(item.trackingCode))
@@ -1440,14 +1289,12 @@
                 handoffForm.receiverAddress = '';
                 handoffForm.codAmount = handoffBulkTotals.value.cod;
                 handoffForm.weight = handoffBulkTotals.value.weight;
-
                 const matched = COURIER_PRESETS.find(c => c.station === poCode);
                 handoffForm.selectedCourier = matched ? matched.code : (COURIER_PRESETS[0]?.code || 'shipper@waybill.vn');
                 handoffForm.customCourierId = '';
                 handoffForm.note = `Bưu cục [${poInfo.name || poCode}] bàn giao ${handoffForm.bulkCodes.length} bưu gửi cho bưu tá đi phát chặng cuối`;
                 showHandoffModal.value = true;
             };
-
             const confirmHandoff = async () => {
                 const courierCode = handoffForm.selectedCourier === 'CUSTOM'
                     ? handoffForm.customCourierId.trim()
@@ -1456,10 +1303,8 @@
                     Utils.showToast('Thiếu Thông Tin', 'Vui lòng chọn hoặc nhập mã bưu tá nhận đơn', 'warning');
                     return;
                 }
-
                 const defaultNote = handoffForm.note
                     || `Bưu cục [${handoffForm.postOfficeCode}] bàn giao bưu gửi cho bưu tá [${courierCode}]`;
-
                 if (handoffForm.bulkMode) {
                     const codes = [...handoffForm.bulkCodes];
                     if (!codes.length) return;
@@ -1503,7 +1348,6 @@
                     }
                     return;
                 }
-
                 try {
                     await handleUpdateStatus(
                         handoffForm.trackingCode,
@@ -1516,7 +1360,6 @@
                 } catch (err) {
                 }
             };
-
             const showReturnHandoverModal = ref(false);
             const isReturnLoading = ref(false);
             const returnHandoverForm = reactive({
@@ -1532,7 +1375,6 @@
                 reasonNote: '',
                 note: ''
             });
-
             const openReturnHandoverModal = async (item) => {
                 if (!item) return;
                 showReturnHandoverModal.value = true;
@@ -1549,7 +1391,6 @@
                 returnHandoverForm.reasonNote = '';
                 const poCode = selectedPostOffice.value !== 'ALL' ? selectedPostOffice.value : (getOriginPostOfficeInfo(item).code || 'bưu cục');
                 returnHandoverForm.note = `Bưu cục [${poCode}] phát trả bưu phẩm hoàn tại quầy cho người gửi`;
-
                 try {
                     const shipmentService = getShipmentService();
                     if (shipmentService && typeof shipmentService.getReturnRequest === 'function') {
@@ -1569,7 +1410,6 @@
                     isReturnLoading.value = false;
                 }
             };
-
             const confirmReturnHandover = async () => {
                 if (isActionRunning.value) return;
                 const poCode = selectedPostOffice.value !== 'ALL' ? selectedPostOffice.value : null;
@@ -1586,7 +1426,6 @@
                 } else if (returnHandoverForm.returnFee > 0) {
                     feeNote = ` - Đã thu cước hoàn ${Utils.formatCurrency(returnHandoverForm.returnFee)} tại quầy`;
                 }
-
                 const fullNote = `${returnHandoverForm.note}${feeNote}`;
                 try {
                     await handleUpdateStatus(
@@ -1600,7 +1439,6 @@
                     console.error('[PostOfficeOpsView] Lỗi xác nhận trả hàng:', err);
                 }
             };
-
             const handleQuickScan = (requestedStatus = '') => {
                 const cleanCode = normalizeCode(scanInputCode.value);
                 if (!cleanCode) {
@@ -1623,13 +1461,11 @@
                     );
                     return;
                 }
-
                 if (isInboundShipment(target)) {
                     currentSubtab.value = 'inbound';
                 } else if (isOutboundShipment(target)) {
                     currentSubtab.value = 'outbound';
                 }
-
                 const action = getNextPostOfficeAction(target);
                 const targetStatus = requestedStatus || action.targetStatus;
                 if (!targetStatus) {
@@ -1640,7 +1476,6 @@
                     openHandoffModal(target);
                     return;
                 }
-
                 const poCode = selectedPostOffice.value !== 'ALL' ? selectedPostOffice.value : 'bưu cục trong dữ liệu vận đơn';
                 const note = targetStatus === 'RETURNED'
                     ? `Bưu cục [${poCode}] đã hoàn trả bưu gửi cho người gửi`
@@ -1654,7 +1489,6 @@
                 }
                 return handleUpdateStatus(target.trackingCode, targetStatus, selectedPostOffice.value !== 'ALL' ? selectedPostOffice.value : null, note);
             };
-
             const handleBulkPostOfficeOperation = async (operation) => {
                 if (isActionRunning.value) return;
                 if (isAdmin.value && selectedPostOffice.value === 'ALL') {
@@ -1682,7 +1516,6 @@
                     if (!groups.has(key)) groups.set(key, { operationName, locationCode, targetStatus, items: [] });
                     groups.get(key).items.push(item);
                 });
-
                 isActionRunning.value = true;
                 let processed = 0;
                 try {
@@ -1725,13 +1558,11 @@
                     isActionRunning.value = false;
                 }
             };
-
             const viewTrackingDetail = (code) => {
                 if (code && code.trim()) {
                     emit('view-tracking', code.trim(), 'post-office');
                 }
             };
-
             onMounted(() => {
                 syncStationSelection();
                 if (!selectedPostOffice.value) {
@@ -1741,9 +1572,7 @@
                 loadShippers(true);
                 focusScanInput();
             });
-
             const isDockCollapsed = ref(false);
-
             return {
                 scanInputRef,
                 focusScanInput,
@@ -1870,7 +1699,6 @@
         <div class="space-y-3.5 pb-8 text-slate-800">
             <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-sm relative overflow-hidden">
                 <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
-
                 <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <div class="flex items-center space-x-2">
@@ -1911,7 +1739,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="bg-white/95 backdrop-blur-md text-slate-700 rounded-2xl shadow-xs border border-slate-200/90 p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
                 <div class="bg-slate-100/90 p-1 rounded-xl border border-slate-200/70 inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
                     <button
@@ -1932,7 +1759,6 @@
                             {{ outboundCount }}
                         </span>
                     </button>
-
                     <button
                         type="button"
                         @click="currentSubtab = 'inbound'"
@@ -1951,7 +1777,6 @@
                             {{ inboundCount }}
                         </span>
                     </button>
-
                     <button
                         type="button"
                         @click="currentSubtab = 'inventory'"
@@ -1970,7 +1795,6 @@
                             {{ inventoryCount }}
                         </span>
                     </button>
-
                     <button
                         type="button"
                         @click="currentSubtab = 'cod-settlement'"
@@ -1990,7 +1814,6 @@
                         </span>
                     </button>
                 </div>
-
                 <div class="flex items-center space-x-2 shrink-0 px-1 py-0.5">
                     <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/70">
                         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -2016,7 +1839,6 @@
                     </button>
                 </div>
             </div>
-
             <div
                 v-if="isAdmin && selectedPostOffice === 'ALL'"
                 class="rounded-xl border border-amber-300 dark:border-amber-800/60 bg-amber-50/90 dark:bg-amber-950/40 p-3 text-xs text-amber-900 dark:text-amber-200 flex items-start justify-between gap-3 shadow-xs"
@@ -2078,7 +1900,6 @@
                             <option value="POST-CT-CR">POST-CT-CR - Bưu Cục Cái Răng</option>
                         </optgroup>
                     </select>
-
                     <div class="h-4 w-px bg-slate-200 hidden sm:block"></div>
                     <transition name="subtab" mode="out-in">
                         <div v-if="currentSubtab === 'outbound'" key="pills-outbound" class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
@@ -2118,7 +1939,6 @@
                                 Chuyển hoàn ({{ kpiReturningOutbound }})
                             </button>
                         </div>
-
                         <div v-else-if="currentSubtab === 'inbound'" key="pills-inbound" class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
                             <button 
                                 @click="selectedStatusFilter = 'ALL'; currentPage = 1"
@@ -2149,7 +1969,6 @@
                                 Phát thành công ({{ kpiDeliveredInbound }})
                             </button>
                         </div>
-
                         <div v-else-if="currentSubtab === 'inventory'" key="pills-inventory" class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
                             <button 
                                 @click="selectedStatusFilter = 'ALL'; currentPage = 1"
@@ -2180,7 +1999,6 @@
                                 Chờ nhận tại quầy (Hoàn) ({{ inventoryCounterPickupCount }})
                             </button>
                         </div>
-
                         <div v-else-if="currentSubtab === 'cod-settlement'" key="pills-cod" class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
                             <button 
                                 @click="selectedStatusFilter = 'ALL'; currentPage = 1"
@@ -2256,7 +2074,6 @@
                                 {{ Utils.formatCurrency(totalOfficeCodAmount) }}
                             </div>
                         </div>
-
                         <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
                             <div class="flex items-center justify-between">
                                 <span class="text-slate-500 font-medium">Chờ Bưu Cục Xác Nhận</span>
@@ -2269,7 +2086,6 @@
                                 {{ Utils.formatCurrency(pendingCodTotalAmount) }}
                             </div>
                         </div>
-
                         <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
                             <div class="flex items-center justify-between">
                                 <span class="text-slate-500 font-medium">Đã Vào Quỹ Bưu Cục</span>
@@ -2281,7 +2097,6 @@
                                 {{ Utils.formatCurrency(settledCodTotalAmount) }}
                             </div>
                         </div>
-
                         <div class="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
                             <div class="flex items-center justify-between">
                                 <span class="text-slate-500 font-medium">Bưu Tá Chưa Nộp</span>
@@ -2311,7 +2126,6 @@
                                 Đã chọn: <strong class="font-mono font-bold">{{ selectedCodSettlementCodes.length }}</strong> đơn — <strong class="font-mono font-bold text-emerald-700 dark:text-emerald-400">{{ Utils.formatCurrency(selectedCodSettlementTotalAmount) }}</strong>
                             </span>
                         </div>
-
                         <div class="flex items-center space-x-2 w-full sm:w-auto">
                             <button 
                                 @click="openBulkCodConfirmModal" 
@@ -2336,11 +2150,9 @@
                             <div class="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
                             <span>Đang tải dữ liệu quỹ COD...</span>
                         </div>
-
                         <div v-else-if="paginatedShipments.length === 0" class="p-8 text-center text-slate-400">
                             <span>Không có vận đơn COD nào phù hợp với bộ lọc hiện tại.</span>
                         </div>
-
                         <div v-else class="overflow-x-auto">
                             <table class="w-full text-left border-collapse">
                                 <thead>
@@ -2477,17 +2289,14 @@
                         <button type="button" @click="clearPostOfficeSelection" class="px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-700">Bỏ chọn</button>
                     </div>
                 </div>
-
                 <div class="b2b-card overflow-hidden text-xs shadow-xs">
                     <div v-if="isLoading" class="p-8 text-center text-slate-400">
                         <div class="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
                         <span>Đang tải dữ liệu bưu gửi bưu cục...</span>
                     </div>
-
                     <div v-else-if="paginatedShipments.length === 0" class="p-8 text-center text-slate-400">
                         <span>Không tìm thấy bưu gửi nào phù hợp với bộ lọc hiện tại.</span>
                     </div>
-
                     <div v-else class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
@@ -2561,7 +2370,6 @@
                                                     Nhập Kho Bưu Cục
                                                 </button>
                                             </template>
-
                                             <template v-else-if="isReturnReadyAtOrigin(item)">
                                                 <button
                                                     @click="openReturnHandoverModal(item)"
@@ -2597,7 +2405,6 @@
                                                     <span>Bàn Giao Bưu Tá</span>
                                                 </button>
                                             </template>
-
                                             <template v-else-if="(item.currentStatus || item.status) === 'DELIVERY_FAILED'">
                                                 <button 
                                                     @click="openHandoffModal(item)"
@@ -2739,7 +2546,6 @@
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                             </button>
                         </div>
-
                         <div class="py-3 space-y-3">
                             <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1">
                                 <div class="flex justify-between">
@@ -2823,7 +2629,6 @@
                                 />
                             </div>
                         </div>
-
                         <div class="flex items-center justify-end space-x-2 border-t border-slate-100 pt-3">
                             <button 
                                 @click="showHandoffModal = false"
@@ -2863,7 +2668,6 @@
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                 </button>
                             </div>
-
                             <div class="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
                                 <div class="flex justify-between items-center">
                                     <span class="text-slate-600">Số lượng vận đơn:</span>
@@ -2881,7 +2685,6 @@
                                     ✅ <strong>Xác nhận:</strong> Tôi đã kiểm đếm đầy đủ và thu đúng số tiền mặt trên từ bưu tá để nhập quỹ bưu cục.
                                 </div>
                             </div>
-
                             <div class="flex items-center justify-end space-x-2 border-t border-slate-100 pt-3">
                                 <button 
                                     @click="showCodConfirmModal = false" 
@@ -2922,11 +2725,9 @@
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                 </button>
                             </div>
-
                             <div v-if="isReturnLoading" class="py-6 text-center text-slate-500">
                                 <span class="inline-block animate-spin mr-2">⏳</span> Đang kiểm tra chính sách cước hoàn...
                             </div>
-
                             <div v-else class="space-y-3">
                                 <div class="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
                                     <div class="flex justify-between items-center">
@@ -2948,7 +2749,6 @@
                                         </span>
                                     </div>
                                 </div>
-
                                 <div class="p-3 rounded-lg border text-xs" :class="returnHandoverForm.postalFault || returnHandoverForm.feePaymentStatus === 'PREPAID' || returnHandoverForm.feePaymentStatus === 'WAIVED' ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'">
                                     <div class="flex justify-between items-center mb-1">
                                         <span class="font-bold" :class="returnHandoverForm.postalFault || returnHandoverForm.feePaymentStatus === 'PREPAID' || returnHandoverForm.feePaymentStatus === 'WAIVED' ? 'text-emerald-800' : 'text-amber-800'">
@@ -2962,7 +2762,6 @@
                                         {{ (returnHandoverForm.postalFault || returnHandoverForm.feePaymentStatus === 'PREPAID' || returnHandoverForm.feePaymentStatus === 'WAIVED') ? '✅ Giao dịch viên trao bưu phẩm trực tiếp cho khách, KHÔNG thu thêm cước.' : '⚠️ Vui lòng thu tiền mặt cước hoàn từ người gửi trước khi bàn giao bưu phẩm.' }}
                                     </p>
                                 </div>
-
                                 <div>
                                     <label class="block text-xs font-medium text-slate-600 mb-1">Ghi chú xác nhận:</label>
                                     <input 
@@ -2974,7 +2773,6 @@
                                     />
                                 </div>
                             </div>
-
                             <div class="flex items-center justify-end space-x-2 border-t border-slate-100 pt-3">
                                 <button 
                                     @click="showReturnHandoverModal = false"
@@ -2998,6 +2796,5 @@
         </div>
         `
     };
-
     window.PostOfficeOpsView = PostOfficeOpsView;
 })();

@@ -1,6 +1,5 @@
 (function () {
     const { ref, reactive, computed, watch, onMounted, nextTick } = Vue;
-
     const ReportView = {
         name: 'ReportView',
         emits: ['view-tracking'],
@@ -10,13 +9,11 @@
             const activeSubtab = ref('summary');
             const isDockCollapsed = ref(false);
             const liveClock = ref('');
-
             const isAdminOrCs = computed(() => {
                 if (typeof Auth === 'undefined') return false;
                 return Auth.hasRole('ADMIN') || Auth.hasRole('CS') || 
                        Auth.hasRole('ROLE_ADMIN') || Auth.hasRole('ROLE_CS');
             });
-
             const activeQuickRange = ref('7days');
             const chartGrouping = ref('day');
             const chartScrollWrapper = ref(null);
@@ -27,16 +24,13 @@
                 customerId: '',
                 status: 'ALL'
             });
-
             const pagination = reactive({
                 page: 0,
                 size: 10,
                 totalPages: 1,
                 totalElements: 0
             });
-
             const tableSearchQuery = ref('');
-
             const reportData = reactive({
                 totalOrders: 0,
                 totalShippingFee: 0,
@@ -52,17 +46,14 @@
                 breachedCount: 0,
                 shipments: []
             });
-
             const formatVnd = (val) => {
                 const num = Number(val) || 0;
                 return new Intl.NumberFormat('vi-VN').format(num) + ' đ';
             };
-
             const formatNumber = (val) => {
                 const num = Number(val) || 0;
                 return new Intl.NumberFormat('vi-VN').format(num);
             };
-
             const formatDateStr = (date) => {
                 const d = new Date(date);
                 const year = d.getFullYear();
@@ -70,13 +61,11 @@
                 const day = String(d.getDate()).padStart(2, '0');
                 return `${year}-${month}-${day}`;
             };
-
             const applyQuickRange = (rangeKey) => {
                 activeQuickRange.value = rangeKey;
                 const now = new Date();
                 const toStr = formatDateStr(now);
                 let fromDate = new Date();
-
                 if (rangeKey === 'today') {
                     fromDate = now;
                     chartGrouping.value = 'day';
@@ -90,13 +79,11 @@
                     fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
                     chartGrouping.value = 'week';
                 }
-
                 filters.fromDate = formatDateStr(fromDate);
                 filters.toDate = toStr;
                 pagination.page = 0;
                 loadReport();
             };
-
             const handleDateChange = () => {
                 if (filters.fromDate && filters.toDate) {
                     const from = new Date(filters.fromDate);
@@ -107,7 +94,6 @@
                 pagination.page = 0;
                 loadReport();
             };
-
             const loadReport = async () => {
                 isLoading.value = true;
                 try {
@@ -119,7 +105,6 @@
                         page: pagination.page,
                         size: pagination.size
                     });
-
                     reportData.totalOrders = res.totalOrders || 0;
                     reportData.totalShippingFee = res.totalShippingFee || 0;
                     reportData.totalCodAmount = res.totalCodAmount || 0;
@@ -133,16 +118,13 @@
                     reportData.onTimeCount = res.onTimeCount || 0;
                     reportData.breachedCount = res.breachedCount || 0;
                     reportData.shipments = res.shipments || [];
-
                     reportData.inTransitCount = res.inTransitCount || 0;
                     reportData.failedCount = res.failedCount || 0;
                     reportData.cancelledCount = res.cancelledCount || 0;
                     reportData.daily = Array.isArray(res.daily) ? res.daily : [];
-
                     pagination.totalPages = res.totalPages || 1;
                     pagination.totalElements = res.tableTotalElements !== undefined ? res.tableTotalElements : (res.totalOrders || 0);
                     pagination.page = res.currentPage || 0;
-
                     nextTick(() => {
                         if (tableScrollWrapper.value) {
                             tableScrollWrapper.value.scrollLeft = 0;
@@ -158,7 +140,6 @@
                     isLoading.value = false;
                 }
             };
-
             const handleExportExcel = async () => {
                 if (isExporting.value) return;
                 isExporting.value = true;
@@ -182,7 +163,6 @@
                     isExporting.value = false;
                 }
             };
-
             const donutMetrics = computed(() => {
                 const total = Number(reportData.totalOrders) || 0;
                 if (total <= 0) {
@@ -206,17 +186,14 @@
                 const failed = Number(reportData.failedCount) || 0;
                 const transit = Number(reportData.inTransitCount) || 0;
                 const cancelled = Number(reportData.cancelledCount) || 0;
-
                 const delivPct = Math.min(100, Math.max(0, (delivered / total) * 100));
                 const transPct = Math.min(100, Math.max(0, (transit / total) * 100));
                 const retPct = Math.min(100, Math.max(0, ((returning + failed) / total) * 100));
                 const cancelPct = Math.min(100, Math.max(0, (cancelled / total) * 100));
-
                 const lenDeliv = (delivPct / 100) * c;
                 const lenTrans = (transPct / 100) * c;
                 const lenRet = (retPct / 100) * c;
                 const lenCancel = (cancelPct / 100) * c;
-
                 return {
                     deliveredPct: delivPct.toFixed(1),
                     returningPct: retPct.toFixed(1),
@@ -231,7 +208,6 @@
                     offsetCancelled: -(lenDeliv + lenTrans + lenRet)
                 };
             });
-
             const formatMetricShort = (val) => {
                 const num = Number(val) || 0;
                 if (num >= 1000000000) {
@@ -245,35 +221,27 @@
                 }
                 return num > 0 ? num + 'đ' : '0đ';
             };
-
             const buildWeeklySeries = (dailyList, todayKey) => {
                 if (!dailyList || dailyList.length === 0) return [];
-
                 const weeks = [];
                 const chunkSize = 7;
                 for (let i = 0; i < dailyList.length; i += chunkSize) {
                     const chunk = dailyList.slice(i, i + chunkSize);
                     const firstDay = chunk[0];
                     const lastDay = chunk[chunk.length - 1];
-
                     const firstParts = String(firstDay.date || '').split('-');
                     const lastParts = String(lastDay.date || '').split('-');
-
                     const startShort = firstParts.length === 3 ? `${parseInt(firstParts[2], 10)}/${parseInt(firstParts[1], 10)}` : firstDay.date;
                     const endShort = lastParts.length === 3 ? `${parseInt(lastParts[2], 10)}/${parseInt(lastParts[1], 10)}` : lastDay.date;
-
                     const startFull = firstParts.length === 3 ? `${firstParts[2]}/${firstParts[1]}` : firstDay.date;
                     const endFull = lastParts.length === 3 ? `${lastParts[2]}/${lastParts[1]}` : lastDay.date;
-
                     const weekIndex = Math.floor(i / chunkSize) + 1;
                     const label = `T${weekIndex}: ${startShort}-${endShort}`;
                     const fullLabel = `Tuần ${weekIndex} (${startFull} - ${endFull})`;
-
                     let totalFee = 0;
                     let totalCod = 0;
                     let totalCount = 0;
                     let isHighlight = false;
-
                     for (const day of chunk) {
                         totalFee += Number(day.shippingFee) || 0;
                         totalCod += Number(day.codAmount) || 0;
@@ -282,7 +250,6 @@
                             isHighlight = true;
                         }
                     }
-
                     weeks.push({
                         label,
                         fullLabel,
@@ -292,10 +259,8 @@
                         isHighlight
                     });
                 }
-
                 const maxFee = Math.max(...weeks.map(x => x.fee), 100000);
                 const maxCod = Math.max(...weeks.map(x => x.cod), 500000);
-
                 return weeks.map(item => ({
                     ...item,
                     feeHeight: Math.max(10, Math.min(100, Math.round((item.fee / maxFee) * 85))) + '%',
@@ -305,10 +270,8 @@
                     tooltipText: `${item.fullLabel}: Cước ${formatMetricShort(item.fee)} | COD ${formatMetricShort(item.cod)} (${formatNumber(item.count)} đơn)`
                 }));
             };
-
             const buildDailySeriesFrontend = (dailyList, todayKey) => {
                 if (!dailyList || dailyList.length === 0) return [];
-
                 const list = dailyList.map(day => {
                     const raw = String(day.date || '');
                     const parts = raw.split('-');
@@ -326,10 +289,8 @@
                         isHighlight: isToday
                     };
                 });
-
                 const maxFee = Math.max(...list.map(x => x.fee), 100000);
                 const maxCod = Math.max(...list.map(x => x.cod), 500000);
-
                 return list.map(item => ({
                     ...item,
                     feeHeight: Math.max(10, Math.min(100, Math.round((item.fee / maxFee) * 85))) + '%',
@@ -339,18 +300,15 @@
                     tooltipText: `${item.fullLabel}: Cước ${formatMetricShort(item.fee)} | COD ${formatMetricShort(item.cod)} (${formatNumber(item.count)} đơn)`
                 }));
             };
-
             const barChartData = computed(() => {
                 const rawDaily = Array.isArray(reportData.daily) ? reportData.daily : [];
                 const todayKey = formatDateStr(new Date());
-
                 if (chartGrouping.value === 'week') {
                     return buildWeeklySeries(rawDaily, todayKey);
                 } else {
                     return buildDailySeriesFrontend(rawDaily, todayKey);
                 }
             });
-
             const filteredShipments = computed(() => {
                 if (!tableSearchQuery.value.trim()) {
                     return reportData.shipments;
@@ -364,7 +322,6 @@
                     return code.includes(q) || sender.includes(q) || receiver.includes(q) || phone.includes(q);
                 });
             });
-
             const getStatusBadge = (status) => {
                 switch (status) {
                     case 'DELIVERED':
@@ -383,7 +340,6 @@
                         return { label: status || 'Chờ Xử Lý', class: 'bg-slate-50 text-slate-700 border border-slate-200' };
                 }
             };
-
             const getCodSettlementBadge = (status) => {
                 const s = String(status || 'UNSETTLED').toUpperCase();
                 if (s === 'SETTLED') {
@@ -394,7 +350,6 @@
                 }
                 return { label: 'Chưa Nộp Quỹ', class: 'bg-amber-50 text-amber-700 border border-amber-200', isPulse: false };
             };
-
             const getSlaBadge = (status) => {
                 const s = String(status || '').toUpperCase();
                 if (s === 'ON_TIME') {
@@ -405,25 +360,21 @@
                 }
                 return { label: 'Đang Tính SLA', class: 'bg-slate-50 text-slate-600 border border-slate-200' };
             };
-
             const goToTracking = (trackingCode) => {
                 if (trackingCode) {
                     emit('view-tracking', trackingCode);
                 }
             };
-
             const changePage = (newPage) => {
                 if (newPage >= 0 && newPage < pagination.totalPages) {
                     pagination.page = newPage;
                     loadReport();
                 }
             };
-
             const updateClock = () => {
                 const now = new Date();
                 liveClock.value = now.toLocaleTimeString('vi-VN', { hour12: false });
             };
-
             watch([chartGrouping, () => reportData.daily], () => {
                 nextTick(() => {
                     if (chartScrollWrapper.value && chartGrouping.value === 'day') {
@@ -431,7 +382,6 @@
                     }
                 });
             });
-
             onMounted(() => {
                 if (!window.Auth || !window.Auth.isAuthenticated()) {
                     try {
@@ -448,7 +398,6 @@
                 setInterval(updateClock, 1000);
                 applyQuickRange('7days');
             });
-
             return {
                 isLoading,
                 isExporting,
@@ -485,7 +434,6 @@
             <div class="space-y-4 pb-12 text-slate-800 relative">
                 <div class="rounded-xl vnpt-gradient text-white p-4 sm:p-5 shadow-md shadow-blue-900/10 relative overflow-hidden">
                     <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 16px 16px;"></div>
-
                     <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
                             <div class="flex items-center space-x-2">
@@ -501,7 +449,6 @@
                                 Nền tảng điều phối bưu chính Waybill • Tổng hợp dữ liệu theo thời gian thực • Quản trị SLA &amp; Công nợ Bưu tá • Xuất Excel 3 Sheet.
                             </p>
                         </div>
-
                         <div class="flex items-center space-x-2 self-start sm:self-auto flex-shrink-0">
                             <button 
                                 type="button" 
@@ -515,7 +462,6 @@
                                 </svg>
                                 <span>{{ isLoading ? 'Đang Tải...' : 'Làm Mới' }}</span>
                             </button>
-
                             <button 
                                 type="button" 
                                 @click="handleExportExcel" 
@@ -531,7 +477,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="bg-white/95 backdrop-blur-md text-slate-700 rounded-2xl shadow-xs border border-slate-200/90 p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
                     <div class="bg-slate-100/90 p-1 rounded-xl border border-slate-200/70 inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
                         <button
@@ -549,7 +494,6 @@
                             </svg>
                             <span class="truncate">Tổng Hợp &amp; KPI</span>
                         </button>
-
                         <button
                             type="button"
                             @click="activeSubtab = 'details'"
@@ -569,7 +513,6 @@
                             </span>
                         </button>
                     </div>
-
                     <div class="flex items-center space-x-2 shrink-0 px-1 py-0.5">
                         <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-semibold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/70">
                             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -588,7 +531,6 @@
                         </button>
                     </div>
                 </div>
-
                 <div class="bg-white border border-slate-200 rounded-xl p-3 sm:p-3.5 shadow-sm space-y-2.5">
                     <div class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-slate-100">
                         <div class="flex items-center space-x-1.5">
@@ -627,7 +569,6 @@
                             </button>
                         </div>
                     </div>
-
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
                         <div>
                             <label class="block text-[11px] font-bold text-slate-600 mb-1">Từ Ngày</label>
@@ -638,7 +579,6 @@
                                 class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                             />
                         </div>
-
                         <div>
                             <label class="block text-[11px] font-bold text-slate-600 mb-1">Đến Ngày</label>
                             <input 
@@ -648,7 +588,6 @@
                                 class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
                             />
                         </div>
-
                         <div>
                             <label class="block text-[11px] font-bold text-slate-600 mb-1">Mã Khách Hàng (Shop ID)</label>
                             <input 
@@ -661,7 +600,6 @@
                                 class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition disabled:opacity-60 disabled:cursor-not-allowed"
                             />
                         </div>
-
                         <div>
                             <label class="block text-[11px] font-bold text-slate-600 mb-1">Trạng Thái Bưu Gửi</label>
                             <select 
@@ -680,7 +618,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div v-show="activeSubtab === 'summary'" class="space-y-4">
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                         <div class="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm hover:shadow-md transition space-y-1">
@@ -693,7 +630,6 @@
                             </div>
                             <div class="text-[11px] text-slate-400 mt-1">Bao gồm toàn bộ đơn phát sinh</div>
                         </div>
-
                         <div class="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm hover:shadow-md transition space-y-1">
                             <div class="text-[10.5px] font-bold uppercase tracking-wider text-slate-500">Doanh Thu Cước Phí</div>
                             <div class="mt-1 flex items-baseline justify-between">
@@ -704,7 +640,6 @@
                             </div>
                             <div class="text-[11px] text-slate-400 mt-1">Cước dịch vụ chuyển phát</div>
                         </div>
-
                         <div class="bg-white border border-purple-200 rounded-xl p-3.5 sm:p-4 shadow-sm hover:shadow-md transition bg-purple-50/20 space-y-1">
                             <div class="text-[10.5px] font-bold uppercase tracking-wider text-purple-700">Tổng Tiền Thu Hộ COD</div>
                             <div class="mt-1 flex items-baseline justify-between">
@@ -727,7 +662,6 @@
                                 </div>
                             </div>
                         </div>
-
                         <div class="bg-white border border-emerald-200 rounded-xl p-3.5 sm:p-4 shadow-sm hover:shadow-md transition bg-emerald-50/20 space-y-1">
                             <div class="text-[10.5px] font-bold uppercase tracking-wider text-emerald-700">Tỷ Lệ Giao Thành Công</div>
                             <div class="mt-1 flex items-baseline justify-between">
@@ -743,7 +677,6 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
                         <div class="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm space-y-3 min-w-0">
                             <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
@@ -758,7 +691,6 @@
                                         {{ chartGrouping === 'week' ? 'Tổng hợp biến động doanh thu & dòng tiền theo từng tuần trong kỳ' : 'Biến động sản lượng & dòng tiền qua các ngày trong kỳ' }}
                                     </p>
                                 </div>
-
                                 <div class="flex flex-wrap items-center gap-3 text-xs">
                                     <div class="flex items-center space-x-3 text-xs">
                                         <span class="flex items-center text-slate-600 font-semibold text-[11px]">
@@ -770,7 +702,6 @@
                                             Tiền COD
                                         </span>
                                     </div>
-
                                     <div class="inline-flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200 text-xs">
                                         <button 
                                             type="button"
@@ -791,7 +722,6 @@
                                     </div>
                                 </div>
                             </div>
-
                             <div v-if="chartGrouping === 'day' && barChartData.length > 14" class="flex items-center justify-between text-[11px] text-slate-500 bg-blue-50/40 px-2.5 py-1 rounded-lg border border-blue-100">
                                 <span>Hiển thị {{ barChartData.length }} ngày liên tiếp</span>
                                 <span class="flex items-center gap-1 text-blue-600 font-medium">
@@ -799,7 +729,6 @@
                                     Cuộn ngang để xem các ngày &rarr;
                                 </span>
                             </div>
-
                             <div 
                                 ref="chartScrollWrapper" 
                                 class="w-full overflow-x-auto pb-1"
@@ -825,7 +754,6 @@
                                         <div class="absolute -top-9 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-slate-900 text-white text-[10.5px] py-1 px-2.5 rounded-lg font-mono pointer-events-none z-20 whitespace-nowrap shadow-xl">
                                             {{ item.tooltipText }}
                                         </div>
-
                                         <div class="w-full flex items-end justify-center gap-1 sm:gap-1.5 h-full">
                                             <div 
                                                 class="bg-blue-500 rounded-t-md group-hover:bg-blue-600 transition-all duration-500 ease-out" 
@@ -849,7 +777,6 @@
                                 </div>
                             </div>
                         </div>
-
                         <div class="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-sm flex flex-col justify-between space-y-3">
                             <div>
                                 <h4 class="text-xs font-bold uppercase text-slate-800 tracking-wide">
@@ -859,7 +786,6 @@
                                     Tỷ lệ thành công, luân chuyển và chuyển hoàn
                                 </p>
                             </div>
-
                             <div class="flex items-center justify-center relative py-2">
                                 <svg class="w-36 h-36 transform -rotate-90" viewBox="0 0 100 100">
                                     <circle cx="50" cy="50" r="40" stroke="#f1f5f9" stroke-width="12" fill="transparent"/>
@@ -900,7 +826,6 @@
                                         class="transition-all duration-700 ease-out"
                                     />
                                 </svg>
-
                                 <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                                     <span class="text-lg font-black font-mono text-slate-800">
                                         {{ donutMetrics.deliveredPct }}%
@@ -908,7 +833,6 @@
                                     <span class="text-[9.5px] uppercase font-bold text-emerald-600">Thành Công</span>
                                 </div>
                             </div>
-
                             <div class="space-y-1.5 pt-1 text-xs border-t border-slate-100">
                                 <div class="flex items-center justify-between">
                                     <span class="flex items-center text-slate-600 font-medium">
@@ -942,7 +866,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div v-show="activeSubtab === 'details'" class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden space-y-3">
                     <div class="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100">
                         <div class="flex items-center space-x-2">
@@ -953,7 +876,6 @@
                                 {{ formatNumber(reportData.totalOrders) }} đơn
                             </span>
                         </div>
-
                         <div class="flex items-center space-x-2">
                             <div class="relative">
                                 <input 
@@ -967,7 +889,6 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                 </svg>
                             </div>
-
                             <button 
                                 type="button" 
                                 @click="handleExportExcel" 
@@ -982,7 +903,6 @@
                             </button>
                         </div>
                     </div>
-
                     <div ref="tableScrollWrapper" class="overflow-x-auto w-full">
                         <table class="w-full text-left border-collapse">
                             <thead>
@@ -1004,7 +924,6 @@
                                         </div>
                                     </td>
                                 </tr>
-
                                 <tr v-else-if="filteredShipments.length === 0">
                                     <td colspan="6" class="py-12 text-center text-slate-400">
                                         <div class="flex flex-col items-center space-y-2">
@@ -1018,7 +937,6 @@
                                         </div>
                                     </td>
                                 </tr>
-
                                 <tr 
                                     v-else 
                                     v-for="(s, idx) in filteredShipments" 
@@ -1028,7 +946,6 @@
                                     <td class="py-2.5 px-3 text-center font-mono text-slate-400">
                                         {{ pagination.page * pagination.size + idx + 1 }}
                                     </td>
-
                                     <td class="py-2.5 px-3">
                                         <div class="flex items-center space-x-1.5">
                                             <button 
@@ -1057,21 +974,18 @@
                                             {{ s.createdAt ? s.createdAt.substring(0, 16).replace('T', ' ') : '-' }}
                                         </div>
                                     </td>
-
                                     <td class="py-2.5 px-3 max-w-[200px]">
                                         <div class="font-bold text-slate-900 truncate">{{ s.senderName || 'Người Gửi' }}</div>
                                         <div class="text-[11px] text-slate-400 truncate" :title="s.senderAddress">
                                             {{ s.senderAddress || '-' }}
                                         </div>
                                     </td>
-
                                     <td class="py-2.5 px-3 max-w-[200px]">
                                         <div class="font-bold text-slate-900 truncate">{{ s.receiverName || 'Người Nhận' }}</div>
                                         <div class="text-[11px] text-slate-400 truncate" :title="s.receiverAddress">
                                             {{ s.receiverAddress || '-' }}
                                         </div>
                                     </td>
-
                                     <td class="py-2.5 px-3 whitespace-nowrap">
                                         <div class="flex items-center space-x-1.5">
                                             <span class="font-mono font-bold text-xs" :class="Number(s.codAmount) > 0 ? 'text-purple-700' : 'text-slate-400'">
@@ -1090,7 +1004,6 @@
                                             <span class="font-semibold text-slate-700 ml-1">{{ formatVnd(s.shippingFee) }}</span>
                                         </div>
                                     </td>
-
                                     <td class="py-2.5 px-3 text-center whitespace-nowrap">
                                         <div>
                                             <span class="status-indicator" :class="Utils.getStatusIndicatorClass(s.currentStatus)">
@@ -1114,13 +1027,11 @@
                             </tbody>
                         </table>
                     </div>
-
                     <div class="p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100 text-xs">
                         <div class="text-slate-500">
                             Hiển thị trang <span class="font-bold text-slate-800">{{ pagination.page + 1 }}</span> / <span class="font-bold text-slate-800">{{ pagination.totalPages }}</span> 
                             (Tổng <span class="font-bold text-slate-800">{{ formatNumber(pagination.totalElements) }}</span> bản ghi)
                         </div>
-
                         <div class="flex items-center space-x-1.5">
                             <button 
                                 type="button" 
@@ -1145,6 +1056,5 @@
             </div>
         `
     };
-
     window.ReportView = ReportView;
 })();

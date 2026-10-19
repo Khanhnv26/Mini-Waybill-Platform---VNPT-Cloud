@@ -1,36 +1,29 @@
 (function () {
     const { ref, computed, watch, onMounted, onActivated, onDeactivated, onBeforeUnmount } = Vue;
-
     const POST_OFFICES_DATA = [
         { code: 'HUB-HN-01', name: 'Kho Tổng Hà Nội (Super Hub)', province: 'Hà Nội', district: 'Bắc Từ Liêm', address: 'Lô 12-A, KCN Minh Khai, P. Minh Khai, Q. Bắc Từ Liêm, Hà Nội', phone: '024 3768 9999', hours: '24/7 (Cả T7 & CN)', type: 'SUPER_HUB', lat: 21.028511, lng: 105.782000 },
         { code: 'HUB-HCM-01', name: 'Kho Tổng TP. Hồ Chí Minh (Super Hub)', province: 'Hồ Chí Minh', district: 'Tân Bình', address: 'Số 270 Lý Thường Kiệt, Phường 6, Q. Tân Bình, TP. Hồ Chí Minh', phone: '028 3865 8888', hours: '24/7 (Cả T7 & CN)', type: 'SUPER_HUB', lat: 10.776889, lng: 106.656000 },
         { code: 'HUB-DN-01', name: 'Kho Tổng Đà Nẵng (Super Hub)', province: 'Đà Nẵng', district: 'Liên Chiểu', address: 'Đường số 3, KCN Hòa Khánh, P. Hòa Khánh Bắc, Q. Liên Chiểu, Đà Nẵng', phone: '0236 3738 888', hours: '24/7 (Cả T7 & CN)', type: 'SUPER_HUB', lat: 16.068000, lng: 108.150000 },
         { code: 'HUB-HP-01', name: 'Kho Trung Chuyển Hải Phòng', province: 'Hải Phòng', district: 'Hải An', address: 'Số 5 Đường Lê Hồng Phong, P. Đằng Lâm, Q. Hải An, Hải Phòng', phone: '0225 3838 999', hours: '06:00 - 22:00', type: 'SUPER_HUB', lat: 20.850000, lng: 106.700000 },
         { code: 'HUB-CT-01', name: 'Kho Trung Chuyển Cần Thơ', province: 'Cần Thơ', district: 'Cái Răng', address: 'KCN Hưng Phú 1, P. Hưng Phú, Q. Cái Răng, Cần Thơ', phone: '0292 3888 777', hours: '06:00 - 22:00', type: 'SUPER_HUB', lat: 10.020000, lng: 105.780000 },
-
         { code: 'POST-HN-CG', name: 'Bưu Cục Cầu Giấy', province: 'Hà Nội', district: 'Cầu Giấy', address: 'Số 165 Cầu Giấy, P. Dịch Vọng, Q. Cầu Giấy, Hà Nội', phone: '024 3833 5555', hours: '07:30 - 20:30 (Cả T7 & CN)', type: 'POST_OFFICE', lat: 21.036200, lng: 105.790600 },
         { code: 'POST-HN-DDA', name: 'Bưu Cục Đống Đa', province: 'Hà Nội', district: 'Đống Đa', address: 'Số 36 Tây Sơn, P. Quang Trung, Q. Đống Đa, Hà Nội', phone: '024 3851 4444', hours: '07:30 - 20:00 (Cả T7 & CN)', type: 'POST_OFFICE', lat: 21.018100, lng: 105.829900 },
         { code: 'POST-HN-HBT', name: 'Bưu Cục Hai Bà Trưng', province: 'Hà Nội', district: 'Hai Bà Trưng', address: 'Số 236 Lạc Trung, P. Vĩnh Tuy, Q. Hai Bà Trưng, Hà Nội', phone: '024 3971 3333', hours: '07:30 - 20:00 (Cả T7 & CN)', type: 'POST_OFFICE', lat: 21.006900, lng: 105.852400 },
         { code: 'POST-HN-TX', name: 'Bưu Cục Thanh Xuân', province: 'Hà Nội', district: 'Thanh Xuân', address: 'Số 18 Nguyễn Trãi, P. Thượng Đình, Q. Thanh Xuân, Hà Nội', phone: '024 3858 2222', hours: '07:30 - 20:00 (Cả T7 & CN)', type: 'POST_OFFICE', lat: 20.993700, lng: 105.807800 },
         { code: 'POST-HN-HD', name: 'Bưu Cục Hà Đông', province: 'Hà Nội', district: 'Hà Đông', address: 'Số 4 Quang Trung, P. Yết Kiêu, Q. Hà Đông, Hà Nội', phone: '024 3382 1111', hours: '07:30 - 20:00 (Cả T7 & CN)', type: 'POST_OFFICE', lat: 20.971200, lng: 105.776600 },
-
         { code: 'POST-HCM-Q1', name: 'Bưu Cục Bến Nghé (Quận 1)', province: 'Hồ Chí Minh', district: 'Quận 1', address: 'Số 2 Công Xã Paris, P. Bến Nghé, Quận 1, TP. Hồ Chí Minh', phone: '028 3822 5555', hours: '07:00 - 21:00 (Cả T7 & CN)', type: 'POST_OFFICE', lat: 10.776900, lng: 106.700900 },
         { code: 'POST-HCM-TB', name: 'Bưu Cục Tân Bình', province: 'Hồ Chí Minh', district: 'Tân Bình', address: 'Số 288 Hoàng Văn Thụ, P. 4, Q. Tân Bình, TP. Hồ Chí Minh', phone: '028 3844 6666', hours: '07:30 - 20:30 (Cả T7 & CN)', type: 'POST_OFFICE', lat: 10.799200, lng: 106.653400 },
         { code: 'POST-HCM-BT', name: 'Bưu Cục Bình Thạnh', province: 'Hồ Chí Minh', district: 'Bình Thạnh', address: 'Số 364 Bạch Đằng, P. 14, Q. Bình Thạnh, TP. Hồ Chí Minh', phone: '028 3841 7777', hours: '07:30 - 20:00 (Cả T7 & CN)', type: 'POST_OFFICE', lat: 10.810600, lng: 106.696100 },
         { code: 'POST-HCM-TD', name: 'Bưu Cục TP. Thủ Đức', province: 'Hồ Chí Minh', district: 'Thủ Đức', address: 'Số 128 Võ Văn Ngân, P. Linh Chiểu, TP. Thủ Đức, TP. Hồ Chí Minh', phone: '028 3896 8888', hours: '07:30 - 20:00 (Cả T7 & CN)', type: 'POST_OFFICE', lat: 10.849400, lng: 106.771700 },
         { code: 'POST-HCM-Q7', name: 'Bưu Cục Tân Phong (Quận 7)', province: 'Hồ Chí Minh', district: 'Quận 7', address: 'Số 1441 Huỳnh Tấn Phát, P. Phú Mỹ, Quận 7, TP. Hồ Chí Minh', phone: '028 3785 9999', hours: '07:30 - 20:00 (Cả T7 & CN)', type: 'POST_OFFICE', lat: 10.732400, lng: 106.708200 },
-
         { code: 'POST-DN-HC', name: 'Bưu Cục Hải Châu', province: 'Đà Nẵng', district: 'Hải Châu', address: 'Số 4 Lê Duẩn, P. Hải Châu 1, Q. Hải Châu, Đà Nẵng', phone: '0236 3822 333', hours: '07:30 - 20:00 (Cả T7 & CN)', type: 'POST_OFFICE', lat: 16.071000, lng: 108.221000 },
         { code: 'POST-DN-TK', name: 'Bưu Cục Thanh Khê', province: 'Đà Nẵng', district: 'Thanh Khê', address: 'Số 251 Điện Biên Phủ, P. Chính Gián, Q. Thanh Khê, Đà Nẵng', phone: '0236 3711 444', hours: '07:30 - 20:00 (Cả T7 & CN)', type: 'POST_OFFICE', lat: 16.062000, lng: 108.196000 },
         { code: 'POST-DN-ST', name: 'Bưu Cục Sơn Trà', province: 'Đà Nẵng', district: 'Sơn Trà', address: 'Số 1 Ngô Quyền, P. Thọ Quang, Q. Sơn Trà, Đà Nẵng', phone: '0236 3844 555', hours: '07:30 - 20:00 (Cả T7 & CN)', type: 'POST_OFFICE', lat: 16.095000, lng: 108.239000 },
-
         { code: 'POST-HP-NQ', name: 'Bưu Cục Ngô Quyền', province: 'Hải Phòng', district: 'Ngô Quyền', address: 'Số 147 Lương Khánh Thiện, P. Cầu Đất, Q. Ngô Quyền, Hải Phòng', phone: '0225 3855 222', hours: '07:30 - 20:00', type: 'POST_OFFICE', lat: 20.858000, lng: 106.689000 },
         { code: 'POST-HP-HB', name: 'Bưu Cục Hồng Bàng', province: 'Hải Phòng', district: 'Hồng Bàng', address: 'Số 5 Nguyễn Tri Phương, P. Minh Khai, Q. Hồng Bàng, Hải Phòng', phone: '0225 3842 111', hours: '07:30 - 20:00', type: 'POST_OFFICE', lat: 20.865000, lng: 106.678000 },
-
         { code: 'POST-CT-NK', name: 'Bưu Cục Ninh Kiều', province: 'Cần Thơ', district: 'Ninh Kiều', address: 'Số 2 Hòa Bình, P. Tân An, Q. Ninh Kiều, Cần Thơ', phone: '0292 3820 111', hours: '07:30 - 20:00', type: 'POST_OFFICE', lat: 10.033000, lng: 105.786000 },
         { code: 'POST-CT-CR', name: 'Bưu Cục Cái Răng', province: 'Cần Thơ', district: 'Cái Răng', address: 'Số 321 Quốc Lộ 1A, P. Lê Bình, Q. Cái Răng, Cần Thơ', phone: '0292 3861 222', hours: '07:30 - 20:00', type: 'POST_OFFICE', lat: 10.005000, lng: 105.753000 }
     ];
-
     const NetworkView = {
         name: 'NetworkView',
         emits: ['back-home', 'select-office'],
@@ -40,19 +33,15 @@
             const selectedProvince = ref('ALL');
             const selectedType = ref('ALL');
             const activeOfficeCode = ref(null);
-
             const provinces = ['Hà Nội', 'Hồ Chí Minh', 'Đà Nẵng', 'Hải Phòng', 'Cần Thơ'];
-
             let mapInstance = null;
             let markersGroup = null;
             let markersMap = new Map();
             let bootTimer = null;
-
             const filteredOffices = computed(() => {
                 const q = searchQuery.value.toLowerCase().trim();
                 const p = selectedProvince.value;
                 const t = selectedType.value;
-
                 return postOffices.value.filter(item => {
                     const matchQ = !q ||
                         item.name.toLowerCase().includes(q) ||
@@ -63,16 +52,13 @@
                     return matchQ && matchP && matchT;
                 });
             });
-
             const superHubCount = computed(() => {
                 return postOffices.value.filter(item => item.type === 'SUPER_HUB').length;
             });
-
             const renderMarkers = () => {
                 if (!markersGroup || !mapInstance) return;
                 markersGroup.clearLayers();
                 markersMap.clear();
-
                 filteredOffices.value.forEach(item => {
                     const isHub = item.type === 'SUPER_HUB';
                     const iconHtml = `<div class="${isHub ? 'hub-marker-pin' : 'post-marker-pin'}">${isHub ? 'HUB' : 'BC'}</div>`;
@@ -82,7 +68,6 @@
                         iconSize: isHub ? [32, 32] : [26, 26],
                         iconAnchor: isHub ? [16, 16] : [13, 13]
                     });
-
                     const m = L.marker([item.lat, item.lng], { icon: customIcon });
                     m.bindPopup(`
                         <div class="p-1 space-y-1.5 text-slate-800 font-sans">
@@ -102,12 +87,10 @@
                     markersMap.set(item.code, m);
                 });
             };
-
             const focusOffice = (code) => {
                 activeOfficeCode.value = code;
                 const item = postOffices.value.find(x => x.code === code);
                 if (!item || !mapInstance) return;
-
                 mapInstance.flyTo([item.lat, item.lng], 15, { duration: 1.2 });
                 const targetMarker = markersMap.get(code);
                 if (targetMarker) {
@@ -116,13 +99,11 @@
                     }, 1200);
                 }
             };
-
             const resetZoom = () => {
                 activeOfficeCode.value = null;
                 if (!mapInstance) return;
                 mapInstance.flyTo([16.047079, 108.206230], 6, { duration: 1.2 });
             };
-
             const locateUser = () => {
                 if (!navigator.geolocation || !mapInstance) {
                     focusOffice('POST-HN-CG');
@@ -140,7 +121,6 @@
                     }
                 );
             };
-
             const loadBackendHubs = async () => {
                 if (typeof RoutingService === 'undefined' || typeof RoutingService.getAllHubs !== 'function') return;
                 try {
@@ -170,7 +150,6 @@
                 } catch (err) {
                 }
             };
-
             const bootMap = (attempt = 0) => {
                 const mapEl = document.getElementById('network-leaflet-map');
                 if (!mapEl || typeof L === 'undefined') return;
@@ -179,52 +158,42 @@
                     return;
                 }
                 if (mapEl.clientWidth === 0 || mapEl.clientHeight === 0) return;
-
                 if (!mapInstance) {
                     mapInstance = L.map(mapEl, {
                         zoomControl: true,
                         attributionControl: false
                     }).setView([16.047079, 108.206230], 6);
-
                     L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {
                         subdomains: ['0', '1', '2', '3'],
                         maxZoom: 20
                     }).addTo(mapInstance);
-
                     markersGroup = L.layerGroup().addTo(mapInstance);
                     renderMarkers();
                 }
-
                 mapInstance.invalidateSize();
             };
-
             const scheduleMapBoot = () => {
                 if (bootTimer) clearTimeout(bootTimer);
                 bootTimer = setTimeout(() => {
                     bootMap();
                 }, 260);
             };
-
             onMounted(() => {
                 loadBackendHubs();
                 scheduleMapBoot();
             });
-
             onActivated(() => {
                 scheduleMapBoot();
             });
-
             onDeactivated(() => {
                 if (bootTimer) {
                     clearTimeout(bootTimer);
                     bootTimer = null;
                 }
             });
-
             watch(filteredOffices, () => {
                 renderMarkers();
             });
-
             onBeforeUnmount(() => {
                 if (bootTimer) {
                     clearTimeout(bootTimer);
@@ -235,11 +204,9 @@
                     mapInstance = null;
                 }
             });
-
             const goBack = () => {
                 emit('back-home');
             };
-
             return {
                 postOffices,
                 searchQuery,
@@ -274,7 +241,6 @@
                             <p class="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl leading-relaxed">Hơn 10.000 điểm giao dịch và Siêu Hub tự động phủ khắp 63 tỉnh thành sẵn sàng phục vụ quý khách gửi và nhận bưu phẩm.</p>
                         </div>
                     </div>
-
                     <div class="flex items-center space-x-3 self-start md:self-center flex-shrink-0">
                         <div class="px-4 py-2.5 rounded-2xl bg-white border border-teal-200/80 shadow-xs text-center min-w-[110px] flex-shrink-0">
                             <span class="text-[10.5px] uppercase font-bold text-slate-400 block tracking-wider whitespace-nowrap">Độ Phủ</span>
@@ -286,7 +252,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
                     <div class="lg:col-span-5 space-y-3">
                         <div class="bg-white border border-slate-200 rounded-xl p-3 sm:p-3.5 shadow-sm space-y-2.5">
@@ -300,7 +265,6 @@
                                 />
                                 <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                             </div>
-
                             <div class="grid grid-cols-2 gap-2">
                                 <div>
                                     <label class="block text-[11px] font-bold text-slate-600 mb-1">Tỉnh / Thành</label>
@@ -319,14 +283,12 @@
                                 </div>
                             </div>
                         </div>
-
                         <div class="flex items-center justify-between px-1">
                             <span class="text-xs font-extrabold uppercase tracking-wider text-slate-500">
                                 Danh Sách Bưu Cục (<span class="text-blue-600 font-mono">{{ filteredOffices.length }}</span>)
                             </span>
                             <span class="text-[11px] text-slate-400">Click để định vị bản đồ</span>
                         </div>
-
                         <div class="space-y-2 max-h-[520px] overflow-y-auto pr-1 custom-scrollbar">
                             <div 
                                 v-if="filteredOffices.length === 0" 
@@ -334,7 +296,6 @@
                             >
                                 Không tìm thấy bưu cục nào phù hợp.
                             </div>
-
                             <div 
                                 v-for="item in filteredOffices" 
                                 :key="item.code"
@@ -360,12 +321,10 @@
                                         {{ item.hours }}
                                     </span>
                                 </div>
-
                                 <div>
                                     <h4 class="font-bold text-xs text-slate-900">{{ item.name }}</h4>
                                     <p class="text-[11px] text-slate-500 mt-0.5 leading-snug line-clamp-2">{{ item.address }}</p>
                                 </div>
-
                                 <div class="pt-1.5 border-t border-slate-100 flex items-center justify-between text-xs">
                                     <span class="text-[11px] text-slate-500">
                                         Hotline: <strong class="text-slate-700 font-mono">{{ item.phone }}</strong>
@@ -381,7 +340,6 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-2.5 shadow-sm space-y-2">
                         <div class="flex items-center justify-between px-2 pt-1">
                             <div class="flex items-center space-x-2 text-xs font-bold text-slate-800">
@@ -405,9 +363,7 @@
                                 </button>
                             </div>
                         </div>
-
                         <div id="network-leaflet-map" class="w-full h-[560px] rounded-lg overflow-hidden border border-slate-200 z-10"></div>
-
                         <div class="flex flex-wrap items-center justify-between text-[11px] text-slate-500 px-2 pt-1 border-t border-slate-100 gap-2">
                             <div class="flex items-center space-x-4">
                                 <span class="flex items-center space-x-1.5">
@@ -423,20 +379,17 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                     <div class="bg-white border border-slate-200 border-l-4 border-l-blue-600 rounded-xl p-3.5 shadow-sm space-y-1">
                         <div class="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Hạ Tầng Vận Tải</div>
                         <h4 class="font-bold text-slate-800 text-xs">Trục Bắc - Nam Chuyên Tuyến</h4>
                         <p class="text-[11.5px] text-slate-500 leading-relaxed">Đội xe tải thùng kín chuyên dụng luân chuyển liên tục giữa các Super Hub, bảo đảm tốc độ 12 - 24 giờ.</p>
                     </div>
-
                     <div class="bg-white border border-slate-200 border-l-4 border-l-emerald-600 rounded-xl p-3.5 shadow-sm space-y-1">
                         <div class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Công Nghệ Khai Thác</div>
                         <h4 class="font-bold text-slate-800 text-xs">Chia Chọn Tự Động Tốc Độ Cao</h4>
                         <p class="text-[11.5px] text-slate-500 leading-relaxed">Băng tải tự động đọc barcode phân luồng bưu kiện với công suất 50.000 kiện/giờ, hạn chế tối đa thất lạc.</p>
                     </div>
-
                     <div class="bg-white border border-slate-200 border-l-4 border-l-indigo-600 rounded-xl p-3.5 shadow-sm space-y-1">
                         <div class="text-[10px] font-bold text-indigo-600 uppercase tracking-wider">Mạng Lưới Chặng Cuối</div>
                         <h4 class="font-bold text-slate-800 text-xs">Bưu Tá Giao Tận Tay Phủ Kín</h4>
@@ -446,6 +399,5 @@
             </div>
         `
     };
-
     window.NetworkView = NetworkView;
 })();

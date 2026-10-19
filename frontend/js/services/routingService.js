@@ -1,7 +1,6 @@
 (function () {
     const encodePath = (value) => encodeURIComponent(String(value ?? ''));
-
-    // Mỗi lần tác nghiệp có một operationId để backend xử lý idempotent khi retry.
+    
     const createOperationId = (prefix = 'operation') => {
         if (typeof window !== 'undefined'
             && window.Utils
@@ -15,7 +14,6 @@
         }
         return `${safePrefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
     };
-
     const ensureOperationId = (payload, prefix = 'operation') => {
         const result = payload && typeof payload === 'object' ? { ...payload } : {};
         if (!result.operationId || !String(result.operationId).trim()) {
@@ -23,7 +21,6 @@
         }
         return result;
     };
-
     const normalizeInventoryRequest = (requestData, extra = {}, prefix = 'inventory') => {
         let payload;
         if (Array.isArray(requestData)) {
@@ -38,7 +35,6 @@
         }
         return ensureOperationId(payload, prefix);
     };
-
     const normalizeHandoffRequest = (requestData, courierId, extra = {}) => {
         let payload;
         if (typeof requestData === 'string') {
@@ -61,7 +57,6 @@
         }
         return ensureOperationId(payload, 'handoff');
     };
-
     const normalizeProgressRequest = (requestData, progressPercent, latitude, longitude, note, operationId) => {
         let payload;
         if (requestData && typeof requestData === 'object' && !Array.isArray(requestData)) {
@@ -73,7 +68,6 @@
         } else {
             payload = {};
         }
-
         const positionalValues = {
             progressPercent,
             latitude,
@@ -88,13 +82,11 @@
         });
         return ensureOperationId(payload, 'trip-progress');
     };
-
     const isSuccessfulResponse = (response) => {
         if (!response) return false;
         if (response.ok === false) return false;
         return !(typeof response.status === 'number' && response.status >= 400);
     };
-
     const parseResponse = async (response, fallbackMessage = 'Yêu cầu định tuyến không thành công') => {
         if (!isSuccessfulResponse(response)) {
             if (typeof Api !== 'undefined' && typeof Api.parseError === 'function') {
@@ -110,88 +102,72 @@
         if (typeof response.json !== 'function') return response;
         return response.json();
     };
-
     const RoutingService = {
         createOperationId,
         ensureOperationId,
         parseResponse,
-
         async getAllHubs() {
             const response = await Api.get('/api/routing/hubs');
             return parseResponse(response, 'Không thể tải danh sách hub');
         },
-
         async getAllTrips() {
             const response = await Api.get('/api/routing/trips');
             return parseResponse(response, 'Không thể tải danh sách chuyến xe');
         },
-
         async getTripDetail(tripId) {
             const response = await Api.get(`/api/routing/trips/${encodePath(tripId)}`);
             return parseResponse(response, 'Không thể tải chi tiết chuyến xe');
         },
-
         async getAssignment(trackingCode) {
             const response = await Api.get(
                 `/api/routing/shipments/${encodePath(trackingCode)}/assignment`
             );
             return parseResponse(response, 'Không thể tải phân tuyến bưu gửi');
         },
-
         async createTrip(tripData) {
             const response = await Api.post('/api/routing/trips', tripData);
             return parseResponse(response, 'Lỗi khi khởi tạo chuyến xe');
         },
-
         async autoConsolidate(tripId, requestData = null) {
-            // Keep the no-argument automatic mode as an empty request body. The
-            // backend uses the absence of selected items to enforce its cutoff rule.
+            
             const response = await Api.post(
                 `/api/routing/trips/${encodePath(tripId)}/consolidate`,
                 requestData
             );
             return parseResponse(response, 'Lỗi khi gom đơn lên chuyến xe');
         },
-
         async removeManifestItem(tripId, trackingCode) {
             const response = await Api.post(
                 `/api/routing/trips/${encodePath(tripId)}/remove-item?trackingCode=${encodePath(trackingCode)}`
             );
             return parseResponse(response, 'Lỗi khi gỡ kiện hàng khỏi chuyến xe');
         },
-
         async departTrip(tripId) {
             const response = await Api.post(`/api/routing/trips/${encodePath(tripId)}/depart`);
             return parseResponse(response, 'Lỗi khi xuất bến chuyến xe');
         },
-
         async arriveAtStop(tripId, hubCode) {
             const response = await Api.post(
                 `/api/routing/trips/${encodePath(tripId)}/arrive?hubCode=${encodePath(hubCode)}`
             );
             return parseResponse(response, 'Lỗi khi cập bến trạm dừng');
         },
-
         async consolidateAllTrips() {
             const response = await Api.post('/api/routing/trips/consolidate-all');
             return parseResponse(response, 'Lỗi khi kích hoạt gom đơn tự động toàn hệ thống');
         },
-
         async getSchedulerConfig() {
             const response = await Api.get('/api/routing/scheduler/config');
             return parseResponse(response, 'Không thể tải cấu hình bộ lập lịch');
         },
-
         async updateSchedulerConfig(configData) {
             const response = await Api.post('/api/routing/scheduler/config', configData);
             return parseResponse(response, 'Không thể cập nhật cấu hình bộ lập lịch');
         },
-
         async getEligibleAssignments(tripId) {
             const response = await Api.get(`/api/routing/trips/${encodePath(tripId)}/eligible-assignments`);
             return parseResponse(response, 'Không thể tải danh sách đơn chờ khả dụng');
         },
-
         async receiveAtLocation(locationCode, requestData = {}, extra = {}) {
             const payload = normalizeInventoryRequest(requestData, extra, 'receive');
             const response = await Api.post(
@@ -200,7 +176,6 @@
             );
             return parseResponse(response, 'Không thể tiếp nhận bưu gửi tại địa điểm');
         },
-
         async storeAtLocation(locationCode, requestData = {}, extra = {}) {
             const payload = normalizeInventoryRequest(requestData, extra, 'store');
             const response = await Api.post(
@@ -209,7 +184,6 @@
             );
             return parseResponse(response, 'Không thể nhập kho bưu gửi tại địa điểm');
         },
-
         async handoffToCourier(locationCode, requestData = {}, courierId = null, extra = {}) {
             const payload = normalizeHandoffRequest(requestData, courierId, extra);
             const response = await Api.post(
@@ -218,7 +192,6 @@
             );
             return parseResponse(response, 'Không thể bàn giao bưu gửi cho bưu tá');
         },
-
         async getInventory(locationCode, inventoryStatus = null) {
             const normalizedLocation = String(locationCode ?? '').trim();
             if (!normalizedLocation || normalizedLocation.toUpperCase() === 'ALL') {
@@ -235,14 +208,12 @@
             );
             return parseResponse(response, 'Không thể tải tồn kho tại địa điểm');
         },
-
         async getOperationHistory(trackingCode) {
             const response = await Api.get(
                 `/api/routing/shipments/${encodePath(trackingCode)}/operations`
             );
             return parseResponse(response, 'Không thể tải lịch sử tác nghiệp của bưu gửi');
         },
-
         async updateTripProgress(
             tripId,
             requestData = {},
@@ -266,12 +237,10 @@
             );
             return parseResponse(response, 'Không thể cập nhật tiến độ chuyến xe');
         },
-
         async calculateEta(payload) {
             const response = await Api.post('/api/routing/eta/calculate', payload);
             return parseResponse(response, 'Không thể tính toán thời gian giao dự kiến');
         },
-
         async getVehicles(params = {}) {
             const query = new URLSearchParams();
             if (params.hub && params.hub !== 'ALL') query.append('hub', params.hub);
@@ -281,45 +250,37 @@
             const response = await Api.get(`/api/routing/vehicles${qs}`);
             return parseResponse(response, 'Không thể tải danh sách phương tiện vận tải');
         },
-
         async getAvailableVehiclesAtHub(hub) {
             const response = await Api.get(`/api/routing/vehicles/available?hub=${encodePath(hub)}`);
             return parseResponse(response, 'Không thể tải danh sách xe khả dụng tại trạm');
         },
-
         async createVehicle(payload) {
             const response = await Api.post('/api/routing/vehicles', payload);
             return parseResponse(response, 'Không thể thêm phương tiện vận tải');
         },
-
         async updateVehicle(id, payload) {
             const response = await Api.put(`/api/routing/vehicles/${encodePath(id)}`, payload);
             return parseResponse(response, 'Không thể cập nhật thông tin phương tiện');
         },
-
         async updateVehicleStatus(id, status) {
             const response = await Api.patch(`/api/routing/vehicles/${encodePath(id)}/status?status=${encodePath(status)}`);
             return parseResponse(response, 'Không thể cập nhật trạng thái phương tiện');
         },
-
         async getStationForecast(stationCode, date) {
             const query = date ? `?date=${encodeURIComponent(date)}` : '';
             const response = await Api.get(`/api/routing/forecast/station/${encodePath(stationCode)}${query}`);
             return parseResponse(response, 'Không thể tải số liệu dự báo ca ngày mai');
         },
-
         async getShipperForecast(courierCode, date) {
             const query = date ? `?date=${encodeURIComponent(date)}` : '';
             const response = await Api.get(`/api/routing/forecast/shipper/${encodePath(courierCode)}${query}`);
             return parseResponse(response, 'Không thể tải dự báo ca phát của bưu tá');
         },
-
         async dispatchStationTelegramForecast(stationCode, date) {
             const query = date ? `?date=${encodeURIComponent(date)}` : '';
             const response = await Api.post(`/api/routing/forecast/station/${encodePath(stationCode)}/dispatch-telegram${query}`, {});
             return parseResponse(response, 'Không thể phát thông báo Telegram dự báo ca mai');
         }
     };
-
     window.RoutingService = RoutingService;
 })();

@@ -1,8 +1,6 @@
 (function () {
     const { ref, onMounted } = Vue;
-
     const STORAGE_KEY = 'vnpt_waybill_recent_searches';
-
     const template = `
     <div v-if="recentCodes.length > 0" class="flex flex-wrap items-center gap-1.5 pt-2 text-xs">
         <span class="text-slate-400 text-[11px] font-semibold flex items-center space-x-1">
@@ -11,7 +9,6 @@
             </svg>
             <span>Gần đây:</span>
         </span>
-
         <button 
             v-for="code in recentCodes" 
             :key="code"
@@ -22,7 +19,6 @@
             <span>{{ code }}</span>
             <span @click.stop="removeCode(code)" class="text-slate-400 group-hover:text-rose-500 hover:scale-110 ml-0.5" title="Xóa mã này">&times;</span>
         </button>
-
         <button 
             v-if="recentCodes.length > 2"
             type="button" 
@@ -33,14 +29,12 @@
         </button>
     </div>
     `;
-
     const TrackingRecentSearches = {
         name: 'TrackingRecentSearches',
         template,
         emits: ['select-code'],
         setup(props, { emit }) {
             const recentCodes = ref([]);
-
             const loadRecentCodes = () => {
                 try {
                     const raw = localStorage.getItem(STORAGE_KEY);
@@ -49,7 +43,6 @@
                     recentCodes.value = [];
                 }
             };
-
             const addCode = (code) => {
                 if (!code || typeof code !== 'string') return;
                 const clean = code.trim().toUpperCase();
@@ -62,25 +55,21 @@
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
                 } catch {}
             };
-
             const removeCode = (code) => {
                 recentCodes.value = recentCodes.value.filter(c => c !== code);
                 try {
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(recentCodes.value));
                 } catch {}
             };
-
             const clearAll = () => {
                 recentCodes.value = [];
                 try {
                     localStorage.removeItem(STORAGE_KEY);
                 } catch {}
             };
-
             onMounted(() => {
                 loadRecentCodes();
             });
-
             return {
                 recentCodes,
                 addCode,
@@ -89,6 +78,5 @@
             };
         }
     };
-
     window.TrackingRecentSearches = TrackingRecentSearches;
 })();
