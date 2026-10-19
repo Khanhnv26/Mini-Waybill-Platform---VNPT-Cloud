@@ -35,8 +35,7 @@ function sendFile(req, res, filePath, stats) {
             : versioned ? 'public, max-age=31536000, immutable' : 'public, max-age=0, must-revalidate',
         'ETag': etag,
         'Vary': 'Accept-Encoding',
-        'X-Content-Type-Options': 'nosniff',
-        'Cross-Origin-Opener-Policy': 'same-origin-allow-popups'
+        'X-Content-Type-Options': 'nosniff'
     };
     if (!isHtml && req.headers['if-none-match'] === etag) {
         res.writeHead(304, headers); res.end(); return;

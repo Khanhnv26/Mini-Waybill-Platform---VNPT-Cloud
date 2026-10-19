@@ -285,36 +285,37 @@
                             <h1 class="text-base sm:text-lg font-bold tracking-tight mt-1 text-white">
                                 Quản Lý Đội Phương Tiện &amp; Điều Phối Đội Xe
                             </h1>
-                            <p class="text-xs text-blue-100/90 mt-0.5 leading-normal max-w-2xl">
-                                Quản lý tập trung toàn bộ phương tiện vận tải đường trục và xe gom Feeder. Tự động liên kết trực tiếp với thuật toán tính thời gian giao hàng (ETA), tự động kích hoạt cảnh báo dời ETA (+12h) khi HUB xuất phát hết xe sẵn sàng.
+                            <p class="text-[11px] sm:text-xs text-blue-100/90 mt-0.5 leading-normal max-w-2xl">
+                                Quản lý tập trung toàn bộ phương tiện vận tải đường trục và xe gom Feeder.
+                                <span class="hidden sm:inline"> Tự động liên kết trực tiếp với thuật toán tính thời gian giao hàng (ETA), tự động kích hoạt cảnh báo dời ETA (+12h) khi HUB xuất phát hết xe sẵn sàng.</span>
                             </p>
                         </div>
-                        <div class="flex items-center space-x-2 self-start md:self-auto flex-wrap sm:flex-nowrap gap-y-2">
-                            <div class="px-3 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[74px]">
-                                <div class="text-base font-extrabold leading-tight text-white font-mono">{{ kpiStats.total }}</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Tổng Xe</div>
+                        <div class="grid grid-cols-3 sm:flex sm:items-center gap-1.5 sm:gap-2 self-start md:self-auto w-full md:w-auto">
+                            <div class="px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[64px] sm:min-w-[74px]">
+                                <div class="text-sm sm:text-base font-extrabold leading-tight text-white font-mono">{{ kpiStats.total }}</div>
+                                <div class="text-[9px] sm:text-[10px] text-blue-100 font-medium uppercase mt-0.5 whitespace-nowrap">Tổng Xe</div>
                             </div>
-                            <div class="px-3 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[74px]">
-                                <div class="text-base font-extrabold leading-tight text-emerald-300 font-mono">{{ kpiStats.available }}</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Sẵn Sàng</div>
+                            <div class="px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[64px] sm:min-w-[74px]">
+                                <div class="text-sm sm:text-base font-extrabold leading-tight text-emerald-300 font-mono">{{ kpiStats.available }}</div>
+                                <div class="text-[9px] sm:text-[10px] text-blue-100 font-medium uppercase mt-0.5 whitespace-nowrap">Sẵn Sàng</div>
                             </div>
-                            <div class="px-3 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[74px]">
-                                <div class="text-base font-extrabold leading-tight text-sky-200 font-mono">{{ kpiStats.onTrip }}</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Chạy Tuyến</div>
+                            <div class="px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[64px] sm:min-w-[74px]">
+                                <div class="text-sm sm:text-base font-extrabold leading-tight text-sky-200 font-mono">{{ kpiStats.onTrip }}</div>
+                                <div class="text-[9px] sm:text-[10px] text-blue-100 font-medium uppercase mt-0.5 whitespace-nowrap">Chạy Tuyến</div>
                             </div>
-                            <div class="px-3 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[74px]">
-                                <div class="text-base font-extrabold leading-tight text-amber-300 font-mono">{{ kpiStats.maintenance }}</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Bảo Dưỡng</div>
+                            <div class="px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[64px] sm:min-w-[74px]">
+                                <div class="text-sm sm:text-base font-extrabold leading-tight text-amber-300 font-mono">{{ kpiStats.maintenance }}</div>
+                                <div class="text-[9px] sm:text-[10px] text-blue-100 font-medium uppercase mt-0.5 whitespace-nowrap">Bảo Dưỡng</div>
                             </div>
-                            <div class="px-3 py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[74px]">
-                                <div class="text-base font-extrabold leading-tight text-slate-300 font-mono">{{ kpiStats.disabled }}</div>
-                                <div class="text-[10px] text-blue-100 font-medium uppercase mt-0.5">Đã Khóa</div>
+                            <div class="px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/15 text-center min-w-[64px] sm:min-w-[74px]">
+                                <div class="text-sm sm:text-base font-extrabold leading-tight text-slate-300 font-mono">{{ kpiStats.disabled }}</div>
+                                <div class="text-[9px] sm:text-[10px] text-blue-100 font-medium uppercase mt-0.5 whitespace-nowrap">Đã Khóa</div>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                    <div class="flex flex-wrap items-center gap-2 flex-1">
+                    <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 flex-1">
                         <div class="relative w-full sm:w-64">
                             <input 
                                 v-model="searchQuery" 
@@ -326,40 +327,42 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                             </svg>
                         </div>
-                        <select 
-                            v-model="hubFilter" 
-                            @change="loadVehicles" 
-                            class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white outline-none cursor-pointer"
-                        >
-                            <option value="ALL">Tất cả HUB / Bưu cục</option>
-                            <option v-for="h in hubs" :key="h.code" :value="h.code">{{ h.label }}</option>
-                        </select>
-                        <select 
-                            v-model="statusFilter" 
-                            @change="loadVehicles" 
-                            class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white outline-none cursor-pointer"
-                        >
-                            <option value="ALL">Tất cả trạng thái</option>
-                            <option value="AVAILABLE">AVAILABLE - Sẵn sàng</option>
-                            <option value="ON_TRIP">ON_TRIP - Chạy tuyến</option>
-                            <option value="MAINTENANCE">MAINTENANCE - Bảo dưỡng</option>
-                            <option value="DISABLED">DISABLED - Vô hiệu hóa</option>
-                        </select>
-                        <select 
-                            v-model="typeFilter" 
-                            @change="loadVehicles" 
-                            class="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white outline-none cursor-pointer"
-                        >
-                            <option value="ALL">Tất cả phân loại xe</option>
-                            <option v-for="t in vehicleTypes" :key="t.code" :value="t.code">{{ t.label }}</option>
-                        </select>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+                            <select 
+                                v-model="hubFilter" 
+                                @change="loadVehicles" 
+                                class="w-full sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white outline-none cursor-pointer"
+                            >
+                                <option value="ALL">Tất cả HUB / Bưu cục</option>
+                                <option v-for="h in hubs" :key="h.code" :value="h.code">{{ h.label }}</option>
+                            </select>
+                            <select 
+                                v-model="statusFilter" 
+                                @change="loadVehicles" 
+                                class="w-full sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white outline-none cursor-pointer"
+                            >
+                                <option value="ALL">Tất cả trạng thái</option>
+                                <option value="AVAILABLE">AVAILABLE - Sẵn sàng</option>
+                                <option value="ON_TRIP">ON_TRIP - Chạy tuyến</option>
+                                <option value="MAINTENANCE">MAINTENANCE - Bảo dưỡng</option>
+                                <option value="DISABLED">DISABLED - Vô hiệu hóa</option>
+                            </select>
+                            <select 
+                                v-model="typeFilter" 
+                                @change="loadVehicles" 
+                                class="w-full sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:bg-white outline-none cursor-pointer"
+                            >
+                                <option value="ALL">Tất cả phân loại xe</option>
+                                <option v-for="t in vehicleTypes" :key="t.code" :value="t.code">{{ t.label }}</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
                         <button 
                             type="button"
                             @click="loadVehicles" 
                             :disabled="isLoading"
-                            class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs transition border border-slate-200 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                            class="flex-1 sm:flex-none justify-center px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs transition border border-slate-200 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                         >
                             <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': isLoading }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -369,7 +372,7 @@
                         <button 
                             type="button"
                             @click="openAddModal" 
-                            class="px-3.5 py-1.5 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-lg text-xs transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                            class="flex-1 sm:flex-none justify-center px-3.5 py-1.5 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-lg text-xs transition shadow-xs flex items-center gap-1.5 cursor-pointer"
                         >
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>

@@ -1557,13 +1557,13 @@
                     </div>
                 </div>
                 
-                <div class="bg-white/95 dark:bg-[#131e3a]/95 backdrop-blur-md text-slate-700 dark:text-slate-300 rounded-2xl shadow-xs border border-slate-200/90 dark:border-slate-800 p-1.5 flex flex-wrap items-center justify-between gap-2.5 transition-all duration-300">
-                    <div class="bg-slate-100/90 dark:bg-slate-900/80 p-1 rounded-xl border border-slate-200/70 dark:border-slate-800 inline-flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 max-w-full">
+                <div class="bg-white/95 dark:bg-[#131e3a]/95 backdrop-blur-md text-slate-700 dark:text-slate-300 rounded-2xl shadow-xs border border-slate-200/90 dark:border-slate-800 p-1.5 flex items-center justify-between gap-2 transition-all duration-300">
+                    <div class="flex-1 min-w-0 bg-slate-100/90 dark:bg-slate-900/80 p-1 rounded-xl border border-slate-200/70 dark:border-slate-800 flex items-center space-x-1 overflow-x-auto no-scrollbar py-0.5 scroll-smooth">
                         <button
                             type="button"
                             @click="switchSubtab('create')"
                             :class="[
-                                'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                                'shrink-0 whitespace-nowrap px-2.5 sm:px-3.5 py-1.5 rounded-lg flex items-center space-x-1.5 sm:space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                                 currentSubtab === 'create'
                                     ? 'bg-white dark:bg-[#19264c] text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-slate-200/80 dark:ring-blue-500/30 font-bold'
                                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/80 font-semibold'
@@ -1572,14 +1572,14 @@
                             <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'create' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
                             </svg>
-                            <span class="truncate">Tạo Bưu Gửi</span>
+                            <span>Tạo Bưu Gửi</span>
                         </button>
                         
                         <button
                             type="button"
                             @click="switchSubtab('list')"
                             :class="[
-                                'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                                'shrink-0 whitespace-nowrap px-2.5 sm:px-3.5 py-1.5 rounded-lg flex items-center space-x-1.5 sm:space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                                 currentSubtab === 'list'
                                     ? 'bg-white dark:bg-[#19264c] text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-slate-200/80 dark:ring-blue-500/30 font-bold'
                                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/80 font-semibold'
@@ -1588,7 +1588,7 @@
                             <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'list' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                             </svg>
-                            <span class="truncate">Danh Sách</span>
+                            <span>Danh Sách</span>
                             <span class="subtab-counter" :class="currentSubtab === 'list' ? 'subtab-counter-blue' : 'subtab-counter-slate'">
                                 {{ shipmentsList.length }}
                             </span>
@@ -1598,7 +1598,7 @@
                             type="button"
                             @click="switchSubtab('need_action')"
                             :class="[
-                                'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                                'shrink-0 whitespace-nowrap px-2.5 sm:px-3.5 py-1.5 rounded-lg flex items-center space-x-1.5 sm:space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                                 currentSubtab === 'need_action'
                                     ? 'bg-white dark:bg-[#19264c] text-rose-700 dark:text-rose-400 shadow-sm ring-1 ring-slate-200/80 dark:ring-rose-500/30 font-bold'
                                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/80 font-semibold'
@@ -1607,7 +1607,7 @@
                             <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'need_action' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
-                            <span class="truncate">Cần Xử Lý</span>
+                            <span>Cần Xử Lý</span>
                             <span
                                 class="subtab-counter"
                                 :class="currentSubtab === 'need_action' ? 'subtab-counter-rose' : (pendingDecisions.length > 0 ? 'subtab-counter-rose' : 'subtab-counter-slate')"
@@ -1620,7 +1620,7 @@
                             type="button"
                             @click="switchSubtab('returns')"
                             :class="[
-                                'px-3.5 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
+                                'shrink-0 whitespace-nowrap px-2.5 sm:px-3.5 py-1.5 rounded-lg flex items-center space-x-1.5 sm:space-x-2 transition-all duration-200 ease-out cursor-pointer text-xs select-none active:scale-95 group',
                                 currentSubtab === 'returns'
                                     ? 'bg-white dark:bg-[#19264c] text-amber-700 dark:text-amber-400 shadow-sm ring-1 ring-slate-200/80 dark:ring-amber-500/30 font-bold'
                                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-800/80 font-semibold'
@@ -1629,7 +1629,7 @@
                             <svg class="w-4 h-4 transition-colors shrink-0" :class="currentSubtab === 'returns' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
                             </svg>
-                            <span class="truncate">Đơn Hoàn</span>
+                            <span>Đơn Hoàn</span>
                             <span class="subtab-counter" :class="currentSubtab === 'returns' ? 'subtab-counter-amber' : 'subtab-counter-slate'">
                                 {{ returnRequestsList.length }}
                             </span>
