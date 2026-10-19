@@ -38,3 +38,21 @@ test('a failed module load can be retried instead of caching a rejection', async
     assert.ok(await load());
     assert.equal(attempt, 2);
 });
+
+test('app.js avoids loadingComponent in defineAsyncComponent inside Transition+KeepAlive and versions view imports', () => {
+    const appSource = fs.readFileSync(require.resolve('../js/app.js'), 'utf8');
+    const asyncBlockStart = appSource.indexOf('const viewLoaders = {');
+    assert.ok(asyncBlockStart !== -1, 'app.js defines viewLoaders');
+    const asyncBlock = appSource.slice(asyncBlockStart);
+    assert.doesNotMatch(
+        asyncBlock,
+        /defineAsyncComponent\s*\(\s*\{[^}]*loadingComponent/,
+        'defineAsyncComponent must not mount a loadingComponent element inside Transition+KeepAlive'
+    );
+    const dynamicImports = [...asyncBlock.matchAll(/import\(['"]([^'"]+)['"]\)/g)].map(m => m[1]);
+    assert.ok(dynamicImports.length >= 22, 'all lazy views and subcomponents are dynamically imported');
+    for (const spec of dynamicImports) {
+        assert.match(spec, /\?v=/, `dynamic import ${spec} should include version query for immutable caching`);
+    }
+});
+

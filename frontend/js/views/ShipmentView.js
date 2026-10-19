@@ -628,10 +628,10 @@
                             : Promise.resolve([])
                     ]);
                     if (requestVersion !== shipmentRequestVersion) return;
-                    shipmentsList.value = Array.isArray(data.content) ? data.content : [];
-                    serverTotalPages.value = Math.max(1, data.totalPages);
-                    serverTotalElements.value = data.totalElements;
-                    serverStats.value = data.stats;
+                    shipmentsList.value = Array.isArray(data?.content) ? data.content : [];
+                    serverTotalPages.value = Math.max(1, Number(data?.totalPages) || 1);
+                    serverTotalElements.value = Number(data?.totalElements) || 0;
+                    serverStats.value = data?.stats || { total: 0, pending: 0, inTransit: 0, delivered: 0, totalCod: 0 };
                     if (Array.isArray(paidList)) {
                         paidTrackingCodes.value = new Set([...paidTrackingCodes.value, ...paidList]);
                     }
