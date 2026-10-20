@@ -13,7 +13,6 @@
             const currentSubtab = ref('create');
             const isDockCollapsed = ref(false);
             const showThermalPrintModal = ref(false);
-            const showFeeDetailModal = ref(false);
             const selectedShipmentForPrint = ref(null);
             const openThermalPrint = (shipment) => {
                 selectedShipmentForPrint.value = shipment;
@@ -1392,7 +1391,6 @@
                 codFee,
                 fuelSurcharge,
                 totalEstimatedFee,
-                showFeeDetailModal,
                 setWeight,
                 setCodAmount,
                 setServiceType,
@@ -1658,7 +1656,7 @@
                     </div>
                 </div>
                 <transition name="subtab" mode="out-in">
-                    <div v-if="currentSubtab === 'create'" key="create" class="space-y-3 pb-36 lg:pb-0">
+                    <div v-if="currentSubtab === 'create'" key="create" class="space-y-3 pb-24 lg:pb-8">
                     <div v-if="isShopOwner && myProfile && (!myProfile.phoneNumber || !myProfile.address)" class="p-3 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-900 shadow-sm">
                         <div class="flex items-center space-x-2">
                             <span class="font-bold">Lưu ý:</span>
@@ -2172,73 +2170,78 @@
                             </div>
                         </div>
                         <div class="space-y-4">
-                            <div class="b2b-card bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm space-y-4">
-                                <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                            <div class="b2b-card bg-white dark:bg-[#131e3a] border border-blue-200 dark:border-blue-900/60 rounded-xl p-4 sm:p-5 shadow-sm space-y-4 ring-1 ring-blue-500/10">
+                                <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
                                     <div class="flex items-center space-x-2">
-                                        <span class="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
-                                            Biên Nhận Tạm Tính
+                                        <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                                        <span class="text-xs font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-wider">
+                                            5. Biên Nhận Tạm Tính &amp; Hoàn Tất
                                         </span>
                                     </div>
-                                    <span class="text-[10px] font-mono text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                    <span class="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
                                         LIVE RATE
                                     </span>
                                 </div>
                                 <div class="space-y-2 text-xs">
-                                    <div class="flex justify-between py-1 border-b border-slate-50">
-                                        <span class="text-slate-500">Cước chính ({{ form.weight }} kg):</span>
-                                        <span class="font-mono font-bold text-slate-800">{{ Utils.formatCurrency(baseFee) }}</span>
+                                    <div class="flex justify-between py-1 border-b border-slate-50 dark:border-slate-800/60">
+                                        <span class="text-slate-500 dark:text-slate-400">Cước chính ({{ form.weight }} kg):</span>
+                                        <span class="font-mono font-bold text-slate-800 dark:text-slate-200">{{ Utils.formatCurrency(baseFee) }}</span>
                                     </div>
-                                    <div class="flex justify-between py-1 border-b border-slate-50">
-                                        <span class="text-slate-500">Phí thu hộ COD (1%):</span>
-                                        <span class="font-mono font-bold" :class="codFee > 0 ? 'text-emerald-700' : 'text-slate-400'">
+                                    <div class="flex justify-between py-1 border-b border-slate-50 dark:border-slate-800/60">
+                                        <span class="text-slate-500 dark:text-slate-400">Phí thu hộ COD (1%):</span>
+                                        <span class="font-mono font-bold" :class="codFee > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'">
                                             {{ codFee > 0 ? Utils.formatCurrency(codFee) : '0 VNĐ (Miễn phí)' }}
                                         </span>
                                     </div>
-                                    <div class="flex justify-between py-1 border-b border-slate-50">
-                                        <span class="text-slate-500">Phụ phí xăng dầu &amp; an ninh:</span>
-                                        <span class="font-mono font-bold text-slate-800">{{ Utils.formatCurrency(fuelSurcharge) }}</span>
+                                    <div class="flex justify-between py-1 border-b border-slate-50 dark:border-slate-800/60">
+                                        <span class="text-slate-500 dark:text-slate-400">Phụ phí xăng dầu &amp; an ninh:</span>
+                                        <span class="font-mono font-bold text-slate-800 dark:text-slate-200">{{ Utils.formatCurrency(fuelSurcharge) }}</span>
                                     </div>
                                     <div class="pt-2 flex items-baseline justify-between">
                                         <div>
-                                            <div class="text-[11px] font-bold text-slate-600 uppercase">Tổng Cước Ước Tính:</div>
-                                            <div class="text-[10px] text-slate-400">Đã bao gồm thuế GTGT</div>
+                                            <div class="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase">Tổng Cước Ước Tính:</div>
+                                            <div class="text-[10px] text-slate-400">Đã bao gồm thuế GTGT (VAT)</div>
                                         </div>
-                                        <div class="text-lg font-black font-mono text-blue-700">
+                                        <div class="text-xl font-black font-mono text-blue-700 dark:text-blue-300">
                                             {{ Utils.formatCurrency(totalEstimatedFee) }}
                                         </div>
                                     </div>
+                                    <div class="p-2.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 text-[11px] text-blue-800 dark:text-blue-300 flex items-center justify-between">
+                                        <span>Người trả cước:</span>
+                                        <strong class="font-bold">{{ form.payer === 'SENDER' ? 'Người gửi thanh toán' : 'Người nhận trả khi nhận' }}</strong>
+                                    </div>
                                 </div>
-                                <div class="pt-2 border-t border-slate-100 space-y-2">
-                                    <div class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                <div class="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                                    <div class="text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
                                         Tuyến Luân Chuyển Dự Kiến
                                     </div>
-                                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-2 font-medium">
-                                        <div class="flex items-center space-x-2 text-slate-700">
-                                            <span class="w-2 h-2 rounded-full bg-slate-800"></span>
+                                    <div class="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs space-y-2 font-medium">
+                                        <div class="flex items-center space-x-2 text-slate-700 dark:text-slate-200">
+                                            <span class="w-2 h-2 rounded-full bg-slate-800 dark:bg-slate-300"></span>
                                             <span class="truncate font-semibold">{{ senderHubName }}</span>
                                         </div>
-                                        <div class="border-l-2 border-dashed border-blue-400 ml-1 pl-3 text-[10px] font-mono text-blue-600 py-0.5">
+                                        <div class="border-l-2 border-dashed border-blue-400 ml-1 pl-3 text-[10px] font-mono text-blue-600 dark:text-blue-400 py-0.5">
                                             {{ form.serviceType === 'EXPRESS' ? 'Chuyển phát Hỏa Tốc (~24h)' : 'Chuyển phát Đường Bộ (~48-72h)' }}
                                         </div>
-                                        <div class="flex items-center space-x-2 text-blue-700">
+                                        <div class="flex items-center space-x-2 text-blue-700 dark:text-blue-300">
                                             <span class="w-2 h-2 rounded-full bg-blue-600"></span>
                                             <span class="truncate font-semibold">{{ receiverHubName }}</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="pt-2 space-y-2">
+                                <div class="pt-2 space-y-2.5">
                                     <button 
                                         type="submit" 
                                         :disabled="isSubmitting"
-                                        class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 shadow-md shadow-blue-500/20 flex items-center justify-center space-x-2"
+                                        class="w-full min-h-[48px] py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider transition-all disabled:opacity-50 shadow-md shadow-blue-500/25 flex items-center justify-center space-x-2 cursor-pointer active:scale-[0.99]"
                                     >
-                                        <span v-if="isSubmitting" class="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></span>
+                                        <span v-if="isSubmitting" class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
                                         <span>{{ isSubmitting ? 'Đang Định Tuyến Bưu Cục...' : 'Xác Nhận & Xuất Vận Đơn' }}</span>
                                     </button>
                                     <button 
                                         type="button" 
                                         @click="resetForm" 
-                                        class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition text-center"
+                                        class="w-full py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-semibold transition text-center cursor-pointer"
                                     >
                                         Đặt Lại Biểu Mẫu
                                     </button>
@@ -2253,73 +2256,7 @@
                                 </p>
                             </div>
                         </div>
-                        
-                        <div class="lg:hidden fixed bottom-16 left-0 right-0 z-30 bg-white/95 dark:bg-[#131e3a]/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-4 py-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] flex items-center justify-between gap-3 select-none">
-                            <div @click="showFeeDetailModal = true" class="cursor-pointer group flex items-center space-x-2 min-w-0" title="Chạm để xem chi tiết các khoản phí">
-                                <div>
-                                    <div class="flex items-center space-x-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">
-                                        <span>Tổng Cước</span>
-                                        <svg class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    </div>
-                                    <div class="text-base font-black font-mono text-blue-700 dark:text-blue-300 truncate">
-                                        {{ Utils.formatCurrency(totalEstimatedFee) }}
-                                    </div>
-                                </div>
-                            </div>
-                            <button
-                                type="submit"
-                                :disabled="isSubmitting"
-                                class="px-6 py-2.5 min-h-[44px] bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50 shadow-md shadow-blue-500/20 flex items-center justify-center space-x-2 shrink-0 cursor-pointer"
-                            >
-                                <span v-if="isSubmitting" class="animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full"></span>
-                                <span>{{ isSubmitting ? 'Đang Xử Lý...' : 'Xuất Vận Đơn' }}</span>
-                            </button>
-                        </div>
                     </form>
-
-                    <!-- Mobile Fee Breakdown Bottom Sheet Modal -->
-                    <transition name="fade">
-                        <div v-if="showFeeDetailModal" class="fixed inset-0 z-50 lg:hidden flex flex-col justify-end">
-                            <div class="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity" @click="showFeeDetailModal = false"></div>
-                            <div class="relative z-10 bg-white dark:bg-[#131e3a] rounded-t-3xl border-t border-slate-200 dark:border-slate-800 shadow-2xl p-5 space-y-4 max-h-[85vh] overflow-y-auto">
-                                <div class="w-10 h-1 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto"></div>
-                                <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-                                    <div>
-                                        <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100">Chi Tiết Cước Phí Ký Gửi</h3>
-                                        <p class="text-[11px] text-slate-400">Bảng chiết tính phụ phí và cước dịch vụ bưu chính</p>
-                                    </div>
-                                    <button type="button" @click="showFeeDetailModal = false" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                                    </button>
-                                </div>
-                                <div class="space-y-2.5 text-xs">
-                                    <div class="flex items-center justify-between py-1">
-                                        <span class="text-slate-600 dark:text-slate-400">Cước vận chuyển chính:</span>
-                                        <span class="font-mono font-bold text-slate-800 dark:text-slate-200">{{ Utils.formatCurrency(baseFee) }}</span>
-                                    </div>
-                                    <div class="flex items-center justify-between py-1">
-                                        <span class="text-slate-600 dark:text-slate-400">Cước dịch vụ thu hộ (COD):</span>
-                                        <span class="font-mono font-bold text-slate-800 dark:text-slate-200">{{ Utils.formatCurrency(codFee) }}</span>
-                                    </div>
-                                    <div class="flex items-center justify-between py-1">
-                                        <span class="text-slate-600 dark:text-slate-400">Phụ phí xăng dầu &amp; vùng sâu:</span>
-                                        <span class="font-mono font-bold text-slate-800 dark:text-slate-200">{{ Utils.formatCurrency(fuelSurcharge) }}</span>
-                                    </div>
-                                    <div class="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-sm font-bold">
-                                        <span class="text-slate-800 dark:text-slate-100">Tổng cước ước tính:</span>
-                                        <span class="font-mono text-blue-600 dark:text-blue-400 text-base">{{ Utils.formatCurrency(totalEstimatedFee) }}</span>
-                                    </div>
-                                    <div class="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[11px] text-blue-700 dark:text-blue-300">
-                                        <span>Người trả cước: </span>
-                                        <strong class="font-bold">{{ form.payer === 'SENDER' ? 'Người gửi trả ngay' : 'Người nhận trả khi nhận hàng' }}</strong>
-                                    </div>
-                                </div>
-                                <button type="button" @click="showFeeDetailModal = false" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition">
-                                    Đã Hiểu &amp; Đóng
-                                </button>
-                            </div>
-                        </div>
-                    </transition>
                 </div>
                 <div v-else-if="currentSubtab === 'list'" key="list" class="space-y-4">
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
