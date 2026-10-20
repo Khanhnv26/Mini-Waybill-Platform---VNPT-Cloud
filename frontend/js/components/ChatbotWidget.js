@@ -2,25 +2,31 @@
     const ChatbotWidget = {
         name: 'ChatbotWidget',
         template: `
-            <div v-if="shouldDisplay" id="vnpt-chatbot-widget" class="fixed bottom-20 right-3 sm:bottom-6 sm:right-6 z-[9999] font-sans antialiased">
+            <div v-if="shouldDisplay" id="vnpt-chatbot-widget" class="font-sans antialiased">
+                <!-- Floating Trigger Button (when chat is closed) -->
                 <div 
                     v-show="!isOpen" 
-                    class="relative flex items-center justify-center animate-chatbot-float select-none"
+                    id="vnpt-chatbot-trigger"
+                    class="fixed bottom-24 right-2 sm:bottom-6 sm:right-6 z-40 select-none transition-all duration-300"
+                    :class="[
+                        isDocked ? 'translate-x-6 opacity-60 hover:translate-x-0 hover:opacity-100' : 'translate-x-0 opacity-100',
+                        'animate-chatbot-float'
+                    ]"
                 >
-                    <span class="absolute w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-blue-400 pointer-events-none animate-chatbot-radar-1"></span>
-                    <span class="absolute w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-blue-500 pointer-events-none animate-chatbot-radar-2"></span>
+                    <span class="hidden sm:block absolute w-14 h-14 rounded-full bg-blue-400 pointer-events-none animate-chatbot-radar-1"></span>
+                    <span class="hidden sm:block absolute w-14 h-14 rounded-full bg-blue-500 pointer-events-none animate-chatbot-radar-2"></span>
                     <button 
                         @click="openChat"
                         title="Trò chuyện với Trợ lý ảo Waybill 24/7"
-                        class="group relative flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-blue-700 via-blue-600 to-blue-500 text-white shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 transform hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none border-2 border-white/60"
+                        class="group relative flex items-center justify-center w-11 h-11 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-blue-700 via-blue-600 to-blue-500 text-white shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 transform hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none border-2 border-white/60 cursor-pointer"
                     >
-                        <span v-if="unreadCount > 0" class="absolute -top-1 -right-1 flex h-5 w-5">
+                        <span v-if="unreadCount > 0" class="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5">
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-5 w-5 bg-rose-500 text-white font-bold text-[10px] items-center justify-center border-2 border-white shadow-sm">
+                            <span class="relative inline-flex rounded-full h-4 w-4 sm:h-5 sm:w-5 bg-rose-500 text-white font-bold text-[9px] sm:text-[10px] items-center justify-center border-2 border-white shadow-sm">
                                 {{ unreadCount }}
                             </span>
                         </span>
-                        <div class="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center transform group-hover:rotate-12 transition-transform duration-300">
+                        <div class="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center transform group-hover:rotate-12 transition-transform duration-300">
                             <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-sm">
                                 <defs>
                                     <linearGradient id="vnptGlobeGradBtn" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -42,13 +48,25 @@
                         </div>
                     </button>
                 </div>
+                <!-- Mobile Backdrop: dark overlay when chat is open -->
                 <div 
                     v-show="isOpen"
+                    class="sm:hidden fixed inset-0 z-[9998] bg-black/50 backdrop-blur-xs transition-opacity duration-300"
+                    @click="closeChat"
+                ></div>
+                <!-- Chat Panel: Bottom-sheet on mobile, floating card on desktop -->
+                <div 
+                    v-show="isOpen"
+                    id="vnpt-chatbot-panel"
                     :class="[
-                        'w-[calc(100vw-1.5rem)] sm:w-[420px] h-[520px] sm:h-[600px] max-h-[82vh] bg-white rounded-2xl shadow-2xl border border-slate-200/90 flex flex-col overflow-hidden origin-bottom-right chatbot-spring-transition transform',
-                        isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-0 opacity-0 translate-y-4 pointer-events-none'
+                        'fixed inset-x-0 bottom-0 sm:inset-auto sm:bottom-6 sm:right-6 z-[9999]',
+                        'w-full sm:w-[420px] h-[88vh] sm:h-[600px] max-h-[92dvh] sm:max-h-[85vh]',
+                        'bg-white dark:bg-[#0f1a38] rounded-t-2xl sm:rounded-2xl shadow-2xl border-t sm:border border-slate-200/90 dark:border-slate-800',
+                        'flex flex-col overflow-hidden origin-bottom sm:origin-bottom-right chatbot-spring-transition transform',
+                        isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-6 pointer-events-none'
                     ]"
                 >
+                    <div class="sm:hidden w-10 h-1 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto my-1.5 shrink-0"></div>
                     <div class="vnpt-gradient text-white px-4 py-3.5 flex items-center justify-between shadow-sm select-none">
                         <div class="flex items-center space-x-3">
                             <div class="relative w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md border border-white/30 flex items-center justify-center p-1 shadow-inner">
@@ -335,6 +353,9 @@
         },
         data() {
             return {
+                isDocked: false,
+                lastScrollY: 0,
+                dockTimer: null,
                 isOpen: false,
                 unreadCount: 0,
                 isMuted: localStorage.getItem('vnpt_chatbot_muted') === 'true',
@@ -373,10 +394,39 @@
         },
         mounted() {
             this.loadSessionMessages();
+            this.handleScroll = () => {
+                const currentScrollY = (typeof window !== 'undefined' ? (window.scrollY || (document.documentElement && document.documentElement.scrollTop) || 0) : 0);
+                if (typeof window !== 'undefined' && window.innerWidth < 640 && !this.isOpen) {
+                    if (currentScrollY > this.lastScrollY && currentScrollY > 60) {
+                        this.isDocked = true;
+                    } else if (currentScrollY < this.lastScrollY) {
+                        this.isDocked = false;
+                    }
+                    if (this.dockTimer) clearTimeout(this.dockTimer);
+                    this.dockTimer = setTimeout(() => {
+                        if (currentScrollY < 100) {
+                            this.isDocked = false;
+                        }
+                    }, 2500);
+                }
+                this.lastScrollY = currentScrollY;
+            };
+            if (typeof window !== 'undefined') {
+                window.addEventListener('scroll', this.handleScroll, { passive: true });
+            }
+        },
+        beforeUnmount() {
+            if (typeof window !== 'undefined' && this.handleScroll) {
+                window.removeEventListener('scroll', this.handleScroll);
+            }
+            if (this.dockTimer) {
+                clearTimeout(this.dockTimer);
+            }
         },
         methods: {
             openChat() {
                 this.isOpen = true;
+                this.isDocked = false;
                 this.unreadCount = 0;
                 this.unlockAudio();
                 this.stopTitleFlash();

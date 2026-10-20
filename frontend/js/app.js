@@ -1,6 +1,6 @@
 import { createViewLoader } from './viewLoader.js?v=3.8.0';
 import './auth.js';
-import './utils.js?v=3.9.1';
+import './utils.js?v=3.9.2';
 import './api.js';
 import './map.js';
 import './services/routingService.js';
@@ -28,7 +28,7 @@ import './components/common/UserProfileModal.js?v=3.7.1';
 import './components/common/ShipmentDetailModal.js';
 import './layouts/InternalLayout.js';
 import './layouts/PublicLayout.js?v=3.8.3';
-import './components/ChatbotWidget.js?v=3.8.3';
+import './components/ChatbotWidget.js?v=3.9.2';
 import { authStore, appStore, notificationStore, badgeStore } from './store/index.js?v=3.8.2';
 window.authStore = authStore;
 window.appStore = appStore;
@@ -1563,28 +1563,28 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
         app.component('public-layout', window.PublicLayout);
     }
     const viewLoaders = {
-        LoginView: createViewLoader('LoginView', () => import('./views/LoginView.js?v=3.9.1'), []),
-        TrackingView: createViewLoader('TrackingView', () => import('./views/TrackingView.js?v=3.9.1'), [() => import('./views/tracking/TrackingRecentSearches.js?v=3.9.1')]),
-        ShipmentView: createViewLoader('ShipmentView', () => import('./views/ShipmentView.js?v=3.9.1'), [() => import('./views/shipment/ShipmentSmartPasteCard.js?v=3.9.1'), () => import('./views/shipment/ShipmentPrintModal.js?v=3.9.1')]),
-        DashboardView: createViewLoader('DashboardView', () => import('./views/DashboardView.js?v=3.9.1'), []),
-        PostOfficeOpsView: createViewLoader('PostOfficeOpsView', () => import('./views/PostOfficeOpsView.js?v=3.9.1'), []),
-        TripsView: createViewLoader('TripsView', () => import('./views/TripsView.js?v=3.9.1'), [() => import('./views/trips/TripManifestModal.js?v=3.9.1')]),
-        FleetView: createViewLoader('FleetView', () => import('./views/FleetView.js?v=3.9.1'), []),
-        HubOpsView: createViewLoader('HubOpsView', () => import('./views/HubOpsView.js?v=3.9.1'), []),
-        ShipperView: createViewLoader('ShipperView', () => import('./views/ShipperView.js?v=3.9.1'), []),
-        ShipperDirectoryView: createViewLoader('ShipperDirectoryView', () => import('./views/ShipperDirectoryView.js?v=3.9.1'), []),
-        CustomerView: createViewLoader('CustomerView', () => import('./views/CustomerView.js?v=3.9.1'), []),
-        AdminRbacView: createViewLoader('AdminRbacView', () => import('./views/AdminRbacView.js?v=3.9.1'), []),
-        AdminRatingView: createViewLoader('AdminRatingView', () => import('./views/AdminRatingView.js?v=3.9.1'), []),
-        ReportView: createViewLoader('ReportView', () => import('./views/ReportView.js?v=3.9.1'), []),
-        PaymentView: createViewLoader('PaymentView', () => import('./views/PaymentView.js?v=3.9.1'), []),
-        TariffCalculatorView: createViewLoader('TariffCalculatorView', () => import('./views/TariffCalculatorView.js?v=3.9.1'), []),
-        NetworkView: createViewLoader('NetworkView', () => import('./views/NetworkView.js?v=3.9.1'), []),
-        GuideView: createViewLoader('GuideView', () => import('./views/GuideView.js?v=3.9.1'), []),
-        SupportView: createViewLoader('SupportView', () => import('./views/SupportView.js?v=3.9.1'), []),
-        UnderDevelopmentView: createViewLoader('UnderDevelopmentView', () => import('./views/UnderDevelopmentView.js?v=3.9.1'), []),
-        ErrorView: createViewLoader('ErrorView', () => import('./views/ErrorView.js?v=3.9.1'), []),
-        ProfileView: createViewLoader('ProfileView', () => import('./views/ProfileView.js?v=3.9.1'), []),
+        LoginView: createViewLoader('LoginView', () => import('./views/LoginView.js?v=3.9.2'), []),
+        TrackingView: createViewLoader('TrackingView', () => import('./views/TrackingView.js?v=3.9.2'), [() => import('./views/tracking/TrackingRecentSearches.js?v=3.9.2')]),
+        ShipmentView: createViewLoader('ShipmentView', () => import('./views/ShipmentView.js?v=3.9.2'), [() => import('./views/shipment/ShipmentSmartPasteCard.js?v=3.9.2'), () => import('./views/shipment/ShipmentPrintModal.js?v=3.9.2')]),
+        DashboardView: createViewLoader('DashboardView', () => import('./views/DashboardView.js?v=3.9.2'), []),
+        PostOfficeOpsView: createViewLoader('PostOfficeOpsView', () => import('./views/PostOfficeOpsView.js?v=3.9.2'), []),
+        TripsView: createViewLoader('TripsView', () => import('./views/TripsView.js?v=3.9.2'), [() => import('./views/trips/TripManifestModal.js?v=3.9.2')]),
+        FleetView: createViewLoader('FleetView', () => import('./views/FleetView.js?v=3.9.2'), []),
+        HubOpsView: createViewLoader('HubOpsView', () => import('./views/HubOpsView.js?v=3.9.2'), []),
+        ShipperView: createViewLoader('ShipperView', () => import('./views/ShipperView.js?v=3.9.2'), []),
+        ShipperDirectoryView: createViewLoader('ShipperDirectoryView', () => import('./views/ShipperDirectoryView.js?v=3.9.2'), []),
+        CustomerView: createViewLoader('CustomerView', () => import('./views/CustomerView.js?v=3.9.2'), []),
+        AdminRbacView: createViewLoader('AdminRbacView', () => import('./views/AdminRbacView.js?v=3.9.2'), []),
+        AdminRatingView: createViewLoader('AdminRatingView', () => import('./views/AdminRatingView.js?v=3.9.2'), []),
+        ReportView: createViewLoader('ReportView', () => import('./views/ReportView.js?v=3.9.2'), []),
+        PaymentView: createViewLoader('PaymentView', () => import('./views/PaymentView.js?v=3.9.2'), []),
+        TariffCalculatorView: createViewLoader('TariffCalculatorView', () => import('./views/TariffCalculatorView.js?v=3.9.2'), []),
+        NetworkView: createViewLoader('NetworkView', () => import('./views/NetworkView.js?v=3.9.2'), []),
+        GuideView: createViewLoader('GuideView', () => import('./views/GuideView.js?v=3.9.2'), []),
+        SupportView: createViewLoader('SupportView', () => import('./views/SupportView.js?v=3.9.2'), []),
+        UnderDevelopmentView: createViewLoader('UnderDevelopmentView', () => import('./views/UnderDevelopmentView.js?v=3.9.2'), []),
+        ErrorView: createViewLoader('ErrorView', () => import('./views/ErrorView.js?v=3.9.2'), []),
+        ProfileView: createViewLoader('ProfileView', () => import('./views/ProfileView.js?v=3.9.2'), []),
     };
     const viewError = { template: `<div class="p-6 text-sm text-rose-600" role="alert">Không thể tải giao diện. Vui lòng tải lại trang.</div>` };
     for (const [name, loader] of Object.entries(viewLoaders)) {
