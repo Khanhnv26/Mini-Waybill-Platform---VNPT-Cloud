@@ -428,7 +428,10 @@
             const loadShipmentsData = async () => {
                 try {
                     isLoadingShipments.value = true;
-                    const data = await ShipmentService.getAll();
+                    const [data] = await Promise.all([
+                        ShipmentService.getAll(),
+                        new Promise(r => setTimeout(r, 250))
+                    ]);
                     shipmentsList.value = Array.isArray(data) ? data : [];
                 } catch (err) {
                     console.error('[TripsView] Lỗi nạp bưu gửi:', err);
@@ -1181,7 +1184,10 @@
             const loadTrips = async () => {
                 isLoading.value = true;
                 try {
-                    const data = await RoutingService.getAllTrips();
+                    const [data] = await Promise.all([
+                        RoutingService.getAllTrips(),
+                        new Promise(r => setTimeout(r, 250))
+                    ]);
                     tripsList.value = Array.isArray(data) ? data : [];
                 } catch (e) {
                     Utils.showToast('Lỗi Tải Dữ Liệu', e.message, 'error');
@@ -3349,11 +3355,7 @@
                     </div>
                 </div>
                 <div class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden text-xs">
-                    <div v-if="isLoading" class="p-12 text-center text-slate-400">
-                        <div class="inline-block animate-spin h-6 w-6 border-2 border-purple-600 border-t-transparent rounded-full mb-2"></div>
-                        <div class="font-semibold text-slate-600 text-xs">Đang nạp dữ liệu điều phối chuyến xe container từ routing-service...</div>
-                    </div>
-                    <div v-else-if="filteredTrips.length === 0" class="p-12 text-center text-slate-400">
+                    <div v-if="!isLoading && filteredTrips.length === 0" class="p-12 text-center text-slate-400">
                         Không có chuyến xe container nào phù hợp với bộ lọc hiện tại.
                     </div>
                     <div v-else class="overflow-x-auto">
@@ -3371,6 +3373,19 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 font-medium">
+                                <template v-if="isLoading">
+                                    <tr v-for="i in 5" :key="'skel-trip-' + i" class="animate-pulse">
+                                        <td class="py-3 px-3.5"><div class="h-4 w-28 bg-slate-200 rounded"></div></td>
+                                        <td class="py-3 px-3.5"><div class="h-4 w-36 bg-slate-200 rounded mb-1"></div><div class="h-2.5 w-24 bg-slate-100 rounded"></div></td>
+                                        <td class="py-3 px-3.5"><div class="h-4 w-28 bg-slate-200 rounded mb-1"></div><div class="h-2.5 w-20 bg-slate-100 rounded"></div></td>
+                                        <td class="py-3 px-3.5"><div class="h-4 w-24 bg-slate-200 rounded"></div></td>
+                                        <td class="py-3 px-3.5"><div class="h-4 w-32 bg-slate-200 rounded"></div></td>
+                                        <td class="py-3 px-3.5"><div class="h-4 w-24 bg-slate-200 rounded"></div></td>
+                                        <td class="py-3 px-3.5"><div class="h-5 w-20 bg-slate-200 rounded-full"></div></td>
+                                        <td class="py-3 px-3.5 text-right"><div class="h-6 w-16 bg-slate-200 rounded ml-auto"></div></td>
+                                    </tr>
+                                </template>
+                                <template v-else>
                                 <tr v-for="trip in paginatedTrips" :key="trip.id" class="hover:bg-slate-50/60 transition">
                                     <td class="py-3 px-3.5 font-mono font-bold text-blue-600 hover:underline cursor-pointer" @click="openTripDetail(trip.id)">
                                         {{ trip.tripCode }}
@@ -3443,6 +3458,7 @@
                                         <span v-else class="text-slate-400 font-mono text-[11px]">—</span>
                                     </td>
                                 </tr>
+                                </template>
                             </tbody>
                         </table>
                     </div>

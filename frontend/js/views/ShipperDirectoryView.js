@@ -59,7 +59,10 @@
                     const params = {};
                     if (stationFilter.value !== 'ALL') params.stationCode = stationFilter.value;
                     if (shiftFilter.value !== 'ALL') params.shiftStatus = shiftFilter.value;
-                    const data = await ShipperDirectoryService.list(params);
+                    const [data] = await Promise.all([
+                        ShipperDirectoryService.list(params),
+                        new Promise(r => setTimeout(r, 250))
+                    ]);
                     shippers.value = Array.isArray(data) ? data.slice().sort((a, b) => (b.id || 0) - (a.id || 0)) : [];
                 } catch (error) {
                     if (window.Utils) window.Utils.showToast('Không tải được danh bạ', error.message, 'error');
@@ -513,9 +516,25 @@
                 <div class="b2b-card bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
                     <!-- Mobile Card View (< md) -->
                     <div class="md:hidden divide-y divide-slate-100">
-                        <div v-if="paginatedShippers.length === 0" class="py-8 text-center text-slate-400 text-xs">
-                            {{ isLoading ? 'Đang tải dữ liệu danh bạ bưu tá...' : 'Không tìm thấy bưu tá nào phù hợp với bộ lọc.' }}
+                        <template v-if="isLoading">
+                            <div v-for="i in 5" :key="'skel-shipper-' + i" class="p-3.5 space-y-2.5 animate-pulse">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="flex items-center gap-2.5 min-w-0">
+                                        <div class="w-9 h-9 rounded-xl bg-slate-200 shrink-0"></div>
+                                        <div class="space-y-1">
+                                            <div class="h-3.5 w-28 bg-slate-200 rounded"></div>
+                                            <div class="h-2.5 w-20 bg-slate-100 rounded"></div>
+                                        </div>
+                                    </div>
+                                    <div class="h-5 w-16 bg-slate-200 rounded-full"></div>
+                                </div>
+                                <div class="h-8 bg-slate-100 rounded-lg"></div>
+                            </div>
+                        </template>
+                        <div v-else-if="paginatedShippers.length === 0" class="py-8 text-center text-slate-400 text-xs">
+                            Không tìm thấy bưu tá nào phù hợp với bộ lọc.
                         </div>
+                        <template v-else>
                         <div v-for="item in paginatedShippers" :key="item.id" class="p-3.5 space-y-2.5">
                             <div class="flex items-start justify-between gap-2">
                                 <div class="flex items-center gap-2.5 min-w-0">
@@ -596,6 +615,7 @@
                                 </div>
                             </div>
                         </div>
+                        </template>
                     </div>
                     
                     <!-- Desktop Table (>= md) -->
@@ -613,6 +633,30 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 text-xs">
+                                <template v-if="isLoading">
+                                    <tr v-for="i in 5" :key="'skel-shipper-row-' + i" class="animate-pulse">
+                                        <td class="py-2.5 px-3.5"><div class="flex items-center gap-2.5"><div class="w-8 h-8 rounded-lg bg-slate-200 shrink-0"></div><div class="space-y-1"><div class="h-3.5 w-28 bg-slate-200 rounded"></div><div class="h-2.5 w-16 bg-slate-100 rounded"></div></div></div></td>
+                                        <td class="py-2.5 px-3.5"><div class="h-3.5 w-24 bg-slate-200 rounded"></div></td>
+                                        <td class="py-2.5 px-3.5 text-center"><div class="h-5 w-20 bg-slate-200 rounded-full mx-auto"></div></td>
+                                        <td class="py-2.5 px-3.5"><div class="h-3.5 w-28 bg-slate-200 rounded"></div></td>
+                                        <td class="py-2.5 px-3.5 text-center"><div class="h-5 w-16 bg-slate-200 rounded-full mx-auto"></div></td>
+                                        <td class="py-2.5 px-3.5 text-center"><div class="h-5 w-20 bg-slate-200 rounded-full mx-auto"></div></td>
+                                        <td class="py-2.5 px-3.5 text-right"><div class="h-6 w-20 bg-slate-200 rounded ml-auto"></div></td>
+                                    </tr>
+                                </template>
+                                <template v-else-if="filteredShippers.length === 0">
+                                    <tr>
+                                        <td colspan="7" class="text-center py-10 text-slate-400 text-xs">
+                                            <div class="flex flex-col items-center justify-center space-y-1.5">
+                                                <span class="font-bold text-slate-600">Không tìm thấy bưu tá nào phù hợp với bộ lọc hiện tại.</span>
+                                                <button v-if="hasActiveFilter" @click="resetFilters" class="text-blue-600 hover:underline font-bold text-xs">
+                                                    Xóa tất cả điều kiện lọc
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+                                <template v-else>
                                 <tr v-for="item in paginatedShippers" :key="item.id" class="hover:bg-slate-50/80 transition">
                                     <td class="py-2.5 px-3.5">
                                         <div class="flex items-center gap-2.5">
@@ -733,24 +777,7 @@
                                         </div>
                                     </td>
                                 </tr>
-                                <tr v-if="isLoading">
-                                    <td colspan="7" class="text-center py-10 text-slate-400 text-xs">
-                                        <div class="flex flex-col items-center justify-center space-y-2">
-                                            <span class="inline-block animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></span>
-                                            <span class="font-semibold text-slate-500">Đang tải danh bạ bưu tá từ hệ thống điều phối...</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr v-else-if="filteredShippers.length === 0">
-                                    <td colspan="7" class="text-center py-10 text-slate-400 text-xs">
-                                        <div class="flex flex-col items-center justify-center space-y-1.5">
-                                            <span class="font-bold text-slate-600">Không tìm thấy bưu tá nào phù hợp với bộ lọc hiện tại.</span>
-                                            <button v-if="hasActiveFilter" @click="resetFilters" class="text-blue-600 hover:underline font-bold text-xs">
-                                                Xóa tất cả điều kiện lọc
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
+                                </template>
                             </tbody>
                         </table>
                     </div>

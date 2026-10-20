@@ -73,10 +73,11 @@
                     console.error(err);
                 }
             };
+            const minDelay = (p, ms = 250) => Promise.all([p, new Promise(r => setTimeout(r, ms))]).then(([res]) => res);
             const loadRatings = async () => {
                 isLoading.value = true;
                 try {
-                    const res = await RatingService.getAdminRatings({
+                    const res = await minDelay(RatingService.getAdminRatings({
                         keyword: filters.keyword,
                         star: filters.star,
                         courierCode: filters.courierCode,
@@ -84,7 +85,7 @@
                         page: pagination.page,
                         size: pagination.size,
                         sort: 'createdAt,desc'
-                    });
+                    }), 250);
                     if (res) {
                         ratings.value = res.content || [];
                         pagination.page = res.page || 0;
@@ -533,10 +534,20 @@
             </div>
             <div class="bg-white dark:bg-[#131e3a] border border-slate-200 dark:border-[#23345e] rounded-2xl shadow-xs overflow-hidden smooth-transition">
                 <div class="md:hidden divide-y divide-slate-100 dark:divide-[#23345e] text-xs">
-                    <div v-if="isLoading" class="p-8 text-center text-slate-400">
-                        <div class="inline-flex items-center gap-2">
-                            <div class="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                            <span>Đang tải dữ liệu đánh giá...</span>
+                    <div v-if="isLoading" class="p-3.5 space-y-3">
+                        <div v-for="i in 5" :key="'skel-rate-mob-' + i" class="p-3.5 space-y-3 bg-white dark:bg-[#131e3a] rounded-xl border border-slate-200 dark:border-[#23345e] animate-pulse">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="space-y-1">
+                                    <div class="h-3.5 w-24 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                                    <div class="h-2.5 w-16 bg-slate-100 dark:bg-slate-800 rounded"></div>
+                                </div>
+                                <div class="h-5 w-16 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-[#19264c]/70 p-2.5 rounded-xl">
+                                <div class="h-3 w-16 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                                <div class="h-3 w-16 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                            </div>
+                            <div class="h-3 w-3/4 bg-slate-100 dark:bg-slate-800 rounded"></div>
                         </div>
                     </div>
                     <div v-else-if="!ratings.length" class="p-8 text-center text-slate-400">
@@ -648,21 +659,40 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-[#23345e]">
-                            <tr v-if="isLoading">
-                                <td colspan="7" class="py-12 text-center text-slate-400">
-                                    <div class="inline-flex items-center gap-2">
-                                        <div class="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                                        <span>Đang tải dữ liệu đánh giá...</span>
-                                    </div>
-                                </td>
-                            </tr>
+                            <template v-if="isLoading">
+                                <tr v-for="i in 5" :key="'skel-rate-' + i" class="animate-pulse">
+                                    <td class="py-3 px-4">
+                                        <div class="h-3.5 w-24 bg-slate-200 dark:bg-slate-700 rounded mb-1"></div>
+                                        <div class="h-2.5 w-16 bg-slate-100 dark:bg-slate-800 rounded"></div>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <div class="h-3.5 w-28 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <div class="h-4 w-14 bg-amber-200 dark:bg-amber-900/40 rounded"></div>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <div class="h-4 w-14 bg-amber-200 dark:bg-amber-900/40 rounded"></div>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <div class="h-3.5 w-48 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                                    </td>
+                                    <td class="py-3 px-4 text-center">
+                                        <div class="h-5 w-16 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto"></div>
+                                    </td>
+                                    <td class="py-3 px-4 text-center">
+                                        <div class="h-7 w-20 bg-slate-200 dark:bg-slate-700 rounded-lg mx-auto"></div>
+                                    </td>
+                                </tr>
+                            </template>
                             <tr v-else-if="!ratings.length">
                                 <td colspan="7" class="py-12 text-center text-slate-400">
                                     <p class="font-medium">Không tìm thấy bản ghi đánh giá nào</p>
                                     <button @click="resetFilters" class="mt-2 text-xs text-blue-500 hover:underline">Đặt lại bộ lọc</button>
                                 </td>
                             </tr>
-                            <tr v-else v-for="item in ratings" :key="item.id" class="hover:bg-slate-50/80 dark:hover:bg-[#19264c]/40 smooth-transition" :class="item.isHidden ? 'bg-rose-500/5 dark:bg-rose-950/10' : ''">
+                            <template v-else>
+                                <tr v-for="item in ratings" :key="item.id" class="hover:bg-slate-50/80 dark:hover:bg-[#19264c]/40 smooth-transition" :class="item.isHidden ? 'bg-rose-500/5 dark:bg-rose-950/10' : ''">
                                 <td class="py-3 px-4">
                                     <span class="font-mono font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer" @click="openDetail(item)">{{ item.trackingCode }}</span>
                                     <span class="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">{{ item.createdAt }}</span>
@@ -741,6 +771,7 @@
                                     </div>
                                 </td>
                             </tr>
+                            </template>
                         </tbody>
                     </table>
                 </div>

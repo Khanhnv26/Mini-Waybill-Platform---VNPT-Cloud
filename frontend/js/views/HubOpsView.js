@@ -416,6 +416,7 @@
                 shipmentsList.value = mergeOptimisticItems(normalizeCollection(data, 'shipment-fallback'));
             };
             const loadShipmentsData = async (silent = false) => {
+                const startTime = Date.now();
                 if (!silent) isLoading.value = true;
                 try {
                     if (!isAdmin.value && stationContext.value.code && !currentActionLocation.value) {
@@ -445,7 +446,13 @@
                     console.error('[HubOpsView] Lỗi tải dữ liệu vận hành:', error);
                     if (!silent) showLoadError(error);
                 } finally {
-                    if (!silent) isLoading.value = false;
+                    if (!silent) {
+                        const elapsed = Date.now() - startTime;
+                        if (elapsed < 250) {
+                            await new Promise(resolve => setTimeout(resolve, 250 - elapsed));
+                        }
+                        isLoading.value = false;
+                    }
                 }
             };
             const isShipmentInSelectedHubScope = (item, explicitHub = null) => {
@@ -1198,15 +1205,11 @@
                 </div>
             </div>
             <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden text-xs">
-                <div v-if="isLoading" class="p-8 text-center text-slate-400">
-                    <div class="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
-                    <span>Đang nạp dữ liệu tồn kho...</span>
-                </div>
-                <div v-else-if="paginatedShipments.length === 0" class="p-8 text-center text-slate-400">
+                <div v-if="!isLoading && paginatedShipments.length === 0" class="p-8 text-center text-slate-400">
                     <span>Không tìm thấy bưu gửi nào phù hợp với bộ lọc.</span>
                 </div>
                 <div v-else>
-                    <div v-if="selectedHubItems.length" class="selection-summary-bar mx-3 mt-3 px-3 py-2 rounded-lg bg-slate-100 dark:bg-[#131e3a] border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div v-if="selectedHubItems.length && !isLoading" class="selection-summary-bar mx-3 mt-3 px-3 py-2 rounded-lg bg-slate-100 dark:bg-[#131e3a] border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
                         <div>
                             <strong class="text-slate-800 dark:text-slate-200">{{ selectedHubItems.length }} kiện</strong>
                             <span class="text-slate-500 dark:text-slate-400 ml-1">({{ selectedHubWeight.toFixed(1) }} kg)</span>
@@ -1234,6 +1237,19 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 font-medium">
+                            <template v-if="isLoading">
+                                <tr v-for="i in 5" :key="'skel-hub-' + i" class="animate-pulse">
+                                    <td class="py-3 px-3 text-center"><div class="w-4 h-4 bg-slate-200 dark:bg-slate-700 rounded mx-auto"></div></td>
+                                    <td class="py-3 px-3"><div class="h-3.5 w-24 bg-slate-200 dark:bg-slate-700 rounded"></div></td>
+                                    <td class="py-3 px-3"><div class="h-3.5 w-32 bg-slate-200 dark:bg-slate-700 rounded"></div></td>
+                                    <td class="py-3 px-3"><div class="h-5 w-24 bg-slate-200 dark:bg-slate-700 rounded-full"></div></td>
+                                    <td class="py-3 px-3"><div class="h-5 w-20 bg-slate-200 dark:bg-slate-700 rounded-full"></div></td>
+                                    <td class="py-3 px-3"><div class="h-3.5 w-28 bg-slate-200 dark:bg-slate-700 rounded"></div></td>
+                                    <td class="py-3 px-3"><div class="h-3.5 w-20 bg-slate-200 dark:bg-slate-700 rounded"></div></td>
+                                    <td class="py-3 px-3 text-right"><div class="h-7 w-20 bg-slate-200 dark:bg-slate-700 rounded-lg ml-auto"></div></td>
+                                </tr>
+                            </template>
+                            <template v-else>
                             <tr v-for="item in paginatedShipments" :key="item.id || item.trackingCode" class="hover:bg-blue-50/30 transition">
                                 <td class="py-2.5 px-3 align-top">
                                     <input type="checkbox" :checked="selectedTrackingCodes.has(String(item.trackingCode || '').trim().toUpperCase())" @change="toggleHubSelection(item)" :disabled="isActionRunning || (isAdmin && selectedHub === 'ALL') || !canReceive(item) && !canStore(item) || !isShipmentInSelectedHubScope(item)" :aria-label="'Chọn ' + item.trackingCode" class="rounded border-slate-300 dark:border-slate-700 dark:bg-slate-900 text-blue-600 focus:ring-blue-500 cursor-pointer" />
@@ -1299,6 +1315,7 @@
                                     <span v-else class="text-slate-400 text-[11px]">Theo dõi</span>
                                 </td>
                             </tr>
+                            </template>
                         </tbody>
                     </table>
                 </div>

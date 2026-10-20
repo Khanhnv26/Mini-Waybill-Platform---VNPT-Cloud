@@ -625,7 +625,8 @@
                         ShipmentService.getShipmentPage(customerIdParam, { page: currentPage.value - 1, size: itemsPerPage.value, keyword: shipmentSearchQuery.value, status: selectedStatusFilter.value }),
                         typeof PaymentService !== 'undefined' && PaymentService.getPaidTrackingCodes
                             ? PaymentService.getPaidTrackingCodes().catch(() => [])
-                            : Promise.resolve([])
+                            : Promise.resolve([]),
+                        new Promise(r => setTimeout(r, 250))
                     ]);
                     if (requestVersion !== shipmentRequestVersion) return;
                     shipmentsList.value = Array.isArray(data?.content) ? data.content : [];
@@ -2401,11 +2402,7 @@
                         </div>
                     </div>
                     <div class="b2b-card bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                        <div v-if="isLoadingShipments" class="p-8 text-center space-y-2">
-                            <div class="inline-block animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-                            <div class="text-xs font-medium text-slate-500">Đang đồng bộ danh sách vận đơn từ máy chủ...</div>
-                        </div>
-                        <div v-else-if="filteredShipments.length === 0" class="p-10 text-center space-y-2">
+                        <div v-if="!isLoadingShipments && filteredShipments.length === 0" class="p-10 text-center space-y-2">
                             <div class="text-xs font-bold text-slate-700">Không tìm thấy vận đơn nào phù hợp</div>
                             <p class="text-[11px] text-slate-400 max-w-sm mx-auto">
                                 Vui lòng kiểm tra lại từ khóa tìm kiếm hoặc bộ lọc trạng thái đơn hàng.
@@ -2422,6 +2419,22 @@
                         </div>
                         <template v-else>
                             <div class="md:hidden divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                                <template v-if="isLoadingShipments">
+                                    <div v-for="i in 5" :key="'skel-ship-mob-' + i" class="p-3.5 space-y-2.5 bg-white animate-pulse">
+                                        <div class="flex items-start justify-between gap-2">
+                                            <div class="space-y-1">
+                                                <div class="h-3.5 w-28 bg-slate-200 rounded"></div>
+                                                <div class="h-2.5 w-16 bg-slate-100 rounded"></div>
+                                            </div>
+                                            <div class="h-5 w-20 bg-slate-200 rounded-full"></div>
+                                        </div>
+                                        <div class="bg-slate-50 rounded-lg p-2.5 border border-slate-100 space-y-2">
+                                            <div class="h-3 w-48 bg-slate-200 rounded"></div>
+                                            <div class="h-2.5 w-36 bg-slate-100 rounded"></div>
+                                        </div>
+                                    </div>
+                                </template>
+                                <template v-else>
                                 <div v-for="s in paginatedShipments" :key="'mob-ship-' + s.id" class="p-3.5 space-y-2.5">
                                     <div class="flex items-start justify-between gap-2">
                                         <div>
@@ -2518,6 +2531,7 @@
                                         </div>
                                     </div>
                                 </div>
+                            </template>
                             </div>
                             
                             <div class="hidden md:block overflow-x-auto">
@@ -2532,6 +2546,30 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-xs">
+                                    <template v-if="isLoadingShipments">
+                                        <tr v-for="i in 5" :key="'skel-ship-' + i" class="animate-pulse">
+                                            <td class="py-3 px-3.5">
+                                                <div class="h-3.5 w-28 bg-slate-200 rounded mb-1"></div>
+                                                <div class="h-2.5 w-16 bg-slate-100 rounded"></div>
+                                            </td>
+                                            <td class="py-3 px-3.5">
+                                                <div class="h-3.5 w-36 bg-slate-200 rounded mb-1"></div>
+                                                <div class="h-2.5 w-28 bg-slate-100 rounded"></div>
+                                            </td>
+                                            <td class="py-3 px-3.5">
+                                                <div class="h-3.5 w-20 bg-slate-200 rounded mb-1"></div>
+                                                <div class="h-2.5 w-14 bg-slate-100 rounded"></div>
+                                            </td>
+                                            <td class="py-3 px-3.5">
+                                                <div class="h-5 w-24 bg-slate-200 rounded-full mb-1"></div>
+                                                <div class="h-2.5 w-20 bg-slate-100 rounded"></div>
+                                            </td>
+                                            <td class="py-3 px-3.5 text-right">
+                                                <div class="h-7 w-20 bg-slate-200 rounded-lg ml-auto"></div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <template v-else>
                                     <tr 
                                         v-for="s in paginatedShipments" 
                                         :key="s.id"
@@ -2673,6 +2711,7 @@
                                             </div>
                                         </td>
                                     </tr>
+                                </template>
                                 </tbody>
                             </table>
                             </div>

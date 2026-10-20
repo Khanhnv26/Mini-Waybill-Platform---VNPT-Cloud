@@ -320,6 +320,7 @@
                                 .catch(() => { allShipments.value = []; })
                         );
                     }
+                    promises.push(new Promise(r => setTimeout(r, 250)));
                     await Promise.all(promises);
                 } finally {
                     isForecastLoading.value = false;
@@ -386,6 +387,7 @@
                                 .catch(() => { hubVehicles.value = []; })
                         );
                     }
+                    promises.push(new Promise(r => setTimeout(r, 250)));
                     await Promise.all(promises);
                 } finally {
                     isHubLoading.value = false;
@@ -446,6 +448,7 @@
                                 .catch(() => { allShipments.value = []; })
                         );
                     }
+                    promises.push(new Promise(r => setTimeout(r, 250)));
                     await Promise.all(promises);
                 } finally {
                     isShipperLoading.value = false;
@@ -736,6 +739,7 @@
                                 .catch(() => { serviceHealth.shipper = 'STANDBY'; })
                         );
                     }
+                    promises.push(new Promise(r => setTimeout(r, 250)));
                     await Promise.all(promises);
                 } finally {
                     isAdminLoading.value = false;

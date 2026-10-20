@@ -733,12 +733,13 @@
                 return codSettlementPendingCount.value;
             });
             let latestLoadRequestId = 0;
+            const minDelay = (p, ms = 250) => Promise.all([p, new Promise(r => setTimeout(r, ms))]).then(([res]) => res);
             const loadShipmentsData = async (silent = false) => {
                 const requestId = ++latestLoadRequestId;
                 if (!silent) isLoading.value = true;
                 try {
                     syncStationSelection();
-                    const data = await loadAuthoritativeInventory();
+                    const data = await (silent ? loadAuthoritativeInventory() : minDelay(loadAuthoritativeInventory(), 250));
                     if (requestId !== latestLoadRequestId) return;
                     shipmentsList.value = data;
                 } catch (err) {
@@ -2146,11 +2147,7 @@
                         </div>
                     </div>
                     <div class="b2b-card overflow-hidden text-xs shadow-xs">
-                        <div v-if="isLoading" class="p-8 text-center text-slate-400">
-                            <div class="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
-                            <span>Đang tải dữ liệu quỹ COD...</span>
-                        </div>
-                        <div v-else-if="paginatedShipments.length === 0" class="p-8 text-center text-slate-400">
+                        <div v-if="!isLoading && paginatedShipments.length === 0" class="p-8 text-center text-slate-400">
                             <span>Không có vận đơn COD nào phù hợp với bộ lọc hiện tại.</span>
                         </div>
                         <div v-else class="overflow-x-auto">
@@ -2175,6 +2172,18 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 font-medium">
+                                    <template v-if="isLoading">
+                                        <tr v-for="i in 5" :key="'skel-cod-' + i" class="animate-pulse">
+                                            <td class="py-3 px-3.5 text-center"><div class="w-4 h-4 bg-slate-200 dark:bg-slate-700 rounded mx-auto"></div></td>
+                                            <td class="py-3 px-3.5"><div class="h-3.5 w-24 bg-slate-200 dark:bg-slate-700 rounded"></div></td>
+                                            <td class="py-3 px-3.5"><div class="h-3.5 w-28 bg-slate-200 dark:bg-slate-700 rounded"></div></td>
+                                            <td class="py-3 px-3.5"><div class="h-3.5 w-32 bg-slate-200 dark:bg-slate-700 rounded"></div></td>
+                                            <td class="py-3 px-3.5"><div class="h-3.5 w-20 bg-slate-200 dark:bg-slate-700 rounded"></div></td>
+                                            <td class="py-3 px-3.5 text-center"><div class="h-5 w-24 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto"></div></td>
+                                            <td class="py-3 px-3.5 text-right"><div class="h-7 w-24 bg-slate-200 dark:bg-slate-700 rounded-lg ml-auto"></div></td>
+                                        </tr>
+                                    </template>
+                                    <template v-else>
                                     <tr v-for="item in paginatedShipments" :key="item.id" class="hover:bg-slate-50/60 transition">
                                         <td class="py-3 px-3.5 text-center">
                                             <input 
@@ -2236,6 +2245,7 @@
                                             </span>
                                         </td>
                                     </tr>
+                                    </template>
                                 </tbody>
                             </table>
                         </div>
@@ -2290,11 +2300,7 @@
                     </div>
                 </div>
                 <div class="b2b-card overflow-hidden text-xs shadow-xs">
-                    <div v-if="isLoading" class="p-8 text-center text-slate-400">
-                        <div class="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2"></div>
-                        <span>Đang tải dữ liệu bưu gửi bưu cục...</span>
-                    </div>
-                    <div v-else-if="paginatedShipments.length === 0" class="p-8 text-center text-slate-400">
+                    <div v-if="!isLoading && paginatedShipments.length === 0" class="p-8 text-center text-slate-400">
                         <span>Không tìm thấy bưu gửi nào phù hợp với bộ lọc hiện tại.</span>
                     </div>
                     <div v-else class="overflow-x-auto">
@@ -2314,6 +2320,19 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 font-medium">
+                                <template v-if="isLoading">
+                                    <tr v-for="i in 5" :key="'skel-po-' + i" class="animate-pulse">
+                                        <td class="py-3 px-3.5 text-center"><div class="w-4 h-4 bg-slate-200 dark:bg-slate-700 rounded mx-auto"></div></td>
+                                        <td class="py-3 px-3.5"><div class="h-3.5 w-24 bg-slate-200 dark:bg-slate-700 rounded"></div></td>
+                                        <td class="py-3 px-3.5"><div class="h-3.5 w-28 bg-slate-200 dark:bg-slate-700 rounded"></div></td>
+                                        <td class="py-3 px-3.5"><div class="h-3.5 w-32 bg-slate-200 dark:bg-slate-700 rounded"></div></td>
+                                        <td class="py-3 px-3.5"><div class="h-3.5 w-16 bg-slate-200 dark:bg-slate-700 rounded"></div></td>
+                                        <td class="py-3 px-3.5"><div class="h-3.5 w-20 bg-slate-200 dark:bg-slate-700 rounded"></div></td>
+                                        <td class="py-3 px-3.5"><div class="h-5 w-20 bg-slate-200 dark:bg-slate-700 rounded-full"></div></td>
+                                        <td class="py-3 px-3.5 text-right"><div class="h-7 w-20 bg-slate-200 dark:bg-slate-700 rounded-lg ml-auto"></div></td>
+                                    </tr>
+                                </template>
+                                <template v-else>
                                 <tr v-for="item in paginatedShipments" :key="item.id" class="hover:bg-slate-50/60 transition">
                                     <td class="py-3 px-3.5 align-top">
                                         <input type="checkbox" :checked="selectedTrackingCodes.has(String(item.trackingCode || '').trim().toUpperCase())" @change="togglePostOfficeSelection(item)" :disabled="isActionRunning || (isAdmin && selectedPostOffice === 'ALL') || !isBulkPostOfficeAction(item) || !isShipmentInSelectedPostOfficeScope(item)" :aria-label="'Chọn ' + item.trackingCode" class="rounded border-slate-300 dark:border-slate-700 dark:bg-slate-900 text-blue-600 focus:ring-blue-500 cursor-pointer" />
@@ -2489,6 +2508,7 @@
                                         </template>
                                     </td>
                                 </tr>
+                                </template>
                             </tbody>
                         </table>
                     </div>

@@ -543,7 +543,10 @@
                 if (!isStaffUser.value) return;
                 isLoadingOps.value = true;
                 try {
-                    const list = await SupportService.getAllTickets(opsFilterStatus.value, null);
+                    const [list] = await Promise.all([
+                        SupportService.getAllTickets(opsFilterStatus.value, null),
+                        new Promise(r => setTimeout(r, 250))
+                    ]);
                     opsTickets.value = Array.isArray(list) ? list : [];
                 } catch (err) {
                     console.warn('[SupportView] loadOpsTickets error:', err.message);
@@ -1796,6 +1799,25 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100">
+                                    <template v-if="isLoadingOps">
+                                        <tr v-for="i in 5" :key="'skel-ops-' + i" class="animate-pulse">
+                                            <td class="px-4 py-3"><div class="h-3.5 w-24 bg-slate-200 rounded"></div></td>
+                                            <td class="px-4 py-3"><div class="h-3.5 w-24 bg-slate-200 rounded"></div></td>
+                                            <td class="px-4 py-3"><div class="h-3.5 w-28 bg-slate-200 rounded mb-1"></div><div class="h-2 w-16 bg-slate-100 rounded"></div></td>
+                                            <td class="px-4 py-3"><div class="h-3.5 w-20 bg-slate-200 rounded"></div></td>
+                                            <td class="px-4 py-3"><div class="h-5 w-20 bg-slate-200 rounded-full"></div></td>
+                                            <td class="px-4 py-3"><div class="h-3.5 w-24 bg-slate-200 rounded"></div></td>
+                                            <td class="px-4 py-3 text-right"><div class="h-6 w-16 bg-slate-200 rounded ml-auto"></div></td>
+                                        </tr>
+                                    </template>
+                                    <template v-else-if="filteredOpsTickets.length === 0">
+                                        <tr>
+                                            <td colspan="7" class="text-center py-10 text-slate-400 text-xs">
+                                                Không có hồ sơ nào phù hợp với bộ lọc hiện tại.
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <template v-else>
                                     <tr v-for="t in filteredOpsTickets" :key="t.id" class="hover:bg-slate-50/80 transition-colors">
                                         <td class="px-4 py-3 font-mono font-bold text-slate-900 max-w-[160px]" :title="t.ticketCode">
                                             <span class="block truncate">{{ t.ticketCode }}</span>
@@ -1865,19 +1887,7 @@
                                             </button>
                                         </td>
                                     </tr>
-                                    <tr v-if="isLoadingOps">
-                                        <td colspan="7" class="text-center py-10 text-slate-400 text-xs">
-                                            <div class="flex flex-col items-center justify-center space-y-2">
-                                                <span class="inline-block animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></span>
-                                                <span class="font-semibold text-slate-500">Đang tải danh sách hồ sơ khiếu nại &amp; hỗ trợ...</span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr v-else-if="filteredOpsTickets.length === 0">
-                                        <td colspan="7" class="text-center py-10 text-slate-400 text-xs">
-                                            Không có hồ sơ nào phù hợp với bộ lọc hiện tại.
-                                        </td>
-                                    </tr>
+                                    </template>
                                 </tbody>
                             </table>
                         </div>
@@ -1934,10 +1944,15 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <div v-if="isLoadingOps" class="text-center py-10 text-[11px] text-slate-400">
-                                        <div class="inline-block animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full mb-1.5"></div>
-                                        <div class="font-semibold text-slate-500">Đang tải hồ sơ...</div>
-                                    </div>
+                                    <template v-if="isLoadingOps">
+                                        <div v-for="i in 4" :key="'skel-chat-ticket-' + i" class="p-3 bg-white rounded-lg border border-slate-100 space-y-2 animate-pulse">
+                                            <div class="flex items-center justify-between">
+                                                <div class="h-3.5 w-24 bg-slate-200 rounded"></div>
+                                                <div class="h-4 w-14 bg-slate-200 rounded-full"></div>
+                                            </div>
+                                            <div class="h-3 w-40 bg-slate-100 rounded"></div>
+                                        </div>
+                                    </template>
                                     <div v-else-if="filteredOpsTickets.length === 0" class="text-center py-10 text-[11px] text-slate-400">
                                         Không có hồ sơ nào phù hợp bộ lọc.
                                     </div>

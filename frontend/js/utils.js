@@ -411,6 +411,7 @@
         getEffectiveEta,
         maskPhone,
         isValidImageUrl,
-        formatAvatarUrl
+        formatAvatarUrl,
+        withMinDelay: (promise, ms = 250) => Promise.all([promise, new Promise(resolve => setTimeout(resolve, ms))]).then(([res]) => res)
     };
 })();

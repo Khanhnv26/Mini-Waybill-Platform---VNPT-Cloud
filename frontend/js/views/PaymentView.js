@@ -93,6 +93,7 @@
                 return { from: null, to: null };
             };
             
+            const minDelay = (p, ms = 250) => Promise.all([p, new Promise(r => setTimeout(r, ms))]).then(([res]) => res);
             const fetchTransactions = async () => {
                 if (typeof PaymentService === 'undefined') return;
                 isLoading.value = true;
@@ -108,7 +109,7 @@
                         fromDate: dateFilter.from,
                         toDate: dateFilter.to
                     };
-                    const res = await PaymentService.getTransactions(params);
+                    const res = await minDelay(PaymentService.getTransactions(params), 250);
                     if (res && res.content) {
                         transactions.value = res.content;
                         pagination.totalPages = res.totalPages || 1;
@@ -575,11 +576,7 @@
                         <span>Đơn vị tính: <strong>VNĐ</strong></span>
                     </div>
                 </div>
-                <div v-if="isLoading" class="p-8 text-center space-y-2">
-                    <div class="inline-block animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-                    <div class="text-xs font-medium text-slate-500 dark:text-slate-400">Đang đồng bộ danh sách giao dịch từ payment-service...</div>
-                </div>
-                <div v-else-if="transactions.length === 0" class="p-10 text-center space-y-2">
+                <div v-if="!isLoading && transactions.length === 0" class="p-10 text-center space-y-2">
                     <div class="text-xs font-bold text-slate-700 dark:text-slate-200">Không tìm thấy giao dịch nào phù hợp</div>
                     <p class="text-[11px] text-slate-400 dark:text-slate-500 max-w-sm mx-auto">
                         Vui lòng kiểm tra lại từ khóa tìm kiếm hoặc điều chỉnh bộ lọc trạng thái và khoảng thời gian.
@@ -596,6 +593,22 @@
                 </div>
                 <div v-else>
                     <div class="md:hidden divide-y divide-slate-100 dark:divide-[#1e2e56] text-xs">
+                        <template v-if="isLoading">
+                            <div v-for="i in 5" :key="'skel-pay-mob-' + i" class="p-3.5 space-y-3 bg-white dark:bg-[#131e3a] animate-pulse">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="space-y-1">
+                                        <div class="h-3.5 w-28 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                                        <div class="h-2.5 w-20 bg-slate-100 dark:bg-slate-800 rounded"></div>
+                                    </div>
+                                    <div class="h-5 w-20 bg-slate-200 dark:bg-slate-700 rounded-full"></div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-[#0b1329] p-2.5 rounded-lg border border-slate-100 dark:border-[#23345e]">
+                                    <div class="h-3 w-20 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                                    <div class="h-3 w-20 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                                </div>
+                            </div>
+                        </template>
+                        <template v-else>
                         <div v-for="tx in transactions" :key="'mob-tx-' + tx.paymentCode" class="p-3.5 space-y-3 bg-white dark:bg-[#131e3a]">
                             <div class="flex items-start justify-between gap-2">
                                 <div>
@@ -718,6 +731,7 @@
                                 </template>
                             </div>
                         </div>
+                        </template>
                     </div>
                     <div class="hidden md:block overflow-x-auto w-full">
                         <table class="w-full text-left border-collapse table-auto">
@@ -734,6 +748,22 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-[#1e2e56] text-xs">
+                            <template v-if="isLoading">
+                                <tr v-for="i in 5" :key="'skel-pay-' + i" class="animate-pulse">
+                                    <td class="py-3 px-3">
+                                        <div class="h-3.5 w-28 bg-slate-200 dark:bg-slate-700 rounded mb-1"></div>
+                                        <div class="h-2.5 w-20 bg-slate-100 dark:bg-slate-800 rounded"></div>
+                                    </td>
+                                    <td class="py-3 px-3"><div class="h-3.5 w-24 bg-slate-200 dark:bg-slate-700 rounded"></div></td>
+                                    <td class="py-3 px-2.5"><div class="h-3.5 w-20 bg-slate-200 dark:bg-slate-700 rounded"></div></td>
+                                    <td class="py-3 px-2.5"><div class="h-4 w-24 bg-emerald-100 dark:bg-emerald-950/40 rounded"></div></td>
+                                    <td class="py-3 px-2.5"><div class="h-3.5 w-20 bg-slate-200 dark:bg-slate-700 rounded"></div></td>
+                                    <td class="py-3 px-2.5 text-center"><div class="h-5 w-20 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto"></div></td>
+                                    <td class="py-3 px-3"><div class="h-3.5 w-24 bg-slate-200 dark:bg-slate-700 rounded"></div></td>
+                                    <td class="py-3 px-3 text-right"><div class="h-7 w-20 bg-slate-200 dark:bg-slate-700 rounded-lg ml-auto"></div></td>
+                                </tr>
+                            </template>
+                            <template v-else>
                             <tr 
                                 v-for="tx in transactions" 
                                 :key="tx.paymentCode"
@@ -875,6 +905,7 @@
                                     </div>
                                 </td>
                             </tr>
+                            </template>
                         </tbody>
                     </table>
                 </div>

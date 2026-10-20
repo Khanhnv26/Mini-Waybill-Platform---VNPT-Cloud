@@ -94,17 +94,18 @@
                 pagination.page = 0;
                 loadReport();
             };
+            const minDelay = (p, ms = 250) => Promise.all([p, new Promise(r => setTimeout(r, ms))]).then(([res]) => res);
             const loadReport = async () => {
                 isLoading.value = true;
                 try {
-                    const res = await ReportService.getSummary({
+                    const res = await minDelay(ReportService.getSummary({
                         fromDate: filters.fromDate,
                         toDate: filters.toDate,
                         customerId: filters.customerId ? filters.customerId : undefined,
                         status: filters.status,
                         page: pagination.page,
                         size: pagination.size
-                    });
+                    }), 250);
                     reportData.totalOrders = res.totalOrders || 0;
                     reportData.totalShippingFee = res.totalShippingFee || 0;
                     reportData.totalCodAmount = res.totalCodAmount || 0;
@@ -916,14 +917,30 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 text-xs text-slate-800">
-                                <tr v-if="isLoading">
-                                    <td colspan="6" class="py-10 text-center text-slate-400">
-                                        <div class="flex flex-col items-center space-y-2">
-                                            <span class="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
-                                            <span class="text-xs font-semibold text-slate-500">Đang tải danh sách vận đơn...</span>
-                                        </div>
-                                    </td>
-                                </tr>
+                                <template v-if="isLoading">
+                                    <tr v-for="i in 5" :key="'skel-rep-' + i" class="animate-pulse">
+                                        <td class="py-3 px-3 text-center"><div class="h-3 w-6 bg-slate-200 rounded mx-auto"></div></td>
+                                        <td class="py-3 px-3">
+                                            <div class="h-3.5 w-28 bg-slate-200 rounded mb-1"></div>
+                                            <div class="h-2.5 w-20 bg-slate-100 rounded"></div>
+                                        </td>
+                                        <td class="py-3 px-3">
+                                            <div class="h-3.5 w-24 bg-slate-200 rounded mb-1"></div>
+                                            <div class="h-2.5 w-32 bg-slate-100 rounded"></div>
+                                        </td>
+                                        <td class="py-3 px-3">
+                                            <div class="h-3.5 w-24 bg-slate-200 rounded mb-1"></div>
+                                            <div class="h-2.5 w-32 bg-slate-100 rounded"></div>
+                                        </td>
+                                        <td class="py-3 px-3">
+                                            <div class="h-3.5 w-20 bg-slate-200 rounded mb-1"></div>
+                                            <div class="h-2.5 w-16 bg-slate-100 rounded"></div>
+                                        </td>
+                                        <td class="py-3 px-3 text-center">
+                                            <div class="h-5 w-24 bg-slate-200 rounded-full mx-auto"></div>
+                                        </td>
+                                    </tr>
+                                </template>
                                 <tr v-else-if="filteredShipments.length === 0">
                                     <td colspan="6" class="py-12 text-center text-slate-400">
                                         <div class="flex flex-col items-center space-y-2">

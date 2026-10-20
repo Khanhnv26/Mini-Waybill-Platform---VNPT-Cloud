@@ -29,6 +29,7 @@
         emits: ['back-home', 'select-office'],
         setup(props, { emit }) {
             const postOffices = ref([...POST_OFFICES_DATA]);
+            const isLoading = ref(true);
             const searchQuery = ref('');
             const selectedProvince = ref('ALL');
             const selectedType = ref('ALL');
@@ -121,33 +122,41 @@
                     }
                 );
             };
+            const minDelay = (p, ms = 250) => Promise.all([p, new Promise(r => setTimeout(r, ms))]).then(([res]) => res);
             const loadBackendHubs = async () => {
-                if (typeof RoutingService === 'undefined' || typeof RoutingService.getAllHubs !== 'function') return;
+                isLoading.value = true;
                 try {
-                    const hubs = await RoutingService.getAllHubs();
-                    if (Array.isArray(hubs) && hubs.length > 0) {
-                        const mergedCodes = new Set(postOffices.value.map(x => x.code));
-                        hubs.forEach(hub => {
-                            const code = hub.hubCode || hub.code;
-                            if (code && !mergedCodes.has(code) && hub.latitude && hub.longitude) {
-                                postOffices.value.push({
-                                    code: code,
-                                    name: hub.hubName || hub.name || code,
-                                    province: hub.province || 'Hà Nội',
-                                    district: hub.district || '',
-                                    address: hub.address || hub.operationalAddress || 'Toàn quốc',
-                                    phone: hub.hotline || hub.phone || '1900 545481',
-                                    hours: hub.operatingHours || '24/7 (Cả T7 & CN)',
-                                    type: hub.hubType === 'SUB_HUB' ? 'POST_OFFICE' : 'SUPER_HUB',
-                                    lat: Number(hub.latitude),
-                                    lng: Number(hub.longitude)
-                                });
-                                mergedCodes.add(code);
-                            }
-                        });
-                        renderMarkers();
+                    if (typeof RoutingService !== 'undefined' && typeof RoutingService.getAllHubs === 'function') {
+                        const hubs = await minDelay(RoutingService.getAllHubs(), 250);
+                        if (Array.isArray(hubs) && hubs.length > 0) {
+                            const mergedCodes = new Set(postOffices.value.map(x => x.code));
+                            hubs.forEach(hub => {
+                                const code = hub.hubCode || hub.code;
+                                if (code && !mergedCodes.has(code) && hub.latitude && hub.longitude) {
+                                    postOffices.value.push({
+                                        code: code,
+                                        name: hub.hubName || hub.name || code,
+                                        province: hub.province || 'Hà Nội',
+                                        district: hub.district || '',
+                                        address: hub.address || hub.operationalAddress || 'Toàn quốc',
+                                        phone: hub.hotline || hub.phone || '1900 545481',
+                                        hours: hub.operatingHours || '24/7 (Cả T7 & CN)',
+                                        type: hub.hubType === 'SUB_HUB' ? 'POST_OFFICE' : 'SUPER_HUB',
+                                        lat: Number(hub.latitude),
+                                        lng: Number(hub.longitude)
+                                    });
+                                    mergedCodes.add(code);
+                                }
+                            });
+                            renderMarkers();
+                        }
+                    } else {
+                        await new Promise(r => setTimeout(r, 250));
                     }
                 } catch (err) {
+                    console.error('[NetworkView] Lỗi tải hubs:', err);
+                } finally {
+                    isLoading.value = false;
                 }
             };
             const bootMap = (attempt = 0) => {
@@ -209,6 +218,7 @@
             };
             return {
                 postOffices,
+                isLoading,
                 searchQuery,
                 selectedProvince,
                 selectedType,
@@ -219,6 +229,7 @@
                 focusOffice,
                 resetZoom,
                 locateUser,
+                loadBackendHubs,
                 goBack
             };
         },
@@ -287,57 +298,81 @@
                             <span class="text-xs font-extrabold uppercase tracking-wider text-slate-500">
                                 Danh Sách Bưu Cục (<span class="text-blue-600 font-mono">{{ filteredOffices.length }}</span>)
                             </span>
-                            <span class="text-[11px] text-slate-400">Click để định vị bản đồ</span>
+                            <div class="flex items-center space-x-2">
+                                <button 
+                                    type="button" 
+                                    @click="loadBackendHubs" 
+                                    :disabled="isLoading"
+                                    class="text-[11px] text-blue-600 hover:text-blue-800 font-bold transition flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                                    title="Tải lại danh sách bưu cục"
+                                >
+                                    <svg class="w-3 h-3" :class="{ 'animate-spin': isLoading }" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                    <span>Làm Mới</span>
+                                </button>
+                                <span class="text-[11px] text-slate-400">Click để định vị</span>
+                            </div>
                         </div>
                         <div class="space-y-2 max-h-[520px] overflow-y-auto pr-1 custom-scrollbar">
+                            <template v-if="isLoading">
+                                <div v-for="i in 5" :key="'skel-net-' + i" class="p-3 bg-white border border-slate-200 rounded-xl space-y-2 animate-pulse">
+                                    <div class="flex items-center justify-between">
+                                        <div class="h-3.5 w-32 bg-slate-200 rounded"></div>
+                                        <div class="h-3 w-16 bg-slate-100 rounded"></div>
+                                    </div>
+                                    <div class="h-3 w-48 bg-slate-200 rounded"></div>
+                                    <div class="h-2.5 w-60 bg-slate-100 rounded"></div>
+                                </div>
+                            </template>
                             <div 
-                                v-if="filteredOffices.length === 0" 
+                                v-else-if="filteredOffices.length === 0" 
                                 class="p-6 text-center text-xs text-slate-400 bg-white border border-slate-200 rounded-xl"
                             >
                                 Không tìm thấy bưu cục nào phù hợp.
                             </div>
-                            <div 
-                                v-for="item in filteredOffices" 
-                                :key="item.code"
-                                @click="focusOffice(item.code)"
-                                :class="[
-                                    'bg-white border p-3 rounded-xl shadow-2xs transition hover:shadow-md cursor-pointer space-y-1.5',
-                                    activeOfficeCode === item.code ? 'border-blue-500 ring-2 ring-blue-100 dark:ring-blue-900/50 bg-blue-50/20 dark:bg-blue-900/30' : 'border-slate-200 hover:border-blue-300'
-                                ]"
-                            >
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center space-x-1.5">
-                                        <span 
-                                            :class="[
-                                                'text-[10px] font-bold',
-                                                item.type === 'SUPER_HUB' ? 'text-blue-700 dark:text-blue-400' : 'text-teal-700 dark:text-teal-400'
-                                            ]"
-                                        >
-                                            {{ item.type === 'SUPER_HUB' ? 'Kho Tổng' : 'Bưu Cục' }}
+                            <template v-else>
+                                <div 
+                                    v-for="item in filteredOffices" 
+                                    :key="item.code"
+                                    @click="focusOffice(item.code)"
+                                    :class="[
+                                        'bg-white border p-3 rounded-xl shadow-2xs transition hover:shadow-md cursor-pointer space-y-1.5',
+                                        activeOfficeCode === item.code ? 'border-blue-500 ring-2 ring-blue-100 dark:ring-blue-900/50 bg-blue-50/20 dark:bg-blue-900/30' : 'border-slate-200 hover:border-blue-300'
+                                    ]"
+                                >
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center space-x-1.5">
+                                            <span 
+                                                :class="[
+                                                    'text-[10px] font-bold',
+                                                    item.type === 'SUPER_HUB' ? 'text-blue-700 dark:text-blue-400' : 'text-teal-700 dark:text-teal-400'
+                                                ]"
+                                            >
+                                                {{ item.type === 'SUPER_HUB' ? 'Kho Tổng' : 'Bưu Cục' }}
+                                            </span>
+                                            <span class="font-mono text-[11px] font-bold text-slate-500">{{ item.code }}</span>
+                                        </div>
+                                        <span class="text-[10.5px] font-medium text-slate-500 dark:text-slate-400">
+                                            {{ item.hours }}
                                         </span>
-                                        <span class="font-mono text-[11px] font-bold text-slate-500">{{ item.code }}</span>
                                     </div>
-                                    <span class="text-[10.5px] font-medium text-slate-500 dark:text-slate-400">
-                                        {{ item.hours }}
-                                    </span>
+                                    <div>
+                                        <h4 class="font-bold text-xs text-slate-900">{{ item.name }}</h4>
+                                        <p class="text-[11px] text-slate-500 mt-0.5 leading-snug line-clamp-2">{{ item.address }}</p>
+                                    </div>
+                                    <div class="pt-1.5 border-t border-slate-100 flex items-center justify-between text-xs">
+                                        <span class="text-[11px] text-slate-500">
+                                            Hotline: <strong class="text-slate-700 font-mono">{{ item.phone }}</strong>
+                                        </span>
+                                        <button 
+                                            type="button" 
+                                            @click.stop="focusOffice(item.code)"
+                                            class="px-2 py-0.5 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-600 dark:hover:text-white font-bold rounded-md text-[10.5px] transition cursor-pointer"
+                                        >
+                                            Định vị
+                                        </button>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h4 class="font-bold text-xs text-slate-900">{{ item.name }}</h4>
-                                    <p class="text-[11px] text-slate-500 mt-0.5 leading-snug line-clamp-2">{{ item.address }}</p>
-                                </div>
-                                <div class="pt-1.5 border-t border-slate-100 flex items-center justify-between text-xs">
-                                    <span class="text-[11px] text-slate-500">
-                                        Hotline: <strong class="text-slate-700 font-mono">{{ item.phone }}</strong>
-                                    </span>
-                                    <button 
-                                        type="button"
-                                        @click.stop="focusOffice(item.code)"
-                                        class="px-2 py-0.5 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 dark:hover:bg-blue-600 dark:hover:text-white font-bold rounded-md text-[10.5px] transition cursor-pointer"
-                                    >
-                                        Định vị
-                                    </button>
-                                </div>
-                            </div>
+                            </template>
                         </div>
                     </div>
                     <div class="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-2.5 shadow-sm space-y-2">
@@ -363,7 +398,13 @@
                                 </button>
                             </div>
                         </div>
-                        <div id="network-leaflet-map" class="w-full h-[560px] rounded-lg overflow-hidden border border-slate-200 z-10"></div>
+                        <div class="relative w-full h-[560px] rounded-lg overflow-hidden border border-slate-200 z-10">
+                            <div id="network-leaflet-map" class="w-full h-full"></div>
+                            <div v-if="isLoading" class="absolute inset-0 bg-white/70 backdrop-blur-xs flex flex-col items-center justify-center z-20 space-y-2 pointer-events-none">
+                                <span class="w-7 h-7 border-3 border-teal-600 border-t-transparent rounded-full animate-spin"></span>
+                                <span class="text-xs font-bold text-slate-700">Đang đồng bộ mạng lưới trạm &amp; bưu cục...</span>
+                            </div>
+                        </div>
                         <div class="flex flex-wrap items-center justify-between text-[11px] text-slate-500 px-2 pt-1 border-t border-slate-100 gap-2">
                             <div class="flex items-center space-x-4">
                                 <span class="flex items-center space-x-1.5">

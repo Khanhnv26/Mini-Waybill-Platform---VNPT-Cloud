@@ -126,6 +126,7 @@
                 selectedBoxSize.value = 'CUSTOM';
                 scheduleCalculation();
             };
+            const minDelay = (p, ms = 250) => Promise.all([p, new Promise(r => setTimeout(r, ms))]).then(([res]) => res);
             const executeCalculation = async () => {
                 isCalculating.value = true;
                 const payload = {
@@ -142,11 +143,11 @@
                 };
                 try {
                     if (window.PricingService) {
-                        calculationResult.value = await window.PricingService.calculateTariff(payload);
+                        calculationResult.value = await minDelay(window.PricingService.calculateTariff(payload), 250);
                     }
                 } catch (err) {
                     if (window.PricingService) {
-                        calculationResult.value = window.PricingService.calculateFallback(payload);
+                        calculationResult.value = await minDelay(Promise.resolve(window.PricingService.calculateFallback(payload)), 250);
                     }
                 } finally {
                     isCalculating.value = false;
@@ -420,8 +421,23 @@
                     </div>
                     <div 
                         class="grid grid-cols-1 md:grid-cols-3 gap-3.5 transition-all duration-300"
-                        :class="isCalculating ? 'opacity-50 scale-[0.99]' : ''"
+                        :class="isCalculating ? 'opacity-70 scale-[0.99]' : ''"
                     >
+                        <template v-if="isCalculating && !calculationResult">
+                            <div v-for="i in 3" :key="'skel-plan-' + i" class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm animate-pulse space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <div class="h-4 w-24 bg-slate-200 rounded"></div>
+                                    <div class="h-4 w-16 bg-slate-200 rounded"></div>
+                                </div>
+                                <div class="h-7 w-32 bg-slate-200 rounded"></div>
+                                <div class="space-y-1.5 pt-2 border-t border-slate-100">
+                                    <div class="h-3 w-full bg-slate-100 rounded"></div>
+                                    <div class="h-3 w-3/4 bg-slate-100 rounded"></div>
+                                </div>
+                                <div class="h-8 w-full bg-slate-200 rounded-lg mt-3"></div>
+                            </div>
+                        </template>
+                        <template v-else>
                         <div 
                             v-for="plan in (calculationResult?.plans || [])" 
                             :key="plan.serviceCode"
@@ -488,6 +504,7 @@
                                 Tạo Đơn Gói Này
                             </button>
                         </div>
+                        </template>
                     </div>
                     <div class="bg-blue-50/70 border border-blue-100/90 rounded-lg p-3 text-xs text-blue-900 flex items-start space-x-2 transition-all">
                         <svg class="w-3.5 h-3.5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
