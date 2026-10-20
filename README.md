@@ -1,6 +1,7 @@
 # Waybill Platform - Nền Tảng Điều Phối & Quản Trị Vận Đơn Bưu Chính Toàn Trình
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-HTTPS%20Online-brightgreen?style=for-the-badge&logo=googlechrome&logoColor=white)](https://waybill-express.japaneast.cloudapp.azure.com)
+[![Release](https://img.shields.io/badge/Release-v2.0.0-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Khanhnv26/Mini-Waybill-Platform---VNPT-Cloud/releases)
 [![Java](https://img.shields.io/badge/Java-21%20LTS-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![Spring Cloud](https://img.shields.io/badge/Spring%20Cloud-2025.1.3-6DB33F?style=for-the-badge&logo=spring&logoColor=white)](https://spring.io/projects/spring-cloud)
@@ -83,6 +84,14 @@ Hệ thống được thiết kế theo nguyên lý **High Availability (HA)** �
    * Động cơ ước tính ETA động theo Cut-off bưu cục, giám sát phân loại 3 đội xe (`/fleet`) và dự báo sản lượng bưu gửi.
    * *Xem thêm:* [Cẩm nang 07 - Telegram Bot & WebSocket](docs/07-telegram-bot-and-realtime-notifications.md), [Cẩm nang 20 - Dynamic ETA Engine](docs/20-dynamic-eta-engine-and-delivery-forecast.md), [Cẩm nang 21 - Fleet Management](docs/21-fleet-vehicle-management-and-shipper-bot-actions.md).
 
+7. **Trải Nghiệm Di Động Toàn Diện (Mobile UX) & Đường Ống Tải Shimmer Không Giật Nháy:**
+   * Thanh điều hướng đáy cố định (`AppBottomNav`) chuẩn công thái học di động, thay thế thanh sidebar khi hiển thị trên màn hình nhỏ.
+   * Nút trợ lý AI Chatbot tự động nép mép màn hình khi cuộn trang (Edge-docking qua passive scroll listener), mở giao diện dạng Bottom Sheet / Drawer với lớp nền mờ (Backdrop blur) và thanh gạt cảm ứng.
+   * Xóa bỏ thanh sticky bar vướng víu trên form tạo đơn, chuyển thành bảng cước nội dòng (`in-flow fee receipt`) với nút bấm cảm ứng chuẩn $\ge 48\text{px}$.
+   * Khung xương tải động (Skeleton Shimmer) tăng tốc phần cứng GPU (60 FPS) đồng bộ trên tất cả các view nghiệp vụ, tích hợp thuật toán Sàn trễ tối thiểu (250ms Delay Floor) ngăn chặn hiện tượng nháy trắng màn hình (layout thrashing).
+   * Khắc phục triệt để lỗi Blank Screen khi F5 bằng cách tách độc lập vòng đời `createViewLoader` và cơ chế nạp module bất đồng bộ an toàn.
+   * *Xem thêm:* [Cẩm nang 24 - Support Chat & Realtime](docs/24-support-chat-realtime.md) và [Cẩm nang 25 - Production Readiness](docs/25-production-readiness.md).
+
 ---
 
 ## 3. Sơ Đồ Kiến Trúc Hệ Thống (System Architecture)
@@ -153,7 +162,7 @@ flowchart TD
 
 ## 4. Cẩm Nang Kỹ Thuật Chuyên Sâu & Boilerplate (Documentation Index)
 
-Toàn bộ chi tiết kỹ thuật chuyên sâu, mã nguồn mẫu (boilerplate) và hướng dẫn cấu hình chi tiết được tài liệu hóa thành 24 cẩm nang trong thư mục [`docs/`](docs/):
+Toàn bộ chi tiết kỹ thuật chuyên sâu, mã nguồn mẫu (boilerplate) và hướng dẫn cấu hình chi tiết được tài liệu hóa thành 25 cẩm nang trong thư mục [`docs/`](docs/):
 
 | STT | Tài Liệu Kỹ Thuật Chuyên Sâu | Trọng Tâm Nghiệp Vụ & Boilerplate Code |
 | :---: | :--- | :--- |
@@ -180,6 +189,8 @@ Toàn bộ chi tiết kỹ thuật chuyên sâu, mã nguồn mẫu (boilerplate)
 | **21** | [**Quản Trị Đội Xe Vận Tải & Tương Tác Bưu Tá Telegram Bot**](docs/21-fleet-vehicle-management-and-shipper-bot-actions.md) | Quản lý 3 phân khúc đội xe qua `/fleet`, Telegram Bot 2 chiều cho bưu tá cập nhật trạng thái đơn và nộp COD. |
 | **22** | [**Vận Hành GitOps Với ArgoCD & Giám Sát Toàn Diện**](docs/22-gitops-argocd-and-prometheus-grafana-monitoring.md) | Đồng bộ GitOps tự động với ArgoCD, giám sát Prometheus & 3 Grafana Dashboards (Nghiệp vụ, Hạ tầng, JVM). |
 | **23** | [**Quy Trình Xử Lý Đơn Thất Bại & Luồng Chuyển Hoàn**](docs/23-customer-return-flow.md) | Quyết định 24h của khách hàng (REDELIVER / UPDATE_RECEIVER / RETURN), máy trạng thái chuyển hoàn và lấy hàng tại bưu cục. |
+| **24** | [**Chat Khách Hàng: Presence, Thông Báo & Đồng Bộ**](docs/24-support-chat-realtime.md) | Kênh STOMP WebSocket 2 chiều, Presence tracking, Read receipts, Web Audio API và bộ nhớ đệm phục hồi. |
+| **25** | [**Sẵn Sàng Vận Hành Production & Verification Gate**](docs/25-production-readiness.md) | Bộ tiêu chuẩn Release Gate (68 tests, syntax templates), Kustomize production profiles và kịch bản staging drills. |
 | **SEC** | [**Bảo Mật Hệ Thống & Quản Trị Secrets Runtime**](docs/security-rollout.md) | Chuẩn hóa an ninh, khởi tạo credential ngẫu nhiên `.secrets`, Session/Role Versioning trên Gateway và CSKH an toàn. |
 
 ---
