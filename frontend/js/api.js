@@ -1,7 +1,5 @@
-const isTauri = typeof window !== 'undefined' && (window.__TAURI__ !== undefined || window.location.protocol.includes('tauri'));
-if (typeof window !== 'undefined') {
-    window.isTauri = isTauri;
-}
+// Tauri owns window.isTauri and defines it as a read-only runtime flag.
+const isTauri = typeof window !== 'undefined' && (window.isTauri === true || window.__TAURI__ !== undefined || window.location.protocol.includes('tauri'));
 const API_BASE_URL = isTauri
     ? 'https://waybill-express.japaneast.cloudapp.azure.com'
     : (['3000', '80', '443', ''].includes(window.location.port) && window.location.protocol.startsWith('http') ? '' : 'http://localhost:8080');
