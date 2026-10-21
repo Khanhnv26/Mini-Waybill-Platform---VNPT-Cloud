@@ -58,3 +58,5 @@ jobs:
             - Khắc phục triệt để lỗi hiển thị màn hình trống và tối ưu hiệu năng.
           releaseDraft: false
           prerelease: false
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: true
