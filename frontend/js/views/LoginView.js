@@ -206,8 +206,39 @@
                                         </div>
                                     </div>
                                     <div class="flex flex-col items-center justify-center w-full space-y-2 stagger-5">
-                                        <div id="spaGoogleBtnLogin" class="flex justify-center w-full min-h-[44px]" style="color-scheme: light;"></div>
-                                        <div v-if="googleLoading" class="text-xs font-semibold text-vnpt-500 animate-pulse">
+                                        <div v-if="isDesktopApp" class="w-full flex flex-col items-center">
+                                            <button
+                                                v-if="!isPollingDesktopSession"
+                                                type="button"
+                                                @click="handleDesktopGoogleLogin"
+                                                :disabled="googleLoading"
+                                                class="flex items-center justify-center w-full max-w-[320px] px-4 py-2.5 text-xs font-semibold transition-all rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/80 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">
+                                                <svg class="w-4 h-4 mr-2.5 flex-shrink-0" viewBox="0 0 24 24">
+                                                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                                                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                                                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                                                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                                                </svg>
+                                                <span>Đăng nhập với Google (Mở trình duyệt)</span>
+                                            </button>
+                                            <div v-else class="flex flex-col items-center justify-center p-3 text-center rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 space-y-2 w-full max-w-[320px]">
+                                                <div class="flex items-center text-xs font-semibold text-blue-700 dark:text-blue-300">
+                                                    <svg class="w-4 h-4 mr-2 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
+                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                                                    </svg>
+                                                    Đang chờ bạn đăng nhập trên trình duyệt...
+                                                </div>
+                                                <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                                                    Vui lòng hoàn tất xác thực ở tab trình duyệt vừa mở.
+                                                </p>
+                                                <button type="button" @click="cancelDesktopSession" class="text-xs text-rose-500 hover:underline font-medium">
+                                                    Huỷ đăng nhập
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div v-else id="spaGoogleBtnLogin" class="flex justify-center w-full min-h-[44px]" style="color-scheme: light;"></div>
+                                        <div v-if="googleLoading && !isPollingDesktopSession" class="text-xs font-semibold text-vnpt-500 animate-pulse">
                                             Đang xác thực tài khoản Google...
                                         </div>
                                     </div>
@@ -276,8 +307,39 @@
                                         </div>
                                     </div>
                                     <div class="flex flex-col items-center justify-center w-full space-y-2">
-                                        <div id="spaGoogleBtnRegister" class="flex justify-center w-full min-h-[44px]" style="color-scheme: light;"></div>
-                                        <div v-if="googleLoading" class="text-xs font-semibold text-vnpt-500 animate-pulse">
+                                        <div v-if="isDesktopApp" class="w-full flex flex-col items-center">
+                                            <button
+                                                v-if="!isPollingDesktopSession"
+                                                type="button"
+                                                @click="handleDesktopGoogleLogin"
+                                                :disabled="googleLoading"
+                                                class="flex items-center justify-center w-full max-w-[320px] px-4 py-2.5 text-xs font-semibold transition-all rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/80 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed">
+                                                <svg class="w-4 h-4 mr-2.5 flex-shrink-0" viewBox="0 0 24 24">
+                                                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                                                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                                                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                                                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                                                </svg>
+                                                <span>Đăng ký nhanh với Google (Mở trình duyệt)</span>
+                                            </button>
+                                            <div v-else class="flex flex-col items-center justify-center p-3 text-center rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 space-y-2 w-full max-w-[320px]">
+                                                <div class="flex items-center text-xs font-semibold text-blue-700 dark:text-blue-300">
+                                                    <svg class="w-4 h-4 mr-2 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
+                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                                                    </svg>
+                                                    Đang chờ bạn đăng nhập trên trình duyệt...
+                                                </div>
+                                                <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                                                    Vui lòng hoàn tất xác thực ở tab trình duyệt vừa mở.
+                                                </p>
+                                                <button type="button" @click="cancelDesktopSession" class="text-xs text-rose-500 hover:underline font-medium">
+                                                    Huỷ đăng ký
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div v-else id="spaGoogleBtnRegister" class="flex justify-center w-full min-h-[44px]" style="color-scheme: light;"></div>
+                                        <div v-if="googleLoading && !isPollingDesktopSession" class="text-xs font-semibold text-vnpt-500 animate-pulse">
                                             Đang xử lý tài khoản Google...
                                         </div>
                                     </div>
@@ -404,6 +466,12 @@
             const authMode = ref('login');
             const loading = ref(false);
             const googleLoading = ref(false);
+            const isDesktopApp = computed(() => Boolean(window.isTauri || window.__TAURI__));
+            const isPollingDesktopSession = ref(false);
+            let desktopPollInterval = null;
+            const desktopSessionId = ref(null);
+            const urlParams = typeof window !== 'undefined' && window.location ? typeof URLSearchParams !== 'undefined' ? new URLSearchParams(window.location.search) : null : null;
+            const inboundDesktopSession = urlParams ? urlParams.get('desktopSession') : null;
             const cooldownSeconds = ref(60);
             let timerInterval = null;
             const alert = reactive({
@@ -600,6 +668,20 @@
                 clearAlert();
                 googleLoading.value = true;
                 try {
+                    if (inboundDesktopSession) {
+                        const res = await Api.post('/api/auth/desktop-session/complete', {
+                            sessionId: inboundDesktopSession,
+                            idToken: googleResponse.credential
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) {
+                            throw new Error(data.message || data.error || 'Xác thực Google cho Desktop thất bại!');
+                        }
+                        showAlert('Xác thực Google thành công! Phiên đăng nhập đã được gửi sang ứng dụng Desktop. Bạn có thể đóng tab này.', true);
+                        finishLoginSuccess(data);
+                        return;
+                    }
+
                     const res = await Api.post('/api/auth/google', {
                         idToken: googleResponse.credential
                     });
@@ -622,7 +704,89 @@
                     googleLoading.value = false;
                 }
             }
+
+            async function handleDesktopGoogleLogin() {
+                clearAlert();
+                googleLoading.value = true;
+                try {
+                    const originParam = window.location.origin && !window.location.origin.includes('tauri')
+                        ? window.location.origin
+                        : 'http://localhost:3000';
+                    const res = await Api.post(`/api/auth/desktop-session/init?origin=${encodeURIComponent(originParam)}`);
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok || !data.sessionId) {
+                        throw new Error(data.message || 'Không thể khởi tạo phiên đăng nhập Desktop. Vui lòng kiểm tra kết nối API Gateway!');
+                    }
+                    desktopSessionId.value = data.sessionId;
+                    const targetUrl = data.loginUrl || `${originParam}/login.html?desktopSession=${data.sessionId}`;
+
+                    if (window.__TAURI__?.core?.invoke) {
+                        try {
+                            await window.__TAURI__.core.invoke('open_in_browser', { url: targetUrl });
+                        } catch (invokeErr) {
+                            window.open(targetUrl, '_blank');
+                        }
+                    } else {
+                        window.open(targetUrl, '_blank');
+                    }
+
+                    isPollingDesktopSession.value = true;
+                    startDesktopPolling(data.sessionId);
+                } catch (err) {
+                    googleLoading.value = false;
+                    showAlert(err.message || 'Lỗi khi mở trình duyệt đăng nhập.');
+                }
+            }
+
+            function cancelDesktopSession() {
+                if (desktopPollInterval) {
+                    clearInterval(desktopPollInterval);
+                    desktopPollInterval = null;
+                }
+                isPollingDesktopSession.value = false;
+                googleLoading.value = false;
+                desktopSessionId.value = null;
+            }
+
+            function startDesktopPolling(sessionId) {
+                if (desktopPollInterval) {
+                    clearInterval(desktopPollInterval);
+                }
+                let attempts = 0;
+                const maxAttempts = 150;
+
+                desktopPollInterval = setInterval(async () => {
+                    attempts++;
+                    if (attempts > maxAttempts) {
+                        cancelDesktopSession();
+                        showAlert('Phiên đăng nhập trên trình duyệt đã hết hạn. Vui lòng bấm thử lại.');
+                        return;
+                    }
+
+                    try {
+                        const res = await Api.get(`/api/auth/desktop-session/status?sessionId=${encodeURIComponent(sessionId)}`);
+                        const data = await res.json().catch(() => ({}));
+
+                        if (!res.ok) {
+                            return;
+                        }
+
+                        if (data.status === 'SUCCESS' && data.auth) {
+                            cancelDesktopSession();
+                            finishLoginSuccess(data.auth);
+                        } else if (data.status === 'EXPIRED') {
+                            cancelDesktopSession();
+                            showAlert('Phiên đăng nhập đã hết hạn hoặc bị huỷ.');
+                        }
+                    } catch (pollErr) {
+                        console.debug('[DesktopAuth] Poll check failed:', pollErr);
+                    }
+                }, 2000);
+            }
             function renderGoogleButton(force = false) {
+                if (isDesktopApp.value) {
+                    return false;
+                }
                 if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
                     try {
                         window.initGoogleIdentity(GOOGLE_CLIENT_ID, handleGoogleLoginResponse);
@@ -694,6 +858,7 @@
                 }
             });
             onUnmounted(() => {
+                cancelDesktopSession();
                 if (timerInterval) clearInterval(timerInterval);
                 themeBackgrounds.length = 0;
             });
@@ -888,6 +1053,11 @@
                 authMode,
                 loading,
                 googleLoading,
+                isDesktopApp,
+                isPollingDesktopSession,
+                handleDesktopGoogleLogin,
+                handleGoogleLoginResponse,
+                cancelDesktopSession,
                 cooldownSeconds,
                 alert,
                 loginForm,

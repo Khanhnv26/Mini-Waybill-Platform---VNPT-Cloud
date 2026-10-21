@@ -3,13 +3,13 @@ name: "Release Desktop App"
 on:
   push:
     tags:
-      - 'v*' # Chạy khi tạo tag mới như v1.0.0, v1.0.1
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release Tag (ví dụ: v1.0.0)'
+        description: 'Release Tag (ví dụ: v1.2.0)'
         required: false
-        default: 'v1.0.0'
+        default: 'v1.2.0'
 
 jobs:
   build-tauri:
@@ -51,6 +51,10 @@ jobs:
           projectPath: "./frontend"
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
           releaseName: 'Waybill Platform Desktop ${{ github.event.inputs.tag || github.ref_name }}'
-          releaseBody: 'Phiên bản cài đặt Desktop chính thức cho nhân viên quầy bưu cục.'
+          releaseBody: |
+            ### Cập nhật phiên bản v1.2.0
+            - Tích hợp đăng nhập Google an toàn qua trình duyệt hệ thống (RFC 8252).
+            - Tự động đồng bộ phiên đăng nhập giữa Trình duyệt và Desktop App.
+            - Khắc phục triệt để lỗi hiển thị màn hình trống và tối ưu hiệu năng.
           releaseDraft: false
           prerelease: false

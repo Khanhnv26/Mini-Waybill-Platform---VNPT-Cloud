@@ -34,6 +34,7 @@ public class SecurityConfig {
                         "/api/auth/login",
                         "/api/auth/register",
                         "/api/auth/google",
+                        "/api/auth/desktop-session/**",
                         "/api/auth/forgot-password",
                         "/api/auth/reset-password").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
@@ -46,7 +47,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/ratings/admin", "/api/ratings/admin/**").hasAnyRole("ADMIN", "DISPATCHER")
 
                         .requestMatchers("/api/notifications/ws", "/api/notifications/ws/**").permitAll()
-                        // Chat endpoints validate JWT or the per-ticket guest capability themselves.
                         .requestMatchers("/api/notifications/chat/**").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/notifications/*").hasAnyRole("ADMIN", "CS", "POST_OFFICE_OPERATOR", "POST_OFFICE_STAFF", "DISPATCHER")
                         .requestMatchers(HttpMethod.GET,"/api/routing/hubs").permitAll()
@@ -60,7 +60,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/payments/webhook").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/api/tickets/*/assign", "/api/tickets/*/resolve").hasAnyRole("CS", "ADMIN")
                         .requestMatchers(SecurityConfig::isStaffOnlyTicketList).hasAnyRole("CS", "ADMIN")
-                        // Ticket ownership / guest capability is verified in support-service.
                         .requestMatchers("/api/tickets", "/api/tickets/**", "/api/support/**").permitAll()
                         .requestMatchers("/api/admin", "/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/audits", "/api/audits/**").hasAnyRole("CS", "ADMIN")

@@ -6,11 +6,14 @@ import lombok.RequiredArgsConstructor;
 import org.app.authservice.dto.admin.*;
 import org.app.authservice.dto.request.*;
 import org.app.authservice.dto.response.AuthResponse;
+import org.app.authservice.dto.response.DesktopSessionInitResponse;
+import org.app.authservice.dto.response.DesktopSessionStatusResponse;
 import org.app.authservice.entity.Permission;
 import org.app.authservice.entity.Role;
 import org.app.authservice.entity.User;
 import org.app.authservice.service.AdminService;
 import org.app.authservice.service.AuthService;
+import org.app.authservice.service.DesktopAuthSessionService;
 import org.app.authservice.service.GoogleVerifyService;
 import org.app.authservice.service.JwtService;
 import org.springframework.http.HttpStatus;
@@ -29,6 +32,7 @@ public class AuthController {
     private final AuthService authService;
     private final JwtService jwtService;
     private final AdminService adminService;
+    private final DesktopAuthSessionService desktopAuthSessionService;
 
     @PostMapping("/google")
     public ResponseEntity<AuthResponse> loginWithGoogle(@RequestBody GoogleLoginRequest loginRequest) throws Exception {
@@ -51,6 +55,24 @@ public class AuthController {
         User user = authService.linkGoogleAccount(userId, payload);
         String jwt = jwtService.generateToken(user);
         return ResponseEntity.ok(buildResponse(user, jwt));
+    }
+
+    @PostMapping("/desktop-session/init")
+    public ResponseEntity<DesktopSessionInitResponse> initDesktopSession(
+            @RequestParam(value = "origin", required = false) String origin) {
+        return ResponseEntity.ok(desktopAuthSessionService.initSession(origin));
+    }
+
+    @GetMapping("/desktop-session/status")
+    public ResponseEntity<DesktopSessionStatusResponse> getDesktopSessionStatus(
+            @RequestParam("sessionId") String sessionId) {
+        return ResponseEntity.ok(desktopAuthSessionService.getSessionStatus(sessionId));
+    }
+
+    @PostMapping("/desktop-session/complete")
+    public ResponseEntity<AuthResponse> completeDesktopSession(
+            @Valid @RequestBody DesktopSessionCompleteRequest request) throws Exception {
+        return ResponseEntity.ok(desktopAuthSessionService.completeSession(request));
     }
 
     @PostMapping("/register")
@@ -133,7 +155,6 @@ public class AuthController {
     }
 
     private AuthResponse buildResponse(User user, String jwt) {
-
         List<String> permissions = user.getRoles() != null ?
                 user.getRoles().stream()
                         .filter(role -> role.getPermissions() != null)
@@ -156,5 +177,4 @@ public class AuthController {
                 .googleLinked(user.getGoogleSub() != null && !user.getGoogleSub().isBlank())
                 .build();
     }
-
 }
