@@ -1698,37 +1698,55 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
         .then(() => nextTick(), error => { console.error('INITIAL_VIEW_LOAD_ERROR:', error); })
         .finally(() => {
             window.WaybillPreloader?.ready();
+            window.checkDesktopUpdate = async (isManual = false) => {
+        if (typeof isTauri === 'undefined' || !isTauri || !window.__TAURI__?.updater) {
+            if (isManual && window.Utils?.showToast) {
+                window.Utils.showToast('Thông Báo', 'Tính năng cập nhật tự động chỉ hoạt động trên phiên bản Desktop App.', 'info');
+            }
+            return;
+        }
+        if (isManual && window.Utils?.showToast) {
+            window.Utils.showToast('Kiểm tra cập nhật', 'Đang quét bản phát hành mới nhất...', 'info');
+        }
+        try {
+            const update = await window.__TAURI__.updater.check();
+            if (update) {
+                console.log('[Tauri Updater] Phát hiện phiên bản mới:', update.version);
+                pendingTauriUpdate = update;
+
+                let changelogLines = [];
+                if (update.body && typeof update.body === 'string') {
+                    changelogLines = update.body
+                        .split('\n')
+                        .map(line => line.trim())
+                        .filter(line => line.length > 0)
+                        .map(line => line.replace(/^[\*\-\#[0-9]\.\s]+/, '').trim())
+                        .filter(line => line.length > 0);
+                }
+
+                appUpdateState.newVersion = update.version;
+                appUpdateState.currentVersion = update.currentVersion || '1.0.0';
+                appUpdateState.changelog = changelogLines;
+                appUpdateState.status = 'prompt';
+                appUpdateState.percent = 0;
+                appUpdateState.downloadedMB = '0';
+                appUpdateState.errorMessage = '';
+                appUpdateState.show = true;
+            } else if (isManual && window.Utils?.showToast) {
+                window.Utils.showToast('Phiên bản mới nhất', 'Bạn đang sử dụng phiên bản mới nhất (' + (appUpdateState.currentVersion || '1.1.0') + ').', 'success');
+            }
+        } catch (err) {
+            console.warn('[Tauri Updater Check Error]', err);
+            if (isManual && window.Utils?.showToast) {
+                window.Utils.showToast('Lỗi kiểm tra', err.message || 'Không thể kết nối đến máy chủ cập nhật.', 'error');
+            }
+        }
+    };
+
             // Kiểm tra cập nhật Desktop App (Tauri Auto-Updater)
             if (typeof isTauri !== 'undefined' && isTauri && window.__TAURI__?.updater) {
-                setTimeout(async () => {
-                    try {
-                        const update = await window.__TAURI__.updater.check();
-                        if (update) {
-                            console.log('[Tauri Updater] Phát hiện phiên bản mới:', update.version);
-                            pendingTauriUpdate = update;
-
-                            let changelogLines = [];
-                            if (update.body && typeof update.body === 'string') {
-                                changelogLines = update.body
-                                    .split('\n')
-                                    .map(line => line.trim())
-                                    .filter(line => line.length > 0)
-                                    .map(line => line.replace(/^[\*\-\#\d\.\s]+/, '').trim())
-                                    .filter(line => line.length > 0);
-                            }
-
-                            appUpdateState.newVersion = update.version;
-                            appUpdateState.currentVersion = update.currentVersion || '1.0.0';
-                            appUpdateState.changelog = changelogLines;
-                            appUpdateState.status = 'prompt';
-                            appUpdateState.percent = 0;
-                            appUpdateState.downloadedMB = '0';
-                            appUpdateState.errorMessage = '';
-                            appUpdateState.show = true;
-                        }
-                    } catch (err) {
-                        console.warn('[Tauri Updater Check Error]', err);
-                    }
+                setTimeout(() => {
+                    window.checkDesktopUpdate(false);
                 }, 3000);
             }
         });
