@@ -10,6 +10,7 @@
     "beforeBuildCommand": "npm run build"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "Waybill Platform - Nền Tảng Điều Phối Bưu Chính",
@@ -33,5 +34,13 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgxOUUzRkM2MjQ5MjlDMjQKUldRa25KSWt4aitlZ1hKVmZQT1c2enYwTWp4aGFDcHpuak02UDVVTHVab0plcjNSUlhXbTNhYTMK",
+      "endpoints": [
+        "https://github.com/Khanhnv26/Mini-Waybill-Platform---VNPT-Cloud/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

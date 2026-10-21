@@ -1620,4 +1620,27 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
     const initialView = viewLoaders[initialComponent];
     Promise.resolve(initialView ? initialView() : undefined)
         .then(() => nextTick(), error => { console.error('INITIAL_VIEW_LOAD_ERROR:', error); })
-        .finally(() => window.WaybillPreloader?.ready());
+        .finally(() => {
+            window.WaybillPreloader?.ready();
+            // Kiểm tra cập nhật Desktop App (Tauri Auto-Updater)
+            if (typeof isTauri !== 'undefined' && isTauri && window.__TAURI__?.updater) {
+                setTimeout(async () => {
+                    try {
+                        const update = await window.__TAURI__.updater.check();
+                        if (update) {
+                            console.log('[Tauri Updater] Phát hiện phiên bản mới:', update.version);
+                            const confirmUpdate = window.confirm(`Đã có phiên bản cập nhật mới (${update.version})!\n\nBạn có muốn cập nhật và khởi động lại ứng dụng ngay bây giờ không?`);
+                            if (confirmUpdate) {
+                                if (window.Utils?.showToast) {
+                                    window.Utils.showToast('Đang cập nhật...', 'Ứng dụng đang tải bản mới ngầm, vui lòng đợi trong giây lát.', 'info');
+                                }
+                                await update.downloadAndInstall();
+                                await window.__TAURI__.process?.relaunch();
+                            }
+                        }
+                    } catch (err) {
+                        console.warn('[Tauri Updater Check Error]', err);
+                    }
+                }, 3000);
+            }
+        });
