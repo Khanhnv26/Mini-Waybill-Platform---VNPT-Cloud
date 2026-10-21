@@ -4,10 +4,10 @@
   "version": "1.0.0",
   "identifier": "com.waybill.platform",
   "build": {
-    "frontendDist": "../",
+    "frontendDist": "../dist",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "npm start",
-    "beforeBuildCommand": "npm run build:css"
+    "beforeBuildCommand": "npm run build"
   },
   "app": {
     "windows": [

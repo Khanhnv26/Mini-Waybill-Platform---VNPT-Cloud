@@ -9,3 +9,4 @@ mockup-loader.html
 *.pem
 *.key
 src-tauri
+dist
