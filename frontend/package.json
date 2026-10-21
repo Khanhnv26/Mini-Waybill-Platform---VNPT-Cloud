@@ -8,9 +8,11 @@
     "verify": "npm run check && npm test && npm run build:css",
     "start": "node server.js 3000",
     "build:css": "tailwindcss -i ./css/tailwind.input.css -o ./css/tailwind.prod.css --minify",
-    "watch:css": "tailwindcss -i ./css/tailwind.input.css -o ./css/tailwind.prod.css --watch"
+    "watch:css": "tailwindcss -i ./css/tailwind.input.css -o ./css/tailwind.prod.css --watch",
+    "tauri": "tauri"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.12.3",
     "tailwindcss": "^3.4.17"
   },
   "dependencies": {

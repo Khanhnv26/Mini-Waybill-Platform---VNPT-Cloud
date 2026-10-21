@@ -1,4 +1,8 @@
-const API_BASE_URL = (['3000', '80', '443', ''].includes(window.location.port) && window.location.protocol.startsWith('http')) ? '' : 'http://localhost:8080';
+const isTauri = window.__TAURI__ !== undefined || window.location.protocol.includes('tauri');
+const API_BASE_URL = isTauri
+    ? 'https://waybill-express.japaneast.cloudapp.azure.com'
+    : (['3000', '80', '443', ''].includes(window.location.port) && window.location.protocol.startsWith('http') ? '' : 'http://localhost:8080');
+
 const Api = {
     async request(endpoint, options = {}) {
         const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;

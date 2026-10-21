@@ -8,3 +8,4 @@ mockup-loader.html
 .env.*
 *.pem
 *.key
+src-tauri
