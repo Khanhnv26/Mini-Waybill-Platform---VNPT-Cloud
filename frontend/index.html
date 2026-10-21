@@ -138,6 +138,19 @@
             @close="closeShipmentDetailModal"
             @open-full-tracking="openFullTrackingFromModal"
         ></shipment-detail-modal>
+        <app-update-modal
+            :show="appUpdateState.show"
+            :new-version="appUpdateState.newVersion"
+            :current-version="appUpdateState.currentVersion"
+            :changelog="appUpdateState.changelog"
+            :status="appUpdateState.status"
+            :percent="appUpdateState.percent"
+            :downloaded-m-b="appUpdateState.downloadedMB"
+            :total-m-b="appUpdateState.totalMB"
+            :error-message="appUpdateState.errorMessage"
+            @start-update="handleStartAppUpdate"
+            @close="handleCloseAppUpdate"
+        ></app-update-modal>
         <div 
             v-if="showNotificationDetailModal && activeNotificationDetail" 
             class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"

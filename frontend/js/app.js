@@ -26,6 +26,7 @@ import './components/layout/PublicFooter.js';
 import './components/common/ToastContainer.js';
 import './components/common/UserProfileModal.js?v=3.7.1';
 import './components/common/ShipmentDetailModal.js';
+import './components/common/AppUpdateModal.js';
 import './layouts/InternalLayout.js';
 import './layouts/PublicLayout.js?v=3.8.3';
 import './components/ChatbotWidget.js?v=3.9.2';
@@ -35,6 +36,74 @@ window.appStore = appStore;
 window.notificationStore = notificationStore;
 window.badgeStore = badgeStore;
 const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } = Vue;
+
+    // Desktop App Update Modal State
+    const appUpdateState = reactive({
+        show: false,
+        newVersion: '',
+        currentVersion: '',
+        changelog: [],
+        status: 'prompt', // 'prompt' | 'downloading' | 'installing' | 'done' | 'error'
+        percent: 0,
+        downloadedMB: '0',
+        totalMB: '',
+        errorMessage: ''
+    });
+    let pendingTauriUpdate = null;
+
+    const handleCloseAppUpdate = () => {
+        appUpdateState.show = false;
+    };
+
+    const handleStartAppUpdate = async () => {
+        if (!pendingTauriUpdate) return;
+        try {
+            appUpdateState.status = 'downloading';
+            appUpdateState.percent = 0;
+            appUpdateState.errorMessage = '';
+
+            let downloadedBytes = 0;
+            let totalBytes = 0;
+
+            await pendingTauriUpdate.downloadAndInstall((event) => {
+                if (!event) return;
+                if (event.event === 'Started') {
+                    totalBytes = event.data?.contentLength || 0;
+                    if (totalBytes > 0) {
+                        appUpdateState.totalMB = (totalBytes / (1024 * 1024)).toFixed(1);
+                    }
+                } else if (event.event === 'Progress') {
+                    downloadedBytes += event.data?.chunkLength || 0;
+                    if (totalBytes > 0) {
+                        appUpdateState.percent = Math.min(100, Math.round((downloadedBytes / totalBytes) * 100));
+                        appUpdateState.downloadedMB = (downloadedBytes / (1024 * 1024)).toFixed(1);
+                    } else {
+                        appUpdateState.downloadedMB = (downloadedBytes / (1024 * 1024)).toFixed(1);
+                    }
+                } else if (event.event === 'Finished') {
+                    appUpdateState.status = 'installing';
+                    appUpdateState.percent = 100;
+                }
+            });
+
+            appUpdateState.status = 'done';
+            if (window.Utils?.showToast) {
+                window.Utils.showToast('Cập nhật thành công', 'Ứng dụng đang khởi động lại...', 'info');
+            }
+            setTimeout(async () => {
+                try {
+                    await window.__TAURI__?.process?.relaunch();
+                } catch (relaunchErr) {
+                    console.error('[Tauri Relaunch Error]', relaunchErr);
+                    window.location.reload();
+                }
+            }, 1500);
+        } catch (err) {
+            console.error('[Tauri Update Error]', err);
+            appUpdateState.status = 'error';
+            appUpdateState.errorMessage = err.message || 'Không thể tải gói cập nhật từ GitHub Releases.';
+        }
+    };
     const ROUTE_TAB_MAP = {
         '/': 'tracking',
         '/index.html': 'tracking',
@@ -1513,6 +1582,9 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 handleUserUpdated,
                 isDarkMode,
                 toggleDarkMode,
+                appUpdateState,
+                handleStartAppUpdate,
+                handleCloseAppUpdate,
                 toast: window.Utils ? window.Utils.toastState : { show: false },
                 getRoleBadgeInfo: window.Utils ? window.Utils.getRoleBadgeInfo : () => ({ label: 'NHÂN VIÊN', class: 'bg-slate-50' })
             };
@@ -1553,6 +1625,10 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
     if (window.ShipmentDetailModal) {
         app.component('ShipmentDetailModal', window.ShipmentDetailModal);
         app.component('shipment-detail-modal', window.ShipmentDetailModal);
+    }
+    if (window.AppUpdateModal) {
+        app.component('AppUpdateModal', window.AppUpdateModal);
+        app.component('app-update-modal', window.AppUpdateModal);
     }
     if (window.InternalLayout) {
         app.component('InternalLayout', window.InternalLayout);
@@ -1629,14 +1705,26 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                         const update = await window.__TAURI__.updater.check();
                         if (update) {
                             console.log('[Tauri Updater] Phát hiện phiên bản mới:', update.version);
-                            const confirmUpdate = window.confirm(`Đã có phiên bản cập nhật mới (${update.version})!\n\nBạn có muốn cập nhật và khởi động lại ứng dụng ngay bây giờ không?`);
-                            if (confirmUpdate) {
-                                if (window.Utils?.showToast) {
-                                    window.Utils.showToast('Đang cập nhật...', 'Ứng dụng đang tải bản mới ngầm, vui lòng đợi trong giây lát.', 'info');
-                                }
-                                await update.downloadAndInstall();
-                                await window.__TAURI__.process?.relaunch();
+                            pendingTauriUpdate = update;
+
+                            let changelogLines = [];
+                            if (update.body && typeof update.body === 'string') {
+                                changelogLines = update.body
+                                    .split('\n')
+                                    .map(line => line.trim())
+                                    .filter(line => line.length > 0)
+                                    .map(line => line.replace(/^[\*\-\#\d\.\s]+/, '').trim())
+                                    .filter(line => line.length > 0);
                             }
+
+                            appUpdateState.newVersion = update.version;
+                            appUpdateState.currentVersion = update.currentVersion || '1.0.0';
+                            appUpdateState.changelog = changelogLines;
+                            appUpdateState.status = 'prompt';
+                            appUpdateState.percent = 0;
+                            appUpdateState.downloadedMB = '0';
+                            appUpdateState.errorMessage = '';
+                            appUpdateState.show = true;
                         }
                     } catch (err) {
                         console.warn('[Tauri Updater Check Error]', err);
