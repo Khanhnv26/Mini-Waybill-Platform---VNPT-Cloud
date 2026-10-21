@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release Tag (ví dụ: v1.2.0)'
+        description: 'Release Tag (ví dụ: v3.2)'
         required: false
-        default: 'v1.2.0'
+        default: 'v3.2'
 
 jobs:
   build-tauri:
@@ -52,7 +52,7 @@ jobs:
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
           releaseName: 'Waybill Platform Desktop ${{ github.event.inputs.tag || github.ref_name }}'
           releaseBody: |
-            ### Cập nhật phiên bản v1.2.0
+            ### Cập nhật phiên bản v3.2
             - Tích hợp đăng nhập Google an toàn qua trình duyệt hệ thống (RFC 8252).
             - Tự động đồng bộ phiên đăng nhập giữa Trình duyệt và Desktop App.
             - Khắc phục triệt để lỗi hiển thị màn hình trống và tối ưu hiệu năng.
