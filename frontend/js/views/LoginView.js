@@ -562,6 +562,13 @@
                 Auth.setSession(data.accessToken, data);
                 showAlert('Đăng nhập thành công! Đang chuyển tiếp...', true);
                 emit('login-success', data);
+                const params = new URLSearchParams(window.location.search);
+                const returnUrl = params.get('returnUrl');
+                if (returnUrl && (returnUrl.startsWith('/') || returnUrl.startsWith(window.location.origin))) {
+                    setTimeout(() => {
+                        window.location.href = returnUrl;
+                    }, 400);
+                }
             }
             async function handleEmailLogin() {
                 clearAlert();
@@ -726,7 +733,7 @@
                         throw new Error(data.message || data.error || 'Không thể khởi tạo phiên đăng nhập Desktop. Vui lòng kiểm tra kết nối API Gateway!');
                     }
                     desktopSessionId.value = data.sessionId;
-                    const targetUrl = data.loginUrl || `${originParam}/login.html?desktopSession=${data.sessionId}`;
+                    const targetUrl = data.loginUrl || `${originParam}/desktop-auth.html?desktopSession=${data.sessionId}`;
 
                     if (window.__TAURI__?.core?.invoke) {
                         try {

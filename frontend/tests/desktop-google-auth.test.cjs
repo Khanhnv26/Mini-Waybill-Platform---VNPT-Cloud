@@ -7,6 +7,8 @@ function createHarness({ isTauri = true, desktopSessionParam = null } = {}) {
     const calls = [];
     const context = {
         console,
+        setTimeout,
+        clearTimeout,
         URLSearchParams,
         window: {
             isTauri,
@@ -53,7 +55,7 @@ function createHarness({ isTauri = true, desktopSessionParam = null } = {}) {
                         status: 200,
                         json: async () => ({
                             sessionId: 'test-session-123',
-                            loginUrl: 'http://localhost:3000/login.html?desktopSession=test-session-123',
+                            loginUrl: 'http://localhost:3000/desktop-auth.html?desktopSession=test-session-123',
                             expiresInSeconds: 300
                         })
                     };
@@ -127,7 +129,7 @@ test('Desktop Google Login initializes session and opens system browser via Taur
 
     const invokeCall = h.calls.find(c => c[0] === 'tauri.invoke' && c[1] === 'open_in_browser');
     assert.ok(invokeCall, 'Must invoke open_in_browser');
-    assert.equal(invokeCall[2].url, 'http://localhost:3000/login.html?desktopSession=test-session-123');
+    assert.equal(invokeCall[2].url, 'http://localhost:3000/desktop-auth.html?desktopSession=test-session-123');
 
     h.login.cancelDesktopSession();
 });
@@ -160,4 +162,42 @@ test('Desktop Google Login falls back to production domain when running inside t
     assert.ok(postCall, 'Must call desktop session init with production cloudapp origin');
 
     h.login.cancelDesktopSession();
+});
+
+test('Desktop Google Login falls back to desktop-auth.html when loginUrl is not provided', async () => {
+    const h = createHarness({ isTauri: true });
+    h.context.Api.post = async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+            sessionId: 'session-no-login-url'
+        })
+    });
+    await h.login.handleDesktopGoogleLogin();
+
+    const invokeCall = h.calls.find(c => c[0] === 'tauri.invoke' && c[1] === 'open_in_browser');
+    assert.ok(invokeCall, 'Must invoke open_in_browser');
+    assert.equal(invokeCall[2].url, 'http://localhost:3000/desktop-auth.html?desktopSession=session-no-login-url');
+
+    h.login.cancelDesktopSession();
+});
+
+test('LoginView redirects to returnUrl after finishLoginSuccess', async () => {
+    const h = createHarness({ isTauri: false });
+    h.context.window.location.search = '?returnUrl=%2Fdesktop-auth.html%3FdesktopSession%3Dabc-123';
+    h.context.Api.post = async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+            accessToken: 'token-xyz',
+            userId: 1,
+            email: 'user@test.com'
+        })
+    });
+
+    h.login.loginForm.email = 'admin@example.com';
+    h.login.loginForm.password = '123456';
+    await h.login.handleEmailLogin();
+    await new Promise(r => setTimeout(r, 450));
+    assert.equal(h.context.window.location.href, '/desktop-auth.html?desktopSession=abc-123');
 });

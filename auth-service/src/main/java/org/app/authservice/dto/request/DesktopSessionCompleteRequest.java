@@ -14,4 +14,5 @@ public class DesktopSessionCompleteRequest {
     @NotBlank(message = "Session ID không được để trống")
     private String sessionId;
     private String idToken;
+    private String userToken;
 }

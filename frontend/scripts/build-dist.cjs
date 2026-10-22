@@ -11,7 +11,7 @@ if (fs.existsSync(dist)) {
 fs.mkdirSync(dist, { recursive: true });
 
 // 2. Copy các file HTML và favicon
-const files = ['index.html', 'login.html', 'error.html', 'mockup-loader.html', 'favicon.ico'];
+const files = ['index.html', 'login.html', 'desktop-auth.html', 'error.html', 'mockup-loader.html', 'favicon.ico'];
 files.forEach(f => {
     const srcPath = path.join(root, f);
     if (fs.existsSync(srcPath)) {

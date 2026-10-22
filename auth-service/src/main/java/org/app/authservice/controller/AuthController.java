@@ -71,8 +71,9 @@ public class AuthController {
 
     @PostMapping("/desktop-session/complete")
     public ResponseEntity<AuthResponse> completeDesktopSession(
-            @Valid @RequestBody DesktopSessionCompleteRequest request) throws Exception {
-        return ResponseEntity.ok(desktopAuthSessionService.completeSession(request));
+            @Valid @RequestBody DesktopSessionCompleteRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) throws Exception {
+        return ResponseEntity.ok(desktopAuthSessionService.completeSession(request, authHeader));
     }
 
     @PostMapping("/register")

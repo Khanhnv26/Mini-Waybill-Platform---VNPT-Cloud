@@ -1,6 +1,5 @@
 package org.app.authservice.service.impl;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import lombok.AllArgsConstructor;
@@ -16,12 +15,13 @@ import org.app.authservice.dto.response.DesktopSessionStatusResponse;
 import org.app.authservice.entity.Permission;
 import org.app.authservice.entity.Role;
 import org.app.authservice.entity.User;
+import org.app.authservice.repository.UserRepository;
 import org.app.authservice.service.AuthService;
 import org.app.authservice.service.DesktopAuthSessionService;
 import org.app.authservice.service.GoogleVerifyService;
 import org.app.authservice.service.JwtService;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -43,6 +43,7 @@ public class DesktopAuthSessionServiceImpl implements DesktopAuthSessionService 
     private final GoogleVerifyService googleVerifyService;
     private final AuthService authService;
     private final JwtService jwtService;
+    private final UserRepository userRepository;
 
     private final ConcurrentHashMap<String, SessionPayload> localCache = new ConcurrentHashMap<>();
 
@@ -83,7 +84,7 @@ public class DesktopAuthSessionServiceImpl implements DesktopAuthSessionService 
         if (base.endsWith("/")) {
             base = base.substring(0, base.length() - 1);
         }
-        String loginUrl = base + "/login.html?desktopSession=" + sessionId;
+        String loginUrl = base + "/desktop-auth.html?desktopSession=" + sessionId;
 
         return DesktopSessionInitResponse.builder()
                 .sessionId(sessionId)
@@ -112,6 +113,11 @@ public class DesktopAuthSessionServiceImpl implements DesktopAuthSessionService 
 
     @Override
     public AuthResponse completeSession(DesktopSessionCompleteRequest request) throws Exception {
+        return completeSession(request, null);
+    }
+
+    @Override
+    public AuthResponse completeSession(DesktopSessionCompleteRequest request, String authHeader) throws Exception {
         String sessionId = request.getSessionId();
         SessionPayload payload = loadPayload(sessionId);
 
@@ -124,8 +130,29 @@ public class DesktopAuthSessionServiceImpl implements DesktopAuthSessionService 
             throw new IllegalStateException("Phiên đăng nhập này đã được hoàn tất trước đó.");
         }
 
-        GoogleIdToken.Payload tokenPayload = googleVerifyService.verifyToken(request.getIdToken());
-        User user = authService.processGoogleUser(tokenPayload);
+        User user;
+        String tokenToVerify = null;
+
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            tokenToVerify = authHeader.substring(7).trim();
+        } else if (request.getUserToken() != null && !request.getUserToken().isBlank()) {
+            tokenToVerify = request.getUserToken().trim();
+        }
+
+        if (tokenToVerify != null && !tokenToVerify.isBlank()) {
+            Long userId = jwtService.extractUserId(tokenToVerify);
+            if (userId == null) {
+                throw new IllegalArgumentException("Token người dùng không hợp lệ hoặc đã hết hạn.");
+            }
+            user = userRepository.findById(userId)
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy thông tin người dùng."));
+        } else if (request.getIdToken() != null && !request.getIdToken().isBlank()) {
+            GoogleIdToken.Payload tokenPayload = googleVerifyService.verifyToken(request.getIdToken());
+            user = authService.processGoogleUser(tokenPayload);
+        } else {
+            throw new IllegalArgumentException("Cần cung cấp mã xác thực tài khoản hoặc Google ID Token.");
+        }
+
         String jwt = jwtService.generateToken(user);
         AuthResponse authResponse = buildAuthResponse(user, jwt);
 

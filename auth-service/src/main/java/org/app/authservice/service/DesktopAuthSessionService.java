@@ -9,4 +9,5 @@ public interface DesktopAuthSessionService {
     DesktopSessionInitResponse initSession(String clientOrigin);
     DesktopSessionStatusResponse getSessionStatus(String sessionId);
     AuthResponse completeSession(DesktopSessionCompleteRequest request) throws Exception;
+    AuthResponse completeSession(DesktopSessionCompleteRequest request, String authHeader) throws Exception;
 }

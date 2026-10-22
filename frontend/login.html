@@ -523,6 +523,12 @@
         createApp({
             setup() {
                                 if (typeof Auth !== 'undefined' && Auth.isAuthenticated()) {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const returnUrl = urlParams.get('returnUrl');
+                    if (returnUrl && (returnUrl.startsWith('/') || returnUrl.startsWith(window.location.origin))) {
+                        window.location.href = returnUrl;
+                        return;
+                    }
                     window.location.href = '/index.html';
                 }
                 const GOOGLE_CLIENT_ID = "530674460360-7q1qf5lchbkj7sp7kslvttf7mqt92klg.apps.googleusercontent.com";
@@ -746,6 +752,12 @@
                     }
                 }
                 function redirectToTarget() {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const returnUrl = urlParams.get('returnUrl');
+                    if (returnUrl && (returnUrl.startsWith('/') || returnUrl.startsWith(window.location.origin))) {
+                        window.location.href = returnUrl;
+                        return;
+                    }
                     const redirectUrl = sessionStorage.getItem('redirectAfterLogin') || '/index.html';
                     sessionStorage.removeItem('redirectAfterLogin');
                     window.location.href = redirectUrl;
