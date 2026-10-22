@@ -69,7 +69,9 @@ public class DesktopAuthSessionServiceImpl implements DesktopAuthSessionService 
 
         savePayload(sessionId, payload, Duration.ofSeconds(SESSION_TTL_SECONDS));
 
-        String base = (clientOrigin != null && !clientOrigin.isBlank()) ? clientOrigin.trim() : "http://localhost:3000";
+        String base = (clientOrigin != null && !clientOrigin.isBlank() && !clientOrigin.contains("localhost"))
+                ? clientOrigin.trim()
+                : "https://waybill-express.japaneast.cloudapp.azure.com";
         if (base.endsWith("/")) {
             base = base.substring(0, base.length() - 1);
         }
