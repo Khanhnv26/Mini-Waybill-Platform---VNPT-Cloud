@@ -110,6 +110,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
         '/tracking': 'tracking',
         '/dashboard': 'dashboard',
         '/shipment': 'shipment',
+        '/shipments': 'shipment',
         '/trips': 'trips',
         '/fleet': 'fleet',
         '/post-office': 'post-office',
@@ -141,6 +142,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
         'dashboard': '/dashboard',
         'tracking': '/tracking',
         'shipment': '/shipment',
+        'shipments': '/shipment',
         'trips': '/trips',
         'fleet': '/fleet',
         'post-office': '/post-office',
@@ -1019,7 +1021,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 if (tabId === 'support' && param) {
                     currentTrackingCode.value = String(param).trim();
                 }
-                if (tabId !== 'shipment') {
+                if (tabId !== 'shipment' && tabId !== 'shipments') {
                     selectedCustomerForShipment.value = null;
                     selectedTariffForShipment.value = null;
                 }

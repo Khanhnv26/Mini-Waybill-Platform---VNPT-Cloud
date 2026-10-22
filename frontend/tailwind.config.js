@@ -5,6 +5,7 @@ module.exports = {
     "./login.html",
     "./fleet-shipper-mockup.html",
     "./error.html",
+    "./desktop-auth.html",
     "./js/**/*.{js,html}",
   ],
   darkMode: 'class',

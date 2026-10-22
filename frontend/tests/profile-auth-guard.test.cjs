@@ -134,6 +134,10 @@ test('unknown non-waybill paths route to 404 error instead of tracking', () => {
 
     // /profile maps to profile
     assert.strictEqual(fn('/profile').tab, 'profile');
+
+    // /shipment and /shipments both map to shipment
+    assert.strictEqual(fn('/shipment').tab, 'shipment');
+    assert.strictEqual(fn('/shipments').tab, 'shipment');
 });
 
 test('ErrorView supports dark mode on card container and border, and reactive countdown for status 429', () => {

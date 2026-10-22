@@ -1,14 +1,12 @@
 [package]
 name = "app"
-version = "3.2.1"
+version = "3.2.2"
 description = "A Tauri App"
 authors = ["you"]
 license = ""
 repository = ""
 edition = "2024"
 rust-version = "1.90"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
 name = "app_lib"

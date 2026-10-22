@@ -1,8 +1,8 @@
 # Waybill Platform - Nền Tảng Điều Phối & Quản Trị Vận Đơn Bưu Chính Toàn Trình
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-HTTPS%20Online-brightgreen?style=for-the-badge&logo=googlechrome&logoColor=white)](https://waybill-express.japaneast.cloudapp.azure.com)
-[![Release](https://img.shields.io/badge/Release-v3.2.1-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Khanhnv26/Mini-Waybill-Platform---VNPT-Cloud/releases)
-[![Desktop App](https://img.shields.io/badge/Desktop%20App-v3.2.1%20Windows-0078D7?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/Khanhnv26/Mini-Waybill-Platform---VNPT-Cloud/releases)
+[![Release](https://img.shields.io/badge/Release-v3.2.2-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Khanhnv26/Mini-Waybill-Platform---VNPT-Cloud/releases)
+[![Desktop App](https://img.shields.io/badge/Desktop%20App-v3.2.2%20Windows-0078D7?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/Khanhnv26/Mini-Waybill-Platform---VNPT-Cloud/releases)
 [![Java](https://img.shields.io/badge/Java-21%20LTS-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![Spring Cloud](https://img.shields.io/badge/Spring%20Cloud-2025.1.3-6DB33F?style=for-the-badge&logo=spring&logoColor=white)](https://spring.io/projects/spring-cloud)

@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release Tag (ví dụ: v3.2)'
+        description: 'Release Tag (ví dụ: v3.2.2)'
         required: false
-        default: 'v3.2.1'
+        default: 'v3.2.2'
 
 jobs:
   build-tauri:
@@ -50,12 +50,13 @@ jobs:
         with:
           projectPath: "./frontend"
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
-          releaseName: 'Waybill Platform Desktop ${{ github.event.inputs.tag || github.ref_name }} (Bản Vá Lỗi)'
+          releaseName: 'Waybill Platform Desktop ${{ github.event.inputs.tag || github.ref_name }} (Bản Cập Nhật Giao Diện & SSO)'
           releaseBody: |
-            ### Bản vá lỗi ${{ github.event.inputs.tag || github.ref_name }}
-            - Khắc phục lỗi mở trình duyệt nhầm localhost:3000 khi đăng nhập Google trên Desktop.
-            - Tự động kết nối đúng cổng dịch vụ Cloud: https://waybill-express.japaneast.cloudapp.azure.com.
-            - Sửa lỗi từ chối truy cập (403 Forbidden) và tối ưu hóa luồng xác thực Google OAuth.
+            ### Bản phát hành ${{ github.event.inputs.tag || github.ref_name }} - Nâng cấp Giao diện & Trải nghiệm SSO Desktop
+            - **Cổng Bàn Giao SSO Hiện Đại**: Thiết kế lại toàn bộ màn hình xác thực đăng nhập Desktop với animation kép đồng bộ 750ms giữa thanh tải và lộ trình xe tải Waybill Express tăng tốc về đích.
+            - **Hỗ Trợ Toàn Diện Chế Độ Sáng & Tối (Day / Night Mode)**: Bầu trời chuyển dịch thông minh giữa Mặt Trời phát sáng ban ngày và Mặt Trăng lưỡi liềm + chòm sao nhấp nháy ban đêm, tích hợp nút chuyển đổi nhanh trên thanh tiêu đề.
+            - **Chuẩn Hóa Bộ Nhận Diện Thương Hiệu 100% SVG**: Thay thế icon 3 lớp bằng Logo Bưu chính VNPT Waybill chính thức (Địa cầu 3D với vòng quỹ đạo vệ tinh và vệt sáng phản chiếu), loại bỏ toàn bộ badge rườm rà và emoji.
+            - **Tối Ưu Hóa Bộ Cài Đặt Desktop**: Đóng gói bundle web assets offline mới nhất, hỗ trợ kiểm tra cập nhật tự động (Auto-Updater) và tương thích hoàn hảo với luồng Google OAuth Cloud.
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
