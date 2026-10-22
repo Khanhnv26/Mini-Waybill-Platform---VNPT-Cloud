@@ -9,7 +9,7 @@ on:
       tag:
         description: 'Release Tag (ví dụ: v3.2)'
         required: false
-        default: 'v3.2'
+        default: 'v3.2.1'
 
 jobs:
   build-tauri:
@@ -50,12 +50,12 @@ jobs:
         with:
           projectPath: "./frontend"
           tagName: ${{ github.event.inputs.tag || github.ref_name }}
-          releaseName: 'Waybill Platform Desktop ${{ github.event.inputs.tag || github.ref_name }}'
+          releaseName: 'Waybill Platform Desktop ${{ github.event.inputs.tag || github.ref_name }} (Bản Vá Lỗi)'
           releaseBody: |
-            ### Cập nhật phiên bản v3.2
-            - Tích hợp đăng nhập Google an toàn qua trình duyệt hệ thống (RFC 8252).
-            - Tự động đồng bộ phiên đăng nhập giữa Trình duyệt và Desktop App.
-            - Khắc phục triệt để lỗi hiển thị màn hình trống và tối ưu hiệu năng.
+            ### Bản vá lỗi ${{ github.event.inputs.tag || github.ref_name }}
+            - Khắc phục lỗi mở trình duyệt nhầm localhost:3000 khi đăng nhập Google trên Desktop.
+            - Tự động kết nối đúng cổng dịch vụ Cloud: https://waybill-express.japaneast.cloudapp.azure.com.
+            - Sửa lỗi từ chối truy cập (403 Forbidden) và tối ưu hóa luồng xác thực Google OAuth.
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
