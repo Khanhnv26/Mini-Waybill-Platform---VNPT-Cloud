@@ -92,6 +92,13 @@ Hệ thống được thiết kế theo nguyên lý **High Availability (HA)** �
    * Khắc phục triệt để lỗi Blank Screen khi F5 bằng cách tách độc lập vòng đời `createViewLoader` và cơ chế nạp module bất đồng bộ an toàn.
    * *Xem thêm:* [Cẩm nang 24 - Support Chat & Realtime](docs/24-support-chat-realtime.md) và [Cẩm nang 25 - Production Readiness](docs/25-production-readiness.md).
 
+8. **Ứng Dụng Desktop Đa Nền Tảng (Tauri v2) & Xác Thực SSO Consent Bàn Giao Phiên:**
+   * **Kiến trúc siêu nhẹ Tauri v2 (Rust + Vue 3):** Tối ưu hóa đặc thù cho các điều phối viên tại Siêu Hub và trạm kho tác nghiệp tải nặng; tiêu thụ RAM cực thấp (< 30MB, bộ cài < 15MB so với Electron > 150MB), tích hợp bộ cập nhật tự động (Auto-updater).
+   * **Cơ chế SSO Consent bàn giao phiên an toàn (Mô hình Discord/GitHub):** Desktop yêu cầu đăng nhập $\rightarrow$ Tự động mở trình duyệt hệ điều hành đến trang cấp quyền chuyên biệt `desktop-auth.html` $\rightarrow$ Nhận diện tài khoản đã đăng nhập sẵn trên Web và cấp quyền chỉ với 1-click mà không cần nhập lại mật khẩu.
+   * **Bộ đếm phiên ngắn hạn trên Redis (Ephemeral Session Handshake):** Quản lý phiên bằng Redis (`auth:desktop:session:{id}`) với TTL 300s (Pending) và 120s (Success), tự động thu hồi ngăn chặn tấn công Replay Attack.
+   * **Cô lập Token độc lập (Zero-Trust Token Isolation):** Backend cấp cặp Access Token mới riêng cho thiết bị Desktop thay vì chia sẻ chung chuỗi Token trình duyệt, đảm bảo đăng xuất một bên không làm gián đoạn bên còn lại.
+   * *Xem thêm:* [Cẩm nang 26 - Kiến Trúc Desktop App & Xác Thực SSO Consent](docs/26-desktop-app-architecture-and-sso-auth.md).
+
 ---
 
 ## 3. Sơ Đồ Kiến Trúc Hệ Thống (System Architecture)
@@ -100,6 +107,7 @@ Hệ thống được thiết kế theo nguyên lý **High Availability (HA)** �
 flowchart TD
     subgraph Clients["Tầng Trải Nghiệm Khách Hàng & Vận Hành"]
         Web["Web Portal (Vue 3 SPA + Tailwind + Leaflet)"]
+        Desktop["Desktop App (Tauri v2 Core Rust + Vue 3)"]
         Tele["Telegram Bot (Bưu Tá Tác Nghiệp)"]
         QR["Khách Hàng Quét Mã VietQR"]
     end
@@ -226,6 +234,28 @@ docker compose --env-file .secrets/compose.env up -d
 * Dừng hệ thống: `docker compose --env-file .secrets/compose.env down`
 * *Chi tiết xem tại [Cẩm nang 10 - Container Hóa Toàn Trình & Điều Phối HA](docs/10-docker-containerization-and-ha-orchestration.md).*
 
+### Phương Án 3: Sử Dụng Ứng Dụng Desktop (Tauri v2 App) Dành Cho Nhân Viên Vận Hành
+
+Ứng dụng máy tính dành cho các điều phối viên bưu cục, hỗ trợ in ấn vận đơn, giám sát tải trọng xe và nhận diện thông báo thời gian thực với hiệu năng native cao cấp:
+
+1. **Tải và cài đặt:**
+   * Truy cập mục **[GitHub Releases](https://github.com/Khanhnv26/Mini-Waybill-Platform---VNPT-Cloud/releases)** của dự án.
+   * Tải về file cài đặt Windows mới nhất (Ví dụ: `Waybill.Platform_x64_en-US.msi` hoặc `.exe`).
+   * Chạy file cài đặt theo các bước mặc định (hoặc chạy trực tiếp bản Portable).
+
+2. **Quy trình đăng nhập bằng SSO Consent (1-Click):**
+   * Mở ứng dụng **Waybill Platform** trên máy tính.
+   * Tại màn hình đăng nhập, bấm nút **"Đăng nhập với Google"**.
+   * Ứng dụng sẽ tự động bật trình duyệt mặc định của hệ điều hành đến trang phê duyệt an toàn `desktop-auth.html`.
+   * **Nếu trình duyệt đã đăng nhập sẵn:** Màn hình hiển thị tên/avatar của bạn $\rightarrow$ Chỉ cần bấm **"Xác Nhận Kết Nối Vào Desktop"**.
+   * **Nếu chưa đăng nhập trên trình duyệt:** Bấm *"Đăng Nhập Ngay Trên Web"*, hoàn tất đăng nhập ở `login.html`, hệ thống sẽ tự động quay lại trang cấp quyền để bạn xác nhận.
+   * Trình duyệt hiện thông báo thành công có dấu tích xanh, quay lại màn hình ứng dụng Desktop sẽ thấy hệ thống tự động tải xong Dashboard và sẵn sàng làm việc.
+
+3. **Cơ chế tự động cập nhật phiên bản (Auto-Update):**
+   * Khi hệ thống phát hành bản vá lỗi hoặc tính năng mới trên GitHub Releases, ứng dụng Desktop sẽ tự động kiểm tra chữ ký số và hiển thị popup thông báo cập nhật.
+   * Người dùng chỉ cần bấm **"Cập nhật ngay"** $\rightarrow$ App tự động tải gói vá và khởi động lại với phiên bản mới nhất.
+   * *Xem thêm:* [Cẩm nang 26 - Kiến Trúc Desktop App & Xác Thực SSO Consent](docs/26-desktop-app-architecture-and-sso-auth.md).
+
 ---
 
 ## 6. Cấu Trúc Thư Mục Dự Án (Project Structure)
@@ -240,6 +270,7 @@ mini-waybill-platform/
 ├── scripts/                   # Bộ script tự động hóa triển khai K8s, chuẩn bị Secrets và Seed dữ liệu DB
 ├── database/                  # Script khởi tạo 5 Siêu Hub toàn quốc và ma trận phân quyền RBAC
 ├── frontend/                  # Giao diện Web SPA B2B (Vue 3 + Tailwind CSS + Leaflet Maps)
+│   ├── src-tauri/             # Ứng dụng Desktop Native (Tauri v2 Core Rust + System Tray & Auto-update)
 │
 ├── api-gateway/               # Spring Cloud Gateway HA (Port 8080 & 8088, JWT Stateless, Redis Rate Limit)
 ├── service-registry/          # Netflix Eureka Server Peer-to-Peer Replication (Port 8761 & 8762)
