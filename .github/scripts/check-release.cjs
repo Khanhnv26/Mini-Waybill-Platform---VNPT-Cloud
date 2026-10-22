@@ -1,6 +1,7 @@
 function canRelease({ event, promote, validation, backend, frontend }) {
     const buildResults = [backend, frontend];
-    return event === 'workflow_dispatch' && promote === true && validation === 'success'
+    const isAllowedEvent = event === 'push' || (event === 'workflow_dispatch' && promote === true);
+    return isAllowedEvent && validation === 'success'
         && buildResults.every(result => result === 'success' || result === 'skipped')
         && buildResults.includes('success');
 }

@@ -232,7 +232,8 @@ jobs:
   update-gitops-manifests:
     needs: [detect-changes, validate, build-and-push, build-and-push-frontend]
     if: >-
-      always() && !cancelled() && github.event_name == 'workflow_dispatch' && inputs.promote == true &&
+      always() && !cancelled() &&
+      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.promote == true)) &&
       needs.validate.result == 'success' &&
       (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped') &&
       (needs.build-and-push-frontend.result == 'success' || needs.build-and-push-frontend.result == 'skipped') &&
@@ -292,6 +293,7 @@ jobs:
             git config --global user.name 'github-actions[bot]'
             git config --global user.email 'github-actions[bot]@users.noreply.github.com'
             git commit -m "chore(gitops): update image tags to ${COMMIT_SHA} [skip ci]"
+            git pull --rebase origin ${{ github.ref_name }}
             git push origin ${{ github.ref_name }}
           fi
 
