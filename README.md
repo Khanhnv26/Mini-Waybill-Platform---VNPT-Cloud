@@ -162,7 +162,7 @@ flowchart TD
 
 ## 4. Cẩm Nang Kỹ Thuật Chuyên Sâu & Boilerplate (Documentation Index)
 
-Toàn bộ chi tiết kỹ thuật chuyên sâu, mã nguồn mẫu (boilerplate) và hướng dẫn cấu hình chi tiết được tài liệu hóa thành 25 cẩm nang trong thư mục [`docs/`](docs/):
+Toàn bộ chi tiết kỹ thuật chuyên sâu, mã nguồn mẫu (boilerplate) và hướng dẫn cấu hình chi tiết được tài liệu hóa thành 26 cẩm nang trong thư mục [`docs/`](docs/):
 
 | STT | Tài Liệu Kỹ Thuật Chuyên Sâu | Trọng Tâm Nghiệp Vụ & Boilerplate Code |
 | :---: | :--- | :--- |
@@ -191,6 +191,7 @@ Toàn bộ chi tiết kỹ thuật chuyên sâu, mã nguồn mẫu (boilerplate)
 | **23** | [**Quy Trình Xử Lý Đơn Thất Bại & Luồng Chuyển Hoàn**](docs/23-customer-return-flow.md) | Quyết định 24h của khách hàng (REDELIVER / UPDATE_RECEIVER / RETURN), máy trạng thái chuyển hoàn và lấy hàng tại bưu cục. |
 | **24** | [**Chat Khách Hàng: Presence, Thông Báo & Đồng Bộ**](docs/24-support-chat-realtime.md) | Kênh STOMP WebSocket 2 chiều, Presence tracking, Read receipts, Web Audio API và bộ nhớ đệm phục hồi. |
 | **25** | [**Sẵn Sàng Vận Hành Production & Verification Gate**](docs/25-production-readiness.md) | Bộ tiêu chuẩn Release Gate (68 tests, syntax templates), Kustomize production profiles và kịch bản staging drills. |
+| **26** | [**Kiến Trúc Desktop App Tauri v2 & Xác Thực SSO Consent**](docs/26-desktop-app-architecture-and-sso-auth.md) | Kiến trúc ứng dụng máy tính Tauri v2 (Rust + Vue 3), mô hình SSO Consent chuyển giao phiên JWT an toàn, cơ chế Fallback Origin đa môi trường và kịch bản kiểm thử tự động. |
 | **SEC** | [**Bảo Mật Hệ Thống & Quản Trị Secrets Runtime**](docs/security-rollout.md) | Chuẩn hóa an ninh, khởi tạo credential ngẫu nhiên `.secrets`, Session/Role Versioning trên Gateway và CSKH an toàn. |
 
 ---
@@ -234,7 +235,7 @@ mini-waybill-platform/
 ├── pom.xml                    # Maven Parent POM quản lý dependency tập trung cho toàn bộ 14 Microservices
 ├── docker-compose.yaml        # Cụm hạ tầng HA: Kafka 3-Broker, Nginx LB, Redis, SQL Server Replica, MinIO, RabbitMQ
 ├── server.js                  # Máy chủ Frontend Node.js phục vụ Vue 3 SPA (Port 3000 / 3001)
-├── docs/                      # 24 Cẩm nang kỹ thuật chuyên sâu & Boilerplate Templates chuẩn hóa
+├── docs/                      # 26 Cẩm nang kỹ thuật chuyên sâu & Boilerplate Templates chuẩn hóa
 ├── k8s/                       # Kubernetes manifests, ArgoCD GitOps Application & Prometheus/Grafana Stack
 ├── scripts/                   # Bộ script tự động hóa triển khai K8s, chuẩn bị Secrets và Seed dữ liệu DB
 ├── database/                  # Script khởi tạo 5 Siêu Hub toàn quốc và ma trận phân quyền RBAC
