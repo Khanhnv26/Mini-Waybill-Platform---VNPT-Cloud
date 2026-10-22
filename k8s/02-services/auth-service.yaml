@@ -53,6 +53,10 @@ spec:
               value: "update"
             - name: SPRING_FLYWAY_ENABLED
               value: "false"
+            - name: DESKTOP_AUTH_FALLBACK_ORIGIN
+              value: "https://waybill-express.japaneast.cloudapp.azure.com"
+            - name: ALLOW_LOCALHOST_AUTH_ORIGIN
+              value: "false"
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:

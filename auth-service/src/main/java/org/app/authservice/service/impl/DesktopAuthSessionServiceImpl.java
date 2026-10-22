@@ -21,6 +21,7 @@ import org.app.authservice.service.DesktopAuthSessionService;
 import org.app.authservice.service.GoogleVerifyService;
 import org.app.authservice.service.JwtService;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -44,6 +45,12 @@ public class DesktopAuthSessionServiceImpl implements DesktopAuthSessionService 
     private final JwtService jwtService;
 
     private final ConcurrentHashMap<String, SessionPayload> localCache = new ConcurrentHashMap<>();
+
+    @Value("${app.auth.desktop-fallback-origin:http://localhost:3000}")
+    private String defaultOrigin;
+
+    @Value("${app.auth.allow-localhost-origin:true}")
+    private boolean allowLocalhostOrigin;
 
     @Data
     @Builder
@@ -69,9 +76,10 @@ public class DesktopAuthSessionServiceImpl implements DesktopAuthSessionService 
 
         savePayload(sessionId, payload, Duration.ofSeconds(SESSION_TTL_SECONDS));
 
-        String base = (clientOrigin != null && !clientOrigin.isBlank() && !clientOrigin.contains("localhost"))
-                ? clientOrigin.trim()
-                : "https://waybill-express.japaneast.cloudapp.azure.com";
+        String base = (clientOrigin != null && !clientOrigin.isBlank()) ? clientOrigin.trim() : "";
+        if (base.isEmpty() || (!allowLocalhostOrigin && base.contains("localhost"))) {
+            base = defaultOrigin;
+        }
         if (base.endsWith("/")) {
             base = base.substring(0, base.length() - 1);
         }
