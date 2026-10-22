@@ -1346,7 +1346,7 @@
                                     </div>
                                     <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
                                         <span class="text-slate-400">Đồng bộ tự động</span>
-                                        <button type="button" @click="$emit('switch-tab', 'shipments')" class="font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center space-x-1 cursor-pointer">
+                                        <button type="button" @click="$emit('switch-tab', 'shipment')" class="font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center space-x-1 cursor-pointer">
                                             <span>Xem tất cả vận đơn</span>
                                             <span>→</span>
                                         </button>
