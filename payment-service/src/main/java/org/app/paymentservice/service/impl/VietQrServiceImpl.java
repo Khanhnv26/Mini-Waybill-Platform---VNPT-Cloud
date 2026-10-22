@@ -25,10 +25,11 @@ public class VietQrServiceImpl implements VietQrService {
 
     @Override
     public String generateQrUrl(BigDecimal amount, String trackingCode, String paymentCode) {
-        String cleanCode = trackingCode != null ? trackingCode.trim() : "";
-        String memo = cleanCode.toUpperCase().startsWith("COD") || cleanCode.toUpperCase().startsWith("CUOC")
+        String cleanCode = trackingCode != null ? trackingCode.trim().replaceAll("(?i)^VNPT-?", "WB-") : "";
+        String memo = cleanCode.toUpperCase().startsWith("COD") || cleanCode.toUpperCase().startsWith("CUOC") || cleanCode.toUpperCase().startsWith("HOAN")
                 ? cleanCode
                 : "COD " + cleanCode;
+        memo = memo.replaceAll("(?i)VNPT-?", "WB-").replaceAll("(?i)VNPT", "WB");
 
         String encodedMemo = URLEncoder.encode(memo, StandardCharsets.UTF_8);
         String encodedName = URLEncoder.encode(accountName, StandardCharsets.UTF_8);

@@ -88,7 +88,8 @@ public class PaymentServiceImpl implements PaymentService {
 
         String paymentCode = "PAY_" + req.getTrackingCode() + "_" + System.currentTimeMillis();
         String memoPrefix = (type == PaymentType.SHIPPING_FEE) ? "CUOC " : (type == PaymentType.RETURN_FEE ? "HOAN " : "COD ");
-        String qrUrl = vietQrService.generateQrUrl(req.getAmount(), memoPrefix + req.getTrackingCode(), paymentCode);
+        String sanitizedTracking = req.getTrackingCode().replaceAll("(?i)^VNPT-?", "WB-");
+        String qrUrl = vietQrService.generateQrUrl(req.getAmount(), memoPrefix + sanitizedTracking, paymentCode);
 
         PaymentTransaction tx = PaymentTransaction.builder()
                 .paymentCode(paymentCode)
@@ -199,6 +200,10 @@ public class PaymentServiceImpl implements PaymentService {
 
         Optional<PaymentTransaction> pendingTxOpt = paymentRepo
                 .findFirstByTrackingCodeAndStatusOrderByCreatedAtDesc(trackingCode, PaymentStatus.PENDING);
+        if (pendingTxOpt.isEmpty() && trackingCode.startsWith("WB-")) {
+            String altCode = "VNPT-" + trackingCode.substring(3);
+            pendingTxOpt = paymentRepo.findFirstByTrackingCodeAndStatusOrderByCreatedAtDesc(altCode, PaymentStatus.PENDING);
+        }
 
         PaymentTransaction tx;
         if (pendingTxOpt.isPresent()) {
@@ -278,7 +283,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .gatewayName("MOCK_SEPAY")
                 .referenceCode("MOCK_REF_" + System.currentTimeMillis())
                 .amount(amount)
-                .content(prefix + trackingCode)
+                .content(prefix + trackingCode.replaceAll("(?i)^VNPT-?", "WB-"))
                 .build();
 
         processWebhook(mockDto);
@@ -308,7 +313,8 @@ public class PaymentServiceImpl implements PaymentService {
         if (content == null || content.isBlank()) {
             return null;
         }
-        Matcher matcher = TRACKING_PATTERN.matcher(content.trim());
+        String cleanContent = content.trim().replaceAll("(?i)VNPT-?", "").replaceAll("(?i)VNPT", "");
+        Matcher matcher = TRACKING_PATTERN.matcher(cleanContent);
         if (matcher.find()) {
             return matcher.group(1).trim().toUpperCase();
         }

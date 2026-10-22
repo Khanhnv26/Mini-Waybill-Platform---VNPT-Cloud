@@ -617,11 +617,12 @@
                 qrCountdown.value = 600;
                 try {
                     const custCode = shipment.customerCode || shipment.customerId ? String(shipment.customerCode || shipment.customerId) : null;
+                    const cleanCode = (shipment.trackingCode || '').replace(/^VNPT-?/i, 'WB-');
                     const res = await PaymentService.createQrPayment({
                         trackingCode: shipment.trackingCode,
                         amount: shipment.codAmount || 0,
                         paymentType: 'COD',
-                        note: `Thu COD don ${shipment.trackingCode}`,
+                        note: `Thu COD don ${cleanCode}`,
                         customerCode: custCode
                     });
                     qrPaymentData.value = res;
@@ -925,11 +926,12 @@
                 const returnFee = getReturnFee(shipment);
                 try {
                     const custCode = shipment.customerCode || shipment.customerId ? String(shipment.customerCode || shipment.customerId) : null;
+                    const cleanCode = (shipment.trackingCode || '').replace(/^VNPT-?/i, 'WB-');
                     const res = await PaymentService.createQrPayment({
                         trackingCode: shipment.trackingCode,
                         amount: returnFee,
                         paymentType: 'RETURN_FEE',
-                        note: `HOAN ${shipment.trackingCode}`,
+                        note: `HOAN ${cleanCode}`,
                         customerCode: custCode
                     });
                     returnQrPaymentData.value = res;
@@ -2346,7 +2348,7 @@
                                             <p class="font-extrabold text-blue-900">{{ qrPaymentData?.bankCode || 'MB Bank' }} • {{ qrPaymentData?.accountNo || '0987654321' }}</p>
                                             <p class="font-bold text-slate-700">{{ qrPaymentData?.accountName || 'WAYBILL LOGISTICS' }}</p>
                                             <div class="text-[10px] bg-blue-50 text-blue-800 py-0.5 px-2 rounded font-mono font-bold border border-blue-200 inline-block mt-0.5">
-                                                Nội dung: COD {{ deliveryTargetShipment?.trackingCode }}
+                                                Nội dung: COD {{ (deliveryTargetShipment?.trackingCode || '').replace(/^VNPT-?/i, 'WB-') }}
                                             </div>
                                         </div>
                                         <div class="mt-2 text-[10.5px] text-blue-700 flex items-center gap-1.5">
@@ -2552,7 +2554,7 @@
                                     <p class="font-extrabold text-blue-900">{{ returnQrPaymentData?.bankCode || 'MB Bank' }} • {{ returnQrPaymentData?.accountNo || '0987654321' }}</p>
                                     <p class="font-bold text-slate-700">{{ returnQrPaymentData?.accountName || 'WAYBILL LOGISTICS' }}</p>
                                     <div class="text-[10px] bg-orange-50 text-orange-800 py-0.5 px-2 rounded font-mono font-bold border border-orange-200 inline-block mt-0.5">
-                                        Nội dung: CUOC HOAN {{ returnTargetShipment?.trackingCode }}
+                                        Nội dung: CUOC HOAN {{ (returnTargetShipment?.trackingCode || '').replace(/^VNPT-?/i, 'WB-') }}
                                     </div>
                                 </div>
                                 <div class="mt-2 text-[10.5px] text-orange-700 flex items-center gap-1.5">

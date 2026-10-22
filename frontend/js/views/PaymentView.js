@@ -994,7 +994,7 @@
                                 <div class="flex justify-between">
                                     <span class="text-slate-500">Cú pháp CK:</span>
                                     <span class="font-mono font-bold text-slate-700 dark:text-slate-300">
-                                        {{ (activeQrTx?.paymentType === 'SHIPPING_FEE' ? 'CUOC ' : (activeQrTx?.paymentType === 'RETURN_FEE' ? 'HOAN ' : 'COD ')) + activeQrTx?.trackingCode }}
+                                        {{ (activeQrTx?.paymentType === 'SHIPPING_FEE' ? 'CUOC ' : (activeQrTx?.paymentType === 'RETURN_FEE' ? 'HOAN ' : 'COD ')) + (activeQrTx?.trackingCode ? String(activeQrTx.trackingCode).replace(/^VNPT-?/i, 'WB-') : '') }}
                                     </span>
                                 </div>
                             </div>

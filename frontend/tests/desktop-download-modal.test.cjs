@@ -42,3 +42,36 @@ test('DesktopDownloadModal uses clean SVG icons and supports dark mode themes', 
     assert.match(modalContent, /dark:border-slate-800/, 'supports dark border on modal card');
     assert.match(modalContent, /dark:text-white/, 'supports dark text colors');
 });
+
+test('DesktopDownloadModal dynamically binds file sizes, release notes and highlights', () => {
+    const modalContent = fs.readFileSync(path.resolve(__dirname, '../js/components/common/DesktopDownloadModal.js'), 'utf8');
+
+    assert.match(modalContent, /releaseInfo\.exeSize/, 'binds dynamic exe file size');
+    assert.match(modalContent, /releaseInfo\.msiSize/, 'binds dynamic msi file size');
+    assert.match(modalContent, /v-for="\(item, idx\) in releaseInfo\.highlights"/, 'renders dynamic highlights');
+    assert.match(modalContent, /releaseInfo\.bodySummary/, 'renders dynamic body summary');
+
+    const fakeWindow = {};
+    const vm = require('node:vm');
+    vm.runInNewContext(modalContent, {
+        window: fakeWindow,
+        Vue: { ref: () => {}, reactive: obj => obj, onMounted: () => {}, onBeforeUnmount: () => {}, watch: () => {} }
+    });
+
+    const helpers = fakeWindow.DesktopDownloadModalHelpers;
+    assert.ok(helpers, 'DesktopDownloadModalHelpers should be exported on window');
+
+    assert.equal(helpers.formatFileSize(6128140), '5.8 MB');
+    assert.equal(helpers.formatFileSize(7602176), '7.3 MB');
+    assert.equal(helpers.formatFileSize(0), '');
+
+    const sampleBody = `### Bản phát hành v3.2.2 - Giao diện & SSO
+- **SSO Consent**: Nâng cấp tính năng đăng nhập 1-click
+- **Chế độ sáng tối**: Tự động chuyển đổi
+- **SVG Vector**: 100% vector chuẩn`;
+
+    const parsed = helpers.parseReleaseBody(sampleBody);
+    assert.equal(parsed.summary, 'Bản phát hành v3.2.2 - Giao diện & SSO');
+    assert.equal(parsed.highlights.length, 3);
+    assert.match(parsed.highlights[0], /SSO Consent: Nâng cấp tính năng đăng nhập 1-click/);
+});

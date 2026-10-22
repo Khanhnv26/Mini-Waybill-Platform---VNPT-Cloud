@@ -103,7 +103,7 @@
                                         KHUYẾN NGHỊ
                                     </span>
                                 </div>
-                                <div class="text-xs text-blue-100/80 mt-0.5">Tự động cài đặt &amp; tạo biểu tượng desktop • Dung lượng ~18 MB</div>
+                                <div class="text-xs text-blue-100/80 mt-0.5">Tự động cài đặt &amp; tạo biểu tượng desktop • Dung lượng {{ releaseInfo.exeSize }}</div>
                             </div>
                         </div>
 
@@ -128,7 +128,7 @@
                             </div>
                             <div class="text-left">
                                 <div class="text-sm font-bold text-slate-900 dark:text-white">Gói Cài Đặt Doanh Nghiệp (.msi)</div>
-                                <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Dành cho Quản trị viên CNTT triển khai hàng loạt qua GPO • ~19 MB</div>
+                                <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Dành cho Quản trị viên CNTT triển khai hàng loạt qua GPO • {{ releaseInfo.msiSize }}</div>
                             </div>
                         </div>
 
@@ -140,13 +140,26 @@
                     </a>
                 </div>
 
-                <div class="p-3 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 flex items-start space-x-2.5 text-[11px] text-blue-900 dark:text-blue-200">
-                    <svg class="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    <div class="leading-relaxed">
-                        <span class="font-bold">Điểm mới trên bản {{ releaseInfo.version }}:</span> Hỗ trợ quy trình SSO Consent bàn giao phiên mượt mà, nâng cấp bộ nhận diện Logo Địa cầu 3D, đồng bộ hiệu ứng chuyển động và hỗ trợ giao diện Ngày/Đêm.
+                <div class="p-3.5 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 space-y-2 text-xs text-blue-900 dark:text-blue-200">
+                    <div class="flex items-center space-x-2">
+                        <svg class="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span class="font-bold text-slate-900 dark:text-white">
+                            Điểm mới trên bản {{ releaseInfo.version }}
+                            <span v-if="releaseInfo.releaseDate" class="text-[11px] font-normal text-slate-500 dark:text-slate-400 ml-1">({{ releaseInfo.releaseDate }})</span>
+                        </span>
                     </div>
+
+                    <div v-if="releaseInfo.bodySummary" class="text-[11.5px] font-medium text-blue-950 dark:text-blue-100 pl-6 leading-relaxed">
+                        {{ releaseInfo.bodySummary }}
+                    </div>
+
+                    <ul v-if="releaseInfo.highlights && releaseInfo.highlights.length" class="space-y-1.5 pl-6 list-disc list-outside text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                        <li v-for="(item, idx) in releaseInfo.highlights" :key="idx">
+                            {{ item }}
+                        </li>
+                    </ul>
                 </div>
             </div>
 
@@ -173,6 +186,35 @@
     </div>
     `;
 
+    const formatFileSize = (bytes) => {
+        if (!bytes || isNaN(bytes) || bytes <= 0) return '';
+        const mb = bytes / (1024 * 1024);
+        return mb.toFixed(1) + ' MB';
+    };
+
+    const parseReleaseBody = (bodyText) => {
+        if (!bodyText || typeof bodyText !== 'string') {
+            return {
+                summary: '',
+                highlights: []
+            };
+        }
+
+        const lines = bodyText.split('\n').map(l => l.trim()).filter(Boolean);
+        const headerLine = lines.find(l => /^#+\s+/.test(l));
+        const summary = headerLine ? headerLine.replace(/^#+\s+/, '').replace(/\*\*/g, '').trim() : '';
+
+        const highlights = lines
+            .filter(l => /^[-*]\s+/.test(l))
+            .map(l => l.replace(/^[-*]\s+/, '').replace(/\*\*/g, '').trim())
+            .filter(Boolean);
+
+        return {
+            summary,
+            highlights: highlights.slice(0, 4)
+        };
+    };
+
     const DesktopDownloadModal = {
         name: 'DesktopDownloadModal',
         template,
@@ -186,10 +228,20 @@
         setup(props, { emit }) {
             const releaseInfo = reactive({
                 version: 'v3.2.2',
+                name: 'Waybill Platform Desktop v3.2.2',
                 releaseDate: '22/10/2026',
                 exeUrl: 'https://github.com/Khanhnv26/Mini-Waybill-Platform---VNPT-Cloud/releases/download/v3.2.2/WaybillPlatform_3.2.2_x64-setup.exe',
                 msiUrl: 'https://github.com/Khanhnv26/Mini-Waybill-Platform---VNPT-Cloud/releases/download/v3.2.2/WaybillPlatform_3.2.2_x64_en-US.msi',
-                releasesUrl: 'https://github.com/Khanhnv26/Mini-Waybill-Platform---VNPT-Cloud/releases'
+                releasesUrl: 'https://github.com/Khanhnv26/Mini-Waybill-Platform---VNPT-Cloud/releases',
+                exeSize: '~5.8 MB',
+                msiSize: '~7.3 MB',
+                bodySummary: 'Bản phát hành v3.2.2 - Nâng cấp Giao diện & Trải nghiệm SSO Desktop',
+                highlights: [
+                    'Cổng Bàn Giao SSO Hiện Đại với animation tiến trình kép mượt mà',
+                    'Hỗ Trợ Toàn Diện Chế Độ Sáng & Tối (Day / Night Mode)',
+                    'Chuẩn Hóa Bộ Nhận Diện Thương Hiệu 100% SVG Vector chính thức',
+                    'Tối Ưu Hóa Bộ Cài Đặt Desktop siêu nhẹ, tích hợp Auto-Updater'
+                ]
             });
 
             const handleClose = () => {
@@ -207,18 +259,46 @@
                     const response = await fetch('https://api.github.com/repos/Khanhnv26/Mini-Waybill-Platform---VNPT-Cloud/releases/latest');
                     if (!response.ok) return;
                     const data = await response.json();
-                    if (data && data.tag_name) {
+                    if (!data) return;
+
+                    if (data.tag_name) {
                         releaseInfo.version = data.tag_name;
-                        if (data.html_url) releaseInfo.releasesUrl = data.html_url;
-                        if (Array.isArray(data.assets)) {
-                            const exeAsset = data.assets.find(a => a.name && a.name.endsWith('.exe') && !a.name.endsWith('.sig'));
-                            if (exeAsset && exeAsset.browser_download_url) {
-                                releaseInfo.exeUrl = exeAsset.browser_download_url;
+                    }
+                    if (data.name) {
+                        releaseInfo.name = data.name;
+                    }
+                    if (data.html_url) {
+                        releaseInfo.releasesUrl = data.html_url;
+                    }
+                    if (data.published_at) {
+                        try {
+                            const d = new Date(data.published_at);
+                            if (!isNaN(d.getTime())) {
+                                releaseInfo.releaseDate = d.toLocaleDateString('vi-VN');
                             }
-                            const msiAsset = data.assets.find(a => a.name && a.name.endsWith('.msi') && !a.name.endsWith('.sig'));
-                            if (msiAsset && msiAsset.browser_download_url) {
-                                releaseInfo.msiUrl = msiAsset.browser_download_url;
-                            }
+                        } catch (e) {}
+                    }
+
+                    if (Array.isArray(data.assets)) {
+                        const exeAsset = data.assets.find(a => a.name && a.name.endsWith('.exe') && !a.name.endsWith('.sig'));
+                        if (exeAsset) {
+                            if (exeAsset.browser_download_url) releaseInfo.exeUrl = exeAsset.browser_download_url;
+                            if (exeAsset.size) releaseInfo.exeSize = formatFileSize(exeAsset.size);
+                        }
+                        const msiAsset = data.assets.find(a => a.name && a.name.endsWith('.msi') && !a.name.endsWith('.sig'));
+                        if (msiAsset) {
+                            if (msiAsset.browser_download_url) releaseInfo.msiUrl = msiAsset.browser_download_url;
+                            if (msiAsset.size) releaseInfo.msiSize = formatFileSize(msiAsset.size);
+                        }
+                    }
+
+                    if (data.body) {
+                        const parsed = parseReleaseBody(data.body);
+                        if (parsed.summary) {
+                            releaseInfo.bodySummary = parsed.summary;
+                        }
+                        if (parsed.highlights.length > 0) {
+                            releaseInfo.highlights = parsed.highlights;
                         }
                     }
                 } catch (e) {}
@@ -247,4 +327,8 @@
     };
 
     window.DesktopDownloadModal = DesktopDownloadModal;
+    window.DesktopDownloadModalHelpers = {
+        formatFileSize,
+        parseReleaseBody
+    };
 })();

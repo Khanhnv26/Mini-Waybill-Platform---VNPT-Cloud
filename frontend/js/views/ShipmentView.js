@@ -1237,11 +1237,12 @@
                     const currentUserId = currentUser ? (currentUser.userId || currentUser.id) : null;
                     const customerCodeVal = shipment.customerCode || currentUserId || shipment.customerId;
                     const createdByVal = currentUserId || shipment.customerId;
+                    const cleanTracking = (shipment.trackingCode || '').replace(/^VNPT-?/i, 'WB-');
                     const res = await PaymentService.createQrPayment({
                         trackingCode: shipment.trackingCode,
                         amount: feeToPay,
                         paymentType: isReturn ? 'RETURN_FEE' : 'SHIPPING_FEE',
-                        note: isReturn ? `HOAN ${shipment.trackingCode}` : `CUOC ${shipment.trackingCode}`,
+                        note: isReturn ? `HOAN ${cleanTracking}` : `CUOC ${cleanTracking}`,
                         customerCode: customerCodeVal ? String(customerCodeVal) : null,
                         createdBy: createdByVal ? String(createdByVal) : null
                     });
@@ -3451,7 +3452,7 @@
                                             </div>
                                             <div class="flex justify-between items-center border-t border-slate-100 pt-1.5">
                                                 <span class="text-slate-500">Nội dung:</span>
-                                                <span class="font-mono font-bold text-blue-700">{{ checkoutTargetShipment?._isReturnFee ? 'HOAN ' : 'CUOC ' }}{{ checkoutTargetShipment?.trackingCode }}</span>
+                                                <span class="font-mono font-bold text-blue-700">{{ checkoutTargetShipment?._isReturnFee ? 'HOAN ' : 'CUOC ' }}{{ (checkoutTargetShipment?.trackingCode || '').replace(/^VNPT-?/i, 'WB-') }}</span>
                                             </div>
                                         </div>
                                     </div>
