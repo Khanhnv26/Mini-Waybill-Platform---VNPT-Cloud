@@ -149,3 +149,15 @@ test('Web browser with inbound desktopSession completes session via API on Googl
     assert.equal(emitted.event, 'login-success');
     assert.equal(emitted.data.accessToken, 'token-desktop-success');
 });
+
+
+test('Desktop Google Login falls back to production domain when running inside tauri:// origin', async () => {
+    const h = createHarness({ isTauri: true });
+    h.context.window.location.origin = 'tauri://localhost';
+    await h.login.handleDesktopGoogleLogin();
+
+    const postCall = h.calls.find(c => c[0] === 'Api.post' && c[1].includes('origin=https%3A%2F%2Fwaybill-express.japaneast.cloudapp.azure.com'));
+    assert.ok(postCall, 'Must call desktop session init with production cloudapp origin');
+
+    h.login.cancelDesktopSession();
+});

@@ -672,7 +672,7 @@
                         const res = await Api.post('/api/auth/desktop-session/complete', {
                             sessionId: inboundDesktopSession,
                             idToken: googleResponse.credential
-                        });
+                        }, {}, { skip403Toast: true });
                         const data = await res.json().catch(() => ({}));
                         if (!res.ok) {
                             throw new Error(data.message || data.error || 'Xác thực Google cho Desktop thất bại!');
@@ -709,13 +709,21 @@
                 clearAlert();
                 googleLoading.value = true;
                 try {
+                    const fallbackOrigin = (typeof API_BASE_URL !== 'undefined' && API_BASE_URL.startsWith('http'))
+                        ? API_BASE_URL
+                        : 'https://waybill-express.japaneast.cloudapp.azure.com';
                     const originParam = window.location.origin && !window.location.origin.includes('tauri')
                         ? window.location.origin
-                        : 'http://localhost:3000';
-                    const res = await Api.post(`/api/auth/desktop-session/init?origin=${encodeURIComponent(originParam)}`);
+                        : fallbackOrigin;
+                    const res = await Api.post(
+                        `/api/auth/desktop-session/init?origin=${encodeURIComponent(originParam)}`,
+                        {},
+                        {},
+                        { skip403Toast: true }
+                    );
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok || !data.sessionId) {
-                        throw new Error(data.message || 'Không thể khởi tạo phiên đăng nhập Desktop. Vui lòng kiểm tra kết nối API Gateway!');
+                        throw new Error(data.message || data.error || 'Không thể khởi tạo phiên đăng nhập Desktop. Vui lòng kiểm tra kết nối API Gateway!');
                     }
                     desktopSessionId.value = data.sessionId;
                     const targetUrl = data.loginUrl || `${originParam}/login.html?desktopSession=${data.sessionId}`;
@@ -764,7 +772,7 @@
                     }
 
                     try {
-                        const res = await Api.get(`/api/auth/desktop-session/status?sessionId=${encodeURIComponent(sessionId)}`);
+                        const res = await Api.get(`/api/auth/desktop-session/status?sessionId=${encodeURIComponent(sessionId)}`, {}, { silent: true, skip403Toast: true });
                         const data = await res.json().catch(() => ({}));
 
                         if (!res.ok) {
