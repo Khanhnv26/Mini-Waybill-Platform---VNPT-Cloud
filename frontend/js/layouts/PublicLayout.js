@@ -39,6 +39,7 @@
         </main>
         <public-footer
             @switch-tab="$emit('switch-tab', $event)"
+            @open-desktop-download="$emit('open-desktop-download')"
         ></public-footer>
         <app-bottom-nav
             :current-user="null"
@@ -65,7 +66,7 @@
             showNotificationDropdown: { type: Boolean, default: false },
             unreadNotificationsCount: { type: Number, default: 0 }
         },
-        emits: ['switch-tab', 'guest-tab-click', 'toggle-dark-mode', 'toggle-notifications', 'notification-click', 'mark-all-read']
+        emits: ['switch-tab', 'guest-tab-click', 'toggle-dark-mode', 'toggle-notifications', 'notification-click', 'mark-all-read', 'open-desktop-download']
     };
     window.PublicLayout = PublicLayout;
 })();

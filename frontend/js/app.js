@@ -27,6 +27,7 @@ import './components/common/ToastContainer.js';
 import './components/common/UserProfileModal.js?v=3.7.1';
 import './components/common/ShipmentDetailModal.js';
 import './components/common/AppUpdateModal.js';
+import './components/common/DesktopDownloadModal.js?v=3.2.2';
 import './layouts/InternalLayout.js';
 import './layouts/PublicLayout.js?v=3.8.3';
 import './components/ChatbotWidget.js?v=3.9.2';
@@ -659,6 +660,7 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 }
                 openNotificationDetailModal(item, null, 'GENERAL');
             };
+            const showDesktopDownloadModal = ref(false);
             const showUserProfileModal = ref(false);
             const showShipmentDetailModal = ref(false);
             const selectedTrackingCodeForModal = ref('');
@@ -1154,6 +1156,13 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                     }
                 }
             };
+                        const openDesktopDownloadModal = () => {
+                showDesktopDownloadModal.value = true;
+            };
+            const closeDesktopDownloadModal = () => {
+                showDesktopDownloadModal.value = false;
+            };
+            window.addEventListener('open-desktop-download', openDesktopDownloadModal);
             const openUserProfileModal = () => {
                 if (typeof Auth === 'undefined' || !Auth.isAuthenticated()) {
                     navigateTo('/login');
@@ -1564,6 +1573,9 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
                 currentErrorTitle,
                 currentErrorMessage,
                 showError,
+                showDesktopDownloadModal,
+                openDesktopDownloadModal,
+                closeDesktopDownloadModal,
                 showUserProfileModal,
                 userProfile,
                 isLoadingUserProfile,
@@ -1627,6 +1639,10 @@ const { createApp, ref, reactive, computed, onMounted, onUnmounted, nextTick } =
     if (window.ShipmentDetailModal) {
         app.component('ShipmentDetailModal', window.ShipmentDetailModal);
         app.component('shipment-detail-modal', window.ShipmentDetailModal);
+    }
+    if (window.DesktopDownloadModal) {
+        app.component('DesktopDownloadModal', window.DesktopDownloadModal);
+        app.component('desktop-download-modal', window.DesktopDownloadModal);
     }
     if (window.AppUpdateModal) {
         app.component('AppUpdateModal', window.AppUpdateModal);

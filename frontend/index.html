@@ -90,6 +90,7 @@
             @mark-all-read="markAllNotificationsAsRead"
             @notification-click="handleNotificationClick"
             @guest-tab-click="handleGuestTabClick"
+            @open-desktop-download="openDesktopDownloadModal"
         >
             <transition name="page" mode="out-in" appear>
                 <keep-alive>
@@ -151,6 +152,10 @@
             @start-update="handleStartAppUpdate"
             @close="handleCloseAppUpdate"
         ></app-update-modal>
+        <desktop-download-modal
+            :show="showDesktopDownloadModal"
+            @close="closeDesktopDownloadModal"
+        ></desktop-download-modal>
         <div 
             v-if="showNotificationDetailModal && activeNotificationDetail" 
             class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
