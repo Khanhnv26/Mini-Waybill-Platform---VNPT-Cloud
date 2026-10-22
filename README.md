@@ -1,7 +1,8 @@
 # Waybill Platform - Nền Tảng Điều Phối & Quản Trị Vận Đơn Bưu Chính Toàn Trình
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-HTTPS%20Online-brightgreen?style=for-the-badge&logo=googlechrome&logoColor=white)](https://waybill-express.japaneast.cloudapp.azure.com)
-[![Release](https://img.shields.io/badge/Release-v2.0.0-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Khanhnv26/Mini-Waybill-Platform---VNPT-Cloud/releases)
+[![Release](https://img.shields.io/badge/Release-v3.2.1-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Khanhnv26/Mini-Waybill-Platform---VNPT-Cloud/releases)
+[![Desktop App](https://img.shields.io/badge/Desktop%20App-v3.2.1%20Windows-0078D7?style=for-the-badge&logo=windows11&logoColor=white)](https://github.com/Khanhnv26/Mini-Waybill-Platform---VNPT-Cloud/releases)
 [![Java](https://img.shields.io/badge/Java-21%20LTS-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![Spring Cloud](https://img.shields.io/badge/Spring%20Cloud-2025.1.3-6DB33F?style=for-the-badge&logo=spring&logoColor=white)](https://spring.io/projects/spring-cloud)
@@ -14,6 +15,8 @@
 [![Telegram Bot](https://img.shields.io/badge/Telegram%20Bot-Long--Polling%20Dispatch-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://core.telegram.org/bots)
 [![VietQR](https://img.shields.io/badge/VietQR-NAPAS%20247-005BAA?style=for-the-badge&logoColor=white)](https://vietqr.net/)
 [![Vue.js](https://img.shields.io/badge/Vue.js%203-Tailwind%20CSS-4FC08D?style=for-the-badge&logo=vuedotjs&logoColor=white)](https://vuejs.org/)
+[![Tauri](https://img.shields.io/badge/Tauri-v2.0%20Desktop-24C8D8?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app/)
+[![Rust](https://img.shields.io/badge/Rust-2021%20Edition-000000?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![Azure](https://img.shields.io/badge/Azure-Cloud%20VM%20E2as__v4-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white)](https://azure.microsoft.com/)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-K3s%20Cluster-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://k3s.io/)
 [![ArgoCD](https://img.shields.io/badge/ArgoCD-GitOps%20CD-EF6B48?style=for-the-badge&logo=argo&logoColor=white)](https://argoproj.github.io/cd/)
