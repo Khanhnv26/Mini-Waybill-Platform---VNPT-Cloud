@@ -3,6 +3,9 @@
 -- CƠ SỞ DỮ LIỆU: routing_db
 -- =========================================================================
 
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+
 -- 1. Covering Compound Index cho thuật toán tìm chuyến xe gom đơn khả dụng (findAvailableTrips)
 -- Giúp chuyển từ Clustered Index Scan sang Nonclustered Index Seek + Range Scan, tránh Key Lookup
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_trips_hub_status_schedule' AND object_id = OBJECT_ID('trips'))

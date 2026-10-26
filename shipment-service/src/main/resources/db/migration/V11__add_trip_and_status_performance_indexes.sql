@@ -3,6 +3,9 @@
 -- CƠ SỞ DỮ LIỆU: shipment_db
 -- =========================================================================
 
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+
 -- 1. Nonclustered Filtered Index cho assigned_trip_code phục vụ điều phối và tài xế gom hàng theo chuyến
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_shipments_assigned_trip' AND object_id = OBJECT_ID('shipments'))
 BEGIN

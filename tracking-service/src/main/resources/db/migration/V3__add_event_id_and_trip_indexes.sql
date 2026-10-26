@@ -3,6 +3,9 @@
 -- CƠ SỞ DỮ LIỆU: tracking_db
 -- =========================================================================
 
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+
 -- 1. Nonclustered Filtered Index cho event_id phục vụ kiểm tra tính Idempotent khi tiêu thụ Kafka Event
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_tracking_history_event_id' AND object_id = OBJECT_ID('tracking_history'))
 BEGIN
