@@ -16,7 +16,9 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Table(name = "tracking_history", indexes = {
         @Index(name = "idx_tracking_code_occurred_at", columnList = "tracking_code, occurred_at"),
-        @Index(name = "idx_tracking_code_status_occurred", columnList = "tracking_code, status, occurred_at")
+        @Index(name = "idx_tracking_code_status_occurred", columnList = "tracking_code, status, occurred_at"),
+        @Index(name = "idx_tracking_history_event_id", columnList = "event_id"),
+        @Index(name = "idx_tracking_history_trip_code", columnList = "trip_code")
 })
 @Builder
 @Data

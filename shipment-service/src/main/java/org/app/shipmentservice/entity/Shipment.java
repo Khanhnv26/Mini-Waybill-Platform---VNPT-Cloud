@@ -14,7 +14,9 @@ import java.time.LocalDateTime;
         @Index(name = "idx_shipments_customer_created", columnList = "customer_id, created_at"),
         @Index(name = "idx_shipments_status_created", columnList = "current_status, created_at"),
         @Index(name = "idx_shipments_created_at", columnList = "created_at"),
-        @Index(name = "idx_shipments_cod_settlement", columnList = "cod_settlement_status, created_at")
+        @Index(name = "idx_shipments_cod_settlement", columnList = "cod_settlement_status, created_at"),
+        @Index(name = "idx_shipments_assigned_trip", columnList = "assigned_trip_code"),
+        @Index(name = "idx_shipments_tracking_status", columnList = "tracking_code, current_status")
 })
 @Entity
 @AllArgsConstructor

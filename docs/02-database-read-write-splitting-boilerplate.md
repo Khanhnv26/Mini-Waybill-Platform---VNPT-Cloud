@@ -306,3 +306,38 @@ Thư mục `common/datasource/`:
 2. **"Hiện tượng Replication Lag (Độ trễ đồng bộ) xử lý thế nào?"**
    * *Trả lời:* Nếu dữ liệu vừa ghi vào Primary mà Replica chưa kịp sync xong (vài mili-giây), nếu người dùng F5 tra cứu ngay sẽ bị thiếu dữ liệu. 
    * **Cách giải quyết trong dự án của chúng ta:** Sử dụng tầng **Redis Cache-Aside**. Khi vừa ghi xong, ta ghi đè trạng thái mới vào Redis ngay. Lệnh đọc sẽ kiểm tra Redis trước, trúng Cache (Cache HIT trong 1-2ms) và trả về ngay mà không cần chạm xuống Replica DB!
+
+---
+
+## 6. Tối Ưu Hóa Chỉ Mục Hiệu Năng CSDL (Compound & Covering Indexing - Issue #77)
+
+Bên cạnh việc phân tách Đọc - Ghi, chỉ mục (Indexing) đóng vai trò quyết định để đưa thời gian truy vấn về mức dưới 5ms ($< 5\text{ms}$). Dự án áp dụng 3 kỹ thuật nâng cao:
+
+### 6.1. Covering Index Với Mệnh Đề INCLUDE (routing-service / bảng 	rips)
+Truy vấn tìm chuyến xe gom đơn khả dụng (indAvailableTrips) có điều kiện lọc phức tạp:
+`sql
+SELECT t FROM Trip t
+WHERE t.currentHub = :originHub
+  AND t.status = 'SCHEDULED'
+  AND (t.maxWeight - t.currentWeight) >= :weight
+  AND t.scheduledDepartureTime >= :afterTime
+ORDER BY t.scheduledDepartureTime ASC
+`
+* **Giải pháp:** Đánh Compound Index trên (current_hub, status, scheduled_departure_time ASC) kết hợp INCLUDE (max_weight_kg, current_weight_kg, trip_code).
+* **Hiệu quả:** Chuyển từ **Clustered Index Scan** sang **Nonclustered Index Seek + Range Scan**. SQL Server lấy trực tiếp các cột cần thiết trên tầng lá của Index mà không cần tốn chi phí **Key Lookup** ngược vào bảng dữ liệu.
+
+### 6.2. Filtered Nonclustered Index (tracking-service & shipment-service)
+Thay vì đánh index trên toàn bộ hàng triệu dòng, ta sử dụng **Filtered Index** với điều kiện WHERE ... IS NOT NULL:
+* **idx_tracking_history_event_id**: Phục vụ chống duplicate event Kafka (existsByEventId). Chỉ đánh index trên các dòng có event_id, giúp kích thước index siêu nhẹ và tăng tốc độ seek.
+* **idx_shipments_assigned_trip**: Phục vụ gom đơn theo chuyến xe (ssigned_trip_code IS NOT NULL).
+
+### 6.3. Bảng Tổng Hợp Chỉ Mục Hiệu Năng Đã Triển Khai
+| Bảng | Tên Chỉ Mục | Cột Chỉ Mục | Mục đích nghiệp vụ |
+| :--- | :--- | :--- | :--- |
+| 	rips | idx_trips_hub_status_schedule | (current_hub, status, scheduled_departure_time) INCLUDE (...) | Tìm chuyến gom đơn tự động (indAvailableTrips) |
+| 	rips | idx_trips_status_created | (status, created_at DESC) | Danh sách chuyến xe theo trạng thái trên Portal |
+| 	rips | idx_trips_created_at | (created_at DESC) | Danh sách tất cả chuyến xe mới nhất |
+| 	racking_history | idx_tracking_history_event_id | (event_id) WHERE event_id IS NOT NULL | Idempotent Kafka Consumer check |
+| 	racking_history | idx_tracking_history_trip_code | (trip_code) WHERE trip_code IS NOT NULL | Tra cứu hành trình theo chuyến xe |
+| shipments | idx_shipments_assigned_trip | (assigned_trip_code) WHERE assigned_trip_code IS NOT NULL | Lấy danh sách vận đơn trên chuyến xe gom |
+| shipments | idx_shipments_tracking_status | (tracking_code, current_status) | Tra cứu nhanh vận đơn kèm trạng thái hiện tại |
