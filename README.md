@@ -203,6 +203,7 @@ Toàn bộ chi tiết kỹ thuật chuyên sâu, mã nguồn mẫu (boilerplate)
 | **24** | [**Chat Khách Hàng: Presence, Thông Báo & Đồng Bộ**](docs/24-support-chat-realtime.md) | Kênh STOMP WebSocket 2 chiều, Presence tracking, Read receipts, Web Audio API và bộ nhớ đệm phục hồi. |
 | **25** | [**Sẵn Sàng Vận Hành Production & Verification Gate**](docs/25-production-readiness.md) | Bộ tiêu chuẩn Release Gate (68 tests, syntax templates), Kustomize production profiles và kịch bản staging drills. |
 | **26** | [**Kiến Trúc Desktop App Tauri v2 & Xác Thực SSO Consent**](docs/26-desktop-app-architecture-and-sso-auth.md) | Kiến trúc ứng dụng máy tính Tauri v2 (Rust + Vue 3), mô hình SSO Consent chuyển giao phiên JWT an toàn, cơ chế Fallback Origin đa môi trường và kịch bản kiểm thử tự động. |
+| **27** | [**Triển Khai Distributed Tracing Toàn Trình (Micrometer & Jaeger)**](docs/27-distributed-tracing-and-observability.md) | Giám sát phân tán toàn trình theo chuẩn W3C TraceContext & Zipkin v2, tự động lan truyền TraceID qua HTTP Gateway và Kafka Event Record Headers, trực quan hóa biểu đồ Waterfall trên Jaeger UI. |
 | **SEC** | [**Bảo Mật Hệ Thống & Quản Trị Secrets Runtime**](docs/security-rollout.md) | Chuẩn hóa an ninh, khởi tạo credential ngẫu nhiên `.secrets`, Session/Role Versioning trên Gateway và CSKH an toàn. |
 
 ---

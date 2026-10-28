@@ -75,6 +75,17 @@ services:
       - kafka-3
     restart: always
 
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: waybill-jaeger
+    ports:
+      - "127.0.0.1:16686:16686"
+      - "127.0.0.1:9411:9411"
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+    restart: always
   frontend-1:
     image: khanhnv26/frontend:1.0
     container_name: waybill-frontend-1
@@ -205,6 +216,7 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     environment:
+      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://jaeger:9411/api/v2/spans
       - SERVER_PORT=8080
       - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET}
       - TRUSTED_PROXY_REGEX=172\.(1[6-9]|2[0-9]|3[0-1])\..*
@@ -223,6 +235,7 @@ services:
     ports:
       - "127.0.0.1:8088:8088"
     environment:
+      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://jaeger:9411/api/v2/spans
       - SERVER_PORT=8088
       - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET}
       - TRUSTED_PROXY_REGEX=172\.(1[6-9]|2[0-9]|3[0-1])\..*
@@ -241,6 +254,7 @@ services:
     ports:
       - "127.0.0.1:8087:8087"
     environment:
+      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://jaeger:9411/api/v2/spans
       - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET}
       - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=auth_db;encrypt=true;trustServerCertificate=true;
       - SPRING_DATASOURCE_USERNAME=waybill_app
@@ -283,6 +297,7 @@ services:
     ports:
       - "127.0.0.1:8082:8082"
     environment:
+      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://jaeger:9411/api/v2/spans
       - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=shipment_db;encrypt=true;trustServerCertificate=true;
       - SPRING_DATASOURCE_USERNAME=waybill_app
       - SPRING_DATASOURCE_PASSWORD=${DB_APP_PASSWORD:?Set DB_APP_PASSWORD}
@@ -330,6 +345,7 @@ services:
     ports:
       - "127.0.0.1:8084:8084"
     environment:
+      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://jaeger:9411/api/v2/spans
       - SERVER_PORT=8084
       - SPRING_DATASOURCE_PRIMARY_JDBC_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=tracking_db;encrypt=true;trustServerCertificate=true;
       - SPRING_DATASOURCE_PRIMARY_USERNAME=waybill_app
@@ -360,6 +376,7 @@ services:
     ports:
       - "127.0.0.1:8094:8094"
     environment:
+      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://jaeger:9411/api/v2/spans
       - SERVER_PORT=8094
       - SPRING_DATASOURCE_PRIMARY_JDBC_URL=jdbc:sqlserver://sqlserver-replica:1433;databaseName=tracking_db;encrypt=true;trustServerCertificate=true;
       - SPRING_DATASOURCE_PRIMARY_USERNAME=waybill_app
