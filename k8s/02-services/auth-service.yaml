@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: auth-service
-          image: khanhnv26/auth-service:22ae45a081e9fecac1df5f92332d57a1f755c5e9
+          image: khanhnv26/auth-service:8305e36db0f983aee5794fd4e3736d8e63f752b9
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

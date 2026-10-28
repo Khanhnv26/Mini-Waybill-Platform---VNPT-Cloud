@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: rating-service
-          image: khanhnv26/rating-service:5cc150eeb53390fdacccf815b6c3461fe083bd7b
+          image: khanhnv26/rating-service:8305e36db0f983aee5794fd4e3736d8e63f752b9
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
